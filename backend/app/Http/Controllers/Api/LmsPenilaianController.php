@@ -53,7 +53,7 @@ class LmsPenilaianController extends Controller
     {
         $grade = $this->penilaianService->cariBerdasarkanId($id, true);
 
-        if (!$grade) {
+        if (! $grade) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rekap Penilaian Siswa tidak ditemukan.',
@@ -71,7 +71,7 @@ class LmsPenilaianController extends Controller
         $validated = $request->all();
         $grade = $this->penilaianService->ubah($id, $validated);
 
-        if (!$grade) {
+        if (! $grade) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rekap Penilaian Siswa tidak ditemukan atau gagal diperbarui.',
@@ -89,7 +89,7 @@ class LmsPenilaianController extends Controller
     {
         $success = $this->penilaianService->hapus($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rekap Penilaian Siswa tidak ditemukan atau gagal dihapus.',
@@ -106,7 +106,7 @@ class LmsPenilaianController extends Controller
     {
         $success = $this->penilaianService->pulihkan($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rekap Penilaian Siswa tidak ditemukan atau tidak dalam status terhapus.',

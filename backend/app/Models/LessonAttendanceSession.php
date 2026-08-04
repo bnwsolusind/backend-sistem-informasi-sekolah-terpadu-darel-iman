@@ -21,7 +21,18 @@ class LessonAttendanceSession extends Model
 
     protected $casts = ['attendance_date' => 'date:Y-m-d', 'finalized_at' => 'datetime', 'locked_at' => 'datetime', 'session_started_at' => 'datetime', 'session_expires_at' => 'datetime', 'session_closed_at' => 'datetime', 'metadata' => 'array'];
 
-    public function schedule() { return $this->belongsTo(ClassSchedule::class, 'schedule_id'); }
-    public function attendances() { return $this->hasMany(LmsPresensi::class, 'session_id'); }
-    public function scanLogs() { return $this->hasMany(AttendanceScanLog::class, 'lesson_attendance_id'); }
+    public function schedule()
+    {
+        return $this->belongsTo(ClassSchedule::class, 'schedule_id');
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(LmsPresensi::class, 'session_id');
+    }
+
+    public function scanLogs()
+    {
+        return $this->hasMany(AttendanceScanLog::class, 'lesson_attendance_id');
+    }
 }

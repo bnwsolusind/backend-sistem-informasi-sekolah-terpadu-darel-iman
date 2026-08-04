@@ -11,10 +11,11 @@ async function getTeachers(params = { per_page: 100 }) {
   return data
 }
 
-export function useDaftarKelas(params = { per_page: 100 }) {
+export function useDaftarKelas(params = { per_page: 100 }, options = {}) {
   return useQuery({
     queryKey: ['reference-data', 'classes', params],
     queryFn: () => getClasses(params),
+    ...options,
   })
 }
 

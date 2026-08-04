@@ -40,14 +40,14 @@ const ikonStat = {
 }
 
 const colorMap = {
-  'Unit Pendidikan': { bg: 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400' },
-  'Guru': { bg: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' },
-  'Pegawai': { bg: 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400' },
-  'Siswa': { bg: 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400' },
-  'Orang Tua': { bg: 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400' },
-  'Alumni': { bg: 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' },
-  'Kelas': { bg: 'bg-violet-500/10 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400' },
-  'Rombel': { bg: 'bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' },
+  'Unit Pendidikan': { bg: 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30' },
+  'Guru': { bg: 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/30' },
+  'Pegawai': { bg: 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-900/30' },
+  'Siswa': { bg: 'bg-sky-50 text-sky-600 border-sky-100 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-900/30' },
+  'Orang Tua': { bg: 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/30' },
+  'Alumni': { bg: 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30' },
+  'Kelas': { bg: 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/30' },
+  'Rombel': { bg: 'bg-violet-50 text-violet-600 border-violet-100 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-900/30' },
 }
 
 export default function StatCard({
@@ -58,42 +58,47 @@ export default function StatCard({
   trendType = 'up',
   trendText = 'dari bulan lalu',
   onClickTo,
+  onClick,
   tooltipText,
 }) {
   const navigate = useNavigate()
   const Icon = ikonStat[title] || Target
-  const colorStyle = colorMap[title] || { bg: 'bg-[#0E5C44]/10 text-[#0E5C44] dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]' }
+  const colorStyle = colorMap[title] || { bg: 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400' }
 
-  const handleClick = () => {
-    if (onClickTo) {
+  const handleClick = (e) => {
+    if (onClick) {
+      onClick(e)
+    } else if (onClickTo) {
       navigate(onClickTo)
     }
   }
+
+  const isClickable = Boolean(onClick || onClickTo)
 
   return (
     <div
       onClick={handleClick}
       title={tooltipText || `${title}: ${value}`}
-      className={`group relative overflow-hidden rounded-[18px] border border-slate-200/80 bg-white p-4 shadow-xs transition-all duration-200 dark:border-slate-800/80 dark:bg-[#13221f] ${
-        onClickTo ? 'cursor-pointer hover:-translate-y-1 hover:border-emerald-500/40 hover:shadow-md' : ''
+      className={`group relative overflow-hidden rounded-[20px] border border-slate-200/80 bg-white p-3.5 shadow-xs transition-all duration-200 dark:border-slate-800 dark:bg-[#13221f] ${
+        isClickable ? 'cursor-pointer hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-md' : ''
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${colorStyle.bg} transition-all duration-200 group-hover:scale-105`}>
-          <Icon className="h-5 w-5 stroke-[2]" />
+      <div className="flex items-center gap-2">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${colorStyle.bg} transition-all duration-200 group-hover:scale-105`}>
+          <Icon className="h-4.5 w-4.5 stroke-[2]" />
         </div>
-        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 truncate">
           {title}
         </span>
       </div>
 
-      <div className="mt-3">
-        <h3 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white font-sans">
+      <div className="mt-2.5">
+        <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white font-sans">
           {value}
         </h3>
       </div>
 
-      <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold">
+      <div className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold flex-wrap">
         {trend && (
           <span
             className={`inline-flex items-center gap-0.5 font-bold ${
@@ -105,7 +110,7 @@ export default function StatCard({
             {trendType === 'up' ? '↑' : '↓'} {trend}
           </span>
         )}
-        <span className="text-[11px] text-slate-400 font-normal truncate">
+        <span className="text-slate-400 font-normal truncate">
           {trendText}
         </span>
       </div>
@@ -123,7 +128,6 @@ StatCard.propTypes = {
   onClickTo: PropTypes.string,
   tooltipText: PropTypes.string,
 }
-
 
 StatCard.defaultProps = {
   subtitle: '',

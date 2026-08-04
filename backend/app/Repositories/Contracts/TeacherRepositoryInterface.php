@@ -2,6 +2,4 @@
 
 namespace App\Repositories\Contracts;
 
-interface TeacherRepositoryInterface extends \App\Repositories\Contracts\BaseRepositoryInterface
-{
-}
+interface TeacherRepositoryInterface extends BaseRepositoryInterface {}

@@ -13,20 +13,20 @@ class TujuanPembelajaranRepository implements TujuanPembelajaranRepositoryInterf
     {
         $query = TujuanPembelajaran::with(['capaianPembelajaran.subject', 'capaianPembelajaran.kurikulum', 'creator']);
 
-        if (!empty($filters['dengan_sampah'])) {
+        if (! empty($filters['dengan_sampah'])) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['search'])) {
-            $s = '%' . strtolower($filters['search']) . '%';
+        if (! empty($filters['search'])) {
+            $s = '%'.strtolower($filters['search']).'%';
             $query->where(function ($q) use ($s) {
                 $q->whereRaw('LOWER(kode_tp) LIKE ?', [$s])
-                  ->orWhereRaw('LOWER(nama_tp) LIKE ?', [$s])
-                  ->orWhereRaw('LOWER(deskripsi) LIKE ?', [$s]);
+                    ->orWhereRaw('LOWER(nama_tp) LIKE ?', [$s])
+                    ->orWhereRaw('LOWER(deskripsi) LIKE ?', [$s]);
             });
         }
 
-        if (!empty($filters['cp_id'])) {
+        if (! empty($filters['cp_id'])) {
             $query->where('cp_id', $filters['cp_id']);
         }
 
@@ -50,6 +50,7 @@ class TujuanPembelajaranRepository implements TujuanPembelajaranRepositoryInterf
         if ($withTrashed) {
             $query->withTrashed();
         }
+
         return $query->find($id);
     }
 
@@ -70,18 +71,19 @@ class TujuanPembelajaranRepository implements TujuanPembelajaranRepositoryInterf
     public function update(string $id, array $data): ?TujuanPembelajaran
     {
         $tp = $this->findById($id);
-        if (!$tp) {
+        if (! $tp) {
             return null;
         }
 
         $tp->update($data);
+
         return $tp->fresh(['capaianPembelajaran', 'creator']);
     }
 
     public function delete(string $id): bool
     {
         $tp = $this->findById($id);
-        if (!$tp) {
+        if (! $tp) {
             return false;
         }
 
@@ -91,7 +93,7 @@ class TujuanPembelajaranRepository implements TujuanPembelajaranRepositoryInterf
     public function restore(string $id): bool
     {
         $tp = $this->findById($id, true);
-        if (!$tp) {
+        if (! $tp) {
             return false;
         }
 

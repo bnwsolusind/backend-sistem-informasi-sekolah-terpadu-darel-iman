@@ -10,6 +10,13 @@ const defaultForm = () => ({
   unit_pendidikan: '', nis_pembayaran: '', tahun_ajaran_masuk: '', class_id: '', tahun_ajaran_berjalan: '', status_siswa: 'aktif', status_orang_tua: 'Umum', niy_ortu_jika_pegawai: '', wali_kelas: '', niy_wali_kelas: '',
 })
 
+const toYesNo = (value) => {
+  if (value === true || value === 1 || value === '1' || value === 'true' || value === 'ya') return 'ya'
+  return 'tidak'
+}
+
+const toBoolean = (value) => toYesNo(value) === 'ya'
+
 export default function StudentFormModal({ isOpen, onClose, initialData, onSubmit, classes }) {
   const [activeStep, setActiveStep] = useState(0)
   const [formData, setFormData] = useState(defaultForm())
@@ -28,6 +35,8 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
       setActiveStep(0)
       if (initialData) {
         const meta = initialData.raw?.metadata || {}
+        const orangTua = meta.orang_tua || {}
+        const parentRel = initialData.raw?.parent || {}
         setFormData({
           ...defaultForm(),
           id: initialData.id,
@@ -36,13 +45,22 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
           birth_place: initialData.tempatLahir || initialData.birth_place || '',
           birth_date: initialData.tanggalLahir || initialData.birth_date || '',
           agama: initialData.agama || meta.agama || 'Islam',
-          foto_url: initialData.foto || meta.foto_url || '',
+          foto_url: initialData.foto || meta.foto_url || meta.foto || meta.photo_url || meta.photo || meta.avatar || '',
           nisn: initialData.nisn || meta.nisn || '',
           alamat_siswa: initialData.alamat || meta.alamat_siswa || meta.alamat_ortu || '',
           class_id: initialData.raw?.class_id || '',
           status_siswa: (initialData.status || initialData.status_siswa || 'aktif').toLowerCase(),
           unit_pendidikan: initialData.unit || meta.akademik?.unit_pendidikan || '',
-          ...meta
+          ...meta,
+          nama_ayah: meta.nama_ayah || meta.ayah?.nama || orangTua.nama_ayah || parentRel.full_name || parentRel.name || '',
+          nama_ibu: meta.nama_ibu || meta.ibu?.nama || orangTua.nama_ibu || '',
+          nama_wali: meta.nama_wali || meta.wali?.nama || orangTua.nama_wali || '',
+          hp_ayah: meta.hp_ayah || meta.ayah?.hp || orangTua.no_hp || parentRel.phone || parentRel.no_hp || '',
+          hp_ibu: meta.hp_ibu || meta.ibu?.hp || orangTua.no_hp || '',
+          hp_wali: meta.hp_wali || meta.wali?.hp || orangTua.no_hp || '',
+          penerima_kps_pkh: toYesNo(meta.penerima_kps_pkh),
+          apakah_punya_kip: toYesNo(meta.apakah_punya_kip),
+          apakah_layak_menerima_pip: toYesNo(meta.apakah_layak_menerima_pip),
         })
       } else {
         setFormData(defaultForm())
@@ -95,6 +113,23 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
     delete payload.metadata.class_id
     delete payload.metadata.is_active
     delete payload.metadata.address
+    payload.metadata.penerima_kps_pkh = toBoolean(formData.penerima_kps_pkh)
+    payload.metadata.apakah_punya_kip = toBoolean(formData.apakah_punya_kip)
+    payload.metadata.apakah_layak_menerima_pip = toBoolean(formData.apakah_layak_menerima_pip)
+    payload.metadata.foto_url = formData.foto_url || ''
+    payload.metadata.nama_ayah = formData.nama_ayah || ''
+    payload.metadata.hp_ayah = formData.hp_ayah || ''
+    payload.metadata.nama_ibu = formData.nama_ibu || ''
+    payload.metadata.hp_ibu = formData.hp_ibu || ''
+    payload.metadata.nama_wali = formData.nama_wali || ''
+    payload.metadata.hp_wali = formData.hp_wali || ''
+    payload.metadata.orang_tua = {
+      ...(formData.orang_tua || {}),
+      nama_ayah: formData.nama_ayah || '',
+      nama_ibu: formData.nama_ibu || '',
+      nama_wali: formData.nama_wali || '',
+      no_hp: formData.hp_ayah || formData.hp_ibu || formData.hp_wali || '',
+    }
     onSubmit(payload)
   }
 
@@ -139,84 +174,71 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="w-full max-w-5xl rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col my-4 border border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4">
+      <div className="my-4 flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
 
         {/* Modal Header — Clean Top with Title & Close (X) */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5 bg-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-4 sm:px-6">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              {initialData ? 'Ubah Data Siswa' : 'Tambah Siswa Baru'}
+            <h2 className="text-base font-bold tracking-tight text-slate-900">
+              {initialData ? 'Edit Siswa' : 'Tambah Siswa'}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Isi formulir di bawah ini untuk menyimpan data siswa ke dalam sistem</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              {initialData ? 'Perbarui informasi siswa melalui tahapan berikut.' : 'Lengkapi informasi siswa melalui tahapan berikut.'}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+            aria-label="Tutup modal"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           >
             <FaTimes className="text-lg" />
           </button>
         </div>
 
-        {/* Modal Main Body (2 Columns: Left Vertical Stepper, Right Form Content) */}
-        <div className="grid grid-cols-1 md:grid-cols-12 min-h-[520px] max-h-[72vh] overflow-hidden">
-
-          {/* Left Vertical Stepper Sidebar */}
-          <div className="md:col-span-4 bg-slate-50/70 border-r border-slate-100 p-6 md:p-8 flex flex-col justify-between overflow-y-auto">
-            <div className="space-y-6">
+        {/* Horizontal stepper seperti modal master data */}
+        <div className="shrink-0 border-b border-slate-100 bg-white px-4 py-4 sm:px-6">
+          <div className="grid grid-cols-5">
               {steps.map((step, idx) => {
                 const isActive = activeStep === idx
                 const isCompleted = activeStep > idx
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={step.id}
                     onClick={() => setActiveStep(idx)}
-                    className="flex items-start gap-4 cursor-pointer group"
+                    className="group relative flex min-w-0 items-center gap-2 pr-2 text-left"
                   >
-                    {/* Circle Number */}
+                    {idx < steps.length - 1 && (
+                      <span className={`absolute left-8 right-0 top-4 h-px ${isCompleted ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                    )}
                     <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all shadow-xs ${
+                      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all ${
                         isActive
-                          ? 'bg-[#064e3b] text-white ring-4 ring-emerald-100'
+                          ? 'bg-emerald-800 text-white ring-4 ring-emerald-50'
                           : isCompleted
                           ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'
+                          : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'
                       }`}
                     >
                       {isCompleted ? <FaCheckCircle className="text-sm" /> : step.number}
                     </div>
-
-                    {/* Step Title & Subtitle */}
-                    <div className="pt-0.5">
-                      <h3
-                        className={`text-sm font-bold transition ${
-                          isActive
-                            ? 'text-[#064e3b]'
-                            : isCompleted
-                            ? 'text-slate-800'
-                            : 'text-slate-500 group-hover:text-slate-700'
-                        }`}
-                      >
-                        {step.title}
-                      </h3>
-                      <p className="text-[11px] text-slate-400 font-medium">{step.desc}</p>
-                    </div>
-                  </div>
+                    <span className={`relative z-10 hidden truncate bg-white pr-1 text-[10px] font-bold leading-tight lg:block ${isActive ? 'text-emerald-800' : 'text-slate-500'}`}>
+                      {step.title}
+                    </span>
+                  </button>
                 )
               })}
-            </div>
-
-            <div className="mt-8 rounded-2xl bg-emerald-50/80 border border-emerald-100 p-4">
-              <p className="text-xs font-semibold text-emerald-900">Petunjuk Pengisian</p>
-              <p className="text-[11px] text-emerald-700 mt-1">
-                Tanda bintang (<span className="text-rose-500 font-bold">*</span>) wajib diisi. Data dapat disimpan kapan saja.
-              </p>
-            </div>
           </div>
+        </div>
 
-          {/* Right Form Content Area */}
-          <div className="md:col-span-8 p-6 md:p-8 overflow-y-auto bg-white flex flex-col justify-between">
+        {/* Form Content Area */}
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-5 sm:p-6">
+            <div className="mb-5">
+              <h3 className="text-sm font-bold text-slate-900">{steps[activeStep].title}</h3>
+              <p className="mt-1 text-[11px] text-slate-500">{steps[activeStep].desc}. Pastikan data yang dimasukkan sudah benar.</p>
+            </div>
             <form id="student-main-form" onSubmit={handleSave} className="space-y-6">
 
               {/* STEP 1: INFORMASI PRIBADI */}
@@ -394,42 +416,32 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
             </form>
           </div>
 
-        </div>
-
         {/* Modal Footer — Standard Actions Matching UI Image */}
-        <div className="flex items-center justify-between border-t border-slate-100 bg-white px-8 py-4">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-5 py-4 sm:px-6">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+            className="h-10 rounded-lg border border-slate-200 bg-white px-5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             Batal
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             {activeStep > 0 && (
               <button
                 type="button"
                 onClick={() => setActiveStep(prev => prev - 1)}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+                className="flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 <FaArrowLeft className="text-xs" /> Kembali
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => handleSave()}
-              className="rounded-xl border border-emerald-600 bg-white px-5 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50 transition shadow-2xs"
-            >
-              Simpan Draft
-            </button>
-
             {activeStep < steps.length - 1 ? (
               <button
                 type="button"
                 onClick={() => setActiveStep(prev => prev + 1)}
-                className="flex items-center gap-2 rounded-xl bg-[#064e3b] hover:bg-emerald-900 px-6 py-2.5 text-sm font-bold text-white shadow-md transition"
+                className="flex h-10 items-center gap-2 rounded-lg bg-emerald-800 px-5 text-xs font-bold text-white shadow-md transition hover:bg-emerald-900"
               >
                 Selanjutnya <FaArrowRight className="text-xs" />
               </button>
@@ -437,7 +449,7 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
               <button
                 type="submit"
                 form="student-main-form"
-                className="flex items-center gap-2 rounded-xl bg-[#064e3b] hover:bg-emerald-900 px-6 py-2.5 text-sm font-bold text-white shadow-md transition"
+                className="flex h-10 items-center gap-2 rounded-lg bg-emerald-800 px-5 text-xs font-bold text-white shadow-md transition hover:bg-emerald-900"
               >
                 <FaSave /> Simpan Data
               </button>

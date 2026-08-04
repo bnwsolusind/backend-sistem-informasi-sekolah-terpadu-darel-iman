@@ -6,6 +6,11 @@ export const educationUnitService = {
     return data
   },
 
+  getAll: async (params = {}) => {
+    const { data } = await api.get('/education-units', { params })
+    return data
+  },
+
   getDetail: async (id) => {
     const { data } = await api.get(`/education-units/${id}`)
     return data
@@ -26,3 +31,5 @@ export const educationUnitService = {
     return data
   },
 }
+
+export default educationUnitService

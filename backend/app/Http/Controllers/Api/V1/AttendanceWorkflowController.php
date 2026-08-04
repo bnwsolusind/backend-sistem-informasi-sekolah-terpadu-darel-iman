@@ -31,18 +31,19 @@ class AttendanceWorkflowController extends Controller
 
     public function teacherDashboard(Request $request): JsonResponse
     {
-        $this->permit($request, ['attendance.teacher.dashboard','lesson_attendance.view_own'], ['Guru']);
+        $this->permit($request, ['attendance.teacher.dashboard', 'lesson_attendance.view_own'], ['Guru']);
         $schedules = $this->access->teacherSchedules($request->user());
         $scheduleIds = (clone $schedules)->pluck('id');
         $sessions = LessonAttendanceSession::whereIn('schedule_id', $scheduleIds);
         $todayIds = (clone $schedules)->where('day_of_week', now()->dayOfWeekIso)->pluck('id');
+
         return response()->json(['success' => true, 'data' => [
             'schedules_today' => $todayIds->count(),
             'attendance_missing' => $todayIds->count() - LessonAttendanceSession::whereIn('schedule_id', $todayIds)->whereDate('attendance_date', today())->count(),
             'draft' => (clone $sessions)->where('status', 'draft')->count(),
             'final' => (clone $sessions)->where('status', 'final')->count(),
             'total_meetings' => (clone $sessions)->count(),
-            'schedules' => (clone $schedules)->with(['subject','kelas'])->where('day_of_week', now()->dayOfWeekIso)->get(),
+            'schedules' => (clone $schedules)->with(['subject', 'kelas'])->where('day_of_week', now()->dayOfWeekIso)->get(),
         ]]);
     }
 
@@ -53,30 +54,34 @@ class AttendanceWorkflowController extends Controller
             || ($studentId && $permission->student_id === $studentId)
             || $this->access->homeroomStudentIds($request->user())->contains($permission->student_id);
         abort_unless($allowed, 403);
+
         return response()->json(['success' => true, 'data' => $permission->load('student')]);
     }
 
     public function showCorrection(Request $request, LessonAttendanceCorrection $correction): JsonResponse
     {
         abort_unless($this->access->canAccessAttendance($request->user(), $correction->attendance), 403);
-        return response()->json(['success' => true, 'data' => $correction->load(['attendance.siswa','attendance.jadwalPelajaran.subject'])]);
+
+        return response()->json(['success' => true, 'data' => $correction->load(['attendance.siswa', 'attendance.jadwalPelajaran.subject'])]);
     }
 
     public function showFollowUp(Request $request, HomeroomAttendanceFollowUp $followUp): JsonResponse
     {
         abort_unless($request->user()->hasRole('Super Admin') || $this->access->homeroomClasses($request->user())->whereKey($followUp->class_id)->exists(), 403);
+
         return response()->json(['success' => true, 'data' => $followUp->load('student')]);
     }
 
     public function updateSession(Request $request, LessonAttendanceSession $session): JsonResponse
     {
         $request->merge(['schedule_id' => $session->schedule_id, 'attendance_date' => $session->attendance_date->format('Y-m-d')]);
+
         return $this->storeSession($request);
     }
 
     public function permissionIndex(Request $request): JsonResponse
     {
-        return $request->user()->hasAnyRole(['Wali Kelas','Super Admin'])
+        return $request->user()->hasAnyRole(['Wali Kelas', 'Super Admin'])
             ? $this->homeroomPermissions($request)
             : $this->permissions($request);
     }
@@ -91,12 +96,14 @@ class AttendanceWorkflowController extends Controller
         $request->merge(['status' => match ($action) {
             'approve' => 'approved', 'reject' => 'rejected', default => 'needs_revision',
         }]);
+
         return $this->reviewPermission($request, $permission);
     }
 
     public function correctionReviewAction(Request $request, LessonAttendanceCorrection $correction, string $action): JsonResponse
     {
         $request->merge(['status' => $action === 'approve' ? 'approved' : 'rejected']);
+
         return $this->reviewCorrection($request, $correction);
     }
 
@@ -109,6 +116,7 @@ class AttendanceWorkflowController extends Controller
             ->when($request->filled('date'), fn ($q) => $q->where('day_of_week', $date->dayOfWeekIso))
             ->where(fn ($q) => $q->where('is_active', true)->orWhereNull('is_active'))
             ->orderBy('time_start')->get();
+
         return response()->json(['success' => true, 'data' => $schedules]);
     }
 
@@ -121,6 +129,7 @@ class AttendanceWorkflowController extends Controller
         );
 
         $now = now();
+
         return response()->json(['success' => true, 'data' => [
             'server_time' => $now->toIso8601String(),
             'timezone' => config('app.timezone'),
@@ -153,6 +162,7 @@ class AttendanceWorkflowController extends Controller
 
         return response()->json(['success' => true, 'data' => $students->map(function (Student $student) use ($recommendations) {
             $permission = $recommendations->get($student->id);
+
             return [
                 ...$student->only(['id', 'nis', 'nisn', 'full_name', 'class_id', 'metadata']),
                 'recommended_status' => $permission?->type,
@@ -177,6 +187,7 @@ class AttendanceWorkflowController extends Controller
         $query->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('date_from'), fn ($q) => $q->whereDate('attendance_date', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('attendance_date', '<=', $request->date('date_to')));
+
         return response()->json(['success' => true, 'data' => $query->latest('attendance_date')->paginate($request->integer('per_page', 15))]);
     }
 
@@ -185,6 +196,7 @@ class AttendanceWorkflowController extends Controller
         $this->permit($request, ['lesson_attendance.view', 'lesson_attendance.view_own', 'homeroom_attendance.view'], ['Guru', 'Wali Kelas']);
         $sample = $session->attendances()->first();
         abort_unless($sample && $this->access->canAccessAttendance($request->user(), $sample), 403);
+
         return response()->json(['success' => true, 'data' => $session->load([
             'schedule.subject', 'schedule.kelas.unitPendidikan', 'schedule.kelas.tahunAjaran',
             'schedule.semester', 'schedule.employee', 'attendances.siswa',
@@ -213,10 +225,10 @@ class AttendanceWorkflowController extends Controller
             'substitute_reason' => ['nullable', 'string', 'min:5', 'max:500'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.student_id' => ['required', 'uuid', 'exists:students,id'],
-            'items.*.status' => ['required', Rule::in(['hadir','terlambat','izin','sakit','alpa','dispensasi','belum_diverifikasi'])],
+            'items.*.status' => ['required', Rule::in(['hadir', 'terlambat', 'izin', 'sakit', 'alpa', 'dispensasi', 'belum_diverifikasi'])],
             'items.*.arrival_time' => ['nullable', 'date_format:H:i'],
             'items.*.notes' => ['nullable', 'string', 'max:500'],
-            'items.*.recorded_method' => ['nullable', Rule::in(['manual','qr_code','barcode','face_recognition','fingerprint'])],
+            'items.*.recorded_method' => ['nullable', Rule::in(['manual', 'qr_code', 'barcode', 'face_recognition', 'fingerprint'])],
         ]);
         $activeLogin = ($data['attendance_context'] ?? null) === 'active_login';
         abort_if($activeLogin && $request->date('attendance_date')->toDateString() !== now()->toDateString(), 422, 'Presensi dari jadwal aktif hanya dapat diambil untuk hari ini.');
@@ -230,13 +242,15 @@ class AttendanceWorkflowController extends Controller
         abort_unless($attendanceDate->dayOfWeekIso === (int) $schedule->day_of_week, 422, 'Tanggal tidak sesuai dengan hari pada jadwal pelajaran.');
         abort_if($schedule->academicYear && ($attendanceDate->lt($schedule->academicYear->start_date) || $attendanceDate->gt($schedule->academicYear->end_date)), 422, 'Tanggal di luar tahun ajaran jadwal.');
         abort_if($schedule->semester && ($attendanceDate->lt($schedule->semester->start_date) || $attendanceDate->gt($schedule->semester->end_date)), 422, 'Tanggal di luar semester jadwal.');
-        foreach ($data['items'] as $item) $this->access->assertStudentInSchedule($schedule, $item['student_id']);
+        foreach ($data['items'] as $item) {
+            $this->access->assertStudentInSchedule($schedule, $item['student_id']);
+        }
 
         $session = DB::transaction(function () use ($data, $request) {
             $session = LessonAttendanceSession::firstOrNew([
                 'schedule_id' => $data['schedule_id'], 'attendance_date' => $data['attendance_date'],
             ]);
-            abort_if($session->exists && in_array($session->status, ['final','locked']), 422, 'Presensi final atau terkunci tidak dapat diedit.');
+            abort_if($session->exists && in_array($session->status, ['final', 'locked']), 422, 'Presensi final atau terkunci tidak dapat diedit.');
             $session->fill([
                 'meeting_number' => $data['meeting_number'] ?? 1,
                 'learning_module_id' => $data['learning_module_id'] ?? null,
@@ -257,7 +271,7 @@ class AttendanceWorkflowController extends Controller
                     'session_id' => $session->id, 'status_hadir' => $item['status'],
                     'arrival_time' => $item['arrival_time'] ?? null, 'keterangan' => $item['notes'] ?? null,
                     'pertemuan_ke' => $data['meeting_number'] ?? 1, 'waktu_presensi' => now(),
-                    'verification_status' => in_array($item['status'], ['izin','sakit']) ? 'pending' : 'verified',
+                    'verification_status' => in_array($item['status'], ['izin', 'sakit']) ? 'pending' : 'verified',
                     'recorded_method' => $item['recorded_method'] ?? null,
                     'recorded_at' => ! empty($item['recorded_method']) ? now() : null,
                     'recorded_by' => ! empty($item['recorded_method']) ? $request->user()->id : null,
@@ -273,10 +287,12 @@ class AttendanceWorkflowController extends Controller
                     'substitute_user_id' => $request->user()->id,
                 ])]);
             }
+
             return $session->fresh();
         });
         $this->audit->record($request, $session->wasRecentlyCreated ? 'create_draft' : 'update_draft', $session, null, $session->toArray());
-        return response()->json(['success'=>true,'message'=>'Draft presensi tersimpan.','data'=>$session->load('attendances.siswa')], 201);
+
+        return response()->json(['success' => true, 'message' => 'Draft presensi tersimpan.', 'data' => $session->load('attendances.siswa')], 201);
     }
 
     public function finalize(Request $request, LessonAttendanceSession $session): JsonResponse
@@ -295,10 +311,11 @@ class AttendanceWorkflowController extends Controller
         } else {
             $this->access->assertTeacherOwnsSchedule($request->user(), $session->schedule_id);
         }
-        abort_unless(in_array($session->status, ['draft','revised']), 422, 'Hanya draft atau revisi yang dapat difinalisasi.');
-        $session->update(['status'=>'final','finalized_at'=>now(),'finalized_by'=>$request->user()->id,'updated_by'=>$request->user()->id]);
+        abort_unless(in_array($session->status, ['draft', 'revised']), 422, 'Hanya draft atau revisi yang dapat difinalisasi.');
+        $session->update(['status' => 'final', 'finalized_at' => now(), 'finalized_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
         $this->audit->record($request, 'finalize', $session, ['status' => 'draft'], $session->toArray());
-        return response()->json(['success'=>true,'message'=>'Presensi berhasil difinalisasi.','data'=>$session]);
+
+        return response()->json(['success' => true, 'message' => 'Presensi berhasil difinalisasi.', 'data' => $session]);
     }
 
     public function unlock(Request $request, LessonAttendanceSession $session): JsonResponse
@@ -309,6 +326,7 @@ class AttendanceWorkflowController extends Controller
         $old = $session->toArray();
         $session->update(['status' => 'revised', 'locked_at' => null, 'updated_by' => $request->user()->id]);
         $this->audit->record($request, 'unlock', $session, $old, $session->toArray(), $data['reason']);
+
         return response()->json(['success' => true, 'message' => 'Presensi dibuka untuk revisi.', 'data' => $session]);
     }
 
@@ -321,6 +339,7 @@ class AttendanceWorkflowController extends Controller
         $old = $session->toArray();
         $session->update(['status' => 'cancelled', 'updated_by' => $request->user()->id]);
         $this->audit->record($request, 'cancel', $session, $old, $session->toArray(), $data['reason']);
+
         return response()->json(['success' => true, 'message' => 'Presensi dibatalkan.', 'data' => $session]);
     }
 
@@ -329,38 +348,40 @@ class AttendanceWorkflowController extends Controller
         $this->permit($request, ['student_attendance.view_own'], ['Siswa']);
         $student = $this->access->student($request->user());
         abort_unless($student, 403, 'Akun belum terhubung dengan data siswa.');
-        $data = LmsPresensi::with(['jadwalPelajaran.subject','jadwalPelajaran.kelas','session'])
+        $data = LmsPresensi::with(['jadwalPelajaran.subject', 'jadwalPelajaran.kelas', 'session'])
             ->where('siswa_id', $student->id)->latest('tanggal')->paginate($request->integer('per_page', 15));
-        return response()->json(['success'=>true,'data'=>$data]);
+
+        return response()->json(['success' => true, 'data' => $data]);
     }
 
     public function permissions(Request $request): JsonResponse
     {
-        $this->permit($request, ['student_attendance.permission.create','student_attendance.permission.update'], ['Siswa']);
+        $this->permit($request, ['student_attendance.permission.create', 'student_attendance.permission.update'], ['Siswa']);
         $student = $this->access->student($request->user());
         abort_unless($student, 403);
         if ($request->isMethod('get')) {
-            return response()->json(['success'=>true,'data'=>StudentAttendancePermission::where('student_id',$student->id)->latest()->paginate(15)]);
+            return response()->json(['success' => true, 'data' => StudentAttendancePermission::where('student_id', $student->id)->latest()->paginate(15)]);
         }
         $data = $request->validate([
-            'start_date'=>['required','date'],'end_date'=>['required','date','after_or_equal:start_date'],
-            'type'=>['required',Rule::in(['izin','sakit'])],'reason'=>['required','string'],'notes'=>['nullable','string'],
-            'status'=>['nullable',Rule::in(['draft','submitted'])],
-            'attachment'=>['nullable','file','mimes:pdf,jpg,jpeg,png','max:5120'],
+            'start_date' => ['required', 'date'], 'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'type' => ['required', Rule::in(['izin', 'sakit'])], 'reason' => ['required', 'string'], 'notes' => ['nullable', 'string'],
+            'status' => ['nullable', Rule::in(['draft', 'submitted'])],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ]);
         $status = $data['status'] ?? 'submitted';
         $attachment = $request->file('attachment')?->store('attendance/permissions', 'public');
         unset($data['attachment']);
         $item = StudentAttendancePermission::create($data + [
-            'student_id'=>$student->id, 'class_id'=>$student->class_id,
-            'academic_year_id'=>$student->schoolClass?->academic_year_id,
-            'semester_id'=>$student->schoolClass?->semester_id,
-            'attachment_path'=>$attachment, 'created_by'=>$request->user()->id,
-            'updated_by'=>$request->user()->id, 'status'=>$status,
-            'submitted_at'=>$status === 'submitted' ? now() : null,
+            'student_id' => $student->id, 'class_id' => $student->class_id,
+            'academic_year_id' => $student->schoolClass?->academic_year_id,
+            'semester_id' => $student->schoolClass?->semester_id,
+            'attachment_path' => $attachment, 'created_by' => $request->user()->id,
+            'updated_by' => $request->user()->id, 'status' => $status,
+            'submitted_at' => $status === 'submitted' ? now() : null,
         ]);
         $this->audit->record($request, 'submit_permission', $item, null, $item->toArray());
-        return response()->json(['success'=>true,'message'=>'Pengajuan berhasil disimpan.','data'=>$item], 201);
+
+        return response()->json(['success' => true, 'message' => 'Pengajuan berhasil disimpan.', 'data' => $item], 201);
     }
 
     public function cancelPermission(Request $request, StudentAttendancePermission $permission): JsonResponse
@@ -371,6 +392,7 @@ class AttendanceWorkflowController extends Controller
         $old = $permission->toArray();
         $permission->update(['status' => 'cancelled', 'updated_by' => $request->user()->id]);
         $this->audit->record($request, 'cancel_permission', $permission, $old, $permission->toArray());
+
         return response()->json(['success' => true, 'message' => 'Pengajuan dibatalkan.', 'data' => $permission]);
     }
 
@@ -394,6 +416,7 @@ class AttendanceWorkflowController extends Controller
         $old = $permission->toArray();
         $permission->update($data + ['status' => 'draft', 'updated_by' => $request->user()->id]);
         $this->audit->record($request, 'update_permission', $permission, $old, $permission->toArray());
+
         return response()->json(['success' => true, 'message' => 'Draft pengajuan diperbarui.', 'data' => $permission]);
     }
 
@@ -405,6 +428,7 @@ class AttendanceWorkflowController extends Controller
         $old = $permission->toArray();
         $permission->update(['status' => 'submitted', 'submitted_at' => now(), 'updated_by' => $request->user()->id]);
         $this->audit->record($request, 'submit_permission', $permission, $old, $permission->toArray());
+
         return response()->json(['success' => true, 'message' => 'Pengajuan dikirim untuk diverifikasi.', 'data' => $permission]);
     }
 
@@ -412,6 +436,7 @@ class AttendanceWorkflowController extends Controller
     {
         $this->permit($request, ['homeroom_attendance.view', 'homeroom_attendance.verify_permission'], ['Wali Kelas']);
         $studentIds = $this->access->homeroomStudentIds($request->user());
+
         return response()->json(['success' => true, 'data' => StudentAttendancePermission::with('student')
             ->whereIn('student_id', $studentIds)
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
@@ -422,26 +447,28 @@ class AttendanceWorkflowController extends Controller
     {
         $this->permit($request, ['homeroom_attendance.verify_permission'], ['Wali Kelas']);
         abort_unless($this->access->homeroomStudentIds($request->user())->contains($permission->student_id), 403);
-        $data = $request->validate(['status'=>['required',Rule::in(['needs_revision','approved','rejected'])],'review_notes'=>['nullable','string']]);
-        $permission->update($data + ['reviewed_by'=>$request->user()->id,'reviewed_at'=>now()]);
+        $data = $request->validate(['status' => ['required', Rule::in(['needs_revision', 'approved', 'rejected'])], 'review_notes' => ['nullable', 'string']]);
+        $permission->update($data + ['reviewed_by' => $request->user()->id, 'reviewed_at' => now()]);
         $this->audit->record($request, 'review_permission', $permission, null, $permission->toArray(), $data['review_notes'] ?? null);
-        return response()->json(['success'=>true,'data'=>$permission]);
+
+        return response()->json(['success' => true, 'data' => $permission]);
     }
 
     public function correction(Request $request): JsonResponse
     {
-        $this->permit($request, ['lesson_attendance.correct','homeroom_attendance.view'], ['Guru','Wali Kelas']);
-        $data = $request->validate(['attendance_id'=>['required','uuid','exists:lms_presensi,id'],'proposed_status'=>['required',Rule::in(['hadir','terlambat','izin','sakit','alpa','dispensasi'])],'reason'=>['required','string']]);
+        $this->permit($request, ['lesson_attendance.correct', 'homeroom_attendance.view'], ['Guru', 'Wali Kelas']);
+        $data = $request->validate(['attendance_id' => ['required', 'uuid', 'exists:lms_presensi,id'], 'proposed_status' => ['required', Rule::in(['hadir', 'terlambat', 'izin', 'sakit', 'alpa', 'dispensasi'])], 'reason' => ['required', 'string']]);
         $attendance = LmsPresensi::findOrFail($data['attendance_id']);
         abort_unless($this->access->canAccessAttendance($request->user(), $attendance), 403);
         $correction = LessonAttendanceCorrection::create([
-            'attendance_id'=>$attendance->id,'previous_status'=>$attendance->status_hadir,
-            'proposed_status'=>$data['proposed_status'],'reason'=>$data['reason'],'status'=>'submitted',
-            'before_data'=>$attendance->toArray(),'after_data'=>array_merge($attendance->toArray(),['status_hadir'=>$data['proposed_status']]),
-            'requested_by'=>$request->user()->id,'ip_address'=>$request->ip(),'user_agent'=>$request->userAgent(),
+            'attendance_id' => $attendance->id, 'previous_status' => $attendance->status_hadir,
+            'proposed_status' => $data['proposed_status'], 'reason' => $data['reason'], 'status' => 'submitted',
+            'before_data' => $attendance->toArray(), 'after_data' => array_merge($attendance->toArray(), ['status_hadir' => $data['proposed_status']]),
+            'requested_by' => $request->user()->id, 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent(),
         ]);
         $this->audit->record($request, 'request_correction', $correction, null, $correction->toArray(), $data['reason']);
-        return response()->json(['success'=>true,'message'=>'Koreksi diajukan tanpa mengubah presensi final.','data'=>$correction], 201);
+
+        return response()->json(['success' => true, 'message' => 'Koreksi diajukan tanpa mengubah presensi final.', 'data' => $correction], 201);
     }
 
     public function corrections(Request $request): JsonResponse
@@ -457,6 +484,7 @@ class AttendanceWorkflowController extends Controller
                 }
             });
         }
+
         return response()->json(['success' => true, 'data' => $query->latest()->paginate($request->integer('per_page', 15))]);
     }
 
@@ -482,7 +510,8 @@ class AttendanceWorkflowController extends Controller
                 'approved_at' => $data['status'] === 'approved' ? now() : null,
             ]);
         });
-        $this->audit->record($request, $data['status'] . '_correction', $correction, null, $correction->fresh()->toArray(), $data['review_notes'] ?? null);
+        $this->audit->record($request, $data['status'].'_correction', $correction, null, $correction->fresh()->toArray(), $data['review_notes'] ?? null);
+
         return response()->json(['success' => true, 'message' => 'Koreksi berhasil diproses.', 'data' => $correction->fresh('attendance')]);
     }
 
@@ -494,6 +523,7 @@ class AttendanceWorkflowController extends Controller
         $old = $correction->toArray();
         $correction->update(['status' => 'cancelled']);
         $this->audit->record($request, 'cancel_correction', $correction, $old, $correction->toArray());
+
         return response()->json(['success' => true, 'message' => 'Koreksi dibatalkan.', 'data' => $correction]);
     }
 
@@ -502,13 +532,14 @@ class AttendanceWorkflowController extends Controller
         $this->permit($request, ['homeroom_attendance.dashboard'], ['Wali Kelas']);
         $classIds = $this->access->homeroomClasses($request->user())->pluck('id');
         $studentIds = $this->access->homeroomStudentIds($request->user());
-        $base = LmsPresensi::whereIn('siswa_id',$studentIds)->whereDate('tanggal', today());
-        return response()->json(['success'=>true,'data'=>[
-            'total_students'=>$studentIds->count(),'present'=>(clone $base)->whereIn('status_hadir',['hadir','terlambat'])->count(),
-            'late'=>(clone $base)->where('status_hadir','terlambat')->count(),'permission'=>(clone $base)->where('status_hadir','izin')->count(),
-            'sick'=>(clone $base)->where('status_hadir','sakit')->count(),'absent'=>(clone $base)->where('status_hadir','alpa')->count(),
-            'unverified'=>(clone $base)->where('verification_status','!=','verified')->count(),
-            'open_follow_ups'=>HomeroomAttendanceFollowUp::whereIn('class_id',$classIds)->whereNotIn('status',['completed','closed'])->count(),
+        $base = LmsPresensi::whereIn('siswa_id', $studentIds)->whereDate('tanggal', today());
+
+        return response()->json(['success' => true, 'data' => [
+            'total_students' => $studentIds->count(), 'present' => (clone $base)->whereIn('status_hadir', ['hadir', 'terlambat'])->count(),
+            'late' => (clone $base)->where('status_hadir', 'terlambat')->count(), 'permission' => (clone $base)->where('status_hadir', 'izin')->count(),
+            'sick' => (clone $base)->where('status_hadir', 'sakit')->count(), 'absent' => (clone $base)->where('status_hadir', 'alpa')->count(),
+            'unverified' => (clone $base)->where('verification_status', '!=', 'verified')->count(),
+            'open_follow_ups' => HomeroomAttendanceFollowUp::whereIn('class_id', $classIds)->whereNotIn('status', ['completed', 'closed'])->count(),
         ]]);
     }
 
@@ -529,10 +560,10 @@ class AttendanceWorkflowController extends Controller
         $data = $request->validate([
             'class_id' => ['required', 'uuid', Rule::in($classIds->all())],
             'student_id' => ['required', 'uuid', 'exists:students,id'],
-            'case_type' => ['required', Rule::in(['absent','late_repeatedly','permission_repeatedly','sick_repeatedly','subject_absence','unverified'])],
+            'case_type' => ['required', Rule::in(['absent', 'late_repeatedly', 'permission_repeatedly', 'sick_repeatedly', 'subject_absence', 'unverified'])],
             'case_date' => ['required', 'date'],
             'occurrence_count' => ['nullable', 'integer', 'min:1'],
-            'priority' => ['required', Rule::in(['low','medium','high','urgent'])],
+            'priority' => ['required', Rule::in(['low', 'medium', 'high', 'urgent'])],
             'action' => ['required', 'string'],
             'parent_communication' => ['nullable', 'string'],
             'follow_up_date' => ['nullable', 'date'],
@@ -545,6 +576,7 @@ class AttendanceWorkflowController extends Controller
             'status' => 'new', 'created_by' => $request->user()->id, 'updated_by' => $request->user()->id,
         ]);
         $this->audit->record($request, 'create_follow_up', $item, null, $item->toArray());
+
         return response()->json(['success' => true, 'message' => 'Tindak lanjut dibuat.', 'data' => $item], 201);
     }
 
@@ -553,29 +585,32 @@ class AttendanceWorkflowController extends Controller
         $this->permit($request, ['homeroom_attendance.follow_up'], ['Wali Kelas']);
         abort_unless($this->access->homeroomClasses($request->user())->whereKey($followUp->class_id)->exists(), 403);
         $data = $request->validate([
-            'priority' => ['sometimes', Rule::in(['low','medium','high','urgent'])],
+            'priority' => ['sometimes', Rule::in(['low', 'medium', 'high', 'urgent'])],
             'action' => ['sometimes', 'string'],
             'parent_communication' => ['nullable', 'string'],
             'follow_up_date' => ['nullable', 'date'],
             'due_date' => ['nullable', 'date'],
-            'status' => ['sometimes', Rule::in(['new','in_progress','waiting_parent','completed','closed'])],
+            'status' => ['sometimes', Rule::in(['new', 'in_progress', 'waiting_parent', 'completed', 'closed'])],
             'notes' => ['nullable', 'string'],
         ]);
         $old = $followUp->toArray();
         $followUp->update($data + ['updated_by' => $request->user()->id]);
         $this->audit->record($request, 'update_follow_up', $followUp, $old, $followUp->toArray());
+
         return response()->json(['success' => true, 'message' => 'Tindak lanjut diperbarui.', 'data' => $followUp]);
     }
 
     public function completeFollowUp(Request $request, HomeroomAttendanceFollowUp $followUp): JsonResponse
     {
         $request->merge(['status' => 'completed']);
+
         return $this->updateFollowUp($request, $followUp);
     }
 
     public function closeFollowUp(Request $request, HomeroomAttendanceFollowUp $followUp): JsonResponse
     {
         $request->merge(['status' => 'closed']);
+
         return $this->updateFollowUp($request, $followUp);
     }
 
@@ -599,6 +634,7 @@ class AttendanceWorkflowController extends Controller
             ->when($request->filled('subject_id'), fn ($q) => $q->whereHas('jadwalPelajaran', fn ($sq) => $sq->where('subject_id', $request->string('subject_id'))));
 
         $rows = $query->get();
+
         return response()->json(['success' => true, 'data' => [
             'summary' => [
                 'total' => $rows->count(),

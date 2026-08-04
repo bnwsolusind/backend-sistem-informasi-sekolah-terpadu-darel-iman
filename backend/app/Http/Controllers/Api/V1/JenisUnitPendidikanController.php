@@ -100,7 +100,7 @@ class JenisUnitPendidikanController extends Controller
     {
         $jenisUnit = $this->service->cariBerdasarkanId($id);
 
-        if (!$jenisUnit) {
+        if (! $jenisUnit) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data jenis unit pendidikan tidak ditemukan.',
@@ -122,7 +122,7 @@ class JenisUnitPendidikanController extends Controller
         $userId = $request->user()?->id;
         $jenisUnit = $this->service->ubah($id, $request->validated(), $userId);
 
-        if (!$jenisUnit) {
+        if (! $jenisUnit) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data jenis unit pendidikan tidak ditemukan.',
@@ -144,7 +144,7 @@ class JenisUnitPendidikanController extends Controller
         $userId = $request->user()?->id;
         $result = $this->service->hapus($id, $userId);
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return response()->json([
                 'status' => 'error',
                 'message' => $result['message'],
@@ -164,7 +164,7 @@ class JenisUnitPendidikanController extends Controller
     {
         $berhasil = $this->service->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan data jenis unit pendidikan.',
@@ -183,7 +183,7 @@ class JenisUnitPendidikanController extends Controller
     public function import(Request $request): JsonResponse
     {
         $rows = $request->input('data', []);
-        if (!is_array($rows) || empty($rows)) {
+        if (! is_array($rows) || empty($rows)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Payload data impor tidak boleh kosong.',

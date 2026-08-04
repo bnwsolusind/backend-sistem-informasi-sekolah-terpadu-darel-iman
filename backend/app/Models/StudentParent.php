@@ -25,7 +25,7 @@ class StudentParent extends Model
 
     protected $casts = [
         'is_primary' => 'boolean',
-        'metadata'   => 'array',
+        'metadata' => 'array',
     ];
 
     // --- Relations ---

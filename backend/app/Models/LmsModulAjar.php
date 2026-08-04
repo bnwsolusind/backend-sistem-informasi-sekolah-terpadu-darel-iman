@@ -193,4 +193,3 @@ class LmsModulAjar extends Model
         return $this->attributes['judul_modul'] ?? null;
     }
 }
-

@@ -11,12 +11,13 @@ class StudentRepository implements StudentRepositoryInterface
     public function paginate(string $search = '', int $perPage = 15): LengthAwarePaginator
     {
         return Student::query()
-            ->with(['class'])
+            ->with(['schoolClass:id,name', 'educationUnit:id,name', 'parent', 'parentsPivot'])
             ->when($search !== '', function ($query) use ($search) {
                 $term = "%{$search}%";
                 $query->where(function ($q) use ($term) {
                     $q->where('nis', 'like', $term)
                         ->orWhere('full_name', 'like', $term)
+                        ->orWhere('nisn', 'like', $term)
                         ->orWhere('address', 'like', $term)
                         ->orWhere('metadata->nisn', 'like', $term);
                 });

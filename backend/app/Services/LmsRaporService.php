@@ -43,7 +43,7 @@ class LmsRaporService
     public function ubah(string $id, array $data): ?LmsRapor
     {
         $existing = $this->raporRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -63,7 +63,7 @@ class LmsRaporService
     public function hapus(string $id): bool
     {
         $rapor = $this->raporRepository->findById($id);
-        if (!$rapor) {
+        if (! $rapor) {
             return false;
         }
 
@@ -117,7 +117,7 @@ class LmsRaporService
     public function getPdfData(string $id): array
     {
         $rapor = $this->raporRepository->findById($id, true);
-        if (!$rapor) {
+        if (! $rapor) {
             throw new \Exception('Rapor tidak ditemukan.');
         }
 

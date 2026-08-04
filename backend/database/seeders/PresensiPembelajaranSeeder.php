@@ -2,11 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\AcademicYear;
 use App\Models\ClassSchedule;
 use App\Models\Kelas;
 use App\Models\LessonAttendanceSession;
 use App\Models\LmsPresensi;
 use App\Models\SchoolClass;
+use App\Models\Semester;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -30,6 +32,7 @@ class PresensiPembelajaranSeeder extends Seeder
             $this->command->warn(
                 'PresensiPembelajaranSeeder dilewati: akun guru, mata pelajaran, atau kelas yang memiliki siswa belum tersedia.'
             );
+
             return;
         }
 
@@ -42,6 +45,7 @@ class PresensiPembelajaranSeeder extends Seeder
 
         if ($students->isEmpty()) {
             $this->command->warn('PresensiPembelajaranSeeder dilewati: kelas contoh tidak memiliki siswa aktif.');
+
             return;
         }
 
@@ -55,14 +59,15 @@ class PresensiPembelajaranSeeder extends Seeder
             ->first();
 
         $semester = $schoolClass->semester_id
-            ? \App\Models\Semester::find($schoolClass->semester_id)
+            ? Semester::find($schoolClass->semester_id)
             : null;
         $academicYear = $schoolClass->academic_year_id
-            ? \App\Models\AcademicYear::find($schoolClass->academic_year_id)
+            ? AcademicYear::find($schoolClass->academic_year_id)
             : null;
 
         if (! $semester || ! $academicYear) {
             $this->command->warn('PresensiPembelajaranSeeder dilewati: periode kelas belum lengkap.');
+
             return;
         }
 
@@ -83,6 +88,7 @@ class PresensiPembelajaranSeeder extends Seeder
 
         if ($finalDate->gt($periodEnd)) {
             $this->command->warn('PresensiPembelajaranSeeder dilewati: rentang semester kurang dari tujuh hari.');
+
             return;
         }
 
@@ -163,7 +169,7 @@ class PresensiPembelajaranSeeder extends Seeder
             'attendance_date' => $date->toDateString(),
         ], [
             'meeting_number' => $meeting,
-            'learning_material' => 'Materi pembelajaran pertemuan ke-' . $meeting,
+            'learning_material' => 'Materi pembelajaran pertemuan ke-'.$meeting,
             'learning_activity' => 'Apersepsi, penyampaian materi, latihan, dan refleksi.',
             'topic' => $topic,
             'meeting_notes' => $notes,
@@ -182,7 +188,7 @@ class PresensiPembelajaranSeeder extends Seeder
         foreach ($students as $index => $student) {
             $attendanceStatus = $statuses[($index + $meeting - 1) % count($statuses)];
             $arrivalTime = match ($attendanceStatus) {
-                'hadir' => '09:' . str_pad((string) (10 + ($index % 5)), 2, '0', STR_PAD_LEFT),
+                'hadir' => '09:'.str_pad((string) (10 + ($index % 5)), 2, '0', STR_PAD_LEFT),
                 'terlambat' => '09:28',
                 default => null,
             };

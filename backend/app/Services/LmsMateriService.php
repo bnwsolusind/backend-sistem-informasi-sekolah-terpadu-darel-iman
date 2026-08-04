@@ -9,7 +9,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class LmsMateriService
 {
@@ -42,7 +41,7 @@ class LmsMateriService
             $data['status'] = 'aktif';
         }
 
-        if (!isset($data['urutan']) || $data['urutan'] === null) {
+        if (! isset($data['urutan']) || $data['urutan'] === null) {
             $maxUrutan = LmsMateri::where('modul_ajar_id', $data['modul_ajar_id'])->max('urutan') ?? 0;
             $data['urutan'] = $maxUrutan + 1;
         }
@@ -74,7 +73,7 @@ class LmsMateriService
     public function ubah(string $id, array $data, ?UploadedFile $file = null): ?LmsMateri
     {
         $existing = $this->materiRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -101,7 +100,7 @@ class LmsMateriService
     public function hapus(string $id): bool
     {
         $materi = $this->materiRepository->findById($id);
-        if (!$materi) {
+        if (! $materi) {
             return false;
         }
 

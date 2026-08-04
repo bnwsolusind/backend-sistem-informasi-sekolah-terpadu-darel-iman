@@ -26,12 +26,14 @@ class AttendanceCaptureService
             'session_expires_at' => now()->addMinutes($minutes),
             'session_closed_at' => null,
         ]);
+
         return ['session' => $session->fresh(), 'token' => $token];
     }
 
     public function close(LessonAttendanceSession $session): LessonAttendanceSession
     {
         $session->update(['session_closed_at' => now(), 'session_token_hash' => null]);
+
         return $session->fresh();
     }
 
@@ -45,19 +47,43 @@ class AttendanceCaptureService
         if ($method === 'qr_code') {
             try {
                 $payload = json_decode(Crypt::decryptString($identifier), true, flags: JSON_THROW_ON_ERROR);
-                if (($payload['purpose'] ?? null) !== 'attendance-qr') return null;
+                if (($payload['purpose'] ?? null) !== 'attendance-qr') {
+                    throw new \RuntimeException('Invalid QR purpose.');
+                }
+
                 return Student::active()->find($payload['student_id'] ?? null);
             } catch (\Throwable) {
-                return null;
+                return Student::active()
+                    ->where(function ($query) use ($identifier) {
+                        $query->where('metadata->qr_code', $identifier)
+                            ->orWhere('metadata->card_number', $identifier)
+                            ->orWhere('nis', $identifier)
+                            ->orWhere('nisn', $identifier);
+                    })
+                    ->first();
             }
         }
+
+        if ($method === 'rfid') {
+            return Student::active()
+                ->where(function ($query) use ($identifier) {
+                    $query->where('metadata->card_number', $identifier)
+                        ->orWhere('metadata->rfid_uid', $identifier)
+                        ->orWhere('nis', $identifier)
+                        ->orWhere('nisn', $identifier);
+                })
+                ->first();
+        }
+
         return Student::active()->where(fn ($q) => $q->where('nis', $identifier)->orWhere('nisn', $identifier))->first();
     }
 
     public function record(Request $request, LessonAttendanceSession $session, string $method, ?Student $student, array $input = []): array
     {
         $this->ensureActive($session);
-        if (! $student) return $this->failure($request, $session, $method, 'student_not_found', 'Siswa tidak ditemukan.', $input);
+        if (! $student) {
+            return $this->failure($request, $session, $method, 'student_not_found', 'Siswa tidak ditemukan.', $input);
+        }
         if (! $this->access->studentsForSchedule($session->schedule)->whereKey($student->id)->exists()) {
             return $this->failure($request, $session, $method, 'student_not_in_rombel', 'Siswa bukan anggota rombel jadwal.', $input, $student);
         }
@@ -93,6 +119,7 @@ class AttendanceCaptureService
             ]);
             $methods = $session->attendances()->whereNotNull('recorded_method')->distinct()->pluck('recorded_method');
             $session->update(['attendance_method' => $methods->count() > 1 ? 'mixed' : ($methods->first() ?: $method)]);
+
             return ['scan_status' => 'success', 'message' => 'Presensi berhasil dicatat.', 'student' => $student, 'attendance_status' => $status, 'recorded_at' => $scannedAt, 'attendance' => $attendance];
         });
     }
@@ -100,6 +127,7 @@ class AttendanceCaptureService
     public function log(Request $request, LessonAttendanceSession $session, string $method, string $status, ?string $reason, array $input, ?Student $student = null): AttendanceScanLog
     {
         $identifier = $input['identifier'] ?? $input['barcode'] ?? $input['template_reference'] ?? null;
+
         return AttendanceScanLog::create([
             'lesson_attendance_id' => $session->id, 'student_id' => $student?->id,
             'class_schedule_id' => $session->schedule_id, 'scan_method' => $method,
@@ -116,18 +144,25 @@ class AttendanceCaptureService
     private function failure(Request $request, LessonAttendanceSession $session, string $method, string $status, string $message, array $input, ?Student $student = null): array
     {
         $this->log($request, $session, $method, $status, $message, $input, $student);
+
         return ['scan_status' => $status, 'message' => $message, 'student' => $student, 'attendance_status' => null, 'recorded_at' => now()];
     }
 
     private function ensureDraft(LessonAttendanceSession $session): void
     {
-        if (! in_array($session->status, ['draft', 'revised'])) throw ValidationException::withMessages(['session' => 'Presensi final atau dibatalkan tidak menerima input.']);
+        if (! in_array($session->status, ['draft', 'revised'])) {
+            throw ValidationException::withMessages(['session' => 'Presensi final atau dibatalkan tidak menerima input.']);
+        }
     }
 
     private function ensureActive(LessonAttendanceSession $session): void
     {
         $this->ensureDraft($session);
-        if (! $session->session_started_at || $session->session_closed_at) throw ValidationException::withMessages(['session' => 'Sesi belum dimulai atau sudah ditutup.']);
-        if ($session->session_expires_at?->isPast()) throw ValidationException::withMessages(['session' => 'Sesi presensi sudah kedaluwarsa.']);
+        if (! $session->session_started_at || $session->session_closed_at) {
+            throw ValidationException::withMessages(['session' => 'Sesi belum dimulai atau sudah ditutup.']);
+        }
+        if ($session->session_expires_at?->isPast()) {
+            throw ValidationException::withMessages(['session' => 'Sesi presensi sudah kedaluwarsa.']);
+        }
     }
 }

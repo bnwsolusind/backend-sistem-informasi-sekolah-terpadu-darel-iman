@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Employee;
 use App\Models\EducationUnit;
+use App\Models\Employee;
 use App\Models\JenisUnitPendidikan;
 use App\Models\MutabaahAgenda;
 use App\Models\MutabaahDailyNote;
@@ -72,6 +72,7 @@ class MutabaahController extends Controller
         $this->ensureTu($request);
         $data = $this->validateAgenda($request);
         $agenda = MutabaahAgenda::create($data + ['created_by' => $request->user()->id, 'updated_by' => $request->user()->id]);
+
         return response()->json(['message' => 'Rincian agenda berhasil ditambahkan.', 'data' => $agenda->load(['jenisUnit', 'unit'])], 201);
     }
 
@@ -79,6 +80,7 @@ class MutabaahController extends Controller
     {
         $this->ensureTu($request);
         $agenda->update($this->validateAgenda($request) + ['updated_by' => $request->user()->id]);
+
         return response()->json(['message' => 'Rincian agenda berhasil diperbarui.', 'data' => $agenda->fresh(['jenisUnit', 'unit'])]);
     }
 
@@ -87,9 +89,11 @@ class MutabaahController extends Controller
         $this->ensureTu($request);
         if (MutabaahEntry::query()->where('agenda_id', $agenda->id)->exists()) {
             $agenda->update(['is_active' => false, 'updated_by' => $request->user()->id]);
+
             return response()->json(['message' => 'Agenda sudah memiliki riwayat sehingga dinonaktifkan, bukan dihapus.']);
         }
         $agenda->delete();
+
         return response()->json(['message' => 'Rincian agenda berhasil dihapus.']);
     }
 
@@ -179,6 +183,7 @@ class MutabaahController extends Controller
             ->when($data['from'] ?? null, fn ($q, $date) => $q->whereDate('entry_date', '>=', $date))
             ->when($data['until'] ?? null, fn ($q, $date) => $q->whereDate('entry_date', '<=', $date))
             ->orderByDesc('entry_date')->get()->groupBy(fn ($entry) => $entry->entry_date->toDateString());
+
         return response()->json(['data' => $entries]);
     }
 
@@ -205,7 +210,9 @@ class MutabaahController extends Controller
     private function canManageAgenda(Request $request): bool
     {
         $user = $request->user();
-        if ($user->hasRole('Super Admin') || $user->can('mutabaah.agenda.manage')) return true;
+        if ($user->hasRole('Super Admin') || $user->can('mutabaah.agenda.manage')) {
+            return true;
+        }
 
         return Employee::query()->where('user_id', $user->id)
             ->whereHas('position', fn ($q) => $q

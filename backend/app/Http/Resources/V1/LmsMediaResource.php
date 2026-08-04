@@ -13,7 +13,7 @@ class LmsMediaResource extends JsonResource
         if ($this->path_file) {
             $fileUrl = str_starts_with($this->path_file, 'http')
                 ? $this->path_file
-                : asset('storage/' . $this->path_file);
+                : asset('storage/'.$this->path_file);
         }
 
         return [
@@ -49,28 +49,30 @@ class LmsMediaResource extends JsonResource
 
     private function formatSizeUnits(?int $bytes): ?string
     {
-        if (!$bytes) {
+        if (! $bytes) {
             return null;
         }
         if ($bytes >= 1073741824) {
-            return number_format($bytes / 1073741824, 2) . ' GB';
+            return number_format($bytes / 1073741824, 2).' GB';
         }
         if ($bytes >= 1048576) {
-            return number_format($bytes / 1048576, 2) . ' MB';
+            return number_format($bytes / 1048576, 2).' MB';
         }
         if ($bytes >= 1024) {
-            return number_format($bytes / 1024, 2) . ' KB';
+            return number_format($bytes / 1024, 2).' KB';
         }
-        return $bytes . ' B';
+
+        return $bytes.' B';
     }
 
     private function formatDuration(?int $seconds): ?string
     {
-        if (!$seconds) {
+        if (! $seconds) {
             return null;
         }
         $minutes = floor($seconds / 60);
         $remainingSeconds = $seconds % 60;
+
         return sprintf('%02d:%02d', $minutes, $remainingSeconds);
     }
 }

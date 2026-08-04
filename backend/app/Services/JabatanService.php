@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\EducationUnit;
+use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Role;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -20,7 +21,7 @@ class JabatanService
             ->filter($filters);
 
         $allowedSorts = ['code', 'name', 'level_jabatan', 'urutan', 'created_at', 'is_active'];
-        if (!in_array($orderBy, $allowedSorts)) {
+        if (! in_array($orderBy, $allowedSorts)) {
             $orderBy = 'urutan';
         }
 
@@ -58,27 +59,27 @@ class JabatanService
         $units = EducationUnit::select('id', 'nama_unit', 'kode_unit', 'jenjang')
             ->orderBy('nama_unit')
             ->get()
-            ->map(fn($u) => [
+            ->map(fn ($u) => [
                 'id' => $u->id,
                 'nama' => $u->nama_unit ?? $u->name,
                 'kode' => $u->kode_unit ?? $u->code,
             ]);
 
         // Atasan langsung diambil dari tabel pegawai
-        $pegawaiList = \App\Models\Employee::with(['position'])
+        $pegawaiList = Employee::with(['position'])
             ->where('status', 'Aktif')
             ->orderBy('nama_lengkap')
             ->get(['id', 'nama_lengkap', 'niy', 'jabatan_id'])
-            ->map(fn($p) => [
-                'id'           => $p->id,
+            ->map(fn ($p) => [
+                'id' => $p->id,
                 'nama_pegawai' => $p->nama_lengkap,
-                'niy'          => $p->niy,
+                'niy' => $p->niy,
                 'nama_jabatan' => $p->position?->name,
             ]);
 
         $roles = Role::orderBy('name')
             ->get(['id', 'name'])
-            ->map(fn($r) => [
+            ->map(fn ($r) => [
                 'id' => $r->id,
                 'name' => $r->name,
             ]);
@@ -112,7 +113,7 @@ class JabatanService
     public function simpan(array $data, ?string $userId = null): Position
     {
         return DB::transaction(function () use ($data, $userId) {
-            $kode = !empty($data['kode_jabatan']) ? $data['kode_jabatan'] : Position::generateKode();
+            $kode = ! empty($data['kode_jabatan']) ? $data['kode_jabatan'] : Position::generateKode();
 
             $isActive = true;
             if (isset($data['status'])) {
@@ -122,25 +123,25 @@ class JabatanService
             }
 
             $jabatan = Position::create([
-                'code'                => $kode,
-                'name'                => $data['nama_jabatan'],
-                'satuan_kerja'        => $data['satuan_kerja'],
-                'unit_sekolah_id'     => $data['unit_sekolah_id'] ?? null,
-                'level_jabatan'       => $data['level_jabatan'] ?? 9,
-                'atasan_langsung_id'  => $data['atasan_langsung_id'] ?? null,
-                'atasan_pegawai_id'   => $data['atasan_pegawai_id'] ?? null,
-                'role_sistem_id'      => $data['role_sistem_id'] ?? null,
-                'scope_akses'         => $data['scope_akses'],
-                'urutan'              => $data['urutan'] ?? 0,
-                'warna'               => $data['warna'] ?? '#3B82F6',
-                'ikon'                => $data['ikon'] ?? 'UserCheck',
-                'description'         => $data['deskripsi'] ?? $data['description'] ?? null,
-                'is_active'           => $isActive,
-                'tampil_struktur'     => $data['tampil_struktur'] ?? true,
-                'boleh_login'         => $data['boleh_login'] ?? false,
-                'metadata'            => $data['metadata'] ?? null,
-                'created_by'          => $userId,
-                'updated_by'          => $userId,
+                'code' => $kode,
+                'name' => $data['nama_jabatan'],
+                'satuan_kerja' => $data['satuan_kerja'],
+                'unit_sekolah_id' => $data['unit_sekolah_id'] ?? null,
+                'level_jabatan' => $data['level_jabatan'] ?? 9,
+                'atasan_langsung_id' => $data['atasan_langsung_id'] ?? null,
+                'atasan_pegawai_id' => $data['atasan_pegawai_id'] ?? null,
+                'role_sistem_id' => $data['role_sistem_id'] ?? null,
+                'scope_akses' => $data['scope_akses'],
+                'urutan' => $data['urutan'] ?? 0,
+                'warna' => $data['warna'] ?? '#3B82F6',
+                'ikon' => $data['ikon'] ?? 'UserCheck',
+                'description' => $data['deskripsi'] ?? $data['description'] ?? null,
+                'is_active' => $isActive,
+                'tampil_struktur' => $data['tampil_struktur'] ?? true,
+                'boleh_login' => $data['boleh_login'] ?? false,
+                'metadata' => $data['metadata'] ?? null,
+                'created_by' => $userId,
+                'updated_by' => $userId,
             ]);
 
             return $jabatan->load(['unitSekolah', 'atasanLangsung', 'atasanPegawai', 'roleSistem']);
@@ -168,7 +169,7 @@ class JabatanService
         return DB::transaction(function () use ($jabatan, $data, $userId) {
             $payload = [];
 
-            if (array_key_exists('kode_jabatan', $data) && !empty($data['kode_jabatan'])) {
+            if (array_key_exists('kode_jabatan', $data) && ! empty($data['kode_jabatan'])) {
                 $payload['code'] = $data['kode_jabatan'];
             }
             if (array_key_exists('nama_jabatan', $data)) {
@@ -240,7 +241,7 @@ class JabatanService
     public function hapus(string $id): bool
     {
         $jabatan = Position::find($id);
-        if (!$jabatan) {
+        if (! $jabatan) {
             return false;
         }
 
@@ -253,7 +254,7 @@ class JabatanService
     public function pulihkan(string $id): bool
     {
         $jabatan = Position::onlyTrashed()->find($id);
-        if (!$jabatan) {
+        if (! $jabatan) {
             return false;
         }
 
@@ -273,7 +274,8 @@ class JabatanService
             try {
                 if (empty($row['nama_jabatan'])) {
                     $gagal++;
-                    $errors[] = "Baris " . ($index + 1) . ": Nama jabatan kosong.";
+                    $errors[] = 'Baris '.($index + 1).': Nama jabatan kosong.';
+
                     continue;
                 }
 
@@ -296,7 +298,7 @@ class JabatanService
                 $berhasil++;
             } catch (\Exception $e) {
                 $gagal++;
-                $errors[] = "Baris " . ($index + 1) . ": " . $e->getMessage();
+                $errors[] = 'Baris '.($index + 1).': '.$e->getMessage();
             }
         }
 

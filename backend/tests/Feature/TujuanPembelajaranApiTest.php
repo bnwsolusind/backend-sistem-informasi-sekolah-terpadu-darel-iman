@@ -17,6 +17,7 @@ class TujuanPembelajaranApiTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected CapaianPembelajaran $cp;
 
     protected function setUp(): void

@@ -14,11 +14,11 @@ use App\Models\Kelas;
 use App\Models\MasterKurikulum;
 use App\Models\Semester;
 use App\Models\Subject;
+use App\Models\Teacher;
 use App\Models\TujuanPembelajaran;
 use App\Services\LmsModulAjarService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Response;
 
 class LmsModulAjarController extends Controller
 {
@@ -44,7 +44,7 @@ class LmsModulAjarController extends Controller
 
         // Restrict Guru to their own modules if non-admin role
         $user = $request->user();
-        if ($user && $user->role === 'Guru' && !empty($user->employee_id)) {
+        if ($user && $user->role === 'Guru' && ! empty($user->employee_id)) {
             $filters['guru_id'] = $user->employee_id;
         }
 
@@ -84,14 +84,14 @@ class LmsModulAjarController extends Controller
         $units = EducationUnit::select('id', 'name', 'code')->get();
         $kurikulums = MasterKurikulum::select('id', 'nama_kurikulum', 'kode_kurikulum')->get();
         $subjects = Subject::select('id', 'nama_mapel', 'kode_mapel', 'name', 'code')->get();
-        
+
         $teachers = Employee::select('id', 'nama_lengkap', 'niy', 'nik')->get();
         if ($teachers->isEmpty()) {
-            $teachers = \App\Models\Teacher::select('id', 'full_name as nama_lengkap', 'employee_number as niy')->get();
+            $teachers = Teacher::select('id', 'full_name as nama_lengkap', 'employee_number as niy')->get();
         }
 
         $classes = Kelas::select('id', 'nama_kelas', 'kode_kelas')->get();
-        
+
         $years = AcademicYear::select('id', 'name')->get()->map(function ($item) {
             return [
                 'id' => $item->id,
@@ -132,7 +132,7 @@ class LmsModulAjarController extends Controller
     public function show(string $id): JsonResponse
     {
         $modul = $this->modulAjarService->cariBerdasarkanId($id);
-        if (!$modul) {
+        if (! $modul) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data Modul Ajar tidak ditemukan.',
@@ -163,7 +163,7 @@ class LmsModulAjarController extends Controller
         $data = $request->validated();
         $modul = $this->modulAjarService->ubah($id, $data);
 
-        if (!$modul) {
+        if (! $modul) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data Modul Ajar tidak ditemukan.',
@@ -180,7 +180,7 @@ class LmsModulAjarController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $deleted = $this->modulAjarService->hapus($id);
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data Modul Ajar gagal dihapus atau tidak ditemukan.',
@@ -196,7 +196,7 @@ class LmsModulAjarController extends Controller
     public function restore(string $id): JsonResponse
     {
         $restored = $this->modulAjarService->pulihkan($id);
-        if (!$restored) {
+        if (! $restored) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan Modul Ajar atau data tidak ditemukan.',
@@ -212,7 +212,7 @@ class LmsModulAjarController extends Controller
     public function publish(string $id): JsonResponse
     {
         $modul = $this->modulAjarService->publikasikan($id);
-        if (!$modul) {
+        if (! $modul) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal mempublikasikan Modul Ajar.',
@@ -229,7 +229,7 @@ class LmsModulAjarController extends Controller
     public function duplicate(string $id): JsonResponse
     {
         $modul = $this->modulAjarService->duplikasi($id);
-        if (!$modul) {
+        if (! $modul) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menduplikasi Modul Ajar.',
@@ -246,7 +246,7 @@ class LmsModulAjarController extends Controller
     public function revisions(string $id): JsonResponse
     {
         $modul = $this->modulAjarService->cariBerdasarkanId($id);
-        if (!$modul) {
+        if (! $modul) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data Modul Ajar tidak ditemukan.',
@@ -264,11 +264,11 @@ class LmsModulAjarController extends Controller
     {
         $moduls = $this->modulAjarService->dapatkanDaftar([], 500);
         $headers = [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=Modul_Ajar_" . date('Y-m-d') . ".csv",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
+            'Content-type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename=Modul_Ajar_'.date('Y-m-d').'.csv',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
         ];
 
         $columns = ['Kode Modul', 'Judul Modul', 'Mata Pelajaran', 'Guru Pengampu', 'Kelas', 'Fase', 'Status', 'Versi'];
@@ -286,7 +286,7 @@ class LmsModulAjarController extends Controller
                     $m->kelas->nama_kelas ?? $m->kelas->name ?? '',
                     $m->fase,
                     $m->status,
-                    $m->versi
+                    $m->versi,
                 ]);
             }
 
@@ -299,7 +299,7 @@ class LmsModulAjarController extends Controller
     public function exportPdf(Request $request, string $id)
     {
         $modul = $this->modulAjarService->cariBerdasarkanId($id);
-        if (!$modul) {
+        if (! $modul) {
             return response()->json(['status' => 'error', 'message' => 'Modul Ajar tidak ditemukan.'], 404);
         }
 
@@ -307,10 +307,10 @@ class LmsModulAjarController extends Controller
             'status' => 'success',
             'message' => 'Dokumen PDF Modul Ajar berhasil dicetak.',
             'data' => [
-                'document_title' => 'MODUL AJAR (RPP DIGITAL) - ' . $modul->judul_modul,
+                'document_title' => 'MODUL AJAR (RPP DIGITAL) - '.$modul->judul_modul,
                 'modul' => new LmsModulAjarResource($modul),
-                'generated_at' => now()->toIso8601String()
-            ]
+                'generated_at' => now()->toIso8601String(),
+            ],
         ]);
     }
 
@@ -319,7 +319,7 @@ class LmsModulAjarController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Import data Modul Ajar berhasil diproses.',
-            'rows_imported' => 1
+            'rows_imported' => 1,
         ]);
     }
 }

@@ -13,7 +13,7 @@ class SimpanReferensiRequest extends FormRequest
 
     public function prepareForValidation(): void
     {
-        if ($this->has('modul_ajar_id') && ($this->modul_ajar_id === '' || strtolower((string)$this->modul_ajar_id) === 'umum' || strtolower((string)$this->modul_ajar_id) === 'null')) {
+        if ($this->has('modul_ajar_id') && ($this->modul_ajar_id === '' || strtolower((string) $this->modul_ajar_id) === 'umum' || strtolower((string) $this->modul_ajar_id) === 'null')) {
             $this->merge([
                 'modul_ajar_id' => null,
             ]);

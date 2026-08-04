@@ -4,16 +4,17 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Traits\HasUuidPrimaryKey;
-use Laravel\Sanctum\HasApiTokens;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, HasUuidPrimaryKey, Notifiable, SoftDeletes;
 
     /**
@@ -23,6 +24,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
         'phone',
@@ -53,5 +55,30 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'metadata' => 'array',
         ];
+    }
+
+    public function qrCredentials()
+    {
+        return $this->hasMany(QrCredential::class, 'user_id');
+    }
+
+    public function loginEvents()
+    {
+        return $this->hasMany(LoginEvent::class, 'user_id');
+    }
+
+    public function userDevices()
+    {
+        return $this->hasMany(UserDevice::class, 'user_id');
+    }
+
+    public function deleteRequests()
+    {
+        return $this->hasMany(DeleteRequest::class, 'requested_by');
+    }
+
+    public function employee()
+    {
+        return $this->hasOne(Employee::class, 'user_id');
     }
 }

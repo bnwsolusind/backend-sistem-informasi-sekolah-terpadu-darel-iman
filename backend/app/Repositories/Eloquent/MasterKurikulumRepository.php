@@ -15,7 +15,7 @@ class MasterKurikulumRepository implements MasterKurikulumRepositoryInterface
             ->filter($filters);
 
         $allowedSorts = ['kode_kurikulum', 'nama_kurikulum', 'jenis_kurikulum', 'jenjang', 'status', 'tanggal_mulai', 'tanggal_selesai', 'created_at'];
-        if (!in_array($orderBy, $allowedSorts)) {
+        if (! in_array($orderBy, $allowedSorts)) {
             $orderBy = 'created_at';
         }
 
@@ -29,7 +29,7 @@ class MasterKurikulumRepository implements MasterKurikulumRepositoryInterface
             ->with(['unitPendidikan', 'tahunAjaran', 'semester', 'creator', 'updater', 'deleter'])
             ->where(function ($q) use ($id) {
                 $q->where('id', $id)
-                  ->orWhere('kode_kurikulum', $id);
+                    ->orWhere('kode_kurikulum', $id);
             })
             ->first();
     }
@@ -42,7 +42,7 @@ class MasterKurikulumRepository implements MasterKurikulumRepositoryInterface
     public function update(string $id, array $data): ?MasterKurikulum
     {
         $item = $this->findById($id);
-        if (!$item) {
+        if (! $item) {
             return null;
         }
 
@@ -54,7 +54,7 @@ class MasterKurikulumRepository implements MasterKurikulumRepositoryInterface
     public function delete(string $id, ?string $deletedBy = null): bool
     {
         $item = $this->findById($id);
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 
@@ -72,7 +72,7 @@ class MasterKurikulumRepository implements MasterKurikulumRepositoryInterface
             ->where('id', $id)
             ->first();
 
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 

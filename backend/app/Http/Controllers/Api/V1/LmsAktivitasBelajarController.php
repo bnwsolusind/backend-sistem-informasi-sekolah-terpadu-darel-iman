@@ -43,7 +43,7 @@ class LmsAktivitasBelajarController extends Controller
     {
         $aktivitas = $this->aktivitasService->cariBerdasarkanId($id);
 
-        if (!$aktivitas) {
+        if (! $aktivitas) {
             return response()->json([
                 'success' => false,
                 'message' => 'Aktivitas Belajar tidak ditemukan.',
@@ -60,7 +60,7 @@ class LmsAktivitasBelajarController extends Controller
     {
         $aktivitas = $this->aktivitasService->ubah($id, $request->validated());
 
-        if (!$aktivitas) {
+        if (! $aktivitas) {
             return response()->json([
                 'success' => false,
                 'message' => 'Aktivitas Belajar tidak ditemukan atau gagal diperbarui.',
@@ -78,7 +78,7 @@ class LmsAktivitasBelajarController extends Controller
     {
         $deleted = $this->aktivitasService->hapus($id);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Aktivitas Belajar tidak ditemukan atau gagal dihapus.',
@@ -95,7 +95,7 @@ class LmsAktivitasBelajarController extends Controller
     {
         $restored = $this->aktivitasService->pulihkan($id);
 
-        if (!$restored) {
+        if (! $restored) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memulihkan Aktivitas Belajar.',

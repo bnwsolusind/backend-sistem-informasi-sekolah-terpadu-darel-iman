@@ -117,7 +117,7 @@ class CapaianPembelajaranController extends Controller
     {
         $cp = $this->cpService->cariBerdasarkanId($id);
 
-        if (!$cp) {
+        if (! $cp) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Capaian Pembelajaran tidak ditemukan.',
@@ -137,7 +137,7 @@ class CapaianPembelajaranController extends Controller
     {
         $cp = $this->cpService->ubah($id, $request->validated());
 
-        if (!$cp) {
+        if (! $cp) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memperbarui. Capaian Pembelajaran tidak ditemukan.',
@@ -158,7 +158,7 @@ class CapaianPembelajaranController extends Controller
     {
         $deleted = $this->cpService->hapus($id);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus. Capaian Pembelajaran tidak ditemukan.',
@@ -178,7 +178,7 @@ class CapaianPembelajaranController extends Controller
     {
         $restored = $this->cpService->pulihkan($id);
 
-        if (!$restored) {
+        if (! $restored) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan. Capaian Pembelajaran tidak ditemukan.',

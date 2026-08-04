@@ -7,8 +7,10 @@ use App\Http\Requests\V1\IndexRequest;
 use App\Http\Requests\V1\StoreEducationUnitRequest;
 use App\Http\Requests\V1\UpdateEducationUnitRequest;
 use App\Models\EducationUnit;
+use App\Models\JenisUnitPendidikan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class EducationUnitController extends Controller
 {
@@ -20,7 +22,7 @@ class EducationUnitController extends Controller
         $city = $request->query('city');
         $province = $request->query('province');
         $status = $request->query('status');
-        $likeOp = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+        $likeOp = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
         $data = EducationUnit::query()
             ->when($search !== '', function ($query) use ($search, $likeOp) {
@@ -71,6 +73,7 @@ class EducationUnitController extends Controller
     public function show(EducationUnit|string $education_unit): JsonResponse
     {
         $model = $education_unit instanceof EducationUnit ? $education_unit : EducationUnit::query()->findOrFail($education_unit);
+
         return response()->json($model);
     }
 
@@ -101,25 +104,25 @@ class EducationUnitController extends Controller
         $level = $validated['level'] ?? null;
 
         if (empty($code)) {
-            if (!empty($existingCode)) {
+            if (! empty($existingCode)) {
                 $code = $existingCode;
             } else {
                 $rawPrefix = preg_replace('/[^A-Za-z0-9]/', '', $level ?? 'UP');
                 $prefix = strtoupper(substr($rawPrefix ?: 'UP', 0, 10));
-                $code = $prefix . '-' . strtoupper(substr(md5(uniqid()), 0, 5));
+                $code = $prefix.'-'.strtoupper(substr(md5(uniqid()), 0, 5));
             }
         }
 
         $jenisUnitId = $validated['jenis_unit_id'] ?? null;
-        if (empty($jenisUnitId) && !empty($level)) {
-            $jenisUnitId = \App\Models\JenisUnitPendidikan::query()
+        if (empty($jenisUnitId) && ! empty($level)) {
+            $jenisUnitId = JenisUnitPendidikan::query()
                 ->where('singkatan', $level)
                 ->orWhere('kode_jenis', $level)
                 ->orWhere('nama_jenis', $level)
                 ->value('uuid');
         }
         if (empty($jenisUnitId)) {
-            $jenisUnitId = \App\Models\JenisUnitPendidikan::query()->value('uuid');
+            $jenisUnitId = JenisUnitPendidikan::query()->value('uuid');
         }
 
         $payload = [
@@ -131,7 +134,7 @@ class EducationUnitController extends Controller
             'metadata' => $validated['metadata'] ?? [],
         ];
 
-        if (!empty($jenisUnitId)) {
+        if (! empty($jenisUnitId)) {
             $payload['jenis_unit_id'] = $jenisUnitId;
         }
 

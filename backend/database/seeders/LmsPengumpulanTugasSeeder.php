@@ -64,7 +64,7 @@ class LmsPengumpulanTugasSeeder extends Seeder
             $sampleStudents = $students->take(4);
             foreach ($sampleStudents as $sIdx => $student) {
                 $preset = $statuses[$sIdx % count($statuses)];
-                
+
                 LmsPengumpulanTugas::firstOrCreate(
                     [
                         'penugasan_id' => $penugasan->id,

@@ -19,11 +19,11 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
             'subject:id,name,code',
         ]);
 
-        if (!empty($filters['with_trashed']) && filter_var($filters['with_trashed'], FILTER_VALIDATE_BOOLEAN)) {
+        if (! empty($filters['with_trashed']) && filter_var($filters['with_trashed'], FILTER_VALIDATE_BOOLEAN)) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('pertanyaan', 'like', "%{$search}%")
@@ -36,19 +36,19 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
             });
         }
 
-        if (!empty($filters['kisi_kisi_id'])) {
+        if (! empty($filters['kisi_kisi_id'])) {
             $query->where('kisi_kisi_id', $filters['kisi_kisi_id']);
         }
 
-        if (!empty($filters['mata_pelajaran_id'])) {
+        if (! empty($filters['mata_pelajaran_id'])) {
             $query->where('mata_pelajaran_id', $filters['mata_pelajaran_id']);
         }
 
-        if (!empty($filters['tipe_soal'])) {
+        if (! empty($filters['tipe_soal'])) {
             $query->where('tipe_soal', $filters['tipe_soal']);
         }
 
-        if (!empty($filters['tingkat_kesulitan'])) {
+        if (! empty($filters['tingkat_kesulitan'])) {
             $query->where('tingkat_kesulitan', $filters['tingkat_kesulitan']);
         }
 
@@ -57,7 +57,7 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
         }
 
         $allowedColumns = ['created_at', 'kode_soal', 'tipe_soal', 'poin', 'tingkat_kesulitan', 'status'];
-        if (!in_array($orderBy, $allowedColumns)) {
+        if (! in_array($orderBy, $allowedColumns)) {
             $orderBy = 'created_at';
         }
 
@@ -91,18 +91,19 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
     public function update(string $id, array $data): ?LmsBankSoal
     {
         $bankSoal = LmsBankSoal::find($id);
-        if (!$bankSoal) {
+        if (! $bankSoal) {
             return null;
         }
 
         $bankSoal->update($data);
+
         return $bankSoal->fresh(['kisiKisi', 'subject']);
     }
 
     public function delete(string $id): bool
     {
         $bankSoal = LmsBankSoal::find($id);
-        if (!$bankSoal) {
+        if (! $bankSoal) {
             return false;
         }
 
@@ -112,7 +113,7 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
     public function restore(string $id): bool
     {
         $bankSoal = LmsBankSoal::withTrashed()->find($id);
-        if (!$bankSoal || !$bankSoal->trashed()) {
+        if (! $bankSoal || ! $bankSoal->trashed()) {
             return false;
         }
 
@@ -122,14 +123,14 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
     public function duplicate(string $id): ?LmsBankSoal
     {
         $existing = LmsBankSoal::find($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
         $replicated = $existing->replicate();
         $replicated->id = (string) Str::uuid();
-        $replicated->kode_soal = $existing->kode_soal ? $existing->kode_soal . '-COPY' : 'SOAL-' . strtoupper(Str::random(6));
-        $replicated->pertanyaan = '[Salinan] ' . $existing->pertanyaan;
+        $replicated->kode_soal = $existing->kode_soal ? $existing->kode_soal.'-COPY' : 'SOAL-'.strtoupper(Str::random(6));
+        $replicated->pertanyaan = '[Salinan] '.$existing->pertanyaan;
         $replicated->created_at = now();
         $replicated->updated_at = now();
         $replicated->save();
@@ -141,10 +142,10 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
     {
         $query = LmsBankSoal::query();
 
-        if (!empty($filters['kisi_kisi_id'])) {
+        if (! empty($filters['kisi_kisi_id'])) {
             $query->where('kisi_kisi_id', $filters['kisi_kisi_id']);
         }
-        if (!empty($filters['mata_pelajaran_id'])) {
+        if (! empty($filters['mata_pelajaran_id'])) {
             $query->where('mata_pelajaran_id', $filters['mata_pelajaran_id']);
         }
 

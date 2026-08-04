@@ -20,6 +20,40 @@ export interface TahfizhPayload {
 }
 
 export const mobileApiService = {
+  getPortalChildren: async () => (await api.get('/portal/children')).data,
+
+  getPortalDashboard: async (childId?: string) => (
+    await api.get('/portal/dashboard', { params: childId ? { child_id: childId } : {} })
+  ).data,
+
+  getPortalResource: async (resource: string, childId?: string) => (
+    await api.get(`/portal/${resource}`, { params: childId ? { child_id: childId } : {} })
+  ).data,
+
+  submitPortalPermission: async (payload: {
+    child_id?: string;
+    type: 'Izin' | 'Sakit' | 'Keperluan keluarga' | 'Lainnya';
+    start_date: string;
+    end_date: string;
+    reason: string;
+  }) => (await api.post('/portal/permissions', payload)).data,
+
+  getChatContacts: async (childId?: string) => (
+    await api.get('/portal/chat/contacts', { params: childId ? { child_id: childId } : {} })
+  ).data,
+
+  getChatMessages: async (teacherId: string, childId?: string) => (
+    await api.get(`/portal/chat/${teacherId}`, { params: childId ? { child_id: childId } : {} })
+  ).data,
+
+  sendChatMessage: async (teacherId: string, childId: string, message: string) => (
+    await api.post(`/portal/chat/${teacherId}`, { child_id: childId, message })
+  ).data,
+
+  submitPortalAssignment: async (assignmentId: string, jawaban_teks: string) => (
+    await api.post(`/portal/assignments/${assignmentId}/submit`, { jawaban_teks })
+  ).data,
+
   // 1. Dashboard Ringkasan
   getDashboard: async () => {
     try {

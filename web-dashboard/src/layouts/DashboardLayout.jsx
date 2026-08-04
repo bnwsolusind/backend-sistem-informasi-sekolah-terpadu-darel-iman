@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Database,
   BookOpen,
-  BookMarked,
   FileText,
   Settings,
   ChevronDown,
@@ -25,6 +24,8 @@ import {
   CalendarCheck,
   HelpCircle,
   BookHeart,
+  Users,
+  Building2,
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { authService } from '../services/authService'
@@ -34,12 +35,14 @@ import { useUnitStore } from '../stores/unitStore'
 import { Drawer } from '../components/ui/drawer'
 import { FAB } from '../components/ui/fab'
 import ActiveScheduleNotice from '../components/attendance/ActiveScheduleNotice'
+import FloatingChatWidget from '../components/portal/FloatingChatWidget'
 
 export default function DashboardLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
+  const setSession = useAuthStore((state) => state.setSession)
   const activeUnit = useUnitStore((state) => state.activeUnit)
   const setActiveUnit = useUnitStore((state) => state.setActiveUnit)
   const pengaturan = usePengaturanStore((state) => state.pengaturan)
@@ -57,6 +60,9 @@ export default function DashboardLayout() {
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [roleAccessOpen, setRoleAccessOpen] = useState(false)
+  const [roleAccessLoading, setRoleAccessLoading] = useState('')
+  const [impersonating] = useState(() => Boolean(localStorage.getItem('school_erp_superadmin_session')))
   const [searchQuery, setSearchQuery] = useState('')
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme')
@@ -87,6 +93,7 @@ export default function DashboardLayout() {
   const profileDropdownRef = useRef(null)
   const unitDropdownRef = useRef(null)
   const themeDropdownRef = useRef(null)
+  const roleAccessRef = useRef(null)
 
   // Sync dark mode class on html & body
   useEffect(() => {
@@ -115,6 +122,9 @@ export default function DashboardLayout() {
       if (themeDropdownRef.current && !themeDropdownRef.current.contains(e.target)) {
         setThemeMenuOpen(false)
       }
+      if (roleAccessRef.current && !roleAccessRef.current.contains(e.target)) {
+        setRoleAccessOpen(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -132,16 +142,68 @@ export default function DashboardLayout() {
     try {
       await authService.logout()
     } catch {
-      // Abaikan error API
+      // Abaikan error API jika token sudah expired
+    } finally {
+      clearSession()
+      localStorage.removeItem('school_erp_superadmin_session')
+      window.location.href = '/masuk'
     }
-    clearSession()
-    await Swal.fire({
-      icon: 'success',
-      title: 'Sampai Jumpa',
-      text: 'Anda telah berhasil keluar dari Sistem Manajemen Sekolah.',
-      confirmButtonColor: '#0F5132',
-    })
-    window.location.href = '/masuk'
+  }
+
+  const roleAccessOptions = [
+    { label: 'Pengurus Yayasan', role: 'Yayasan' },
+    { label: 'Divisi Pendidikan', role: 'Divisi Pendidikan' },
+    { label: 'Kepala Sekolah', role: 'Kepala Sekolah' },
+    { label: 'Tata Usaha', role: 'Tata Usaha' },
+    { label: 'Guru', role: 'Guru' },
+    { label: 'Guru Tahfizh', role: 'Guru Tahfizh' },
+    { label: 'Musyrif', role: 'Musyrif' },
+    { label: 'Orang Tua', role: 'Orang Tua' },
+    { label: 'Siswa', role: 'Siswa' },
+  ]
+
+  const routeForRole = (role) => {
+    if (role === 'Orang Tua') return '/portal-orangtua'
+    if (role === 'Siswa') return '/portal-siswa'
+    return '/dashboard'
+  }
+
+  const accessAsRole = async (option) => {
+    setRoleAccessLoading(option.role)
+    try {
+      const currentSession = {
+        token: localStorage.getItem('school_erp_token'),
+        user,
+      }
+      const result = await authService.impersonate(option.role)
+      const targetUser = result.user?.data || result.user
+      if (!result.token || !Array.isArray(targetUser?.roles)) {
+        throw new Error('Respons sesi role tidak valid')
+      }
+      localStorage.setItem('school_erp_superadmin_session', JSON.stringify(currentSession))
+      setSession({ token: result.token, user: targetUser })
+      // Reload penuh diperlukan agar cache query, permission, dan seluruh outlet
+      // dibangun ulang menggunakan token pengguna target.
+      window.location.replace(routeForRole(option.role))
+    } catch (error) {
+      Swal.fire('Akses belum tersedia', error.response?.data?.message || 'Gagal masuk sebagai role tersebut.', 'error')
+    } finally {
+      setRoleAccessLoading('')
+    }
+  }
+
+  const returnToSuperAdmin = () => {
+    try {
+      const original = JSON.parse(localStorage.getItem('school_erp_superadmin_session') || 'null')
+      if (!original?.token || !original?.user) throw new Error('Sesi tidak ditemukan')
+      setSession(original)
+      localStorage.removeItem('school_erp_superadmin_session')
+      window.location.replace('/dashboard')
+    } catch {
+      clearSession()
+      localStorage.removeItem('school_erp_superadmin_session')
+      window.location.href = '/masuk'
+    }
   }
 
   const daftarUnitOptions = [
@@ -162,31 +224,40 @@ export default function DashboardLayout() {
       { to: '/absensi/tindak-lanjut', label: 'Tindak Lanjut Siswa' },
       { to: '/absensi/laporan', label: 'Laporan Rombel' },
     ] : []),
-    ...(hasRole('Guru') && can('attendance.teacher.dashboard', 'lesson_attendance.view_own', 'lesson_attendance.create') ? [
+    ...(hasRole('Guru', 'Guru Tahfizh') && can('attendance.teacher.dashboard', 'lesson_attendance.view_own', 'lesson_attendance.create') ? [
       { to: '/absensi/dashboard-guru', label: 'Dashboard Guru' },
       { to: '/absensi/jadwal-mengajar', label: 'Jadwal Mengajar' },
       { to: '/absensi/presensi', label: 'Presensi Pembelajaran' },
       { to: '/absensi/riwayat-guru', label: 'Riwayat Presensi' },
     ] : []),
-    ...(hasRole('Siswa') && can('attendance.student.view_own', 'student_attendance.view_own') ? [
-      { to: '/absensi/kehadiran-saya', label: 'Kehadiran Saya' },
-      { to: '/absensi/riwayat-saya', label: 'Riwayat Kehadiran' },
-      { to: '/absensi/pengajuan-izin', label: 'Pengajuan Izin/Sakit' },
+    ...(hasRole('Siswa', 'Orang Tua') && can('attendance.student.view_own', 'student_attendance.view_own') ? [
+      // { to: '/absensi/kehadiran-saya', label: 'Kehadiran Saya' },
+      // { to: '/absensi/riwayat-saya', label: 'Riwayat Kehadiran' },
+      // { to: '/absensi/pengajuan-izin', label: 'Pengajuan Izin/Sakit' },
     ] : []),
-    ...(!hasRole('Guru') && !hasRole('Wali Kelas') && !hasRole('Siswa') ? [
-            { to: '/dashboard/attendance', label: 'Presensi Guru' },
-            { to: '/dashboard/attendance?view=siswa', label: 'Presensi Siswa' },
-            { to: '/dashboard/lms/presensi-pembelajaran', label: 'Presensi Pembelajaran (LMS)' },
-            { to: '/dashboard/laporan-absensi', label: 'Rekap Presensi' },
-    ] : []),
+    ...(!hasRole('Guru') && !hasRole('Guru Tahfizh') && !hasRole('Wali Kelas') && !hasRole('Siswa') ? [
+      { to: '/dashboard/absensi-gerbang', label: 'Absensi Gerbang' },
+      { to: '/dashboard/absensi-pembelajaran', label: 'Absensi Kelas & MaPel' },
+      { to: '/dashboard/absensi-ibadah', label: 'Absensi Ibadah Santri' },
+      { to: '/dashboard/laporan-absensi', label: 'Rekap Presensi & Laporan' },
+    ] : [
+      { to: '/dashboard/absensi-pembelajaran', label: 'Absensi Kelas & Mata Pelajaran' },
+      { to: '/dashboard/absensi-gerbang', label: 'Absensi Gerbang' },
+      { to: '/dashboard/absensi-ibadah', label: 'Absensi Ibadah Santri' },
+    ]),
   ].filter((item, index, list) => list.findIndex((entry) => entry.to === item.to) === index)
 
   const bolehBukaMenu = (to) => {
     if (hasRole('Super Admin')) return true
 
+    if (to.startsWith('/portal-siswa')) return hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid')
+    if (to.startsWith('/portal-orangtua')) return hasRole('Orang Tua', 'Orangtua', 'Wali Murid')
+    if (to.startsWith('/portal-guru')) return hasRole('Guru', 'Guru Tahfizh', 'Wali Kelas')
     if (to === '/dashboard') return can('dashboard.view')
     if (to.startsWith('/dashboard/pemantauan')) return can('dashboard.pemantauan.lihat')
-    if (to === '/dashboard/students') return can('kesiswaan.data_lengkap_siswa', 'sekolah.data_pribadi_siswa')
+    // Data pribadi hanya memberi akses ke profil siswa sendiri di portal,
+    // bukan ke master data seluruh siswa.
+    if (to === '/dashboard/students') return can('kesiswaan.data_lengkap_siswa')
     if (to.includes('/students/rombel') || to.includes('/students/kelas')) return can('kesiswaan.kelas_rombel')
     if (to.includes('/students/input') || to.includes('/students/laporan')) return can('kesiswaan.laporan_masuk_keluar')
     if (to.includes('/lms/penugasan')) return can('kesiswaan.penugasan_siswa')
@@ -195,9 +266,24 @@ export default function DashboardLayout() {
     if (to.includes('/lms/bank-soal')) return can('pembelajaran.bank_soal')
     if (to.includes('/jadwal-pelajaran')) return can('pembelajaran.jadwal_pelajaran')
     if (to.includes('/master-kurikulum')) return can('pembelajaran.kurikulum.view')
+    if (to === '/dashboard/mutabaah/rekap') return can('mutabaah.recap.view', 'mutabaah.report.view', 'mutabaah.report.export')
+    if (to === '/dashboard/tahfizh') return hasRole('Super Admin', 'Admin', 'Tata Usaha', 'TU', 'Musyrif')
     if (to.includes('/tahfizh')) return can('tahfizh.monitoring_target', 'tahfizh.laporan_target')
-    if (to.includes('/mutabaah')) return hasRole('Guru', 'Wali Kelas', 'Pembimbing', 'Tata Usaha', 'TU') || can('mutabaah.view', 'mutabaah.input', 'mutabaah.agenda.manage', 'sistem.master_data')
+    if (to.includes('/absensi-ibadah') || to.includes('/worship')) {
+      return (
+        hasRole('Musyrif', 'Musyrifah', 'Pengasuh', 'Wali Asrama', 'Pembimbing', 'Super Admin', 'Admin') ||
+        can('worship_attendance.view', 'worship_attendance.verify')
+      )
+    }
+    if (to.includes('/mutabaah')) {
+      return (
+        hasRole('Guru', 'Wali Kelas', 'Pembimbing', 'Musyrif', 'Musyrifah', 'Tata Usaha', 'TU') ||
+        can('mutabaah.view', 'mutabaah.input', 'mutabaah.agenda.manage', 'sistem.master_data')
+      )
+    }
     if (to.includes('/laporan-absensi')) return can('kehadiran.siswa.monitoring', 'kehadiran.siswa.rekap_keterlambatan', 'kehadiran.siswa.rekap_ketidakhadiran')
+    if (to.includes('/rekap-absensi-gerbang')) return can('kehadiran.siswa.monitoring', 'gate_attendance.view')
+    if (to.includes('/rekap-absensi-ibadah')) return can('worship_attendance.view', 'worship_attendance.verify')
     if (to.includes('/laporan-siswa')) return can('kesiswaan.rekap_prestasi', 'kesiswaan.kelulusan_per_unit', 'kesiswaan.kelulusan_per_tahun')
     if (to.includes('/laporan-alumni')) return can('kesiswaan.alumni_tujuan_lanjut')
     if (to.startsWith('/absensi') || to.includes('/attendance') || to.includes('/lms/presensi')) {
@@ -209,13 +295,80 @@ export default function DashboardLayout() {
         'student_attendance.view_own',
       )
     }
+    if (to.startsWith('/dashboard/yayasan')) {
+      return (
+        hasRole('Super Admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'sekretaris_yayasan', 'bendahara_yayasan', 'pengurus_yayasan') ||
+        can(
+          'foundation.dashboard.view',
+          'foundation.unit.view',
+          'foundation.employee.view',
+          'foundation.teacher.view',
+          'foundation.student.view',
+          'foundation.student_new.view',
+          'foundation.student_mutation.view',
+          'foundation.graduation.view',
+          'foundation.alumni.view',
+          'foundation.information.view',
+          'foundation.report.view',
+          'foundation.report.export'
+        )
+      )
+    }
     if (to.includes('/hak-akses')) return can('sistem.hak_akses')
     if (to.includes('/pengaturan')) return can('sistem.pengaturan')
 
     return can('sistem.master_data')
   }
 
-  const sidebarMenu = [
+  const isFoundationUser =
+    !hasRole('Super Admin', 'superadmin', 'SuperAdmin') &&
+    (hasRole('Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'sekretaris_yayasan', 'bendahara_yayasan', 'pengurus_yayasan') ||
+      can('foundation.dashboard.view'))
+
+  const sidebarMenu = isFoundationUser ? [
+    {
+      key: 'dashboard-yayasan',
+      label: 'Dashboard Yayasan',
+      icon: LayoutDashboard,
+      to: '/dashboard/yayasan',
+    },
+    {
+      key: 'yayasan-monitoring',
+      label: 'Monitoring',
+      icon: Building2,
+      submenus: [
+        { to: '/dashboard/yayasan/unit-pendidikan', label: 'Unit Pendidikan' },
+        { to: '/dashboard/yayasan/pegawai-guru', label: 'Pegawai & Guru' },
+        { to: '/dashboard/yayasan/siswa', label: 'Data Siswa' },
+        { to: '/dashboard/yayasan/siswa-baru', label: 'Siswa Baru' },
+        { to: '/dashboard/yayasan/mutasi-siswa', label: 'Mutasi Siswa' },
+        { to: '/dashboard/yayasan/kelulusan-alumni', label: 'Kelulusan & Alumni' },
+        { to: '/dashboard/yayasan/informasi-sekolah', label: 'Informasi Sekolah' },
+      ],
+    },
+    {
+      key: 'yayasan-laporan',
+      label: 'Laporan',
+      icon: FileText,
+      submenus: [
+        { to: '/dashboard/yayasan/laporan/sdm', label: 'Laporan SDM' },
+        { to: '/dashboard/yayasan/laporan/siswa', label: 'Laporan Siswa' },
+        { to: '/dashboard/yayasan/laporan/mutasi', label: 'Laporan Mutasi' },
+        { to: '/dashboard/yayasan/laporan/kelulusan', label: 'Laporan Kelulusan' },
+        { to: '/dashboard/yayasan/laporan/alumni', label: 'Laporan Alumni' },
+        { to: '/dashboard/yayasan/laporan/lintas-unit', label: 'Laporan Lintas Unit' },
+      ],
+    },
+    {
+      key: 'yayasan-akun',
+      label: 'Akun',
+      icon: User,
+      submenus: [
+        { to: '/dashboard/yayasan/notifikasi', label: 'Notifikasi' },
+        { to: '/dashboard/yayasan/profil', label: 'Profil' },
+      ],
+    },
+  ] : [
     {
       key: 'dashboard',
       label: 'Dashboard',
@@ -224,45 +377,85 @@ export default function DashboardLayout() {
     },
     {
       key: 'master-data',
+      label: 'DASHBOARD YAYASAN',
+      icon: Building2,
+      submenus: [
+        { to: '/dashboard/yayasan', label: 'Ringkasan Utama' },
+        { to: '/dashboard/yayasan/unit-pendidikan', label: 'Unit Pendidikan' },
+        { to: '/dashboard/yayasan/pegawai-guru', label: 'Pegawai & Guru' },
+        { to: '/dashboard/yayasan/siswa', label: 'Data Siswa' },
+        { to: '/dashboard/yayasan/siswa-baru', label: 'Siswa Baru' },
+        { to: '/dashboard/yayasan/mutasi-siswa', label: 'Mutasi Siswa' },
+        { to: '/dashboard/yayasan/kelulusan-alumni', label: 'Kelulusan & Alumni' },
+        { to: '/dashboard/yayasan/informasi-sekolah', label: 'Informasi Sekolah' },
+        { to: '/dashboard/yayasan/laporan', label: 'Laporan Lintas Unit' },
+      ],
+    },
+    {
+      key: 'master-data',
       label: 'MASTER DATA',
       icon: Database,
       submenus: [
         { to: '/dashboard/students/unit-pendidikan', label: 'Unit Pendidikan' },
         { to: '/dashboard/master-jenis-unit', label: 'Jenis Unit' },
-        { to: '/dashboard/master-tahun-ajaran', label: 'Tahun Ajaran' },
-        { to: '/dashboard/master-subjects', label: 'Mata Pelajaran' },
         { to: '/dashboard/master-jabatan', label: 'Jabatan' },
         { to: '/dashboard/employees', label: 'Pegawai' },
         { to: '/dashboard/students', label: 'Siswa' },
+        { to: '/dashboard/master-quran-surah', label: 'Al-Qur’an' },
+        { to: '/dashboard/master-jadwal-sholat', label: 'Sholat' },
+        { to: '/dashboard/master-doa', label: 'Do’a & Dzikir' },
       ],
     },
     {
       key: 'akademik',
-      label: 'AKADEMIK',
+      label: 'AKADEMIK & LMS',
       icon: BookOpen,
       submenus: [
-        { to: '/dashboard/master-tahun-ajaran', label: 'Tahun Ajaran' },
-        { to: '/dashboard/master-modul-semester', label: 'Semester' },
-        { to: '/dashboard/master-kurikulum', label: 'Kurikulum' },
-        { to: '/dashboard/students/rombel', label: 'Kelas & Rombel' },
-        { to: '/dashboard/master-subjects', label: 'Mata Pelajaran' },
-        { to: '/dashboard/jadwal-pelajaran', label: 'Jadwal Pelajaran' },
-        { to: '/dashboard/master-capaian-pembelajaran', label: 'Capaian Pembelajaran (CP)' },
-        { to: '/dashboard/master-tujuan-pembelajaran', label: 'Tujuan Pembelajaran (TP)' },
-        { to: '/dashboard/lms/modul-ajar', label: 'Modul Ajar (RPP)' },
-        { to: '/dashboard/lms/materi-pembelajaran', label: 'Materi Pembelajaran' },
-        { to: '/dashboard/lms/media-pembelajaran', label: 'Media Pembelajaran' },
-        { to: '/dashboard/lms/referensi-pembelajaran', label: 'Referensi Pembelajaran' },
-        { to: '/dashboard/lms/aktivitas-belajar', label: 'Aktivitas Belajar' },
-        { to: '/dashboard/lms/diskusi-kelas', label: 'Diskusi Kelas' },
-        { to: '/dashboard/lms/penugasan', label: 'Penugasan' },
-        { to: '/dashboard/lms/pengumpulan-tugas', label: 'Pengumpulan Tugas' },
-        { to: '/dashboard/lms/presensi-pembelajaran', label: 'Presensi Pembelajaran' },
-        { to: '/dashboard/lms/kisi-kisi', label: 'Kisi-kisi Ujian' },
-        { to: '/dashboard/lms/bank-soal', label: 'Bank Soal' },
-        { to: '/dashboard/lms/ujian-online', label: 'Ujian Online (CBT)' },
-        { to: '/dashboard/lms/penilaian', label: 'Penilaian LMS' },
-        { to: '/dashboard/lms/rapor', label: 'Rapor Digital & PDF' },
+        { to: '/dashboard/akademik/pengaturan?tab=tahun-ajaran', label: 'Pengaturan Akademik' },
+        { to: '/dashboard/akademik/perencanaan?tab=cp', label: 'Perencanaan Pembelajaran' },
+        { to: '/dashboard/akademik/pembelajaran?tab=materi', label: 'Pembelajaran' },
+        { to: '/dashboard/akademik/evaluasi?tab=penugasan', label: 'Tugas & Evaluasi' },
+        { to: '/dashboard/akademik/nilai-rapor?tab=buku-nilai', label: 'Nilai & Rapor' },
+      ],
+    },
+    {
+      key: 'portal-guru',
+      label: 'PORTAL GURU',
+      icon: BookOpen,
+      submenus: [
+        { to: '/portal-guru', label: 'Ringkasan' },
+        // { to: '/portal-guru/workspace?tab=jadwal', label: 'Workspace Pembelajaran' },
+        { to: '/portal-guru/workspace?tab=chat', label: 'Komunikasi Orang Tua' },
+        { to: '/dashboard/chat-pegawai', label: 'Chat Pegawai' },
+      ],
+    },
+    {
+      key: 'portal-ortu-siswa',
+      label: hasRole('Orang Tua') ? 'PORTAL ORANG TUA' : hasRole('Siswa') ? 'PORTAL SISWA' : 'PORTAL ORANG TUA & SISWA',
+      icon: Users,
+      submenus: [
+        ...(hasRole('Orang Tua') ? [
+          { to: '/portal-orangtua?tab=ringkasan', label: 'Dashboard' },
+          { to: '/portal-orangtua?tab=chat', label: 'Chat Guru' },
+          { to: '/portal-siswa/mutabaah', label: 'Mutabaah' },
+          { to: '/portal-siswa/absensi', label: 'Absensi' },
+          { to: '/absensi/kehadiran-saya', label: 'Kehadiran Saya' },
+          { to: '/absensi/riwayat-saya', label: 'Riwayat Kehadiran' },
+          { to: '/absensi/pengajuan-izin', label: 'Pengajuan Izin/Sakit' },
+        ] : []),
+        ...(hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid') ? [
+          { to: '/portal-siswa/profil', label: 'Profil & Biodata' },
+          { to: '/portal-siswa/informasi-sekolah', label: 'Informasi Sekolah' },
+          { to: '/portal-siswa/jadwal', label: 'Jadwal' },
+          { to: '/portal-siswa/materi', label: 'Materi' },
+          { to: '/portal-siswa/tugas', label: 'Tugas' },
+          { to: '/portal-siswa/tahfizh', label: 'Tahfizh' },
+          { to: '/portal-siswa/nilai', label: 'Nilai' },
+          { to: '/portal-siswa/komentar-guru', label: 'Komentar Guru' },
+          { to: '/portal-siswa/kisi-kisi', label: 'Kisi-kisi' },
+          { to: '/portal-siswa/ujian-cbt', label: 'Ujian CBT' },
+          { to: '/portal-siswa/hasil', label: 'Hasil' },
+        ] : []),
       ],
     },
     {
@@ -272,33 +465,58 @@ export default function DashboardLayout() {
       submenus: attendanceSubmenus,
     },
     {
+      key: 'musyrif-asrama',
+      label: 'PORTAL MUSYRIF',
+      icon: Moon,
+      submenus: [
+        { to: '/dashboard/absensi-ibadah', label: 'Presensi Ibadah Santri' },
+        { to: '/dashboard/mutabaah', label: 'Mutaba’ah Harian Santri' },
+        ...(hasRole('Super Admin', 'Admin', 'Tata Usaha', 'TU', 'Musyrif')
+          ? [{ to: '/dashboard/tahfizh', label: 'Setoran Tahfizh Asrama' }]
+          : []),
+      ],
+    },
+    {
       key: 'mutabaah',
       label: 'MUTABA’AH',
       icon: BookHeart,
       submenus: [
-        { to: '/dashboard/mutabaah', label: 'Input Mutaba’ah Harian' },
-        ...(hasRole('Super Admin', 'Tata Usaha', 'TU') || can('mutabaah.agenda.manage') ? [{ to: '/dashboard/mutabaah?tab=agenda', label: 'Rincian Agenda TU' }] : []),
+        { to: '/dashboard/mutabaah', label: 'Dashboard Mutaba’ah' },
+        // { to: '/dashboard/mutabaah/input-harian', label: 'Input Mutaba’ah Harian' },
+        { to: '/dashboard/mutabaah/rekap', label: 'Rekap Mutaba’ah' },
+        { to: '/dashboard/mutabaah/target-evaluasi', label: 'Target & Evaluasi' },
+        ...(hasRole('Super Admin') || can('mutabaah.agenda.view') ? [{ to: '/dashboard/mutabaah/rincian-agenda', label: 'Rincian Agenda TU' }] : []),
+        ...(hasRole('Super Admin') || can('mutabaah.template.view') ? [{ to: '/dashboard/mutabaah/template-agenda', label: 'Template Agenda' }] : []),
+        ...(hasRole('Super Admin') || can('mutabaah.template.assign') ? [{ to: '/dashboard/mutabaah/assign-template', label: 'Assign Template' }] : []),
+        ...(hasRole('Super Admin') || can('mutabaah.supervisor.view') ? [{ to: '/dashboard/mutabaah/assign-pembimbing', label: 'Assign Pembimbing' }] : []),
+        { to: '/dashboard/mutabaah/monitoring-orang-tua', label: 'Monitoring Orang Tua' },
+
       ],
     },
-    {
-      key: 'tahfidz',
-      label: 'TAHFIDZ',
-      icon: BookMarked,
-      submenus: [
-        { to: '/dashboard/tahfizh', label: 'Hafalan' },
-        { to: '/dashboard/tahfizh?tab=murajaah', label: 'Murajaah' },
-      ],
-    },
+    // {
+    //   key: 'tahfidz',
+    //   label: 'TAHFIDZ',
+    //   icon: BookMarked,
+    //   submenus: [
+    //     { to: '/dashboard/tahfizh', label: 'Hafalan' },
+    //     { to: '/dashboard/tahfizh?tab=murajaah', label: 'Murajaah' },
+    //   ],
+    // },
     {
       key: 'laporan',
-      label: 'LAPORAN',
+      label: 'REKAP DATA',
       icon: FileText,
       submenus: [
         { to: '/dashboard/laporan-siswa', label: 'Laporan Siswa' },
-        { to: '/dashboard/laporan-absensi', label: 'Laporan Absensi' },
-        { to: '/dashboard/laporan-akademik', label: 'Laporan Akademik' },
+        { to: '/dashboard/laporan-absensi', label: 'Laporan Absensi Pembelajaran' },
+        { to: '/dashboard/rekap-absensi-gerbang', label: 'Laporan Absensi Gerbang' },
+        { to: '/dashboard/rekap-absensi-ibadah', label: 'Laporan Absensi Ibadah' },
+        { to: '/dashboard/mutabaah/rekap', label: 'Laporan Mutaba’ah' },
+        { to: '/dashboard/laporan-tahfizh', label: 'Laporan Tahfizh' },
+        { to: '/dashboard/laporan-akademik', label: 'Laporan Akademik & Nilai' },
         { to: '/dashboard/laporan-pegawai', label: 'Laporan Pegawai & Guru' },
         { to: '/dashboard/laporan-lms', label: 'Laporan LMS' },
+        { to: '/dashboard/laporan-alumni', label: 'Laporan Alumni & Prestasi' },
       ],
     },
     {
@@ -320,10 +538,14 @@ export default function DashboardLayout() {
   ))
 
   const isSubActive = (to) => {
-    if (to === '/dashboard/students') {
+    const targetPath = to.split('?')[0]
+    if (targetPath.startsWith('/dashboard/mutabaah')) {
+      return location.pathname.replace(/\/$/, '') === targetPath
+    }
+    if (targetPath === '/dashboard/students') {
       return location.pathname === '/dashboard/students' || location.pathname === '/dashboard/students/'
     }
-    return location.pathname.startsWith(to) && to !== '/dashboard'
+    return location.pathname.startsWith(targetPath) && targetPath !== '/dashboard'
   }
 
   const notifikasiItems = [
@@ -606,6 +828,52 @@ export default function DashboardLayout() {
                 <span>{tanggalTampil}</span>
               </div>
 
+              {/* Super Admin: switch into a representative role session */}
+              {hasRole('Super Admin') && !impersonating && (
+                <div className="relative" ref={roleAccessRef}>
+                  <button
+                    type="button"
+                    onClick={() => setRoleAccessOpen((open) => !open)}
+                    aria-haspopup="menu"
+                    aria-expanded={roleAccessOpen}
+                    className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-[#0E5C44] transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+                    title="Masuk sebagai role lain"
+                  >
+                    <Users className="h-4 w-4" />
+                    <span className="hidden xl:inline">Akses Role</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+
+                  {roleAccessOpen && (
+                    <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-[18px] border border-slate-200/80 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-[#13221f]">
+                      <div className="px-2 pb-2 pt-1">
+                        <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Login sebagai</p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">Pilih role untuk melihat portal dan hak aksesnya.</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-0.5">
+                        {roleAccessOptions.map((option) => (
+                          <button
+                            key={option.role}
+                            type="button"
+                            role="menuitem"
+                            disabled={Boolean(roleAccessLoading)}
+                            onClick={() => accessAsRole(option)}
+                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-[#0E5C44] disabled:cursor-wait disabled:opacity-60 dark:text-slate-200 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
+                          >
+                            <span>{option.label}</span>
+                            {roleAccessLoading === option.role ? (
+                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Notification Drawer Trigger */}
               <button
                 type="button"
@@ -712,23 +980,33 @@ export default function DashboardLayout() {
                     <div className="p-1.5 space-y-0.5">
                       <button
                         onClick={() => {
-                          navigate('/dashboard/pengaturan')
+                          navigate(isFoundationUser ? '/dashboard/yayasan/profil' : '/dashboard/profil-akun')
                           setProfileDropdownOpen(false)
                         }}
                         className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition dark:text-slate-300 dark:hover:bg-slate-800"
                       >
                         <User className="h-4 w-4 text-[#0E5C44] dark:text-[#3FBF75]" />
-                        <span>Profil & Akun</span>
+                        <span>Lihat Profil</span>
                       </button>
                       <button
                         onClick={() => {
-                          navigate('/dashboard/pengaturan?tab=keamanan')
+                          navigate(isFoundationUser ? '/dashboard/yayasan/notifikasi' : '/notifications')
+                          setProfileDropdownOpen(false)
+                        }}
+                        className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        <Bell className="h-4 w-4 text-slate-500" />
+                        <span>Notifikasi</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate(isFoundationUser ? '/dashboard/yayasan/profil' : '/dashboard/pengaturan?tab=keamanan')
                           setProfileDropdownOpen(false)
                         }}
                         className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition dark:text-slate-300 dark:hover:bg-slate-800"
                       >
                         <Settings className="h-4 w-4 text-slate-500" />
-                        <span>Ganti Password</span>
+                        <span>Pengaturan Akun</span>
                       </button>
                     </div>
 
@@ -752,6 +1030,22 @@ export default function DashboardLayout() {
 
           {/* Main Page Workspace */}
           <main className="flex-1 p-6 md:p-8 space-y-8 max-w-7xl w-full mx-auto pb-24 md:pb-12">
+            {impersonating && (
+              <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
+                <div>
+                  <p className="text-xs font-extrabold">Mode akses role aktif: {roleTampil}</p>
+                  <p className="mt-0.5 text-[11px] opacity-75">Anda sedang melihat sistem sebagai {namaTampil}.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={returnToSuperAdmin}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-amber-800 dark:bg-amber-400 dark:text-amber-950 dark:hover:bg-amber-300"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Kembali ke Super Admin
+                </button>
+              </div>
+            )}
             <ActiveScheduleNotice />
             <Outlet />
           </main>
@@ -799,20 +1093,20 @@ export default function DashboardLayout() {
         </NavLink>
 
         <NavLink
-          to="/dashboard/students"
+          to={hasRole('Siswa') ? '/portal-siswa' : hasRole('Orang Tua') ? '/portal-orangtua' : '/dashboard/students'}
           className={({ isActive }) =>
             `flex flex-col items-center gap-1 text-[10px] font-semibold transition ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
             }`
           }
         >
           <Database className="h-5 w-5" />
-          <span>Data Siswa</span>
+          <span>{hasRole('Siswa') ? 'Portal Siswa' : hasRole('Orang Tua') ? 'Portal Anak' : 'Data Siswa'}</span>
         </NavLink>
 
         {/* Action Center Trigger */}
         <button
           type="button"
-          onClick={() => navigate('/dashboard/students?action=add')}
+          onClick={() => navigate(hasRole('Siswa') ? '/portal-siswa/tugas' : hasRole('Orang Tua') ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add')}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md"
         >
           <Plus className="h-5 w-5" />
@@ -840,7 +1134,10 @@ export default function DashboardLayout() {
       </nav>
 
       {/* Floating Action Button (FAB) for Mobile Quick Add */}
-      <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />
+      {!hasRole('Siswa', 'Orang Tua') && can('kesiswaan.data_lengkap_siswa') && <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />}
+
+      {/* Floating Chat Pop-Up & Melayang Button */}
+      <FloatingChatWidget />
     </div>
   )
 }

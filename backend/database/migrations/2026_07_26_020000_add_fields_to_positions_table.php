@@ -9,37 +9,37 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('positions', function (Blueprint $table) {
-            if (!Schema::hasColumn('positions', 'unit_sekolah_id')) {
+            if (! Schema::hasColumn('positions', 'unit_sekolah_id')) {
                 $table->uuid('unit_sekolah_id')->nullable()->after('name');
             }
-            if (!Schema::hasColumn('positions', 'level_jabatan')) {
+            if (! Schema::hasColumn('positions', 'level_jabatan')) {
                 $table->integer('level_jabatan')->default(9)->index()->after('unit_sekolah_id');
             }
-            if (!Schema::hasColumn('positions', 'atasan_langsung_id')) {
+            if (! Schema::hasColumn('positions', 'atasan_langsung_id')) {
                 $table->uuid('atasan_langsung_id')->nullable()->after('level_jabatan');
             }
-            if (!Schema::hasColumn('positions', 'role_sistem_id')) {
+            if (! Schema::hasColumn('positions', 'role_sistem_id')) {
                 $table->unsignedBigInteger('role_sistem_id')->nullable()->after('atasan_langsung_id');
             }
-            if (!Schema::hasColumn('positions', 'urutan')) {
+            if (! Schema::hasColumn('positions', 'urutan')) {
                 $table->integer('urutan')->default(0)->after('role_sistem_id');
             }
-            if (!Schema::hasColumn('positions', 'warna')) {
+            if (! Schema::hasColumn('positions', 'warna')) {
                 $table->string('warna', 30)->default('#3B82F6')->after('urutan');
             }
-            if (!Schema::hasColumn('positions', 'ikon')) {
+            if (! Schema::hasColumn('positions', 'ikon')) {
                 $table->string('ikon', 50)->default('UserCheck')->after('warna');
             }
-            if (!Schema::hasColumn('positions', 'tampil_struktur')) {
+            if (! Schema::hasColumn('positions', 'tampil_struktur')) {
                 $table->boolean('tampil_struktur')->default(true)->after('ikon');
             }
-            if (!Schema::hasColumn('positions', 'boleh_login')) {
+            if (! Schema::hasColumn('positions', 'boleh_login')) {
                 $table->boolean('boleh_login')->default(false)->after('tampil_struktur');
             }
-            if (!Schema::hasColumn('positions', 'created_by')) {
+            if (! Schema::hasColumn('positions', 'created_by')) {
                 $table->uuid('created_by')->nullable()->after('metadata');
             }
-            if (!Schema::hasColumn('positions', 'updated_by')) {
+            if (! Schema::hasColumn('positions', 'updated_by')) {
                 $table->uuid('updated_by')->nullable()->after('created_by');
             }
 

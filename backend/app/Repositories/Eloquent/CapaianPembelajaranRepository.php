@@ -22,19 +22,19 @@ class CapaianPembelajaranRepository implements CapaianPembelajaranRepositoryInte
     {
         $query = CapaianPembelajaran::query();
 
-        if (!empty($filters['unit_pendidikan_id']) && Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
+        if (! empty($filters['unit_pendidikan_id']) && Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
             $query->where('unit_pendidikan_id', $filters['unit_pendidikan_id']);
         }
 
-        if (!empty($filters['tahun_ajaran_id']) && Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
+        if (! empty($filters['tahun_ajaran_id']) && Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);
         }
 
-        if (!empty($filters['kurikulum_id'])) {
+        if (! empty($filters['kurikulum_id'])) {
             $query->where('kurikulum_id', $filters['kurikulum_id']);
         }
 
-        if (!empty($filters['mata_pelajaran_id'])) {
+        if (! empty($filters['mata_pelajaran_id'])) {
             $query->where('mata_pelajaran_id', $filters['mata_pelajaran_id']);
         }
 
@@ -50,34 +50,37 @@ class CapaianPembelajaranRepository implements CapaianPembelajaranRepositoryInte
         if ($withTrashed) {
             $query->withTrashed();
         }
+
         return $query->find($id);
     }
 
     public function create(array $data): CapaianPembelajaran
     {
         $data = $this->sanitizeDataColumns($data);
+
         return CapaianPembelajaran::create($data);
     }
 
     public function update(string $id, array $data): ?CapaianPembelajaran
     {
         $cp = $this->findById($id);
-        if (!$cp) {
+        if (! $cp) {
             return null;
         }
 
         $data = $this->sanitizeDataColumns($data);
         $cp->update($data);
+
         return $cp->fresh(['unitPendidikan', 'tahunAjaran', 'kurikulum', 'subject']);
     }
 
     protected function sanitizeDataColumns(array $data): array
     {
-        if (array_key_exists('unit_pendidikan_id', $data) && !Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
+        if (array_key_exists('unit_pendidikan_id', $data) && ! Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
             unset($data['unit_pendidikan_id']);
         }
 
-        if (array_key_exists('tahun_ajaran_id', $data) && !Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
+        if (array_key_exists('tahun_ajaran_id', $data) && ! Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
             unset($data['tahun_ajaran_id']);
         }
 
@@ -87,18 +90,20 @@ class CapaianPembelajaranRepository implements CapaianPembelajaranRepositoryInte
     public function delete(string $id): bool
     {
         $cp = $this->findById($id);
-        if (!$cp) {
+        if (! $cp) {
             return false;
         }
+
         return (bool) $cp->delete();
     }
 
     public function restore(string $id): bool
     {
         $cp = CapaianPembelajaran::withTrashed()->find($id);
-        if (!$cp) {
+        if (! $cp) {
             return false;
         }
+
         return (bool) $cp->restore();
     }
 }

@@ -13,7 +13,7 @@ class LmsPengumpulanTugasResource extends JsonResource
             'id' => $this->id,
             'penugasan_id' => $this->penugasan_id,
             'siswa_id' => $this->siswa_id,
-            
+
             // Relasi Penugasan
             'penugasan' => $this->relationLoaded('penugasan') && $this->penugasan ? [
                 'id' => $this->penugasan->id,
@@ -42,7 +42,7 @@ class LmsPengumpulanTugasResource extends JsonResource
             'nilai_guru' => $this->nilai_guru !== null ? (float) $this->nilai_guru : null,
             'catatan_guru' => $this->catatan_guru,
             'waktu_dinilai' => $this->waktu_dinilai ? $this->waktu_dinilai->format('Y-m-d H:i') : null,
-            
+
             // Relasi Penilai (Guru)
             'penilai' => $this->relationLoaded('penilai') && $this->penilai ? [
                 'id' => $this->penilai->id,

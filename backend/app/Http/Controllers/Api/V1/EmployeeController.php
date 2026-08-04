@@ -20,6 +20,7 @@ class EmployeeController extends Controller
     public function dashboard()
     {
         $stats = $this->employeeService->getDashboardStats();
+
         return response()->json([
             'status' => 'success',
             'data' => $stats,
@@ -40,7 +41,7 @@ class EmployeeController extends Controller
     {
         $employee = $this->employeeService->getById($id);
 
-        if (!$employee) {
+        if (! $employee) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data pegawai tidak ditemukan',
@@ -88,6 +89,7 @@ class EmployeeController extends Controller
     public function positions()
     {
         $positions = $this->employeeService->getPositions();
+
         return response()->json([
             'status' => 'success',
             'data' => $positions,

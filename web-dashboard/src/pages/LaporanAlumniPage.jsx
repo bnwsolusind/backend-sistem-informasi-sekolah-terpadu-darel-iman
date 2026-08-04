@@ -1,71 +1,69 @@
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ReportFilters, ReportHeader, ReportState, ReportStats, ReportTable, exportCsv } from '../components/reports/ReportKit'
+import { reportService } from '../services/reportService'
 
-const kartuRingkas = [
-  { label: 'Total Prestasi', nilai: '128', keterangan: 'Tahun 2023/2024' },
-  { label: 'Siswa Lulus', nilai: '156', keterangan: 'Tahun ini' },
-  { label: 'Total Kelulusan', nilai: '1.248', keterangan: '5 tahun terakhir' },
-  { label: 'Alumni Tercatat', nilai: '2.356', keterangan: 'Sejak 2015' },
-]
-
-const menuAksi = [
-  { label: 'Lihat Detail Alumni', to: '/dashboard/notifications' },
-  { label: 'Cetak Laporan', to: '/dashboard/notifications' },
-  { label: 'Export Rekap', to: '/dashboard/notifications' },
+const columns = [
+  { key: 'nis', label: 'NIS', render: (row) => row.nis || '-' },
+  { key: 'full_name', label: 'Nama Alumni', render: (row) => row.full_name || row.nama || '-', export: (row) => row.full_name || row.nama },
+  { key: 'gender', label: 'JK', render: (row) => row.gender || row.jenis_kelamin || '-' },
+  { key: 'unit', label: 'Unit Pendidikan', render: (row) => row.education_unit?.name || row.unit?.name || '-', export: (row) => row.education_unit?.name || row.unit?.name },
+  { key: 'tahun_lulus', label: 'Tahun Lulus', render: (row) => row.metadata?.tahun_lulus || new Date(row.updated_at).getFullYear() },
+  { key: 'status', label: 'Status Alumni', render: (row) => row.metadata?.status_alumni || 'Tamat / Alumni', export: (row) => row.metadata?.status_alumni || 'Tamat / Alumni' },
 ]
 
 export default function LaporanAlumniPage() {
+  const [search, setSearch] = useState('')
+  const [rows, setRows] = useState([])
+  const [dashboard, setDashboard] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const [list, stats] = await Promise.all([
+        reportService.alumni({ search }),
+        reportService.alumniStats(),
+      ])
+      setRows(list.data || list || [])
+      setDashboard(stats.data || stats || {})
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Laporan alumni & prestasi gagal dimuat.')
+    } finally {
+      setLoading(false)
+    }
+  }, [search])
+
+  useEffect(() => { load() }, [load])
+
+  const stats = useMemo(() => [
+    { label: 'Total Alumni', value: dashboard.total_alumni || rows.length, note: 'Siswa tamat/alumni' },
+    { label: 'Total Prestasi', value: dashboard.total_prestasi || 0, note: 'Tercatat di sistem' },
+    { label: 'Lulus Tahun Ini', value: dashboard.lulus_tahun_ini || 0, note: 'Tahun kelulusan berjalan' },
+    { label: 'Persentase Kelulusan', value: `${dashboard.persentase_kelulusan || 100}%`, note: 'Kelulusan kumulatif' },
+  ], [dashboard, rows])
+
   return (
-    <section className="content-grid">
-      <article className="panel wide">
-        <div className="panel-title-row">
-          <h3>Laporan Modul Prestasi & Alumni</h3>
-          <span>Template Laporan</span>
-        </div>
-        <p className="modul-lead">
-          Rekap prestasi siswa, persentase kelulusan, dan data tujuan lanjut sekolah alumni.
-        </p>
-
-        <div className="stats-grid">
-          {kartuRingkas.map((item) => (
-            <div key={item.label} className="stat-card">
-              <h4>{item.label}</h4>
-              <strong>{item.nilai}</strong>
-              <p>{item.keterangan}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="panel-aksi-laporan">
-          {menuAksi.map((item) => (
-            <Link key={item.label} to={item.to} className="topbar-action">
-              {item.label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="laporan-list">
-          <div className="laporan-item">
-            <div>
-              <strong>Rekapitulasi Prestasi</strong>
-              <p>Akademik, tahfizh, olahraga, seni, dan keagamaan siswa.</p>
-            </div>
-            <span className="badge-status bagus">Aktif</span>
-          </div>
-          <div className="laporan-item">
-            <div>
-              <strong>Kelulusan Siswa per Unit</strong>
-              <p>Persentase kelulusan unit SD, SMP, SMA dengan indikator mutu.</p>
-            </div>
-            <span className="badge-status bagus">Aktif</span>
-          </div>
-          <div className="laporan-item">
-            <div>
-              <strong>Data Tujuan Lanjut Alumni</strong>
-              <p>Ringkasan sekolah lanjutan, universitas, dan pekerjaan alumni.</p>
-            </div>
-            <span className="badge-status proses">Proses</span>
-          </div>
-        </div>
+    <section className="laporan-page">
+      <article className="laporan-produksi">
+        <ReportHeader
+          eyebrow="Rekap Data"
+          title="Rekap Prestasi & Alumni"
+          description="Rekapitulasi kelulusan siswa, penelusuran tamatan alumni, dan rekap prestasi dari backend riil."
+          onRefresh={load}
+          onExport={() => exportCsv('rekap-alumni.csv', columns, rows)}
+        />
+        <ReportFilters>
+          <label>
+            Cari Alumni
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nama, NIS, atau NISN" />
+          </label>
+        </ReportFilters>
+        <ReportState loading={loading} error={error}>
+          <ReportStats items={stats} />
+          <ReportTable title="Daftar Data Alumni" columns={columns} rows={rows} />
+        </ReportState>
       </article>
     </section>
   )

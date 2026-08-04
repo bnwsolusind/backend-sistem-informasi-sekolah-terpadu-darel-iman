@@ -6,6 +6,7 @@ use App\Traits\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class EducationUnit extends Model
 {
@@ -36,7 +37,7 @@ class EducationUnit extends Model
         static::creating(function (EducationUnit $unit) {
             if (empty($unit->jenis_unit_id)) {
                 $jenisUnitId = null;
-                if (!empty($unit->level)) {
+                if (! empty($unit->level)) {
                     $jenisUnitId = JenisUnitPendidikan::query()
                         ->where('singkatan', $unit->level)
                         ->orWhere('kode_jenis', $unit->level)
@@ -44,15 +45,15 @@ class EducationUnit extends Model
                         ->value('uuid');
                 }
 
-                if (!$jenisUnitId) {
+                if (! $jenisUnitId) {
                     $jenisUnitId = JenisUnitPendidikan::query()->value('uuid');
                 }
 
-                if (!$jenisUnitId) {
+                if (! $jenisUnitId) {
                     $default = JenisUnitPendidikan::query()->create([
-                        'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                        'uuid' => (string) Str::uuid(),
                         'kode_jenis' => strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $unit->level ?? 'GEN'), 0, 10)) ?: 'GEN',
-                        'nama_jenis' => 'Jenis Unit ' . ($unit->level ?? 'Umum'),
+                        'nama_jenis' => 'Jenis Unit '.($unit->level ?? 'Umum'),
                         'singkatan' => strtoupper(substr($unit->level ?? 'UMUM', 0, 10)),
                         'jenjang' => 'Lainnya',
                         'status' => true,

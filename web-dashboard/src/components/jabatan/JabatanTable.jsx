@@ -1,14 +1,13 @@
 import React from 'react'
 import {
-  FaEdit,
-  FaTrash,
-  FaRedo,
-  FaEye,
-  FaUsers,
-  FaSitemap,
-  FaLockOpen,
-  FaLock,
-} from 'react-icons/fa'
+  Pencil as FaEdit,
+  Trash2 as FaTrash,
+  RotateCcw as FaRedo,
+  Eye as FaEye,
+  Network as FaSitemap,
+  LockOpen as FaLockOpen,
+  Lock as FaLock,
+} from 'lucide-react'
 
 export default function JabatanTable({
   data = [],
@@ -56,18 +55,22 @@ export default function JabatanTable({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-      <table className="w-full text-left border-collapse text-slate-800">
+    <section className="w-full overflow-hidden rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="jabatan-table-title">
+      <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+        <div><h2 id="jabatan-table-title" className="text-base font-bold text-slate-900 dark:text-white">Daftar Jabatan</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Struktur jabatan sesuai filter dan kewenangan pengguna.</p></div>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{data.length} data</span>
+      </div>
+      <div className="overflow-hidden">
+      <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar jabatan">
         <thead>
           <tr className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
-            <th className="py-3.5 px-4 w-12 text-center">NO</th>
-            <th className="py-3.5 px-4">KODE & NAMA JABATAN</th>
-            <th className="py-3.5 px-4">SATUAN KERJA & LEVEL</th>
-            <th className="py-3.5 px-4">ATASAN LANGSUNG</th>
-            <th className="py-3.5 px-4 text-center">STRUKTUR & LOGIN</th>
-            <th className="py-3.5 px-4 text-center">STATUS</th>
-            <th className="py-3.5 px-4 text-center">PEGAWAI</th>
-            <th className="py-3.5 px-4 text-center w-36">AKSI</th>
+            <th className="w-[5%] px-2 py-3 text-center">No</th>
+            <th className="w-[19%] px-3 py-3">Identitas Jabatan</th>
+            <th className="hidden w-[15%] px-3 py-3 md:table-cell">Unit & Level</th>
+            <th className="hidden w-[13%] px-3 py-3 lg:table-cell">Atasan Langsung</th>
+            <th className="hidden w-[15%] px-3 py-3 text-center xl:table-cell">Akses</th>
+            <th className="hidden w-[13%] px-3 py-3 text-center sm:table-cell">Status</th>
+            <th className="w-[20%] px-2 py-3 text-center">Aksi</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 text-sm">
@@ -82,34 +85,36 @@ export default function JabatanTable({
                 style={{ animationDelay: `${Math.min(index * 35, 280)}ms` }}
               >
                 {/* No & Urutan */}
-                <td className="py-3.5 px-4 text-center font-medium text-slate-500 text-xs">
+                <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">
                   {item.urutan ?? index + 1}
                 </td>
 
                 {/* Kode & Nama Jabatan */}
-                <td className="py-3.5 px-4">
-                  <div className="flex items-center space-x-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-800">
+                <td className="px-3 py-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50 text-emerald-800">
                       <FaSitemap className="h-4 w-4" />
                     </span>
-                    <div>
-                      <div className="flex items-center space-x-2 font-bold text-slate-800">
-                        <span>{item.nama_jabatan || item.name}</span>
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2 font-bold text-slate-800">
+                        <span className="truncate text-xs dark:text-white">{item.nama_jabatan || item.name}</span>
                         {isTrashed && (
                           <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 rounded">
                             Terhapus
                           </span>
                         )}
                       </div>
-                      <span className="font-mono text-xs text-slate-500">
+                      <span className="block truncate font-mono text-[9px] text-slate-500">
                         {item.kode_jabatan || item.code}
                       </span>
+                      <span className="mt-0.5 block truncate text-[9px] text-slate-400 md:hidden">Level {item.level_jabatan} · {item.satuan_kerja || 'Belum ditentukan'}</span>
+                      <span className="mt-0.5 block text-[9px] font-bold text-emerald-700">{item.jumlah_pegawai ?? 0} pegawai</span>
                     </div>
                   </div>
                 </td>
 
                 {/* Level & Unit Sekolah */}
-                <td className="py-3.5 px-4">
+                <td className="hidden px-3 py-3 md:table-cell">
                   <div className="space-y-1">
 	                    <span className="inline-block px-2.5 py-0.5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
 	                      Level {item.level_jabatan}: {item.level_label}
@@ -128,7 +133,7 @@ export default function JabatanTable({
                 </td>
 
                 {/* Atasan Langsung */}
-                <td className="py-3.5 px-4 text-xs">
+                <td className="hidden px-3 py-3 text-xs lg:table-cell">
                   {item.atasan_langsung ? (
                     <div className="font-medium text-slate-800 dark:text-slate-200">
                       {item.atasan_langsung.nama_jabatan}
@@ -142,101 +147,93 @@ export default function JabatanTable({
                 </td>
 
                 {/* Struktur & Login */}
-                <td className="py-3.5 px-4 text-center">
-                  <div className="flex items-center justify-center space-x-2">
+                <td className="hidden px-3 py-3 xl:table-cell">
+                  <div className="mx-auto flex max-w-28 flex-col items-stretch gap-1.5">
                     {/* Tampil Struktur */}
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                      className={`inline-flex min-h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold leading-none ${
                         item.tampil_struktur
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
                       }`}
                       title="Visibilitas Bagan Struktur Organisasi"
                     >
-                      <FaSitemap className="w-3 h-3 mr-1" />
-                      {item.tampil_struktur ? 'Struktur' : 'Sembunyi'}
+                      <FaSitemap className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{item.tampil_struktur ? 'Struktur' : 'Sembunyi'}</span>
                     </span>
 
                     {/* Boleh Login */}
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                      className={`inline-flex min-h-7 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold leading-none ${
                         item.boleh_login
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                          : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
                       }`}
                       title="Hak Akses Login Akun Sistem"
                     >
-                      {item.boleh_login ? <FaLockOpen className="w-3 h-3 mr-1" /> : <FaLock className="w-3 h-3 mr-1" />}
-                      {item.boleh_login ? 'Login' : 'Non-Login'}
+                      {item.boleh_login ? <FaLockOpen className="h-3.5 w-3.5 shrink-0" /> : <FaLock className="h-3.5 w-3.5 shrink-0" />}
+                      <span className="truncate">{item.boleh_login ? 'Login' : 'Non-Login'}</span>
                     </span>
                   </div>
                 </td>
 
                 {/* Status */}
-                <td className="py-3.5 px-4 text-center">
+                <td className="hidden px-3 py-3 text-center sm:table-cell">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                    className={`inline-flex min-h-7 min-w-18 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-[10px] font-bold ${
                       item.status === 'Aktif' || item.is_active
-                        ? 'bg-[#dcfce7] text-[#15803d] border border-emerald-200'
-                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                        : 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                     }`}
                   >
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        item.status === 'Aktif' || item.is_active ? 'bg-[#16a34a]' : 'bg-slate-400'
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                        item.status === 'Aktif' || item.is_active ? 'bg-emerald-500' : 'bg-slate-400'
                       }`}
                     />
                     {item.status || (item.is_active ? 'Aktif' : 'Nonaktif')}
                   </span>
                 </td>
 
-                {/* Jumlah Pegawai */}
-                <td className="py-3.5 px-4 text-center">
-                  <span className="inline-flex items-center font-extrabold text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
-                    <FaUsers className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                    {item.jumlah_pegawai ?? 0}
-                  </span>
-                </td>
-
                 {/* Actions */}
-                <td className="py-3.5 px-4 text-center">
-                  <div className="flex items-center justify-center gap-1.5">
+                <td className="px-2 py-3 text-center">
+                  <div className="flex items-center justify-center gap-1">
                     <button
                       onClick={() => onDetail(item)}
-                      className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                      className="ui-button flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                       title={`Lihat detail ${item.nama_jabatan || item.name}`}
                       aria-label={`Lihat detail ${item.nama_jabatan || item.name}`}
                     >
-                      <FaEye className="w-3.5 h-3.5" />
+                      <FaEye className="h-4 w-4" strokeWidth={2.5} />
                     </button>
 
                     {!isTrashed ? (
                       <>
                         <button
                           onClick={() => onEdit(item)}
-                          className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                          className="ui-button hidden h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 sm:flex"
                           title={`Edit ${item.nama_jabatan || item.name}`}
                           aria-label={`Edit ${item.nama_jabatan || item.name}`}
                         >
-                          <FaEdit className="w-3.5 h-3.5" />
+                          <FaEdit className="h-4 w-4" strokeWidth={2.5} />
                         </button>
                         <button
                           onClick={() => onDelete(item)}
-                          className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                          className="ui-button hidden h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 sm:flex"
                           title={`Hapus ${item.nama_jabatan || item.name}`}
                           aria-label={`Hapus ${item.nama_jabatan || item.name}`}
                         >
-                          <FaTrash className="w-3.5 h-3.5" />
+                          <FaTrash className="h-4 w-4" strokeWidth={2.5} />
                         </button>
                       </>
                     ) : (
                       <button
                         onClick={() => onRestore(item)}
-                        className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        className="ui-button flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                         title={`Pulihkan ${item.nama_jabatan || item.name}`}
                         aria-label={`Pulihkan ${item.nama_jabatan || item.name}`}
                       >
-                        <FaRedo className="w-3.5 h-3.5" />
+                        <FaRedo className="h-4 w-4" strokeWidth={2.5} />
                       </button>
                     )}
                   </div>
@@ -246,6 +243,7 @@ export default function JabatanTable({
           })}
         </tbody>
       </table>
-    </div>
+      </div>
+    </section>
   )
 }

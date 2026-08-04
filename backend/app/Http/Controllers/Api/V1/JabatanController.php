@@ -102,7 +102,7 @@ class JabatanController extends Controller
     {
         $jabatan = $this->jabatanService->cariBerdasarkanId($id);
 
-        if (!$jabatan) {
+        if (! $jabatan) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data jabatan tidak ditemukan.',
@@ -138,7 +138,7 @@ class JabatanController extends Controller
     {
         $berhasil = $this->jabatanService->hapus($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus data jabatan.',
@@ -158,7 +158,7 @@ class JabatanController extends Controller
     {
         $berhasil = $this->jabatanService->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan data jabatan.',
@@ -177,7 +177,7 @@ class JabatanController extends Controller
     public function import(Request $request): JsonResponse
     {
         $rows = $request->input('data', []);
-        if (!is_array($rows) || empty($rows)) {
+        if (! is_array($rows) || empty($rows)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Payload data impor tidak boleh kosong.',

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class Subject extends Model
 {
@@ -70,16 +71,16 @@ class Subject extends Model
             if (Auth::check() && empty($model->created_by)) {
                 $model->created_by = Auth::id();
             }
-            if (empty($model->kode_mapel) && !empty($model->code)) {
+            if (empty($model->kode_mapel) && ! empty($model->code)) {
                 $model->kode_mapel = $model->code;
             }
-            if (empty($model->nama_mapel) && !empty($model->name)) {
+            if (empty($model->nama_mapel) && ! empty($model->name)) {
                 $model->nama_mapel = $model->name;
             }
-            if (empty($model->code) && !empty($model->kode_mapel)) {
+            if (empty($model->code) && ! empty($model->kode_mapel)) {
                 $model->code = $model->kode_mapel;
             }
-            if (empty($model->name) && !empty($model->nama_mapel)) {
+            if (empty($model->name) && ! empty($model->nama_mapel)) {
                 $model->name = $model->nama_mapel;
             }
         });
@@ -88,10 +89,10 @@ class Subject extends Model
             if (Auth::check()) {
                 $model->updated_by = Auth::id();
             }
-            if (!empty($model->kode_mapel)) {
+            if (! empty($model->kode_mapel)) {
                 $model->code = $model->kode_mapel;
             }
-            if (!empty($model->nama_mapel)) {
+            if (! empty($model->nama_mapel)) {
                 $model->name = $model->nama_mapel;
             }
         });
@@ -217,7 +218,7 @@ class Subject extends Model
 
     public function scopeFilter($query, array $filters)
     {
-        $likeOp = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+        $likeOp = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
 
         $query->when($filters['search'] ?? null, function ($q, $search) use ($likeOp) {
             $q->where(function ($sub) use ($search, $likeOp) {

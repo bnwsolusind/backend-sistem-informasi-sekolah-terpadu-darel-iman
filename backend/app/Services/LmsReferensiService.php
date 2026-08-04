@@ -49,7 +49,7 @@ class LmsReferensiService
     public function ubah(string $id, array $data, ?UploadedFile $file = null): ?LmsReferensi
     {
         $existing = $this->referensiRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -76,7 +76,7 @@ class LmsReferensiService
     public function hapus(string $id): bool
     {
         $referensi = $this->referensiRepository->findById($id);
-        if (!$referensi) {
+        if (! $referensi) {
             return false;
         }
 

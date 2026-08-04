@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AttendanceController extends Controller
@@ -56,7 +55,7 @@ class AttendanceController extends Controller
         }
 
         if ($request->filled('search')) {
-            $search = '%' . $request->query('search') . '%';
+            $search = '%'.$request->query('search').'%';
             $query->where(function ($q) use ($search) {
                 $q->whereHas('student', function ($sq) use ($search) {
                     $sq->where('nama_lengkap', 'like', $search)->orWhere('nisn', 'like', $search);

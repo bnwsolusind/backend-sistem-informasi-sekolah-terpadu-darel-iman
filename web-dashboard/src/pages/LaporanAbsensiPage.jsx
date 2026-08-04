@@ -187,8 +187,8 @@ export default function LaporanAbsensiPage() {
     <section className="attendance-report-page">
       <header className="attendance-report-header">
         <div>
-          <h1>Laporan Absensi</h1>
-          <p>Dashboard <span>/</span> Laporan <span>/</span> Laporan Absensi</p>
+          <h1>Rekap Absensi Pembelajaran</h1>
+          <p>Dashboard <span>/</span> Rekap Data <span>/</span> Absensi Pembelajaran</p>
         </div>
         <div className="attendance-report-actions">
           <button type="button" onClick={() => downloadRows()}><FileSpreadsheet size={17} /> Export Excel</button>

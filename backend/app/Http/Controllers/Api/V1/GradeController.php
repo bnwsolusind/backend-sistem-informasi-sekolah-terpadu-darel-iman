@@ -46,28 +46,28 @@ class GradeController extends Controller
         $data = $query->orderBy('student_id')->orderBy('subject_id')->paginate($perPage);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Daftar nilai siswa berhasil diambil.',
-            'data'    => $data,
+            'data' => $data,
         ]);
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'student_id'       => 'required|uuid|exists:students,id',
-            'subject_id'       => 'required|uuid|exists:subjects,id',
+            'student_id' => 'required|uuid|exists:students,id',
+            'subject_id' => 'required|uuid|exists:subjects,id',
             'academic_year_id' => 'required|uuid|exists:academic_years,id',
-            'semester_id'      => 'required|uuid|exists:semesters,id',
-            'kelas_id'         => 'nullable|uuid|exists:tbl_kelas,id',
-            'class_id'         => 'nullable|uuid|exists:classes,id',
+            'semester_id' => 'required|uuid|exists:semesters,id',
+            'kelas_id' => 'nullable|uuid|exists:tbl_kelas,id',
+            'class_id' => 'nullable|uuid|exists:classes,id',
             'score_assignment' => 'nullable|numeric|min:0|max:100',
-            'score_quiz'       => 'nullable|numeric|min:0|max:100',
-            'score_project'    => 'nullable|numeric|min:0|max:100',
-            'score_midterm'    => 'nullable|numeric|min:0|max:100',
-            'score_final'      => 'nullable|numeric|min:0|max:100',
-            'notes'            => 'nullable|string',
-            'metadata'         => 'nullable|array',
+            'score_quiz' => 'nullable|numeric|min:0|max:100',
+            'score_project' => 'nullable|numeric|min:0|max:100',
+            'score_midterm' => 'nullable|numeric|min:0|max:100',
+            'score_final' => 'nullable|numeric|min:0|max:100',
+            'notes' => 'nullable|string',
+            'metadata' => 'nullable|array',
         ]);
 
         $validated['created_by'] = Auth::id();
@@ -85,9 +85,9 @@ class GradeController extends Controller
         $grade = StudentGrade::create($validated);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Nilai siswa berhasil disimpan.',
-            'data'    => $grade->load(['student', 'subject', 'semester']),
+            'data' => $grade->load(['student', 'subject', 'semester']),
         ], 201);
     }
 
@@ -114,12 +114,12 @@ class GradeController extends Controller
 
         $validated = $request->validate([
             'score_assignment' => 'nullable|numeric|min:0|max:100',
-            'score_quiz'       => 'nullable|numeric|min:0|max:100',
-            'score_project'    => 'nullable|numeric|min:0|max:100',
-            'score_midterm'    => 'nullable|numeric|min:0|max:100',
-            'score_final'      => 'nullable|numeric|min:0|max:100',
-            'notes'            => 'nullable|string',
-            'metadata'         => 'nullable|array',
+            'score_quiz' => 'nullable|numeric|min:0|max:100',
+            'score_project' => 'nullable|numeric|min:0|max:100',
+            'score_midterm' => 'nullable|numeric|min:0|max:100',
+            'score_final' => 'nullable|numeric|min:0|max:100',
+            'notes' => 'nullable|string',
+            'metadata' => 'nullable|array',
         ]);
 
         $validated['updated_by'] = Auth::id();
@@ -128,15 +128,15 @@ class GradeController extends Controller
         // Recalculate final score
         $finalScore = $grade->fresh()->hitungNilaiAkhir();
         $grade->update([
-            'final_score'  => $finalScore,
+            'final_score' => $finalScore,
             'grade_letter' => StudentGrade::getGradeLetter($finalScore),
-            'is_passed'    => $finalScore >= 75.0,
+            'is_passed' => $finalScore >= 75.0,
         ]);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Nilai siswa berhasil diperbarui.',
-            'data'    => $grade->fresh(['student', 'subject']),
+            'data' => $grade->fresh(['student', 'subject']),
         ]);
     }
 
@@ -146,7 +146,7 @@ class GradeController extends Controller
     public function rekap(Request $request): JsonResponse
     {
         $request->validate([
-            'kelas_id'    => 'nullable|uuid',
+            'kelas_id' => 'nullable|uuid',
             'semester_id' => 'required|uuid|exists:semesters,id',
         ]);
 
@@ -159,27 +159,28 @@ class GradeController extends Controller
 
         $data = $query->get()->groupBy('student_id')->map(function ($gradesByStudent) {
             $student = $gradesByStudent->first()->student;
+
             return [
                 'student' => [
-                    'id'       => $student->id,
-                    'nis'      => $student->nis,
-                    'nama'     => $student->full_name,
+                    'id' => $student->id,
+                    'nis' => $student->nis,
+                    'nama' => $student->full_name,
                 ],
                 'nilai' => $gradesByStudent->map(fn ($g) => [
-                    'mapel'        => $g->subject?->name,
-                    'kode_mapel'   => $g->subject?->code,
-                    'nilai_akhir'  => $g->final_score,
-                    'grade'        => $g->grade_letter,
-                    'lulus'        => $g->is_passed,
+                    'mapel' => $g->subject?->name,
+                    'kode_mapel' => $g->subject?->code,
+                    'nilai_akhir' => $g->final_score,
+                    'grade' => $g->grade_letter,
+                    'lulus' => $g->is_passed,
                 ])->values(),
                 'rata_rata' => round($gradesByStudent->avg('final_score'), 2),
             ];
         })->values();
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Rekap nilai berhasil diambil.',
-            'data'    => $data,
+            'data' => $data,
         ]);
     }
 }

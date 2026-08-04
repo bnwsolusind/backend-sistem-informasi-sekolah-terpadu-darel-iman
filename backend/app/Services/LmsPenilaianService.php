@@ -45,7 +45,7 @@ class LmsPenilaianService
     public function ubah(string $id, array $data): ?StudentGrade
     {
         $existing = $this->penilaianRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -65,7 +65,7 @@ class LmsPenilaianService
     public function hapus(string $id): bool
     {
         $grade = $this->penilaianRepository->findById($id);
-        if (!$grade) {
+        if (! $grade) {
             return false;
         }
 

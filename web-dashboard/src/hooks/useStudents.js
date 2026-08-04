@@ -6,6 +6,8 @@ export function useDaftarSiswa(params) {
   return useQuery({
     queryKey: ['students', params],
     queryFn: () => studentService.getDaftar(params),
+    placeholderData: (previousData) => previousData,
+    staleTime: 30_000,
   })
 }
 

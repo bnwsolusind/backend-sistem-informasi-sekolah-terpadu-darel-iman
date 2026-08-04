@@ -43,7 +43,7 @@ class LmsAktivitasBelajarService
     public function ubah(string $id, array $data): ?LmsAktivitasBelajar
     {
         $existing = $this->aktivitasRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -62,7 +62,7 @@ class LmsAktivitasBelajarService
     public function hapus(string $id): bool
     {
         $existing = $this->aktivitasRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return false;
         }
 

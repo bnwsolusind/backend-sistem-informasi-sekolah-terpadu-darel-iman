@@ -107,7 +107,7 @@ class SubjectController extends Controller
     {
         $subject = $this->subjectService->cariBerdasarkanId($id);
 
-        if (!$subject) {
+        if (! $subject) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data mata pelajaran tidak ditemukan.',
@@ -128,7 +128,7 @@ class SubjectController extends Controller
     {
         $subject = $this->subjectService->ubah($id, $request->validated());
 
-        if (!$subject) {
+        if (! $subject) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data mata pelajaran tidak ditemukan.',
@@ -149,7 +149,7 @@ class SubjectController extends Controller
     {
         $berhasil = $this->subjectService->hapus($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus data mata pelajaran.',
@@ -169,7 +169,7 @@ class SubjectController extends Controller
     {
         $berhasil = $this->subjectService->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan data mata pelajaran.',
@@ -251,7 +251,7 @@ class SubjectController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Data ekspor mata pelajaran berhasil dibuat.',
-            'filename' => 'master_mata_pelajaran_' . date('Ymd_His') . '.json',
+            'filename' => 'master_mata_pelajaran_'.date('Ymd_His').'.json',
             'total_rows' => $data->count(),
             'data' => $data,
         ]);
@@ -268,7 +268,7 @@ class SubjectController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Laporan PDF Master Mata Pelajaran siap dicetak.',
-            'filename' => 'laporan_master_mata_pelajaran_' . date('Ymd_His') . '.pdf',
+            'filename' => 'laporan_master_mata_pelajaran_'.date('Ymd_His').'.pdf',
             'total_items' => $subjects->count(),
             'data' => SubjectResource::collection($subjects),
         ]);

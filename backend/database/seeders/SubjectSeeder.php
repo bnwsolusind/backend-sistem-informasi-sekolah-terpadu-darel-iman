@@ -22,7 +22,7 @@ class SubjectSeeder extends Seeder
         $defaultUnit = $units->first();
         $defaultKurikulum = $kurikulums->first();
 
-        if (!$defaultUnit || !$defaultKurikulum) {
+        if (! $defaultUnit || ! $defaultKurikulum) {
             return;
         }
 
@@ -414,4 +414,3 @@ class SubjectSeeder extends Seeder
         }
     }
 }
-

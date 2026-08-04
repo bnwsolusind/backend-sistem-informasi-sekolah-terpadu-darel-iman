@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasTable('subjects') && !Schema::hasColumn('subjects', 'kurikulum_id')) {
+        if (Schema::hasTable('subjects') && ! Schema::hasColumn('subjects', 'kurikulum_id')) {
             Schema::table('subjects', function (Blueprint $table) {
                 $table->uuid('kurikulum_id')->nullable()->after('id');
                 $table->index('kurikulum_id');

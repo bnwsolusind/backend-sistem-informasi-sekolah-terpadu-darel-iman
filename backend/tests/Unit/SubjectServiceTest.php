@@ -15,7 +15,9 @@ class SubjectServiceTest extends TestCase
     use RefreshDatabase;
 
     protected SubjectService $service;
+
     protected EducationUnit $unit;
+
     protected MasterKurikulum $kurikulum;
 
     protected function setUp(): void

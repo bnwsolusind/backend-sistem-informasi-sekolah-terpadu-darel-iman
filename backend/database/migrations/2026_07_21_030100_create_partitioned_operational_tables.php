@@ -1,14 +1,16 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
         if (DB::getDriverName() === 'pgsql') {
-        DB::statement('
+            DB::statement('
             CREATE TABLE attendances (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 academic_year_id UUID NOT NULL,
@@ -35,7 +37,7 @@ return new class extends Migration
             ) PARTITION BY LIST (month)
         ');
 
-        DB::statement('
+            DB::statement('
             CREATE TABLE attendance_logs (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 academic_year_id UUID NOT NULL,
@@ -57,7 +59,7 @@ return new class extends Migration
             ) PARTITION BY LIST (month)
         ');
 
-        DB::statement('
+            DB::statement('
             CREATE TABLE tahfizh_records (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 academic_year_id UUID NOT NULL,
@@ -87,7 +89,7 @@ return new class extends Migration
             ) PARTITION BY LIST (month)
         ');
 
-        DB::statement('
+            DB::statement('
             CREATE TABLE mutabaah_records (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 academic_year_id UUID NOT NULL,
@@ -113,7 +115,7 @@ return new class extends Migration
             ) PARTITION BY LIST (month)
         ');
 
-        DB::statement('
+            DB::statement('
             CREATE TABLE notifications (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 academic_year_id UUID NOT NULL,
@@ -137,43 +139,43 @@ return new class extends Migration
             ) PARTITION BY LIST (month)
         ');
 
-        for ($month = 1; $month <= 12; $month++) {
-            $suffix = str_pad((string) $month, 2, '0', STR_PAD_LEFT);
+            for ($month = 1; $month <= 12; $month++) {
+                $suffix = str_pad((string) $month, 2, '0', STR_PAD_LEFT);
 
-            DB::statement("CREATE TABLE attendances_m{$suffix} PARTITION OF attendances FOR VALUES IN ({$month})");
-            DB::statement("CREATE TABLE attendance_logs_m{$suffix} PARTITION OF attendance_logs FOR VALUES IN ({$month})");
-            DB::statement("CREATE TABLE tahfizh_records_m{$suffix} PARTITION OF tahfizh_records FOR VALUES IN ({$month})");
-            DB::statement("CREATE TABLE mutabaah_records_m{$suffix} PARTITION OF mutabaah_records FOR VALUES IN ({$month})");
-            DB::statement("CREATE TABLE notifications_m{$suffix} PARTITION OF notifications FOR VALUES IN ({$month})");
-        }
+                DB::statement("CREATE TABLE attendances_m{$suffix} PARTITION OF attendances FOR VALUES IN ({$month})");
+                DB::statement("CREATE TABLE attendance_logs_m{$suffix} PARTITION OF attendance_logs FOR VALUES IN ({$month})");
+                DB::statement("CREATE TABLE tahfizh_records_m{$suffix} PARTITION OF tahfizh_records FOR VALUES IN ({$month})");
+                DB::statement("CREATE TABLE mutabaah_records_m{$suffix} PARTITION OF mutabaah_records FOR VALUES IN ({$month})");
+                DB::statement("CREATE TABLE notifications_m{$suffix} PARTITION OF notifications FOR VALUES IN ({$month})");
+            }
 
-        DB::statement('CREATE INDEX attendances_lookup_idx ON attendances (academic_year_id, semester_id, attendance_date, class_id, student_id)');
-        DB::statement('CREATE INDEX attendance_logs_lookup_idx ON attendance_logs (academic_year_id, semester_id, month, student_id, logged_at)');
-        DB::statement('CREATE INDEX tahfizh_records_lookup_idx ON tahfizh_records (academic_year_id, semester_id, record_date, class_id, student_id)');
-        DB::statement('CREATE INDEX mutabaah_records_lookup_idx ON mutabaah_records (academic_year_id, semester_id, record_date, class_id, student_id)');
-        DB::statement('CREATE INDEX notifications_lookup_idx ON notifications (academic_year_id, semester_id, month, notifiable_id, notifiable_type)');
+            DB::statement('CREATE INDEX attendances_lookup_idx ON attendances (academic_year_id, semester_id, attendance_date, class_id, student_id)');
+            DB::statement('CREATE INDEX attendance_logs_lookup_idx ON attendance_logs (academic_year_id, semester_id, month, student_id, logged_at)');
+            DB::statement('CREATE INDEX tahfizh_records_lookup_idx ON tahfizh_records (academic_year_id, semester_id, record_date, class_id, student_id)');
+            DB::statement('CREATE INDEX mutabaah_records_lookup_idx ON mutabaah_records (academic_year_id, semester_id, record_date, class_id, student_id)');
+            DB::statement('CREATE INDEX notifications_lookup_idx ON notifications (academic_year_id, semester_id, month, notifiable_id, notifiable_type)');
 
-        DB::statement("CREATE INDEX notifications_fts_idx ON notifications USING GIN (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(body,'')))");
+            DB::statement("CREATE INDEX notifications_fts_idx ON notifications USING GIN (to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(body,'')))");
         } else {
-            \Illuminate\Support\Facades\Schema::create('attendances', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('attendances', function (Blueprint $table) {
                 $table->uuid('id')->primary();
-                $table->uuid('academic_year_id');
-                $table->uuid('semester_id');
-                $table->smallInteger('month');
+                $table->uuid('academic_year_id')->nullable();
+                $table->uuid('semester_id')->nullable();
+                $table->smallInteger('month')->nullable();
                 $table->date('attendance_date');
-                $table->uuid('student_id');
-                $table->uuid('class_id');
+                $table->uuid('student_id')->nullable();
+                $table->uuid('class_id')->nullable();
                 $table->timestamp('check_in_time')->nullable();
                 $table->timestamp('check_out_time')->nullable();
-                $table->string('status', 20);
-                $table->string('attendance_method', 20);
+                $table->string('status', 20)->default('HADIR');
+                $table->string('attendance_method', 20)->default('MANUAL');
                 $table->string('location')->nullable();
                 $table->json('metadata')->nullable();
                 $table->softDeletes();
                 $table->timestamps();
             });
 
-            \Illuminate\Support\Facades\Schema::create('attendance_logs', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('attendance_logs', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('academic_year_id');
                 $table->uuid('semester_id');
@@ -187,7 +189,7 @@ return new class extends Migration
                 $table->timestamps();
             });
 
-            \Illuminate\Support\Facades\Schema::create('tahfizh_records', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('tahfizh_records', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('academic_year_id');
                 $table->uuid('semester_id');
@@ -207,7 +209,7 @@ return new class extends Migration
                 $table->timestamps();
             });
 
-            \Illuminate\Support\Facades\Schema::create('mutabaah_records', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('mutabaah_records', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('academic_year_id');
                 $table->uuid('semester_id');
@@ -224,7 +226,7 @@ return new class extends Migration
                 $table->timestamps();
             });
 
-            \Illuminate\Support\Facades\Schema::create('notifications', function (\Illuminate\Database\Schema\Blueprint $table) {
+            Schema::create('notifications', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('academic_year_id');
                 $table->uuid('semester_id');

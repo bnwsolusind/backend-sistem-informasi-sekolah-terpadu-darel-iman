@@ -59,7 +59,7 @@ class TujuanPembelajaran extends Model
             if (Auth::check() && empty($model->created_by)) {
                 $model->created_by = Auth::id();
             }
-            if (empty($model->nama_tp) && !empty($model->deskripsi)) {
+            if (empty($model->nama_tp) && ! empty($model->deskripsi)) {
                 $model->nama_tp = substr($model->deskripsi, 0, 245);
             }
         });
@@ -68,7 +68,7 @@ class TujuanPembelajaran extends Model
             if (Auth::check()) {
                 $model->updated_by = Auth::id();
             }
-            if (empty($model->nama_tp) && !empty($model->deskripsi)) {
+            if (empty($model->nama_tp) && ! empty($model->deskripsi)) {
                 $model->nama_tp = substr($model->deskripsi, 0, 245);
             }
         });

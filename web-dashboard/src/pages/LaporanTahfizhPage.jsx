@@ -1,71 +1,92 @@
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ReportFilters, ReportHeader, ReportState, ReportStats, ReportTable, exportCsv } from '../components/reports/ReportKit'
+import { reportService } from '../services/reportService'
 
-const kartuRingkas = [
-  { label: 'Total Siswa', nilai: '1.256', keterangan: 'Siswa aktif tahfizh' },
-  { label: 'Total Hafalan', nilai: '39.860', keterangan: 'Baris hafalan' },
-  { label: 'Target Tahunan', nilai: '50.000', keterangan: 'Baris target' },
-  { label: 'Tercapai', nilai: '79,72%', keterangan: 'Pencapaian unit' },
-]
-
-const menuAksi = [
-  { label: 'Lihat Detail Tahfizh', to: '/dashboard/tahfizh' },
-  { label: 'Cetak Laporan', to: '/dashboard/tahfizh' },
-  { label: 'Export Rekap', to: '/dashboard/tahfizh' },
+const columns = [
+  { key: 'record_date', label: 'Tanggal' },
+  { key: 'siswa', label: 'Siswa / Santri', render: (row) => row.student?.full_name || row.student?.nama || '-', export: (row) => row.student?.full_name || row.student?.nama },
+  { key: 'nis', label: 'NIS', render: (row) => row.student?.nis || '-', export: (row) => row.student?.nis },
+  { key: 'surah', label: 'Surah / Hafalan Baru', render: (row) => row.hafalan_surah_name ? `${row.hafalan_surah_name} (Ayat ${row.hafalan_ayah_start || 1}-${row.hafalan_ayah_end || '-'})` : '-', export: (row) => row.hafalan_surah_name ? `${row.hafalan_surah_name} (${row.hafalan_ayah_start}-${row.hafalan_ayah_end})` : '-' },
+  { key: 'hafalan_baris', label: 'Baris Hafalan', render: (row) => row.hafalan_baris || 0 },
+  { key: 'tilawah_baris', label: 'Baris Tilawah', render: (row) => row.tilawah_baris || 0 },
+  { key: 'murajaah_lembar', label: 'Murajaah (Lembar)', render: (row) => row.murajaah_lembar || 0 },
+  { key: 'notes_teacher', label: 'Catatan Ustadz', render: (row) => row.notes_teacher || '-' },
 ]
 
 export default function LaporanTahfizhPage() {
+  const [search, setSearch] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [reportData, setReportData] = useState({ summary: {}, data: [] })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const result = await reportService.tahfizhReport({
+        search,
+        start_date: startDate,
+        end_date: endDate,
+      })
+      setReportData({
+        summary: result.summary || {},
+        data: result.data || result || [],
+      })
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Laporan tahfizh & mutabaah gagal dimuat.')
+    } finally {
+      setLoading(false)
+    }
+  }, [search, startDate, endDate])
+
+  useEffect(() => { load() }, [load])
+
+  const stats = useMemo(() => {
+    const sum = reportData.summary || {}
+    const totalLogs = sum.total_logs ?? reportData.data.length
+    const totalBaris = sum.total_hafalan_baris ?? reportData.data.reduce((a, b) => a + Number(b.hafalan_baris || 0), 0)
+    const target = sum.target_tahunan || 50000
+    const persen = sum.persentase ?? (totalBaris > 0 ? ((totalBaris / target) * 100).toFixed(1) : 0)
+
+    return [
+      { label: 'Total Setoran', value: totalLogs, note: 'Catatan log harian' },
+      { label: 'Total Hafalan', value: `${totalBaris.toLocaleString('id-ID')} baris`, note: 'Capaian baris hafalan' },
+      { label: 'Target Tahunan', value: `${target.toLocaleString('id-ID')} baris`, note: 'Target unit sekolah' },
+      { label: 'Tercapai', value: `${persen}%`, note: 'Pencapaian target' },
+    ]
+  }, [reportData])
+
   return (
     <section className="content-grid">
-      <article className="panel wide">
-        <div className="panel-title-row">
-          <h3>Laporan Modul Tahfizh & Mutabaah</h3>
-          <span>Template Laporan</span>
-        </div>
-        <p className="modul-lead">
-          Rekap setoran tahfizh, target hafalan, mutabaah yaumiyah, dan capaian siswa per periode.
-        </p>
-
-        <div className="stats-grid">
-          {kartuRingkas.map((item) => (
-            <div key={item.label} className="stat-card">
-              <h4>{item.label}</h4>
-              <strong>{item.nilai}</strong>
-              <p>{item.keterangan}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="panel-aksi-laporan">
-          {menuAksi.map((item) => (
-            <Link key={item.label} to={item.to} className="topbar-action">
-              {item.label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="laporan-list">
-          <div className="laporan-item">
-            <div>
-              <strong>Input Setoran Harian</strong>
-              <p>Pencatatan setoran hafalan siswa per hari dan per kelas.</p>
-            </div>
-            <span className="badge-status bagus">Aktif</span>
-          </div>
-          <div className="laporan-item">
-            <div>
-              <strong>Rekap Tahfizh Bulanan</strong>
-              <p>Ringkasan progres target tahfizh bulanan untuk monitoring kepala sekolah.</p>
-            </div>
-            <span className="badge-status proses">Proses</span>
-          </div>
-          <div className="laporan-item">
-            <div>
-              <strong>Mutabaah Yaumiyah</strong>
-              <p>Checklist ibadah siswa (shalat, tilawah, dzikir, puasa sunnah) per hari.</p>
-            </div>
-            <span className="badge-status bagus">Aktif</span>
-          </div>
-        </div>
+      <article className="panel wide laporan-produksi">
+        <ReportHeader
+          eyebrow="Rekap Data"
+          title="Rekap Tahfizh & Mutabaah"
+          description="Rekapitulasi setoran hafalan Al-Qur’an harian, tilawah, murajaah, dan capaian santri dari backend riil."
+          onRefresh={load}
+          onExport={() => exportCsv('rekap-tahfizh.csv', columns, reportData.data)}
+        />
+        <ReportFilters>
+          <label>
+            Cari Santri / NIS
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nama atau NIS" />
+          </label>
+          <label>
+            Mulai Tanggal
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </label>
+          <label>
+            Sampai Tanggal
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </label>
+        </ReportFilters>
+        <ReportState loading={loading} error={error}>
+          <ReportStats items={stats} />
+          <h4>Log Setoran Hafalan & Murajaah Harian</h4>
+          <ReportTable columns={columns} rows={reportData.data} />
+        </ReportState>
       </article>
     </section>
   )

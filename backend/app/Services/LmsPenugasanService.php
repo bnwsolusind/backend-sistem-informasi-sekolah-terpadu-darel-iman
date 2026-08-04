@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AcademicYear;
+use App\Models\ClassRoom;
 use App\Models\Employee;
 use App\Models\Kelas;
 use App\Models\LmsModulAjar;
@@ -10,6 +11,7 @@ use App\Models\LmsPengumpulanTugas;
 use App\Models\LmsPenugasan;
 use App\Models\Semester;
 use App\Models\Subject;
+use App\Models\Teacher;
 use App\Repositories\Contracts\LmsPenugasanRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
@@ -38,16 +40,16 @@ class LmsPenugasanService
     public function simpan(array $data): LmsPenugasan
     {
         // Support field alias mappings
-        if (isset($data['judul']) && !isset($data['judul_tugas'])) {
+        if (isset($data['judul']) && ! isset($data['judul_tugas'])) {
             $data['judul_tugas'] = $data['judul'];
         }
-        if (isset($data['tipe']) && !isset($data['tipe_tugas'])) {
+        if (isset($data['tipe']) && ! isset($data['tipe_tugas'])) {
             $data['tipe_tugas'] = $data['tipe'];
         }
-        if (isset($data['tanggal_selesai']) && !isset($data['deadline'])) {
+        if (isset($data['tanggal_selesai']) && ! isset($data['deadline'])) {
             $data['deadline'] = $data['tanggal_selesai'];
         }
-        if (isset($data['lampiran']) && !isset($data['file_lampiran'])) {
+        if (isset($data['lampiran']) && ! isset($data['file_lampiran'])) {
             $data['file_lampiran'] = $data['lampiran'];
         }
         if (isset($data['status'])) {
@@ -60,16 +62,16 @@ class LmsPenugasanService
 
     public function ubah(string $id, array $data): ?LmsPenugasan
     {
-        if (isset($data['judul']) && !isset($data['judul_tugas'])) {
+        if (isset($data['judul']) && ! isset($data['judul_tugas'])) {
             $data['judul_tugas'] = $data['judul'];
         }
-        if (isset($data['tipe']) && !isset($data['tipe_tugas'])) {
+        if (isset($data['tipe']) && ! isset($data['tipe_tugas'])) {
             $data['tipe_tugas'] = $data['tipe'];
         }
-        if (isset($data['tanggal_selesai']) && !isset($data['deadline'])) {
+        if (isset($data['tanggal_selesai']) && ! isset($data['deadline'])) {
             $data['deadline'] = $data['tanggal_selesai'];
         }
-        if (isset($data['lampiran']) && !isset($data['file_lampiran'])) {
+        if (isset($data['lampiran']) && ! isset($data['file_lampiran'])) {
             $data['file_lampiran'] = $data['lampiran'];
         }
         if (isset($data['status'])) {
@@ -110,7 +112,7 @@ class LmsPenugasanService
         $modulOptions = LmsModulAjar::get()
             ->map(fn ($item) => [
                 'value' => $item->id,
-                'label' => $item->kode_modul ? "[{$item->kode_modul}] " . ($item->judul_modul ?? $item->judul ?? 'Modul Ajar') : ($item->judul_modul ?? $item->judul ?? 'Modul Ajar'),
+                'label' => $item->kode_modul ? "[{$item->kode_modul}] ".($item->judul_modul ?? $item->judul ?? 'Modul Ajar') : ($item->judul_modul ?? $item->judul ?? 'Modul Ajar'),
                 'judul' => $item->judul_modul ?? $item->judul ?? 'Modul Ajar',
                 'judul_modul' => $item->judul_modul ?? $item->judul ?? 'Modul Ajar',
             ])
@@ -126,8 +128,8 @@ class LmsPenugasanService
             ->values()
             ->toArray();
 
-        if (empty($kelasOptions) && class_exists(\App\Models\ClassRoom::class)) {
-            $kelasOptions = \App\Models\ClassRoom::get()
+        if (empty($kelasOptions) && class_exists(ClassRoom::class)) {
+            $kelasOptions = ClassRoom::get()
                 ->map(fn ($item) => [
                     'value' => $item->id,
                     'label' => $item->name ?? $item->code ?? 'Kelas',
@@ -147,8 +149,8 @@ class LmsPenugasanService
             ->values()
             ->toArray();
 
-        if (empty($guruOptions) && class_exists(\App\Models\Teacher::class)) {
-            $guruOptions = \App\Models\Teacher::get()
+        if (empty($guruOptions) && class_exists(Teacher::class)) {
+            $guruOptions = Teacher::get()
                 ->map(fn ($item) => [
                     'value' => $item->id,
                     'label' => $item->full_name ?? $item->name ?? 'Guru',

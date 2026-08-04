@@ -1,6 +1,30 @@
 import { useMemo, useState } from 'react'
 import Swal from 'sweetalert2'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { QRCodeSVG } from 'qrcode.react'
+import {
+  BadgeCheck,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  FileText,
+  Info,
+  IdCard,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCcw,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Upload,
+  UserRound,
+  UsersRound,
+} from 'lucide-react'
 import {
   FaArrowLeft,
   FaBuilding,
@@ -11,35 +35,71 @@ import {
   FaEye,
   FaFileExcel,
   FaFileImport,
-  FaFilePdf,
   FaFilter,
   FaPlus,
   FaSearch,
   FaTimes,
   FaTrash,
   FaUpload,
-  FaUserGraduate,
   FaChalkboardTeacher,
-  FaSchool,
-  FaCalendarAlt,
   FaPhoneAlt,
   FaEnvelope,
-  FaMapMarkerAlt,
   FaIdCard,
   FaUserTie,
-  FaBook,
   FaAward,
   FaFolderOpen,
-  FaClipboardList,
-  FaQrcode,
   FaPrint,
 } from 'react-icons/fa'
-import { MasterDataPage } from '../components/master-data'
+import {
+  MasterActionButton,
+  MasterDataPage,
+  MasterEmptyState,
+  MasterErrorState,
+  MasterPageHeader,
+  MasterStatCard,
+  MasterStatsGrid,
+} from '../components/master-data'
 import { employeeService } from '../services/employeeService'
 import { educationUnitService } from '../services/educationUnitService'
+import { usePengaturanStore } from '../stores/pengaturanStore'
 
 const STATUS_PEGAWAI_OPTIONS = ['Tetap', 'Kontrak', 'Honorer', 'Magang']
 const STATUS_OPTIONS = ['Aktif', 'Nonaktif', 'Cuti', 'Resign']
+const ID_CARD_TEMPLATES = [
+  { id: 'green', label: 'Hijau', description: 'Template Kepala Sekolah' },
+  { id: 'blue', label: 'Biru', description: 'Template Guru' },
+  { id: 'purple', label: 'Ungu', description: 'Template Wakil Kepala' },
+  { id: 'orange', label: 'Oranye', description: 'Template Staf TU' },
+]
+
+function makeEmployeeQrPayload(employee) {
+  const position = (employee?.jabatan_name || '').toLowerCase()
+  const roles = [
+    'pegawai',
+    ...(position.includes('guru') ? ['guru'] : []),
+    ...(position.includes('tata usaha') || position.includes('tu') ? ['tata_usaha'] : []),
+    ...(position.includes('wali kelas') || position.includes('walas') ? ['wali_kelas'] : []),
+  ]
+
+  return JSON.stringify({
+    version: 1,
+    type: 'simsit_employee_login',
+    subject_id: employee?.id,
+    login_identifier: employee?.niy || employee?.email,
+    employee_number: employee?.niy,
+    unit_id: employee?.unit_id,
+    roles: [...new Set(roles)],
+    purpose: 'authentication_exchange',
+    issuer: 'SIMSIT_YAYASAN_DAR_EL_IMAN',
+  })
+}
+
+function formatEmployeeCardDate(value) {
+  if (!value) return '—'
+  const date = new Date(`${String(value).split('T')[0]}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }).format(date)
+}
 
 const DEFAULT_MOCK_EMPLOYEES = [
   {
@@ -631,6 +691,7 @@ function makePayload(form) {
 
 export default function EmployeesPage() {
   const queryClient = useQueryClient()
+  const pengaturan = usePengaturanStore((state) => state.pengaturan)
 
   // Filter States
   const [search, setSearch] = useState('')
@@ -649,7 +710,17 @@ export default function EmployeesPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState(initialFormState())
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportFormat, setExportFormat] = useState('xlsx')
+  const [notifications, setNotifications] = useState([])
   const [showIdCardModal, setShowIdCardModal] = useState(null)
+  const [selectedIdCardTemplate, setSelectedIdCardTemplate] = useState('green')
+  const [idCardOrientation, setIdCardOrientation] = useState(() => localStorage.getItem('employee-id-card-orientation') || 'vertical')
+
+  const changeIdCardOrientation = (orientation) => {
+    setIdCardOrientation(orientation)
+    localStorage.setItem('employee-id-card-orientation', orientation)
+  }
 
   // Import Data States
   const [importFile, setImportFile] = useState(null)
@@ -669,8 +740,16 @@ export default function EmployeesPage() {
   const [newCert, setNewCert] = useState({ nama: '', penerbit: '', tahun: '', no_sertifikat: '' })
   const [newDoc, setNewDoc] = useState({ nama: '', file_name: '' })
 
+  const pushNotification = (title, message, tone = 'success') => {
+    const id = `${Date.now()}-${Math.random()}`
+    setNotifications((current) => [...current, { id, title, message, tone }])
+    window.setTimeout(() => {
+      setNotifications((current) => current.filter((notification) => notification.id !== id))
+    }, 5500)
+  }
+
   // Query Fetching Employees
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: [
       'employees',
       page,
@@ -718,7 +797,7 @@ export default function EmployeesPage() {
 
   const unitsList = unitsData?.data || []
 
-  const rawList = data?.data || []
+  const rawList = useMemo(() => data?.data || [], [data?.data])
 
   const items = useMemo(() => {
     const apiItems = rawList.map(parseFromApi)
@@ -751,8 +830,32 @@ export default function EmployeesPage() {
       list = list.filter((i) => i.status === selectedStatusFilter)
     }
 
+    if (selectedGenderFilter) {
+      list = list.filter((i) => i.jenis_kelamin === selectedGenderFilter)
+    }
+
     return list
-  }, [rawList, search, selectedUnitFilter, selectedJabatanFilter, selectedStatusPegawaiFilter, selectedStatusFilter])
+  }, [rawList, search, selectedUnitFilter, selectedJabatanFilter, selectedStatusPegawaiFilter, selectedStatusFilter, selectedGenderFilter])
+
+  const employeeSummary = useMemo(() => {
+    const active = items.filter((item) => item.status === 'Aktif').length
+    const inactive = items.length - active
+    const male = items.filter((item) => item.jenis_kelamin === 'L').length
+    const female = items.filter((item) => item.jenis_kelamin === 'P').length
+    const units = new Set(items.map((item) => item.unit_id || item.unit_name).filter(Boolean)).size
+    const ages = items
+      .map((item) => item.tanggal_lahir && Math.floor((Date.now() - new Date(item.tanggal_lahir).getTime()) / 31557600000))
+      .filter((age) => Number.isFinite(age) && age > 0)
+    return {
+      total: data?.total || items.length,
+      active,
+      inactive,
+      male,
+      female,
+      units,
+      averageAge: ages.length ? (ages.reduce((sum, age) => sum + age, 0) / ages.length).toFixed(1) : '—',
+    }
+  }, [items, data?.total])
 
   const paginationInfo = {
     total: data?.total || items.length,
@@ -803,7 +906,7 @@ export default function EmployeesPage() {
       setShowImportModal(false)
       setImportFile(null)
       setImportPreviewData([])
-      Swal.fire({ title: 'Import Berhasil!', text: 'Data pegawai berhasil diimpor ke sistem ERP.', icon: 'success', confirmColor: '#064e3b' })
+      pushNotification('Import Berhasil', 'Data pegawai berhasil diimpor ke sistem.', 'info')
     }, 1200)
   }
 
@@ -812,16 +915,11 @@ export default function EmployeesPage() {
     mutationFn: (payload) => employeeService.tambah(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] })
-      Swal.fire({
-        title: 'Berhasil!',
-        text: 'Data pegawai berhasil ditambahkan.',
-        icon: 'success',
-        confirmColor: '#065F46',
-      })
+      pushNotification('Berhasil Disimpan', 'Data pegawai baru berhasil ditambahkan ke sistem.')
       closeFormModal()
     },
     onError: (err) => {
-      Swal.fire('Gagal!', err?.response?.data?.message || 'Terjadi kesalahan saat menyimpan data pegawai.', 'error')
+      pushNotification('Gagal Disimpan', err?.response?.data?.message || 'Terjadi kesalahan saat menyimpan data pegawai.', 'error')
     },
   })
 
@@ -829,16 +927,11 @@ export default function EmployeesPage() {
     mutationFn: ({ id, payload }) => employeeService.ubah({ id, payload }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] })
-      Swal.fire({
-        title: 'Berhasil!',
-        text: 'Data pegawai berhasil diperbarui.',
-        icon: 'success',
-        confirmColor: '#065F46',
-      })
+      pushNotification('Berhasil Diubah', 'Data pegawai berhasil diperbarui.')
       closeFormModal()
     },
     onError: (err) => {
-      Swal.fire('Gagal!', err?.response?.data?.message || 'Terjadi kesalahan saat memperbarui.', 'error')
+      pushNotification('Gagal Diubah', err?.response?.data?.message || 'Terjadi kesalahan saat memperbarui data pegawai.', 'error')
     },
   })
 
@@ -846,17 +939,12 @@ export default function EmployeesPage() {
     mutationFn: (id) => employeeService.hapus(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] })
-      Swal.fire({
-        title: 'Berhasil!',
-        text: 'Data pegawai berhasil dihapus.',
-        icon: 'success',
-        confirmColor: '#065F46',
-      })
+      pushNotification('Berhasil Dihapus', 'Data pegawai berhasil dihapus dari sistem.')
       setDeleteTarget(null)
       setHasConfirmedDeleteCheck(false)
     },
     onError: (err) => {
-      Swal.fire('Gagal!', err?.response?.data?.message || 'Terjadi kesalahan saat menghapus.', 'error')
+      pushNotification('Gagal Dihapus', err?.response?.data?.message || 'Terjadi kesalahan saat menghapus data pegawai.', 'error')
     },
   })
 
@@ -885,7 +973,7 @@ export default function EmployeesPage() {
   const handleFormSubmit = (e) => {
     e?.preventDefault()
     if (!formData.nama_lengkap.trim()) {
-      Swal.fire('Peringatan', 'Nama Lengkap Pegawai wajib diisi!', 'warning')
+      pushNotification('Perhatian', 'Data pegawai belum lengkap. Nama lengkap wajib diisi.', 'warning')
       return
     }
 
@@ -905,13 +993,8 @@ export default function EmployeesPage() {
 
   // Export Excel Dummy Handler
   const handleExportExcel = () => {
-    Swal.fire({
-      title: 'Export Data Pegawai',
-      text: 'Mengeksport master data pegawai ke format Excel...',
-      icon: 'info',
-      timer: 1500,
-      showConfirmButton: false,
-    })
+    setExportFormat('xlsx')
+    setShowExportModal(true)
   }
 
   // Add Teaching Assignment to Detail Pegawai
@@ -954,7 +1037,221 @@ export default function EmployeesPage() {
   }
 
   return (
-    <MasterDataPage>
+    <MasterDataPage className="employee-master-page education-unit-page" hideBreadcrumb>
+      <MasterPageHeader
+        tone="brand"
+        icon={UsersRound}
+        title="Master Data Pegawai"
+        description="Kelola seluruh data pegawai, profil, jabatan, unit kerja, dan informasi kepegawaian dengan mudah."
+        actions={
+          <MasterActionButton className="employee-hero__action" icon={Plus} onClick={openAddModal}>
+            Tambah Pegawai
+          </MasterActionButton>
+        }
+      />
+
+      <MasterStatsGrid className="education-unit-kpis employee-kpis lg:grid-cols-5">
+        <MasterStatCard icon={UsersRound} label="Total Pegawai" value={employeeSummary.total} description="Terdaftar di sistem" variant="success" />
+        <MasterStatCard icon={BriefcaseBusiness} label="Pegawai Aktif" value={employeeSummary.active} description={`${employeeSummary.total ? ((employeeSummary.active / employeeSummary.total) * 100).toFixed(1) : 0}% dari total pegawai`} variant="success" delay={50} />
+        <MasterStatCard icon={IdCard} label="Pegawai Nonaktif" value={employeeSummary.inactive} description={`${employeeSummary.total ? ((employeeSummary.inactive / employeeSummary.total) * 100).toFixed(1) : 0}% dari total pegawai`} variant="warning" delay={100} />
+        <MasterStatCard icon={Building2} label="Total Unit Kerja" value={employeeSummary.units} description="Unit pendidikan" variant="info" delay={150} />
+        <MasterStatCard icon={CalendarDays} label="Rata-rata Usia" value={employeeSummary.averageAge} description="Tahun" variant="neutral" delay={200} />
+      </MasterStatsGrid>
+
+      <section className="edu-enter rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-label="Pencarian dan filter pegawai">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <label className="relative min-w-0 flex-1">
+                <span className="sr-only">Cari pegawai</span>
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  placeholder="Cari pegawai, NIY, NIK, jabatan, atau unit kerja..."
+                  value={search}
+                  onChange={(event) => { setSearch(event.target.value); setPage(1) }}
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-100"
+                />
+              </label>
+              <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="import" icon={Upload} onClick={() => setShowImportModal(true)}>Import Excel</MasterActionButton>
+                <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="export" icon={Download} onClick={handleExportExcel}>Export Excel</MasterActionButton>
+                <MasterActionButton className="!h-11 !rounded-xl !px-3.5" icon={Plus} onClick={openAddModal}>Tambah Pegawai</MasterActionButton>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+              <span className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500 dark:border-slate-700 dark:text-slate-300">
+                <SlidersHorizontal className="h-4 w-4 text-emerald-700" /> Filter
+              </span>
+              {[
+                { label: 'Semua Unit Kerja', value: selectedUnitFilter, setter: setSelectedUnitFilter, options: unitsList.map((unit) => ({ value: unit.id, label: unit.name })) },
+                { label: 'Semua Jabatan', value: selectedJabatanFilter, setter: setSelectedJabatanFilter, options: positionsList.map((position) => ({ value: position.id, label: position.name })) },
+                { label: 'Semua Status', value: selectedStatusFilter, setter: setSelectedStatusFilter, options: STATUS_OPTIONS.map((status) => ({ value: status, label: status })) },
+                { label: 'Semua Jenis Kelamin', value: selectedGenderFilter, setter: setSelectedGenderFilter, options: [{ value: 'L', label: 'Laki-laki' }, { value: 'P', label: 'Perempuan' }] },
+              ].map((filter) => (
+                <select
+                  key={filter.label}
+                  aria-label={filter.label}
+                  value={filter.value}
+                  onChange={(event) => { filter.setter(event.target.value); setPage(1) }}
+                  className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
+                >
+                  <option value="">{filter.label}</option>
+                  {filter.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedUnitFilter('')
+                  setSelectedJabatanFilter('')
+                  setSelectedStatusPegawaiFilter('')
+                  setSelectedStatusFilter('')
+                  setSelectedGenderFilter('')
+                  setSearch('')
+                  setPage(1)
+                }}
+                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-emerald-950/40"
+              >
+                <RefreshCcw className="h-4 w-4" /> Reset
+              </button>
+            </div>
+      </section>
+
+      <div className="employee-workspace grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <main className="min-w-0 space-y-5">
+          {isError ? (
+            <MasterErrorState description="Data pegawai tidak dapat diambil dari server." onRetry={refetch} />
+          ) : (
+            <section className="employee-table-card overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]">
+              <header className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Daftar Pegawai</h2>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Menampilkan data sesuai filter dan kewenangan Anda.</p>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-slate-500">{paginationInfo.total} pegawai</span>
+              </header>
+              {isLoading || isFetching ? (
+                <div className="space-y-3 p-5" aria-label="Memuat data pegawai">
+                  {[1, 2, 3, 4, 5].map((row) => <div key={row} className="h-14 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />)}
+                </div>
+              ) : items.length === 0 ? (
+                <MasterEmptyState title="Pegawai tidak ditemukan" description="Ubah kata pencarian atau filter untuk melihat data lainnya." />
+              ) : (
+                <div className="employee-table-wrap">
+                  <table className="employee-table w-full table-fixed text-left">
+                    <thead>
+                      <tr>
+                        <th className="employee-col-number text-center">No</th>
+                        <th className="employee-col-photo text-center">Foto</th>
+                        <th className="employee-col-identity">Nama Pegawai <span>NIY</span></th>
+                        <th className="employee-col-position">Jabatan <span>Unit Kerja</span></th>
+                        <th className="employee-col-contact">Kontak</th>
+                        <th className="employee-col-status text-center">Status</th>
+                        <th className="employee-col-date">Tgl Bergabung</th>
+                        <th className="employee-col-actions text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((row, index) => {
+                        const fullName = `${row.gelar_depan ? `${row.gelar_depan} ` : ''}${row.nama_lengkap}${row.gelar_belakang ? `, ${row.gelar_belakang}` : ''}`
+                        return (
+                          <tr key={row.id || index}>
+                            <td className="text-center font-semibold text-slate-400">{paginationInfo.from + index}</td>
+                            <td className="text-center">
+                              {row.foto ? <img src={row.foto} alt="" className="mx-auto h-11 w-11 rounded-full border border-slate-200 object-cover" /> : <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-sm font-black text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">{row.nama_lengkap.slice(0, 2).toUpperCase()}</div>}
+                            </td>
+                            <td>
+                              <p className="truncate font-bold text-slate-900 dark:text-white">{fullName}</p>
+                              <p className="truncate text-xs text-slate-500">{row.niy || 'NIY belum tersedia'}</p>
+                            </td>
+                            <td>
+                              <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{row.jabatan_name || '—'}</p>
+                              <p className="truncate text-xs text-slate-500">{row.unit_name || 'Belum ditentukan'}</p>
+                            </td>
+                            <td>
+                              <p className="flex items-center gap-2 truncate text-xs text-slate-700 dark:text-slate-300"><Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />{row.no_hp || '—'}</p>
+                              <p className="mt-1 flex items-center gap-2 truncate text-xs text-slate-500"><Mail className="h-3.5 w-3.5 shrink-0" />{row.email || '—'}</p>
+                            </td>
+                            <td className="text-center">
+                              <button type="button" onClick={() => toggleEmployeeStatus(row)} title="Ubah status pegawai" className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${row.status === 'Aktif' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${row.status === 'Aktif' ? 'bg-emerald-500' : 'bg-amber-500'}`} />{row.status}
+                              </button>
+                            </td>
+                            <td>
+                              <p className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
+                                {row.tanggal_masuk
+                                  ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(row.tanggal_masuk))
+                                  : '—'}
+                              </p>
+                            </td>
+                            <td>
+                              <div className="flex justify-center gap-1.5">
+                                <button type="button" onClick={() => { setDetailEmployee(row); setActiveDetailTab('Identitas') }} title="Lihat detail" aria-label={`Lihat ${row.nama_lengkap}`} className="employee-row-action employee-row-action--view"><Eye /></button>
+                                <button type="button" onClick={() => openEditModal(row)} title="Edit pegawai" aria-label={`Edit ${row.nama_lengkap}`} className="employee-row-action employee-row-action--edit"><Pencil /></button>
+                                <button type="button" onClick={() => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) }} title="Hapus pegawai" aria-label={`Hapus ${row.nama_lengkap}`} className="employee-row-action employee-row-action--delete"><Trash2 /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {paginationInfo.total > 0 && (
+                <footer className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 text-xs text-slate-500 sm:flex-row dark:border-slate-700">
+                  <p>Menampilkan {paginationInfo.from}–{paginationInfo.to} dari {paginationInfo.total} data</p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="employee-page-button" aria-label="Halaman sebelumnya">‹</button>
+                    <span className="employee-page-button employee-page-button--active">{page}</span>
+                    <button type="button" disabled={page >= paginationInfo.last_page} onClick={() => setPage((current) => current + 1)} className="employee-page-button" aria-label="Halaman berikutnya">›</button>
+                  </div>
+                </footer>
+              )}
+            </section>
+          )}
+        </main>
+
+        <aside className="space-y-4 xl:sticky xl:top-5" aria-label="Ringkasan pegawai">
+          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"><UsersRound className="h-5 w-5" /></div>
+              <div><h2 className="text-sm font-bold text-slate-900 dark:text-white">Ringkasan Pegawai</h2><p className="text-xs text-slate-500 dark:text-slate-400">Data halaman aktif</p></div>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              {[
+                ['Total Pegawai', employeeSummary.total, UsersRound, 'text-emerald-700 bg-emerald-50'],
+                ['Pegawai Aktif', employeeSummary.active, BadgeCheck, 'text-emerald-700 bg-emerald-50'],
+                ['Pegawai Nonaktif', employeeSummary.inactive, IdCard, 'text-amber-700 bg-amber-50'],
+                ['Laki-laki', employeeSummary.male, UserRound, 'text-blue-700 bg-blue-50'],
+                ['Perempuan', employeeSummary.female, UserRound, 'text-violet-700 bg-violet-50'],
+              ].map(([label, value, Icon, color]) => (
+                <div key={label} className="flex items-center gap-3 py-3">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-500 dark:text-slate-300">{label}</span>
+                  <strong className="text-sm font-black tabular-nums text-slate-900 dark:text-white">{Number(value).toLocaleString('id-ID')}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Aksi Cepat</h2>
+            <div className="mt-3 grid gap-2">
+              {[
+                ['Tambah Pegawai Baru', Plus, openAddModal, 'text-emerald-700 bg-emerald-50'],
+                ['Import Data Pegawai', Upload, () => setShowImportModal(true), 'text-blue-700 bg-blue-50'],
+                ['Export Excel', FileSpreadsheet, handleExportExcel, 'text-emerald-700 bg-emerald-50'],
+                ['Cetak Daftar Pegawai', FileText, () => window.print(), 'text-rose-600 bg-rose-50'],
+              ].map(([label, Icon, action, color]) => (
+                <button key={label} type="button" onClick={action} className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-emerald-950/40">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>{label}
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <div className="hidden" aria-hidden="true">
       {/* 1. Header Banner */}
       <div className="master-hero rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1253,14 +1550,16 @@ export default function EmployeesPage() {
         </div>
       </div>
 
+      </div>
+
       {/* 5. MODAL WIZARD: TAMBAH / EDIT PEGAWAI */}
       {isFormModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
+          <div className="employee-form-modal w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
-              <h2 className="text-lg font-bold text-slate-900">
-                {isEditMode ? 'Edit Master Data Pegawai' : 'Tambah Master Data Pegawai'}
+              <h2 id="employee-form-title" className="text-base font-bold text-slate-900">
+                {isEditMode ? 'Edit Pegawai' : 'Tambah Pegawai'}
               </h2>
               <button onClick={closeFormModal} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700">
                 ✕
@@ -1268,9 +1567,9 @@ export default function EmployeesPage() {
             </div>
 
             {/* Main Body Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 min-h-[480px]">
+            <div className="employee-form-layout grid grid-cols-1 lg:grid-cols-4 min-h-[480px]">
               {/* Stepper Sidebar */}
-              <div className="border-r border-slate-100 bg-slate-50/50 p-6 space-y-6">
+              <div className="employee-form-stepper border-r border-slate-100 bg-slate-50/50 p-6 space-y-6">
                 {[
                   { step: 1, label: 'Identitas & Foto' },
                   { step: 2, label: 'Kepegawaian' },
@@ -1303,7 +1602,7 @@ export default function EmployeesPage() {
               </div>
 
               {/* Form Content */}
-              <div className={isEditMode ? 'lg:col-span-2 p-6 overflow-y-auto max-h-[540px]' : 'lg:col-span-3 p-6 overflow-y-auto max-h-[540px]'}>
+              <div className={`employee-form-content ${isEditMode ? 'lg:col-span-2' : 'lg:col-span-3'} p-6 overflow-y-auto max-h-[540px]`}>
                 {/* STEP 1: Identitas & Foto */}
                 {currentStep === 1 && (
                   <div className="space-y-4">
@@ -1690,8 +1989,8 @@ export default function EmployeesPage() {
 
       {/* 6. MODAL DETAIL PEGAWAI (WITH 7 TABS) */}
       {detailEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Detail Pegawai">
+          <div className="employee-detail-modal w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
             {/* Top Bar */}
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3.5 bg-slate-50">
               <button
@@ -2044,85 +2343,143 @@ export default function EmployeesPage() {
 
       {/* 7. MODAL CETAK ID CARD PEGAWAI */}
       {showIdCardModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <FaIdCard className="text-purple-600" /> Cetak ID Card Pegawai
-              </h3>
-              <button onClick={() => setShowIdCardModal(null)} className="text-slate-400 hover:text-slate-700">
-                ✕
-              </button>
-            </div>
+        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-id-card-title">
+          <section className="employee-id-modal w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+            <header className="employee-id-modal__header flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+              <div>
+                <h2 id="employee-id-card-title" className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><FaIdCard className="text-emerald-700" /> ID Card Pegawai</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Pratinjau kartu identitas dan QR akses SIMSIT</p>
+              </div>
+              <button type="button" onClick={() => setShowIdCardModal(null)} aria-label="Tutup ID Card" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><FaTimes /></button>
+            </header>
 
-            {/* ID Card Front Preview */}
-            <div className="p-6 flex justify-center bg-slate-100">
-              <div className="w-72 h-[420px] rounded-2xl bg-gradient-to-b from-[#064e3b] via-emerald-800 to-teal-900 p-5 text-white shadow-2xl relative flex flex-col items-center justify-between border-2 border-emerald-500/30">
-                {/* Header Logo */}
-                <div className="text-center space-y-1">
-                  <h4 className="text-xs font-black tracking-widest uppercase text-emerald-200">DAR EL - IMAN</h4>
-                  <p className="text-[9px] font-semibold text-white/80 uppercase">KARTU IDENTITAS PEGAWAI</p>
-                </div>
+            <div className="employee-id-preview">
+              <article className={`employee-id-card employee-id-card--${idCardOrientation} employee-id-card--${selectedIdCardTemplate}`}>
+                <div className="employee-id-card__pattern" aria-hidden="true" />
+                <div className="employee-id-card__top-wave" aria-hidden="true" />
+                <header className="employee-id-card__brand">
+                  <span className="employee-id-card__logo">
+                    {pengaturan.logo_url
+                      ? <img src={pengaturan.logo_url} alt={`Logo ${pengaturan.school_name}`} />
+                      : <b>{pengaturan.logo_text || 'YDE'}</b>}
+                  </span>
+                  <strong>{pengaturan.school_name || 'YAYASAN DAR EL-IMAN'}</strong>
+                  <small>{pengaturan.application_name || 'ISLAMIC SCHOOL'}</small>
+                  <em>Berilmu, Berakhlak, Beramal</em>
+                </header>
 
-                {/* Photo Frame */}
-                <div className="h-28 w-28 rounded-full border-4 border-white shadow-lg overflow-hidden bg-slate-200 flex items-center justify-center my-2">
+                <span className="employee-id-card__label">KARTU PEGAWAI</span>
+
+                <div className="employee-id-card__photo">
                   {showIdCardModal.foto ? (
-                    <img src={showIdCardModal.foto} alt={showIdCardModal.nama_lengkap} className="h-full w-full object-cover" />
+                    <img src={showIdCardModal.foto} alt={showIdCardModal.nama_lengkap} />
                   ) : (
-                    <span className="text-3xl font-black text-slate-600">
-                      {showIdCardModal.nama_lengkap.substring(0, 2).toUpperCase()}
-                    </span>
+                    <span>{showIdCardModal.nama_lengkap.substring(0, 2).toUpperCase()}</span>
                   )}
                 </div>
 
-                {/* Name & Title */}
-                <div className="text-center space-y-1 w-full">
-                  <h3 className="text-sm font-extrabold text-white leading-tight">
-                    {showIdCardModal.gelar_depan} {showIdCardModal.nama_lengkap}{showIdCardModal.gelar_belakang ? `, ${showIdCardModal.gelar_belakang}` : ''}
-                  </h3>
-                  <p className="text-xs font-bold text-emerald-200">{showIdCardModal.jabatan_name}</p>
-                  <p className="text-[11px] font-semibold text-white/90">{showIdCardModal.unit_name}</p>
+                <div className="employee-id-card__identity">
+                  <h3>{showIdCardModal.gelar_depan} {showIdCardModal.nama_lengkap}{showIdCardModal.gelar_belakang ? `, ${showIdCardModal.gelar_belakang}` : ''}</h3>
+                  <strong>{showIdCardModal.jabatan_name || 'Pegawai'}</strong>
                 </div>
 
-                {/* QR Code & NIY */}
-                <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 w-full text-center space-y-1 border border-white/20">
-                  <div className="flex items-center justify-center text-3xl text-white">
-                    <FaQrcode />
+                <dl className="employee-id-card__meta">
+                  <div><dt>NIY</dt><dd>{showIdCardModal.niy || '—'}</dd></div>
+                  <div><dt>Unit Kerja</dt><dd>{showIdCardModal.unit_name || '—'}</dd></div>
+                  <div><dt>Tanggal Lahir</dt><dd>{formatEmployeeCardDate(showIdCardModal.tanggal_lahir)}</dd></div>
+                  <div><dt>Status</dt><dd>{showIdCardModal.status_pegawai || showIdCardModal.status || '—'}</dd></div>
+                </dl>
+
+                <div className="employee-id-card__qr">
+                  <QRCodeSVG
+                    value={makeEmployeeQrPayload(showIdCardModal)}
+                    size={92}
+                    level="M"
+                    marginSize={1}
+                    bgColor="#ffffff"
+                    fgColor="#0f172a"
+                    title={`QR akses SIMSIT ${showIdCardModal.nama_lengkap}`}
+                  />
+                  <span>SCAN UNTUK VERIFIKASI</span>
+                </div>
+
+                <footer><b>Generasi Beriman, Berilmu,<br />Berakhlak Mulia</b><span>TAHUN AJARAN<br />2025/2026</span></footer>
+              </article>
+
+              <aside className="employee-id-info">
+                <div className="employee-id-template-picker">
+                  <div>
+                    <h3>Pilih Template Kartu</h3>
+                    <p>Pilih warna kartu identitas yang akan digunakan.</p>
                   </div>
-                  <span className="font-mono text-xs font-black tracking-widest text-emerald-200 block">
-                    {showIdCardModal.niy}
-                  </span>
+                  <div className="employee-id-template-grid">
+                    {ID_CARD_TEMPLATES.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => setSelectedIdCardTemplate(template.id)}
+                        aria-pressed={selectedIdCardTemplate === template.id}
+                        className={`employee-id-template-option employee-id-template-option--${template.id} ${selectedIdCardTemplate === template.id ? 'is-selected' : ''}`}
+                      >
+                        <span className="employee-id-template-option__preview">
+                          <i />
+                          <b>DEI</b>
+                          <em />
+                          <small>QR</small>
+                        </span>
+                        <strong>{template.label}</strong>
+                        <small>{template.description}</small>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+                <div className="employee-id-orientation-picker">
+                  <div>
+                    <h3>Orientasi Kartu</h3>
+                    <p>Pilih tata letak kartu untuk preview dan hasil cetak.</p>
+                  </div>
+                  <div className="employee-id-orientation-grid">
+                    {[
+                      ['horizontal', 'Horizontal'],
+                      ['vertical', 'Vertikal'],
+                    ].map(([value, label]) => (
+                      <button key={value} type="button" onClick={() => changeIdCardOrientation(value)} aria-pressed={idCardOrientation === value} className={idCardOrientation === value ? 'is-selected' : ''}>
+                        <span className={`employee-id-orientation-icon employee-id-orientation-icon--${value}`}><i /><b /></span>
+                        <strong>{label}</strong>
+                        {idCardOrientation === value && <FaCheckCircle />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h3>Informasi QR Login</h3>
+                  <p>QR memuat identitas pengguna, unit kerja, dan peran akses untuk proses pertukaran autentikasi SIMSIT.</p>
+                </div>
+                <dl>
+                  <div><dt>Identifier Login</dt><dd>{showIdCardModal.niy || showIdCardModal.email}</dd></div>
+                  <div><dt>Peran Utama</dt><dd>{showIdCardModal.jabatan_name || 'Pegawai'}</dd></div>
+                  <div><dt>Unit Kerja</dt><dd>{showIdCardModal.unit_name || '—'}</dd></div>
+                  <div><dt>Status</dt><dd><span>{showIdCardModal.status}</span></dd></div>
+                </dl>
+                <div className="employee-id-security-note">
+                  <BadgeCheck />
+                  <p>QR tidak menyimpan password atau token rahasia. Backend nantinya harus memvalidasi QR dan menukarnya dengan sesi login yang aman.</p>
+                </div>
+              </aside>
             </div>
 
-            {/* Action Footer */}
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-4">
-              <button
-                onClick={() => setShowIdCardModal(null)}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-              >
-                Tutup
-              </button>
-              <button
-                onClick={() => {
-                  Swal.fire('Mencetak ID Card', 'Mengirim perintah cetak ID Card ke printer...', 'success')
-                  setShowIdCardModal(null)
-                }}
-                className="flex items-center gap-2 rounded-lg bg-emerald-800 px-5 py-2 text-xs font-bold text-white shadow hover:bg-emerald-900"
-              >
-                <FaPrint /> Cetak / Download PDF
-              </button>
-            </div>
-          </div>
+            <footer className="employee-id-modal__footer flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-700 dark:bg-slate-900/40">
+              <button type="button" onClick={() => setShowIdCardModal(null)} className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Tutup</button>
+              <button type="button" onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-xl bg-emerald-800 px-5 text-xs font-bold text-white shadow hover:bg-emerald-900"><FaPrint /> Cetak ID Card</button>
+            </footer>
+          </section>
         </div>
       )}
 
       {/* 8. MODAL KONFIRMASI HAPUS PEGAWAI */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Hapus Pegawai">
+          <div className="employee-delete-modal w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="p-6 text-center space-y-3 border-b border-slate-100">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-600 text-2xl">
                 <FaExclamationTriangle />
@@ -2173,17 +2530,58 @@ export default function EmployeesPage() {
         </div>
       )}
 
+      {showExportModal && (
+        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-export-title">
+          <section className="employee-export-modal w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1B2433]">
+            <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+              <h2 id="employee-export-title" className="text-base font-bold text-slate-900 dark:text-white">Export Data Pegawai</h2>
+              <button type="button" onClick={() => setShowExportModal(false)} aria-label="Tutup modal export" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><FaTimes /></button>
+            </header>
+            <div className="space-y-5 p-5">
+              <div>
+                <p className="mb-3 text-xs font-bold text-slate-700 dark:text-slate-200">Pilih Format Export</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ['xlsx', 'Excel (.xlsx)', 'Format Excel untuk pengolahan data lanjutan', FaFileExcel],
+                    ['csv', 'CSV (.csv)', 'Format CSV untuk kompatibilitas sistem lain', FileText],
+                  ].map(([format, label, description, Icon]) => (
+                    <button key={format} type="button" onClick={() => setExportFormat(format)} className={`relative min-h-28 rounded-xl border p-4 text-left transition ${exportFormat === format ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-600/10 dark:bg-emerald-950/30' : 'border-slate-200 hover:border-emerald-300 dark:border-slate-700'}`}>
+                      <Icon className={`mb-3 h-6 w-6 ${exportFormat === format ? 'text-emerald-700' : 'text-slate-500'}`} />
+                      <strong className="block text-xs text-slate-900 dark:text-white">{label}</strong>
+                      <span className="mt-1 block text-[10px] leading-relaxed text-slate-500">{description}</span>
+                      {exportFormat === format && <span className="absolute right-3 top-3 text-sm font-black text-emerald-700">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-bold text-slate-700 dark:text-slate-200">Opsi Export</p>
+                <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                  <label className="flex items-center gap-2"><input type="checkbox" defaultChecked className="accent-emerald-700" /> Export semua data</label>
+                  <label className="flex items-center gap-2"><input type="checkbox" defaultChecked className="accent-emerald-700" /> Export sesuai filter aktif</label>
+                  <label className="flex items-center gap-2"><input type="checkbox" className="accent-emerald-700" /> Hanya data pegawai aktif</label>
+                </div>
+              </div>
+            </div>
+            <footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-700 dark:bg-slate-900/40">
+              <button type="button" onClick={() => setShowExportModal(false)} className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Batal</button>
+              <button type="button" onClick={() => { setShowExportModal(false); pushNotification('Export Berhasil', `Data pegawai berhasil disiapkan dalam format ${exportFormat === 'xlsx' ? 'Excel' : 'CSV'}.`, 'info') }} className="h-10 rounded-xl bg-emerald-800 px-6 text-xs font-bold text-white shadow-lg shadow-emerald-900/15 hover:bg-emerald-900">Export</button>
+            </footer>
+          </section>
+        </div>
+      )}
+
       {/* 9. MODAL DASHBOARD IMPORT PEGAWAI */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Import Data Pegawai">
+          <div className="employee-import-modal w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
                   <FaFileImport className="text-base" />
                 </div>
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900">Dashboard Import Data Pegawai</h2>
+                  <h2 className="text-base font-extrabold text-slate-900">Import Data Pegawai</h2>
                   <p className="text-xs text-slate-500">Unggah file CSV/Excel untuk impor data pegawai secara massal</p>
                 </div>
               </div>
@@ -2286,6 +2684,21 @@ export default function EmployeesPage() {
           </div>
         </div>
       )}
+
+      <div className="employee-toast-stack" aria-live="polite" aria-atomic="true">
+        {notifications.map((notification) => (
+          <article key={notification.id} className={`employee-toast employee-toast--${notification.tone}`}>
+            <span className="employee-toast__icon">
+              {notification.tone === 'info' ? <Info /> : notification.tone === 'warning' ? <FaExclamationTriangle /> : notification.tone === 'error' ? <FaTimes /> : <BadgeCheck />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3>{notification.title}</h3>
+              <p>{notification.message}</p>
+            </div>
+            <button type="button" onClick={() => setNotifications((current) => current.filter((item) => item.id !== notification.id))} aria-label="Tutup notifikasi"><FaTimes /></button>
+          </article>
+        ))}
+      </div>
     </MasterDataPage>
   )
 }

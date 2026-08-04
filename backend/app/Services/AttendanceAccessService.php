@@ -10,8 +10,8 @@ use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class AttendanceAccessService
@@ -29,6 +29,7 @@ class AttendanceAccessService
     public function teacherSchedules(User $user): Builder
     {
         $employee = $this->employee($user);
+
         return ClassSchedule::query()->where(function (Builder $query) use ($employee, $user) {
             if ($employee) {
                 $query->where('employee_id', $employee->id);
@@ -40,6 +41,7 @@ class AttendanceAccessService
     public function homeroomClasses(User $user): Builder
     {
         $employee = $this->employee($user);
+
         return Kelas::query()->where('wali_kelas_id', $employee?->id ?? '__none__');
     }
 
@@ -53,6 +55,7 @@ class AttendanceAccessService
                 ->whereIn('name', array_filter([$kelas->nama_kelas, $kelas->kode_kelas]))
                 ->pluck('id'));
         }
+
         return Student::active()->whereIn('class_id', $classIds->unique())->pluck('id');
     }
 
@@ -90,6 +93,7 @@ class AttendanceAccessService
             ->filter(function (ClassSchedule $schedule) use ($at, $early, $late) {
                 $start = $at->copy()->setTimeFromTimeString($schedule->time_start)->subMinutes($early);
                 $end = $at->copy()->setTimeFromTimeString($schedule->time_end)->addMinutes($late);
+
                 return $at->betweenIncluded($start, $end);
             })
             ->map(function (ClassSchedule $schedule) use ($teacherScheduleIds, $at) {
@@ -103,6 +107,7 @@ class AttendanceAccessService
                 $schedule->setAttribute('requires_substitute_reason', ! $isOwner);
                 $schedule->setAttribute('attendance_status', $session?->status ?? 'not_started');
                 $schedule->setAttribute('attendance_session_id', $session?->id);
+
                 return $schedule;
             })
             ->values();
@@ -116,6 +121,7 @@ class AttendanceAccessService
                 'schedule_id' => 'Jadwal tidak aktif saat ini atau tidak dapat diakses oleh akun Anda.',
             ]);
         }
+
         return $schedule;
     }
 
@@ -124,11 +130,12 @@ class AttendanceAccessService
         $schedule = $user->hasRole('Super Admin')
             ? ClassSchedule::find($scheduleId)
             : $this->teacherSchedules($user)->find($scheduleId);
-        if (!$schedule) {
+        if (! $schedule) {
             throw ValidationException::withMessages([
                 'schedule_id' => 'Jadwal tidak ditemukan atau bukan jadwal mengajar Anda.',
             ]);
         }
+
         return $schedule;
     }
 
@@ -144,6 +151,7 @@ class AttendanceAccessService
     public function studentsForSchedule(ClassSchedule $schedule): Builder
     {
         $classIds = collect([$schedule->class_id])->filter();
+        $kelasIds = collect([$schedule->kelas_id])->filter();
         if ($schedule->kelas_id) {
             $kelas = Kelas::find($schedule->kelas_id);
             if ($kelas) {
@@ -160,17 +168,26 @@ class AttendanceAccessService
             }
         }
 
-        return Student::query()->active()->whereIn('class_id', $classIds->unique()->values());
+        return Student::query()->active()->where(function (Builder $query) use ($classIds, $kelasIds) {
+            $query->whereIn('class_id', $classIds->unique()->values())
+                ->orWhereIn('kelas_id', $kelasIds->unique()->values());
+        });
     }
 
     public function canAccessAttendance(User $user, LmsPresensi $attendance): bool
     {
-        if ($user->hasRole('Super Admin')) return true;
-        if ($user->hasRole('Siswa')) return $attendance->siswa_id === $this->student($user)?->id;
+        if ($user->hasRole('Super Admin')) {
+            return true;
+        }
+        if ($user->hasRole('Siswa')) {
+            return $attendance->siswa_id === $this->student($user)?->id;
+        }
         if ($user->hasRole('Wali Kelas')) {
             $schedule = $attendance->jadwalPelajaran;
+
             return $schedule && $this->homeroomClasses($user)->whereKey($schedule->kelas_id)->exists();
         }
+
         return $this->teacherSchedules($user)->whereKey($attendance->jadwal_pelajaran_id)->exists();
     }
 }

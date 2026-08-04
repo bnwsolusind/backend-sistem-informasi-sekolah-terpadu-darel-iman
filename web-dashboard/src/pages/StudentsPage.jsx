@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -26,7 +26,13 @@ import CetakKartuSiswaModal from '../components/siswa/CetakKartuSiswaModal'
 import StudentFormModal from '../components/siswa/StudentFormModal'
 import { useDaftarKelas } from '../hooks/useReferenceData'
 import { useAksiSiswa, useDaftarSiswa } from '../hooks/useStudents'
-import { MasterDataPage } from '../components/master-data'
+import {
+  MasterActionButton,
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatCard,
+  MasterStatsGrid,
+} from '../components/master-data'
 
 const initialForm = () => ({
   id: null,
@@ -73,6 +79,7 @@ export default function StudentsPage() {
   const [kelasFilter, setKelasFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Modal Control States
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -96,15 +103,37 @@ export default function StudentsPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 8
+  const itemsPerPage = 15
 
   // Hooks data API
-  const { data: daftarSiswaData, isLoading } = useDaftarSiswa({ per_page: 500, search: searchInput })
-  const { data: daftarKelasData } = useDaftarKelas({ per_page: 200 })
+  const { data: daftarSiswaData, isLoading, isError, refetch } = useDaftarSiswa({
+    page: currentPage,
+    per_page: itemsPerPage,
+    search: searchQuery || undefined,
+  })
+  const { data: daftarKelasData } = useDaftarKelas(
+    { per_page: 200 },
+    { enabled: showFormModal, staleTime: 5 * 60 * 1000 },
+  )
   const { tambah, ubah, hapus } = useAksiSiswa()
 
   const rawStudents = daftarSiswaData?.data || []
   const rawClasses = daftarKelasData?.data || []
+  const studentPagination = {
+    total: daftarSiswaData?.total || 0,
+    from: daftarSiswaData?.from || 0,
+    to: daftarSiswaData?.to || 0,
+    lastPage: daftarSiswaData?.last_page || 1,
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setCurrentPage(1)
+      setSearchQuery(searchInput.trim())
+    }, 400)
+
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
 
   // --- Handlers Import ---
   const handleDownloadTemplateSiswa = () => {
@@ -328,18 +357,79 @@ export default function StudentsPage() {
   ], [])
 
   // Map API students to display list
+  // Map API students to display list
   const formattedStudents = useMemo(() => {
     if (rawStudents.length > 0) {
       return rawStudents.map((item) => {
         const meta = item.metadata || {}
-        const ortuObj = meta.ayah?.nama
-          ? `${meta.ayah.nama} (Ayah)`
-          : meta.ibu?.nama
-            ? `${meta.ibu.nama} (Ibu)`
-            : meta.wali?.nama
-              ? `${meta.wali.nama} (Wali)`
-              : '-'
-        const hpObj = meta.ayah?.hp || meta.ibu?.hp || meta.wali?.hp || '-'
+        const parentRel = item.parent || {}
+        const parentsPivot = item.parents_pivot || item.parents || []
+
+        // Extract Parent Name with fallback options
+        let parentName = ''
+        let relationshipLabel = ''
+
+        if (meta.nama_ayah || meta.ayah?.nama || meta.orang_tua?.nama_ayah || item.nama_ayah) {
+          parentName = meta.nama_ayah || meta.ayah?.nama || meta.orang_tua?.nama_ayah || item.nama_ayah
+          relationshipLabel = 'Ayah'
+        } else if (meta.nama_ibu || meta.ibu?.nama || meta.orang_tua?.nama_ibu || item.nama_ibu) {
+          parentName = meta.nama_ibu || meta.ibu?.nama || meta.orang_tua?.nama_ibu || item.nama_ibu
+          relationshipLabel = 'Ibu'
+        } else if (meta.nama_wali || meta.wali?.nama || meta.orang_tua?.nama_wali || item.nama_wali) {
+          parentName = meta.nama_wali || meta.wali?.nama || meta.orang_tua?.nama_wali || item.nama_wali
+          relationshipLabel = 'Wali'
+        } else if (typeof meta.orang_tua === 'string' && meta.orang_tua.trim()) {
+          parentName = meta.orang_tua.trim()
+        } else if (typeof item.orang_tua === 'string' && item.orang_tua.trim()) {
+          parentName = item.orang_tua.trim()
+        } else if (typeof meta.orang_tua === 'object' && (meta.orang_tua?.nama || meta.orang_tua?.full_name || meta.orang_tua?.name)) {
+          parentName = meta.orang_tua?.nama || meta.orang_tua?.full_name || meta.orang_tua?.name
+        } else if (meta.nama_ortu || meta.nama_orang_tua || meta.parent_name || meta.orang_tua_nama) {
+          parentName = meta.nama_ortu || meta.nama_orang_tua || meta.parent_name || meta.orang_tua_nama
+        } else if (item.nama_ortu || item.nama_orang_tua || item.parent_name) {
+          parentName = item.nama_ortu || item.nama_orang_tua || item.parent_name
+        } else if (parentRel.full_name || parentRel.name) {
+          parentName = parentRel.full_name || parentRel.name
+          relationshipLabel = 'Orang Tua'
+        } else if (parentsPivot[0]?.full_name || parentsPivot[0]?.name) {
+          parentName = parentsPivot[0].full_name || parentsPivot[0].name
+          if (parentsPivot[0]?.pivot?.relationship_type) {
+            relationshipLabel = parentsPivot[0].pivot.relationship_type
+          }
+        }
+
+        const ortuObj = parentName
+          ? (relationshipLabel ? `${parentName} (${relationshipLabel})` : parentName)
+          : '-'
+
+        // Extract Phone Number with fallback options
+        const hpObj =
+          meta.hp_ayah || meta.telfon_ayah || meta.nomor_wa_ayah || meta.nomor_hp_wa_ayah || meta.ayah?.hp ||
+          meta.hp_ibu || meta.telfon_ibu || meta.nomor_wa_ibu || meta.nomor_hp_wa_ibu || meta.ibu?.hp ||
+          meta.hp_wali || meta.telfon_wali || meta.nomor_wa_wali || meta.nomor_hp_wa_wali || meta.wali?.hp ||
+          (typeof meta.orang_tua === 'object' ? (meta.orang_tua?.no_hp || meta.orang_tua?.hp || meta.orang_tua?.phone) : null) ||
+          meta.no_hp || meta.phone ||
+          parentRel.phone || parentRel.no_hp || parentRel.telepon ||
+          parentsPivot[0]?.phone || parentsPivot[0]?.no_hp ||
+          item.phone || item.no_hp || item.hp_ortu || '-'
+
+        const fotoObj =
+          meta.foto_url ||
+          meta.foto ||
+          meta.photo_url ||
+          meta.photo ||
+          meta.avatar ||
+          meta.avatar_url ||
+          meta.url_foto ||
+          item.foto_url ||
+          item.foto ||
+          item.photo_url ||
+          item.photo ||
+          item.avatar ||
+          item.user?.avatar ||
+          item.user?.avatar_url ||
+          item.user?.photo ||
+          ''
 
         const stRaw = String(meta.akademik?.status_siswa || (item.is_active ? 'aktif' : 'nonaktif')).toLowerCase()
         const statusText =
@@ -354,19 +444,19 @@ export default function StudentsPage() {
         return {
           id: item.id,
           nis: item.nis || '-',
-          nisn: meta.nisn || '-',
-          nama: item.full_name || '-',
-          unit: meta.akademik?.unit_pendidikan || meta.unit_pendidikan || 'SDIT 2 Dar el-Iman - Padang',
-          kelas: meta.akademik?.kelas || item.class?.name || '6A',
+          nisn: item.nisn || meta.nisn || '-',
+          nama: item.full_name || item.nama || '-',
+          unit: meta.akademik?.unit_pendidikan || meta.unit_pendidikan || item.education_unit?.name || 'SDIT 2 Dar el-Iman - Padang',
+          kelas: meta.akademik?.kelas || item.school_class?.name || item.class?.name || '6A',
           orangTua: ortuObj,
           noHp: hpObj,
           status: statusText,
           gender: item.gender === 'female' ? 'Perempuan' : 'Laki-laki',
-          tempatLahir: item.birth_place || 'Padang',
-          tanggalLahir: item.birth_date ? String(item.birth_date).slice(0, 10) : '2014-05-12',
+          tempatLahir: item.birth_place || meta.birth_place || 'Padang',
+          tanggalLahir: item.birth_date ? String(item.birth_date).slice(0, 10) : (meta.birth_date ? String(meta.birth_date).slice(0, 10) : '2014-05-12'),
           agama: meta.agama || 'Islam',
-          alamat: item.address || 'Padang - Sumatera Barat',
-          foto: meta.foto_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.full_name || 'Siswa')}&background=0D8ABC&color=fff`,
+          alamat: item.address || meta.alamat_siswa || 'Padang - Sumatera Barat',
+          foto: fotoObj,
           raw: item,
         }
       })
@@ -390,11 +480,8 @@ export default function StudentsPage() {
   }, [formattedStudents, unitFilter, kelasFilter, statusFilter, searchInput])
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage))
-  const paginatedStudents = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
-    return filteredStudents.slice(start, start + itemsPerPage)
-  }, [filteredStudents, currentPage, itemsPerPage])
+  const totalPages = Math.max(1, studentPagination.lastPage)
+  const paginatedStudents = filteredStudents
 
   // Form Handlers
   const handleOpenTambah = () => {
@@ -510,120 +597,85 @@ export default function StudentsPage() {
   }
 
   return (
-    <MasterDataPage>
-      {/* Header Banner */}
-      <div className="master-hero rounded-2xl bg-white p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-              Master Data Sekolah
-            </span>
-            <h1 className="text-2xl md:text-3xl font-bold mt-2">Data Siswa</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Kelola seluruh data siswa di semua unit pendidikan Dar El-Iman
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportExcel}
-              className="bg-white/10 hover:bg-white/20 text-white font-medium px-4 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2 text-sm backdrop-blur-sm"
-            >
-              <FaFileExcel /> Export Excel
-            </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="bg-white/10 hover:bg-white/20 text-white font-medium px-4 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2 text-sm backdrop-blur-sm"
-            >
-              <FaFileImport /> Import Excel
-            </button>
-            <button
-              onClick={handleOpenTambah}
-              className="bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2 text-sm shadow-md"
-            >
-              <FaPlus /> Tambah Siswa
-            </button>
-          </div>
-        </div>
-      </div>
+    <MasterDataPage className="education-unit-page student-master-page" hideBreadcrumb>
+      <MasterPageHeader
+        title="Master Siswa"
+        description="Kelola identitas, data akademik, orang tua atau wali, serta status seluruh siswa."
+        tone="brand"
+        icon={FaUserGraduate}
+        actions={(
+          <MasterActionButton
+            className="education-unit-hero__action !h-11 !rounded-xl !border-white !bg-white !px-5 !text-xs !text-emerald-800 !shadow-none hover:!bg-emerald-50"
+            icon={FaPlus}
+            onClick={handleOpenTambah}
+          >
+            Tambah Siswa
+          </MasterActionButton>
+        )}
+      />
 
       {/* Quick Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl font-bold">
-            <FaUserGraduate />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Total Siswa</p>
-            <h3 className="text-2xl font-bold text-slate-800">{filteredStudents.length}</h3>
-            <span className="text-[11px] text-emerald-600 font-medium">Terdaftar di sistem</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl font-bold">
-            <FaMale />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Siswa Laki-laki</p>
-            <h3 className="text-2xl font-bold text-slate-800">
-              {filteredStudents.filter((s) => (s.gender || '').toLowerCase() === 'laki-laki' || (s.gender || '').toLowerCase() === 'l').length}
-            </h3>
-            <span className="text-[11px] text-blue-600 font-medium">Berdasarkan data filter</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center text-xl font-bold">
-            <FaFemale />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Siswa Perempuan</p>
-            <h3 className="text-2xl font-bold text-slate-800">
-              {filteredStudents.filter((s) => (s.gender || '').toLowerCase() === 'perempuan' || (s.gender || '').toLowerCase() === 'p').length}
-            </h3>
-            <span className="text-[11px] text-pink-600 font-medium">Berdasarkan data filter</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-yellow-100 text-yellow-600 flex items-center justify-center text-xl font-bold">
-            <FaCheckCircle />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Status Aktif</p>
-            <h3 className="text-2xl font-bold text-slate-800">
-              {filteredStudents.filter((s) => (s.status || '').toLowerCase() === 'aktif').length}
-            </h3>
-            <span className="text-[11px] text-yellow-600 font-medium">Berdasarkan data filter</span>
-          </div>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={FaUserGraduate} label="Total Siswa" value={studentPagination.total || filteredStudents.length} description="Terdaftar di sistem" variant="success" delay={40} />
+        <MasterStatCard
+          icon={FaMale}
+          label="Siswa Laki-laki"
+          value={filteredStudents.filter((s) => ['laki-laki', 'l'].includes((s.gender || '').toLowerCase())).length}
+          description="Berdasarkan data filter"
+          variant="info"
+          delay={80}
+        />
+        <MasterStatCard
+          icon={FaFemale}
+          label="Siswa Perempuan"
+          value={filteredStudents.filter((s) => ['perempuan', 'p'].includes((s.gender || '').toLowerCase())).length}
+          description="Berdasarkan data filter"
+          variant="danger"
+          delay={120}
+        />
+        <MasterStatCard
+          icon={FaCheckCircle}
+          label="Status Aktif"
+          value={filteredStudents.filter((s) => (s.status || '').toLowerCase() === 'aktif').length}
+          description="Berdasarkan data filter"
+          variant="warning"
+          delay={160}
+        />
+      </MasterStatsGrid>
 
       {/* Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-3xl border border-slate-200 shadow-sm gap-4">
+      <section className="edu-enter rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-label="Pencarian dan filter siswa">
         {/* Search Input */}
-        <div className="relative w-full sm:w-1/2 md:w-[45%]">
-          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => { setSearchInput(e.target.value); setCurrentPage(1) }}
-            placeholder="Cari NIS / Nama Siswa / NISN..."
-            className="w-full rounded-full border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm font-medium text-slate-700 focus:border-emerald-500 focus:bg-white focus:outline-none transition-colors"
-          />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Cari siswa</span>
+            <FaSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Cari NIS, NISN, atau nama siswa..."
+              className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-100"
+            />
+          </label>
+          <div className="hidden shrink-0 items-center gap-2 lg:flex">
+            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="import" icon={FaFileImport} onClick={() => setShowImportModal(true)}>Import</MasterActionButton>
+            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export Excel</MasterActionButton>
+            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" icon={FaPlus} onClick={handleOpenTambah}>Tambah Siswa</MasterActionButton>
+          </div>
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
-          <div className="flex items-center gap-2 text-slate-500 mr-1 shrink-0">
+        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-slate-500 dark:border-slate-700 dark:text-slate-300">
             <FaFilter className="text-xs" />
-            <span className="text-sm font-bold">Filter:</span>
+            <span className="text-xs font-bold">Filter</span>
           </div>
 
           <select
             value={unitFilter}
             onChange={(e) => { setUnitFilter(e.target.value); setCurrentPage(1) }}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:border-emerald-500 focus:outline-none shrink-0"
+            className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
           >
             <option value="">Semua Unit Pendidikan</option>
             <option value="SDIT 1">SDIT 1 Dar el-Iman - 50 Kota</option>
@@ -637,7 +689,7 @@ export default function StudentsPage() {
           <select
             value={kelasFilter}
             onChange={(e) => { setKelasFilter(e.target.value); setCurrentPage(1) }}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:border-emerald-500 focus:outline-none shrink-0"
+            className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
           >
             <option value="">Semua Kelas</option>
             <option value="6A">6A</option>
@@ -652,7 +704,7 @@ export default function StudentsPage() {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:border-emerald-500 focus:outline-none shrink-0"
+            className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
           >
             <option value="">Semua Status</option>
             <option value="aktif">Aktif</option>
@@ -660,64 +712,105 @@ export default function StudentsPage() {
             <option value="lulus">Lulus</option>
             <option value="nonaktif">Nonaktif</option>
           </select>
+          <div className="ml-auto flex shrink-0 items-center gap-2 lg:hidden">
+            <button type="button" onClick={() => setShowImportModal(true)} title="Import Excel" className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600"><FaFileImport /></button>
+            <button type="button" onClick={handleExportExcel} title="Export Excel" className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-emerald-700"><FaFileExcel /></button>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Main Student Data Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 font-bold uppercase text-slate-600">
-                <th className="py-3 px-4 text-center w-12">No</th>
-                <th className="py-3 px-4 text-center w-14">Foto</th>
-                <th className="py-3 px-4">NIS</th>
-                <th className="py-3 px-4">Nama Siswa</th>
-                <th className="py-3 px-4">Unit Pendidikan</th>
-                <th className="py-3 px-4 text-center">Kelas</th>
-                <th className="py-3 px-4">Orang Tua / Wali</th>
-                <th className="py-3 px-4">No. HP</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-center w-28">Aksi</th>
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <section className="edu-enter overflow-hidden rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="student-table-title">
+        <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+          <div>
+            <h2 id="student-table-title" className="text-base font-bold text-slate-900 dark:text-white">Daftar Siswa</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data siswa sesuai filter dan kewenangan pengguna.</p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{studentPagination.total || filteredStudents.length} siswa</span>
+        </div>
+        <div className="overflow-hidden">
+          <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar siswa">
+            <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
+              <tr>
+                <th className="w-[6%] px-2 py-3 text-center">No</th>
+                <th className="w-[34%] px-3 py-3 font-bold">Identitas Siswa</th>
+                <th className="hidden w-[29%] px-3 py-3 font-bold md:table-cell">Orang Tua / Wali</th>
+                <th className="hidden w-[11%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
+                <th className="w-[20%] px-2 py-3 text-center font-bold">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedStudents.map((item, idx) => (
-                <tr key={item.id} className="hover:bg-emerald-50/40 transition">
-                  <td className="py-3 px-4 text-center font-medium text-slate-500">
-                    {(currentPage - 1) * itemsPerPage + idx + 1}
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <tr key={index} className="animate-pulse">
+                    <td colSpan={5} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
+                  </tr>
+                ))
+              ) : isError ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center">
+                    <p className="text-sm font-bold text-rose-700">Data siswa gagal dimuat</p>
+                    <p className="mt-1 text-xs text-slate-500">Periksa koneksi server kemudian coba kembali.</p>
+                    <button type="button" onClick={() => refetch()} className="mt-4 h-10 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white">Muat Ulang</button>
                   </td>
-                  <td className="py-3 px-4 text-center">
-                    <img
-                      src={item.foto}
-                      alt={item.nama}
-                      className="h-8 w-8 rounded-full object-cover border border-slate-200 mx-auto"
-                    />
+                </tr>
+              ) : paginatedStudents.map((item, idx) => (
+                <tr key={item.id} className="edu-row align-middle transition-colors hover:bg-emerald-50/40" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">
+                    {(studentPagination.from || 1) + idx}
                   </td>
-                  <td className="py-3 px-4 font-bold text-slate-800">{item.nis}</td>
-                  <td className="py-3 px-4 font-extrabold text-slate-900">{item.nama}</td>
-                  <td className="py-3 px-4 font-semibold text-slate-700">{item.unit}</td>
-                  <td className="py-3 px-4 text-center font-bold text-slate-800">{item.kelas}</td>
-                  <td className="py-3 px-4 text-slate-700">{item.orangTua}</td>
-                  <td className="py-3 px-4 text-slate-600 font-medium">{item.noHp}</td>
-                  <td className="py-3 px-4 text-center">{renderStatusBadge(item.status)}</td>
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
+                  <td className="px-3 py-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      {item.foto ? (
+                        <img src={item.foto} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-full border border-slate-200 object-cover shadow-sm" />
+                      ) : (
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-[10px] font-black text-white shadow-sm">
+                          {(item.nama || 'S').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
+                        </span>
+                      )}
+                      <span className="min-w-0">
+                        <strong className="block truncate text-xs font-extrabold leading-5 text-slate-900 dark:text-white" title={item.nama}>{item.nama}</strong>
+                        <small className="block truncate text-[9px] font-medium text-slate-400">NIS {item.nis} · NISN {item.nisn || '-'}</small>
+                        <small className="mt-0.5 block truncate text-[9px] font-semibold text-emerald-700 dark:text-emerald-300" title={`${item.unit} · Kelas ${item.kelas}`}>
+                          {item.unit} · Kelas {item.kelas}
+                        </small>
+                        <small className="mt-0.5 block truncate text-[9px] font-medium text-slate-500 md:hidden" title={item.orangTua}>Ortu: {item.orangTua} ({item.noHp || '-'})</small>
+                        <small className={`mt-0.5 text-[9px] font-bold sm:hidden ${(item.status || '').toLowerCase() === 'aktif' ? 'text-emerald-700' : 'text-amber-600'}`}>• {item.status}</small>
+                      </span>
+                    </div>
+                  </td>
+                  <td className="hidden px-3 py-3 md:table-cell">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-800">{(item.orangTua || 'W').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
+                      <span className="min-w-0">
+                        <strong className="block truncate text-xs text-slate-800 dark:text-slate-100" title={item.orangTua}>{item.orangTua}</strong>
+                        <small className="mt-1 block whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+                          {item.noHp || '-'}
+                        </small>
+                      </span>
+                    </div>
+                  </td>
+                  <td className="hidden whitespace-nowrap px-3 py-3 text-center sm:table-cell">{renderStatusBadge(item.status)}</td>
+                  <td className="px-3 py-3 text-center">
+                    <div className="flex flex-nowrap items-center justify-center gap-1">
                       <button
                         type="button"
                         onClick={() => handleOpenDetail(item)}
-                        title="Lihat Detail Pop Up"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-blue-600 hover:bg-blue-50 transition"
+                        title="Lihat detail"
+                        aria-label={`Lihat detail ${item.nama}`}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-500/20 dark:border-blue-800/70 dark:bg-blue-950/40 dark:text-blue-300"
                       >
-                        <FaEye />
+                        <FaEye className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(item)}
-                        title="Edit Data Pop Up"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-amber-600 hover:bg-amber-50 transition"
+                        title="Edit siswa"
+                        aria-label={`Edit ${item.nama}`}
+                        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-amber-500/20 sm:flex dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-300"
                       >
-                        <FaEdit />
+                        <FaEdit className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
@@ -726,26 +819,28 @@ export default function StudentsPage() {
                           setShowCetakModal(true)
                         }}
                         title="Cetak Kartu Siswa"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-emerald-600 hover:bg-emerald-50 transition"
+                        aria-label={`Cetak kartu ${item.nama}`}
+                        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-500/20 lg:flex dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-300"
                       >
-                        <FaPrint />
+                        <FaPrint className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(item)}
-                        title="Hapus Data"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-rose-600 hover:bg-rose-50 transition"
+                        title="Hapus siswa"
+                        aria-label={`Hapus ${item.nama}`}
+                        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-rose-500/20 sm:flex dark:border-rose-800/70 dark:bg-rose-950/40 dark:text-rose-300"
                       >
-                        <FaTrash />
+                        <FaTrash className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
 
-              {paginatedStudents.length === 0 && (
+              {!isLoading && !isError && paginatedStudents.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-slate-500 font-medium">
+                  <td colSpan={5} className="py-8 text-center text-slate-500 font-medium">
                     Tidak ada data siswa yang cocok dengan filter.
                   </td>
                 </tr>
@@ -757,8 +852,8 @@ export default function StudentsPage() {
         {/* Table Pagination Footer */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 bg-slate-50/80 px-4 py-3 text-xs">
           <div className="text-slate-500">
-            Menampilkan {filteredStudents.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} sampai{' '}
-            {Math.min(currentPage * itemsPerPage, filteredStudents.length)} dari {filteredStudents.length} data
+            Menampilkan {filteredStudents.length === 0 ? 0 : studentPagination.from || 1} sampai{' '}
+            {filteredStudents.length === 0 ? 0 : studentPagination.to || filteredStudents.length} dari {studentPagination.total || filteredStudents.length} data
           </div>
 
           <div className="flex items-center gap-1">
@@ -791,6 +886,43 @@ export default function StudentsPage() {
             </button>
           </div>
         </div>
+      </section>
+      <aside className="space-y-4 xl:sticky xl:top-5" aria-label="Ringkasan siswa">
+        <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><FaUserGraduate /></div>
+            <div><h2 className="text-sm font-bold text-slate-900 dark:text-white">Ringkasan Siswa</h2><p className="text-xs text-slate-500">Data halaman aktif</p></div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {[
+              ['Total Siswa', studentPagination.total || filteredStudents.length, FaUserGraduate, 'text-emerald-700 bg-emerald-50'],
+              ['Siswa Aktif', filteredStudents.filter((s) => (s.status || '').toLowerCase() === 'aktif').length, FaCheckCircle, 'text-emerald-700 bg-emerald-50'],
+              ['Laki-laki', filteredStudents.filter((s) => ['laki-laki', 'l'].includes((s.gender || '').toLowerCase())).length, FaMale, 'text-blue-700 bg-blue-50'],
+              ['Perempuan', filteredStudents.filter((s) => ['perempuan', 'p'].includes((s.gender || '').toLowerCase())).length, FaFemale, 'text-rose-600 bg-rose-50'],
+            ].map(([label, value, Icon, color]) => (
+              <div key={label} className="flex items-center gap-3 py-3">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon /></span>
+                <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-500">{label}</span>
+                <strong className="text-sm font-black tabular-nums text-slate-900 dark:text-white">{value}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Aksi Cepat</h2>
+          <div className="mt-3 grid gap-2">
+            {[
+              ['Tambah Siswa', FaPlus, handleOpenTambah, 'text-emerald-700 bg-emerald-50'],
+              ['Import Data Siswa', FaFileImport, () => setShowImportModal(true), 'text-blue-700 bg-blue-50'],
+              ['Export Excel', FaFileExcel, handleExportExcel, 'text-emerald-700 bg-emerald-50'],
+            ].map(([label, Icon, action, color]) => (
+              <button key={label} type="button" onClick={action} className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon /></span>{label}
+              </button>
+            ))}
+          </div>
+        </section>
+      </aside>
       </div>
 
       {/* POP UP MODAL 1: DETAIL SISWA */}
@@ -798,25 +930,26 @@ export default function StudentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
           <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-6">
 
-            {/* Modal Header — Hijau Tua sesuai gambar */}
-            <div className="bg-[#064e3b] px-6 py-4 flex items-center justify-between text-white">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-700/80 text-amber-300 border border-emerald-500/40 shadow">
-                  <FaUserGraduate className="text-xl" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <FaUserGraduate className="text-lg" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold tracking-wider uppercase">DETAIL SISWA</h3>
-                  <p className="text-[11px] text-emerald-200/80 font-medium">Informasi Lengkap Siswa: {selectedStudent.nama}</p>
+                  <h3 className="text-base font-bold text-slate-900">Detail Siswa</h3>
+                  <p className="text-[11px] font-medium text-slate-500">Informasi lengkap siswa dan data pendukung.</p>
                 </div>
               </div>
               <button onClick={() => setShowDetailModal(false)}
-                className="rounded-full p-2 text-emerald-200 hover:bg-emerald-800 hover:text-white transition">
+                aria-label="Tutup detail siswa"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
                 <FaTimes className="text-base" />
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="p-5 bg-slate-50/60 max-h-[80vh] overflow-y-auto">
+            <div className="max-h-[75vh] overflow-y-auto bg-white p-5">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
 
                 {/* Left: Profile Overview Card */}
@@ -824,7 +957,13 @@ export default function StudentsPage() {
                   {/* Photo + Name + Status */}
                   <div className="flex items-start gap-3">
                     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 border-emerald-600 bg-slate-100 shadow">
-                      <img src={selectedStudent.foto} alt={selectedStudent.nama} className="h-full w-full object-cover" />
+                      {selectedStudent.foto ? (
+                        <img src={selectedStudent.foto} alt={selectedStudent.nama} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center bg-emerald-800 text-lg font-black text-white">
+                          {(selectedStudent.nama || 'S').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
+                        </span>
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -879,7 +1018,18 @@ export default function StudentsPage() {
                     {/* Tab Content */}
                     <div className="p-4 text-xs space-y-2">
                       {(() => {
-                        const meta = selectedStudent.raw?.metadata || {}
+                        const rawMeta = selectedStudent.raw?.metadata || {}
+                        const parentRel = selectedStudent.raw?.parent || {}
+                        const parentsPivot = selectedStudent.raw?.parents_pivot || selectedStudent.raw?.parents || []
+                        const meta = {
+                          ...rawMeta,
+                          nama_ayah: rawMeta.nama_ayah || rawMeta.ayah?.nama || rawMeta.orang_tua?.nama_ayah || parentRel.full_name || parentRel.name || parentsPivot[0]?.full_name,
+                          nama_ibu: rawMeta.nama_ibu || rawMeta.ibu?.nama || rawMeta.orang_tua?.nama_ibu,
+                          nama_wali: rawMeta.nama_wali || rawMeta.wali?.nama || rawMeta.orang_tua?.nama_wali,
+                          hp_ayah: rawMeta.hp_ayah || rawMeta.ayah?.hp || rawMeta.orang_tua?.no_hp || parentRel.phone || parentRel.no_hp || parentsPivot[0]?.phone,
+                          hp_ibu: rawMeta.hp_ibu || rawMeta.ibu?.hp || rawMeta.orang_tua?.no_hp,
+                          hp_wali: rawMeta.hp_wali || rawMeta.wali?.hp || rawMeta.orang_tua?.no_hp,
+                        }
                         const DRow = ({ label, val }) => (
                           <p><span className="font-bold text-slate-700">{label}:</span>{' '}
                             <span className="text-slate-800">{val || '-'}</span>

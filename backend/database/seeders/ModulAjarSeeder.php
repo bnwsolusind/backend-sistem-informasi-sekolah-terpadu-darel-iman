@@ -7,6 +7,8 @@ use App\Models\CapaianPembelajaran;
 use App\Models\EducationUnit;
 use App\Models\Employee;
 use App\Models\Kelas;
+use App\Models\LmsKisiKisi;
+use App\Models\LmsMateri;
 use App\Models\LmsModulAjar;
 use App\Models\MasterKurikulum;
 use App\Models\Semester;
@@ -30,15 +32,15 @@ class ModulAjarSeeder extends Seeder
         $tp = TujuanPembelajaran::first();
 
         // Create fallback entities if missing for safe seeding
-        if (!$tahun) {
+        if (! $tahun) {
             $tahun = AcademicYear::create([
                 'id' => (string) Str::uuid(),
                 'tahun' => '2025/2026',
-                'status' => true
+                'status' => true,
             ]);
         }
 
-        if (!$semester) {
+        if (! $semester) {
             $semester = Semester::create([
                 'id' => (string) Str::uuid(),
                 'academic_year_id' => $tahun->id,
@@ -46,21 +48,21 @@ class ModulAjarSeeder extends Seeder
                 'sequence' => 1,
                 'start_date' => '2025-07-01',
                 'end_date' => '2025-12-31',
-                'is_active' => true
+                'is_active' => true,
             ]);
         }
 
-        if (!$kurikulum) {
+        if (! $kurikulum) {
             $kurikulum = MasterKurikulum::create([
                 'id' => (string) Str::uuid(),
                 'kode_kurikulum' => 'KM-2024',
                 'nama_kurikulum' => 'Kurikulum Merdeka 2024',
                 'versi' => '2024.1',
-                'status' => true
+                'status' => true,
             ]);
         }
 
-        if (!$subject) {
+        if (! $subject) {
             $subject = Subject::create([
                 'id' => (string) Str::uuid(),
                 'unit_pendidikan_id' => $unit?->id,
@@ -72,21 +74,21 @@ class ModulAjarSeeder extends Seeder
                 'jenjang' => 'SMA',
                 'jam_pelajaran' => 3,
                 'kkm' => 75.00,
-                'status' => true
+                'status' => true,
             ]);
         }
 
-        if (!$guru) {
+        if (! $guru) {
             $guru = Employee::create([
                 'id' => (string) Str::uuid(),
                 'niy' => '199001012022011001',
                 'nama_lengkap' => 'Ustadz Ahmad Al-Farisi, S.Pd.I',
                 'email' => 'ahmad.farisi@sekolah.sch.id',
-                'jenis_kelamin' => 'L'
+                'jenis_kelamin' => 'L',
             ]);
         }
 
-        if (!$kelas) {
+        if (! $kelas) {
             $kelas = Kelas::create([
                 'id' => (string) Str::uuid(),
                 'unit_pendidikan_id' => $unit?->id,
@@ -96,11 +98,11 @@ class ModulAjarSeeder extends Seeder
                 'nama_kelas' => 'X-IPA-1',
                 'jenjang' => 'SMA',
                 'tingkat' => 10,
-                'status' => true
+                'status' => true,
             ]);
         }
 
-        if (!$cp) {
+        if (! $cp) {
             $cp = CapaianPembelajaran::create([
                 'id' => (string) Str::uuid(),
                 'kurikulum_id' => $kurikulum->id,
@@ -110,11 +112,11 @@ class ModulAjarSeeder extends Seeder
                 'fase' => 'Fase E',
                 'kelas_target' => 'Kelas 10',
                 'urutan' => 1,
-                'status' => true
+                'status' => true,
             ]);
         }
 
-        if (!$tp) {
+        if (! $tp) {
             $tp = TujuanPembelajaran::create([
                 'id' => (string) Str::uuid(),
                 'cp_id' => $cp->id,
@@ -122,7 +124,7 @@ class ModulAjarSeeder extends Seeder
                 'nama_tp' => 'Menganalisis kandungan QS. Al-Hujurat: 13 tentang Keberagaman dan Persaudaraan',
                 'alokasi_waktu_jp' => 4,
                 'urutan' => 1,
-                'status' => true
+                'status' => true,
             ]);
         }
 
@@ -207,7 +209,7 @@ class ModulAjarSeeder extends Seeder
                     'asesmen_akhir' => 'Tes formatif tertulis akhir modul.',
                     'rencana_penilaian' => 'Pengetahuan (40%), Keterampilan (40%), Sikap (20%)',
                     'lampiran' => [
-                        ['nama' => 'LKPD_Pertemuan_1.pdf', 'url' => 'https://example.com/lkpd1.pdf']
+                        ['nama' => 'LKPD_Pertemuan_1.pdf', 'url' => 'https://example.com/lkpd1.pdf'],
                     ],
                     'status' => $dm['status'],
                     'deskripsi' => 'Modul Ajar terpadu Kurikulum Merdeka.',
@@ -220,13 +222,13 @@ class ModulAjarSeeder extends Seeder
             $modul->tps()->sync([$tp->id]);
 
             // Seed default LmsMateri dependency for LmsMediaSeeder
-            \App\Models\LmsMateri::firstOrCreate(
-                ['modul_ajar_id' => $modul->id, 'judul' => 'Materi Utama: ' . $dm['judul_modul']],
+            LmsMateri::firstOrCreate(
+                ['modul_ajar_id' => $modul->id, 'judul' => 'Materi Utama: '.$dm['judul_modul']],
                 [
                     'mata_pelajaran_id' => $subject->id,
                     'guru_id' => $guru->id,
                     'tipe_materi' => 'teks',
-                    'konten' => 'Pembahasan lengkap mengenai ' . $dm['judul_modul'],
+                    'konten' => 'Pembahasan lengkap mengenai '.$dm['judul_modul'],
                     'urutan' => 1,
                     'is_published' => true,
                     'status' => 'aktif',
@@ -234,8 +236,8 @@ class ModulAjarSeeder extends Seeder
             );
 
             // Seed default LmsKisiKisi dependency for LmsBankSoalSeeder & LmsUjianSeeder
-            \App\Models\LmsKisiKisi::firstOrCreate(
-                ['judul_kisi' => 'Kisi-kisi Evaluasi ' . $dm['judul_modul']],
+            LmsKisiKisi::firstOrCreate(
+                ['judul_kisi' => 'Kisi-kisi Evaluasi '.$dm['judul_modul']],
                 [
                     'kurikulum_id' => $kurikulum->id,
                     'mata_pelajaran_id' => $subject->id,
@@ -248,7 +250,7 @@ class ModulAjarSeeder extends Seeder
                     'jenis_ujian' => 'UH',
                     'jumlah_soal' => 10,
                     'alokasi_waktu_menit' => 45,
-                    'kompetensi_dasar' => 'Memahami materi modul ' . $dm['judul_modul'],
+                    'kompetensi_dasar' => 'Memahami materi modul '.$dm['judul_modul'],
                     'level_kognitif' => 'L2 (Aplikasi)',
                     'status' => true,
                 ]

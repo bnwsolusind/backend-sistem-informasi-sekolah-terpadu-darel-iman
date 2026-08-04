@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { FaTimes, FaCheckCircle } from 'react-icons/fa'
+import { X as FaTimes, CircleCheck as FaCheckCircle, Network } from 'lucide-react'
 
 // Validation Schema using Zod
 const jabatanSchema = z.object({
@@ -184,29 +184,30 @@ export default function JabatanFormModal({
   }
 
   return (
-    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="form-jabatan-title">
-      <div className="ui-modal my-6 w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-labelledby="form-jabatan-title">
+      <div className="ui-modal my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433] sm:max-h-[calc(100vh-2rem)]">
         {/* Modal Header Bar (Persis Gambar Referensi UI/UX) */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-white px-7 py-5">
-          <h2 id="form-jabatan-title" className="text-xl font-black text-slate-800">
-            {isEdit ? 'Edit Master Data Jabatan' : 'Tambah Master Data Jabatan'}
-          </h2>
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"><Network className="h-5 w-5" /></span>
+            <div><h2 id="form-jabatan-title" className="text-lg font-bold text-slate-900 dark:text-white">{isEdit ? 'Edit Jabatan' : 'Tambah Jabatan'}</h2><p className="text-xs text-slate-500 dark:text-slate-400">Lengkapi informasi jabatan secara bertahap.</p></div>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
             title="Tutup formulir jabatan"
             aria-label="Tutup formulir jabatan"
           >
-            <FaTimes className="w-4 h-4" />
+            <FaTimes className="h-5 w-5" />
           </button>
         </div>
 
         {/* Modal Main Body Grid */}
-        <form onSubmit={handleSubmit(submitHandler)}>
-          <div className="grid grid-cols-1 lg:grid-cols-4 min-h-[440px]">
+        <form onSubmit={handleSubmit(submitHandler)} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col">
             {/* Left Column: Wizard Stepper Vertikal */}
-            <div className="border-r border-slate-100 bg-[#f8fafc] p-7 space-y-7">
+            <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/60">
               {[
                 { step: 1, label: 'Identitas & Kode' },
                 { step: 2, label: 'Level & Afiliasi' },
@@ -216,10 +217,10 @@ export default function JabatanFormModal({
                 <div
                   key={s.step}
                   onClick={() => setCurrentStep(s.step)}
-                  className="flex items-center gap-3.5 cursor-pointer group"
+                  className="group flex min-w-max cursor-pointer items-center gap-2 rounded-xl px-2 py-1"
                 >
                   <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
                       currentStep === s.step
                         ? 'bg-[#054e3b] text-white shadow-md'
                         : currentStep > s.step
@@ -243,7 +244,7 @@ export default function JabatanFormModal({
             </div>
 
             {/* Right Main Column / Form Content */}
-            <div className="lg:col-span-3 p-7 overflow-y-auto max-h-[520px]">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
               {/* STEP 1: Identitas & Kode */}
               {currentStep === 1 && (
                 <div className="space-y-5">
@@ -564,7 +565,7 @@ export default function JabatanFormModal({
           </div>
 
           {/* Modal Bottom Action Footer (Persis Gambar UI/UX Referensi) */}
-          <div className="flex items-center justify-between border-t border-slate-100 bg-white px-7 py-4">
+          <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
             <button
               type="button"
               onClick={onClose}

@@ -22,33 +22,33 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
                 'penilai',
             ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('jawaban_teks', 'like', "%{$search}%")
-                  ->orWhere('file_path', 'like', "%{$search}%")
-                  ->orWhere('url_link', 'like', "%{$search}%")
-                  ->orWhere('catatan_guru', 'like', "%{$search}%")
-                  ->orWhereHas('siswa', function ($sq) use ($search) {
-                      $sq->where('full_name', 'like', "%{$search}%")
-                        ->orWhere('nisn', 'like', "%{$search}%")
-                        ->orWhere('nis', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('penugasan', function ($pq) use ($search) {
-                      $pq->where('judul_tugas', 'like', "%{$search}%");
-                  });
+                    ->orWhere('file_path', 'like', "%{$search}%")
+                    ->orWhere('url_link', 'like', "%{$search}%")
+                    ->orWhere('catatan_guru', 'like', "%{$search}%")
+                    ->orWhereHas('siswa', function ($sq) use ($search) {
+                        $sq->where('full_name', 'like', "%{$search}%")
+                            ->orWhere('nisn', 'like', "%{$search}%")
+                            ->orWhere('nis', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('penugasan', function ($pq) use ($search) {
+                        $pq->where('judul_tugas', 'like', "%{$search}%");
+                    });
             });
         }
 
-        if (!empty($filters['penugasan_id'])) {
+        if (! empty($filters['penugasan_id'])) {
             $query->where('penugasan_id', $filters['penugasan_id']);
         }
 
-        if (!empty($filters['siswa_id'])) {
+        if (! empty($filters['siswa_id'])) {
             $query->where('siswa_id', $filters['siswa_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -99,12 +99,12 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
         // Map alias fields if provided
         $mapped = $this->mapAliasFields($data);
 
-        if (empty($mapped['waktu_kumpul']) && (!empty($mapped['jawaban_teks']) || !empty($mapped['file_path']) || !empty($mapped['url_link']))) {
+        if (empty($mapped['waktu_kumpul']) && (! empty($mapped['jawaban_teks']) || ! empty($mapped['file_path']) || ! empty($mapped['url_link']))) {
             $mapped['waktu_kumpul'] = now();
         }
 
         if (empty($mapped['status'])) {
-            $mapped['status'] = !empty($mapped['nilai_guru']) ? 'dinilai' : 'dikumpulkan';
+            $mapped['status'] = ! empty($mapped['nilai_guru']) ? 'dinilai' : 'dikumpulkan';
         }
 
         return LmsPengumpulanTugas::create($mapped);
@@ -113,7 +113,7 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
     public function update(string $id, array $data): ?LmsPengumpulanTugas
     {
         $pengumpulan = LmsPengumpulanTugas::find($id);
-        if (!$pengumpulan) {
+        if (! $pengumpulan) {
             return null;
         }
 
@@ -125,19 +125,20 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
             if (Auth::check()) {
                 $mapped['dinilai_oleh'] = Auth::id();
             }
-            if (!isset($mapped['status'])) {
+            if (! isset($mapped['status'])) {
                 $mapped['status'] = 'dinilai';
             }
         }
 
         $pengumpulan->update($mapped);
+
         return $pengumpulan->fresh(['penugasan.subject', 'penugasan.kelas', 'siswa', 'penilai']);
     }
 
     public function delete(string $id): bool
     {
         $pengumpulan = LmsPengumpulanTugas::find($id);
-        if (!$pengumpulan) {
+        if (! $pengumpulan) {
             return false;
         }
 
@@ -147,7 +148,7 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
     public function restore(string $id): bool
     {
         $pengumpulan = LmsPengumpulanTugas::withTrashed()->find($id);
-        if (!$pengumpulan) {
+        if (! $pengumpulan) {
             return false;
         }
 
@@ -181,6 +182,7 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
             ->get()
             ->map(function ($item) {
                 $judul = $item->judul_tugas ?? $item->judul ?? 'Tugas';
+
                 return [
                     'id' => $item->id,
                     'label' => $judul,
@@ -196,6 +198,7 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
             ->get()
             ->map(function ($siswa) {
                 $name = $siswa->full_name ?? $siswa->name ?? $siswa->nama_lengkap ?? 'Siswa';
+
                 return [
                     'id' => $siswa->id,
                     'label' => $name,
@@ -226,21 +229,21 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
         $mapped = $data;
 
         // Field aliases requested: file, link, catatan, nilai, status
-        if (isset($data['file']) && !isset($data['file_path'])) {
+        if (isset($data['file']) && ! isset($data['file_path'])) {
             $mapped['file_path'] = $data['file'];
         }
-        if (isset($data['link']) && !isset($data['url_link'])) {
+        if (isset($data['link']) && ! isset($data['url_link'])) {
             $mapped['url_link'] = $data['link'];
         }
         if (isset($data['catatan'])) {
-            if (!isset($data['catatan_guru'])) {
+            if (! isset($data['catatan_guru'])) {
                 $mapped['catatan_guru'] = $data['catatan'];
             }
-            if (!isset($data['jawaban_teks'])) {
+            if (! isset($data['jawaban_teks'])) {
                 $mapped['jawaban_teks'] = $data['catatan'];
             }
         }
-        if (isset($data['nilai']) && !isset($data['nilai_guru'])) {
+        if (isset($data['nilai']) && ! isset($data['nilai_guru'])) {
             $mapped['nilai_guru'] = $data['nilai'];
         }
 

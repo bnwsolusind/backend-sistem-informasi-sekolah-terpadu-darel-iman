@@ -67,21 +67,21 @@ export default function KurikulumTable({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm overflow-hidden transition-all">
+    <div className="bg-white dark:bg-[#1B2433] rounded-2xl border border-emerald-100 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/80 border-b border-emerald-100 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-              <th className="py-3.5 px-4 w-12 text-center">No</th>
-              <th className="py-3.5 px-4">Kode & Nama Kurikulum</th>
-              <th className="py-3.5 px-4">Jenis & Jenjang</th>
-              <th className="py-3.5 px-4">Unit Pendidikan</th>
-              <th className="py-3.5 px-4">Tahun Ajaran</th>
-              <th className="py-3.5 px-4 text-center">Status</th>
-              <th className="py-3.5 px-4 text-right pr-6">Aksi</th>
+            <tr className="bg-[#F7F4EB] dark:bg-slate-900/80 text-gray-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-800">
+              <th className="py-4 px-4 w-12 text-center">NO</th>
+              <th className="py-4 px-4 w-14 text-center">LOGO</th>
+              <th className="py-4 px-4">KODE & NAMA KURIKULUM</th>
+              <th className="py-4 px-4">JENIS & JENJANG</th>
+              <th className="py-4 px-4">UNIT & TAHUN AJARAN</th>
+              <th className="py-4 px-4 text-center">STATUS</th>
+              <th className="py-4 px-4 text-center w-36">AKSI</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
+          <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-xs font-medium">
             {data.map((item, idx) => {
               const rowNumber = (page - 1) * perPage + idx + 1
               const isTerhapus = !!item.deleted_at
@@ -89,29 +89,36 @@ export default function KurikulumTable({
               return (
                 <tr
                   key={item.id}
-                  className={`hover:bg-emerald-50/40 transition-colors ${
-                    isTerhapus ? 'bg-rose-50/30 opacity-75' : ''
+                  className={`hover:bg-emerald-50/40 dark:hover:bg-slate-800/50 transition-colors ${
+                    isTerhapus ? 'bg-rose-50/30 dark:bg-rose-950/20 opacity-75' : ''
                   }`}
                 >
                   {/* No */}
-                  <td className="py-3.5 px-4 text-center text-slate-400 font-bold">
+                  <td className="py-4 px-4 text-center text-gray-500 dark:text-slate-400 font-bold">
                     {rowNumber}
                   </td>
 
+                  {/* Logo Badge */}
+                  <td className="py-4 px-4 text-center">
+                    <div className="w-9 h-9 rounded-full bg-emerald-800 text-white font-black text-xs flex items-center justify-center shadow-xs mx-auto border border-emerald-700">
+                      {(item.jenjang || 'SD').slice(0, 3)}
+                    </div>
+                  </td>
+
                   {/* Kode & Nama */}
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4">
                     <div className="flex flex-col">
-                      <span className="font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 w-fit mb-1">
-                        {item.kode_kurikulum}
-                      </span>
-                      <span className="font-bold text-slate-900 text-sm leading-snug">
+                      <span className="font-bold text-slate-900 dark:text-white text-sm leading-snug">
                         {item.nama_kurikulum}
+                      </span>
+                      <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        {item.kode_kurikulum}
                       </span>
                     </div>
                   </td>
 
                   {/* Jenis & Jenjang */}
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${getJenisBadgeColor(
@@ -121,60 +128,53 @@ export default function KurikulumTable({
                         <Tag className="w-3 h-3" />
                         {item.jenis_kurikulum}
                       </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 text-slate-600 uppercase border border-slate-200">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 uppercase border border-slate-200 dark:border-slate-700">
                         {item.jenjang}
                       </span>
                     </div>
                   </td>
 
-                  {/* Unit Pendidikan */}
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                  {/* Unit & Tahun Ajaran */}
+                  <td className="py-4 px-4">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
                       <Building2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>{item.unit_pendidikan_nama || '-'}</span>
                     </div>
-                  </td>
-
-                  {/* Tahun Ajaran */}
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{item.tahun_ajaran_nama || '-'}</span>
+                      {item.semester_nama && <span>• {item.semester_nama}</span>}
                     </div>
-                    {item.semester_nama && (
-                      <span className="text-[10px] text-slate-400 block mt-0.5">
-                        {item.semester_nama}
-                      </span>
-                    )}
                   </td>
 
                   {/* Status */}
-                  <td className="py-3.5 px-4 text-center">
+                  <td className="py-4 px-4 text-center">
                     {isTerhapus ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200">
-                        <XCircle className="w-3 h-3" /> Terhapus
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span> Terhapus
                       </span>
                     ) : item.status ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <CheckCircle className="w-3 h-3 text-emerald-600" /> Aktif
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Aktif
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
-                        <XCircle className="w-3 h-3 text-amber-600" /> Nonaktif
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span> Nonaktif
                       </span>
                     )}
                   </td>
 
                   {/* Action Buttons */}
-                  <td className="py-3.5 px-4 text-right pr-6">
-                    <div className="flex items-center justify-end gap-1.5">
+                  <td className="py-4 px-4 text-center">
+                    <div className="inline-flex items-center justify-center gap-1.5">
                       {/* Detail */}
                       <button
                         onClick={() => onDetail(item)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
-                        title="Lihat Detail Detail Kurikulum"
+                        className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-900 transition-all border border-blue-100 dark:border-blue-900"
+                        title="Detail Kurikulum"
+                        aria-label="Detail Kurikulum"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
 
                       {!isTerhapus ? (
@@ -182,29 +182,32 @@ export default function KurikulumTable({
                           {/* Edit */}
                           <button
                             onClick={() => onEdit(item)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                            title="Edit Data Kurikulum"
+                            className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900 transition-all border border-amber-100 dark:border-amber-900"
+                            title="Edit Kurikulum"
+                            aria-label="Edit Kurikulum"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Hapus */}
                           <button
                             onClick={() => onDelete(item)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Hapus Data Kurikulum"
+                            className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 dark:hover:bg-rose-900 transition-all border border-rose-100 dark:border-rose-900"
+                            title="Hapus Kurikulum"
+                            aria-label="Hapus Kurikulum"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </>
                       ) : (
                         /* Pulihkan */
                         <button
                           onClick={() => onRestore(item)}
-                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-100 transition-colors"
-                          title="Pulihkan Data Kurikulum"
+                          className="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900 transition-all border border-emerald-100 dark:border-emerald-900"
+                          title="Pulihkan Kurikulum"
+                          aria-label="Pulihkan Kurikulum"
                         >
-                          <RotateCcw className="w-4 h-4" />
+                          <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>

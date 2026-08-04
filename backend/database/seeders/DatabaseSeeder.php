@@ -8,36 +8,53 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Seed the application's database.
-     * Order specified:
-     * 1. Role & Permission
-     * 2. Unit
-     * 3. Guru
-     * 4. Pegawai
-     * 5. OrangTua
-     * 6. Siswa
-     * 7. Mapel
+     * Order specified according to Foreign Key dependencies:
+     * 1. Core Auth & System Settings (Role & Permission, Site Settings, Student Card Settings)
+     * 2. Master Data Organizations & Education Units
+     * 3. Kepegawaian (Jabatan, Pegawai, Guru)
+     * 4. Orang Tua & Siswa
+     * 5. Akademik Core (Kurikulum, Mapel, Kelas, Jadwal, Modul Semester)
+     * 6. LMS Content & Evaluasi
+     * 7. Nilai Siswa (StudentGrades) & Rapor Akademik
+     * 8. Presensi, Absensi, Mutabaah & Module Keislaman
      */
     public function run(): void
     {
+        // 1. Roles & Permissions & System Configuration
         $this->call([
             RolePermissionSeeder::class,
             AttendancePermissionSeeder::class,
             DefaultRoleUserSeeder::class,
+            SiteSettingsSeeder::class,
+            StudentCardSettingsSeeder::class,
         ]);
 
+        // 2. Master Data Organizations & Education Units
         $this->call([
             MasterJenisUnitPendidikanSeeder::class,
             DataDummyUnitPendidikanSeeder::class,
             MasterJabatanSeeder::class,
             DataDummyPegawaiSeeder::class,
             TeacherSeeder::class,
+        ]);
+
+        // 3. Parents & Students
+        $this->call([
             ParentSeeder::class,
             DataDummySiswaSeeder::class,
+        ]);
+
+        // 4. Academic Master
+        $this->call([
             MasterKurikulumSeeder::class,
             SubjectSeeder::class,
             KelasSeeder::class,
             JadwalPelajaranSeeder::class,
             ModulSemesterSeeder::class,
+        ]);
+
+        // 5. LMS Core & Content
+        $this->call([
             ModulAjarSeeder::class,
             LmsReferensiSeeder::class,
             LmsAktivitasBelajarSeeder::class,
@@ -50,8 +67,28 @@ class DatabaseSeeder extends Seeder
             LmsBankSoalSeeder::class,
             LmsUjianSeeder::class,
             LmsPenilaianSeeder::class,
-            LmsRaporSeeder::class,
-            AttendanceSeeder::class,
         ]);
+
+        // 6. Rekap Nilai Akademik & Rapor
+        $this->call([
+            StudentGradesSeeder::class,
+            LmsRaporSeeder::class,
+        ]);
+
+        // 7. Attendance, Mutabaah & Islamic Modules
+        $this->call([
+            AttendanceSeeder::class,
+            WorshipAttendanceSeeder::class,
+            MutabaahEnterpriseSeeder::class,
+            QuranSurahSeeder::class,
+            DoaSeeder::class,
+            PrayerScheduleSeeder::class,
+            TahfizhSeeder::class,
+            SuperadminStudentLinkSeeder::class,
+        ]);
+
+        if (app()->environment(['local', 'development', 'testing'])) {
+            $this->call(StudentMutationSeeder::class);
+        }
     }
 }

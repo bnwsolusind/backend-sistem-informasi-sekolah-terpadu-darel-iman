@@ -16,47 +16,47 @@ return new class extends Migration
 
         // 1. Enhance lms_modul_ajar table
         Schema::table('lms_modul_ajar', function (Blueprint $table) use ($isPgsql) {
-            if (!Schema::hasColumn('lms_modul_ajar', 'unit_pendidikan_id')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'unit_pendidikan_id')) {
                 $table->uuid('unit_pendidikan_id')->nullable()->after('id')->comment('FK ke education_units');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'rombel_id')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'rombel_id')) {
                 $table->uuid('rombel_id')->nullable()->after('kelas_id')->comment('FK ke tbl_kelas (rombel)');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'cp_id')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'cp_id')) {
                 $table->uuid('cp_id')->nullable()->after('tp_id')->comment('FK ke lms_capaian_pembelajaran');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'kode_modul')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'kode_modul')) {
                 $table->string('kode_modul', 50)->nullable()->after('cp_id');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'fase')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'fase')) {
                 $table->string('fase', 20)->default('Fase D')->after('judul_modul');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'semester')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'semester')) {
                 $table->string('semester', 20)->default('Ganjil')->after('fase');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'target_peserta_didik')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'target_peserta_didik')) {
                 $table->text('target_peserta_didik')->nullable()->after('profil_pelajar_pancasila');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'asesmen_awal')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'asesmen_awal')) {
                 $table->text('asesmen_awal')->nullable()->after('kegiatan_penutup');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'asesmen_proses')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'asesmen_proses')) {
                 $table->text('asesmen_proses')->nullable()->after('asesmen_awal');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'asesmen_akhir')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'asesmen_akhir')) {
                 $table->text('asesmen_akhir')->nullable()->after('asesmen_proses');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'lampiran')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'lampiran')) {
                 if ($isPgsql) {
                     $table->jsonb('lampiran')->nullable()->after('asesmen_akhir');
                 } else {
@@ -64,11 +64,11 @@ return new class extends Migration
                 }
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'deskripsi')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'deskripsi')) {
                 $table->text('deskripsi')->nullable()->after('status');
             }
 
-            if (!Schema::hasColumn('lms_modul_ajar', 'versi')) {
+            if (! Schema::hasColumn('lms_modul_ajar', 'versi')) {
                 $table->string('versi', 20)->default('1.0')->after('deskripsi');
             }
         });
@@ -77,23 +77,27 @@ return new class extends Migration
         Schema::table('lms_modul_ajar', function (Blueprint $table) {
             try {
                 $table->foreign('unit_pendidikan_id')->references('id')->on('education_units')->nullOnDelete();
-            } catch (\Throwable $e) {}
+            } catch (Throwable $e) {
+            }
 
             try {
                 $table->foreign('rombel_id')->references('id')->on('tbl_kelas')->nullOnDelete();
-            } catch (\Throwable $e) {}
+            } catch (Throwable $e) {
+            }
 
             try {
                 $table->foreign('cp_id')->references('id')->on('lms_capaian_pembelajaran')->nullOnDelete();
-            } catch (\Throwable $e) {}
+            } catch (Throwable $e) {
+            }
 
             try {
                 $table->index(['unit_pendidikan_id', 'tahun_ajaran_id', 'status'], 'lms_modul_unit_status_idx');
-            } catch (\Throwable $e) {}
+            } catch (Throwable $e) {
+            }
         });
 
         // 2. Create lms_modul_ajar_revisions table
-        if (!Schema::hasTable('lms_modul_ajar_revisions')) {
+        if (! Schema::hasTable('lms_modul_ajar_revisions')) {
             Schema::create('lms_modul_ajar_revisions', function (Blueprint $table) use ($isPgsql) {
                 $table->uuid('id')->primary();
                 $table->uuid('modul_ajar_id');
@@ -108,7 +112,7 @@ return new class extends Migration
                 }
 
                 $table->uuid('created_by')->nullable();
-                
+
                 if ($isPgsql) {
                     $table->timestampTz('created_at')->nullable();
                 } else {
@@ -121,7 +125,7 @@ return new class extends Migration
         }
 
         // 3. Create lms_modul_ajar_cp pivot table
-        if (!Schema::hasTable('lms_modul_ajar_cp')) {
+        if (! Schema::hasTable('lms_modul_ajar_cp')) {
             Schema::create('lms_modul_ajar_cp', function (Blueprint $table) {
                 $table->uuid('modul_ajar_id');
                 $table->uuid('cp_id');
@@ -132,7 +136,7 @@ return new class extends Migration
         }
 
         // 4. Create lms_modul_ajar_tp pivot table
-        if (!Schema::hasTable('lms_modul_ajar_tp')) {
+        if (! Schema::hasTable('lms_modul_ajar_tp')) {
             Schema::create('lms_modul_ajar_tp', function (Blueprint $table) {
                 $table->uuid('modul_ajar_id');
                 $table->uuid('tp_id');
@@ -166,7 +170,7 @@ return new class extends Migration
                 'asesmen_akhir',
                 'lampiran',
                 'deskripsi',
-                'versi'
+                'versi',
             ];
             foreach ($columns as $col) {
                 if (Schema::hasColumn('lms_modul_ajar', $col)) {

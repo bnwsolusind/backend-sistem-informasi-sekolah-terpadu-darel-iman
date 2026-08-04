@@ -10,7 +10,7 @@ class LmsBankSoalResource extends JsonResource
     public function toArray(Request $request): array
     {
         $pasanganMenjodohkan = null;
-        if ($this->tipe_soal === 'menjodohkan' && !empty($this->kunci_jawaban)) {
+        if ($this->tipe_soal === 'menjodohkan' && ! empty($this->kunci_jawaban)) {
             $decoded = json_decode($this->kunci_jawaban, true);
             if (is_array($decoded)) {
                 $pasanganMenjodohkan = $decoded;

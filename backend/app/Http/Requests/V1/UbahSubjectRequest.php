@@ -47,6 +47,7 @@ class UbahSubjectRequest extends FormRequest
                         if ($kurikulumId) {
                             $query->where('kurikulum_id', $kurikulumId);
                         }
+
                         return $query->whereNull('deleted_at');
                     })
                     ->ignore($subjectId),

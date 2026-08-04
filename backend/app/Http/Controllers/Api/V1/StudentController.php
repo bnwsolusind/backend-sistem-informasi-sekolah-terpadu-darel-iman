@@ -15,9 +15,7 @@ use Illuminate\Support\Arr;
 
 class StudentController extends Controller
 {
-    public function __construct(private readonly StudentRepositoryInterface $studentRepository)
-    {
-    }
+    public function __construct(private readonly StudentRepositoryInterface $studentRepository) {}
 
     public function index(IndexRequest $request): JsonResponse
     {
@@ -234,8 +232,11 @@ class StudentController extends Controller
     private function mappedPayload(array $validated): array
     {
         return [
+            'parent_id' => $validated['parent_id'] ?? null,
+            'unit_id' => $validated['unit_id'] ?? null,
             'class_id' => $validated['class_id'] ?? null,
             'nis' => $validated['nis'],
+            'nisn' => $validated['nisn'] ?? Arr::get($validated, 'metadata.nisn'),
             'full_name' => $validated['full_name'],
             'gender' => $validated['gender'],
             'birth_date' => $validated['birth_date'] ?? null,

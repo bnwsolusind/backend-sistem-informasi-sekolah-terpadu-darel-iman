@@ -28,26 +28,26 @@ class LmsBankSoalService
     public function simpan(array $data): LmsBankSoal
     {
         if (empty($data['kode_soal'])) {
-            $data['kode_soal'] = 'SOAL-' . strtoupper(Str::random(6));
+            $data['kode_soal'] = 'SOAL-'.strtoupper(Str::random(6));
         }
 
         // Auto-assign mata_pelajaran_id from Kisi-kisi if not set
-        if (empty($data['mata_pelajaran_id']) && !empty($data['kisi_kisi_id'])) {
+        if (empty($data['mata_pelajaran_id']) && ! empty($data['kisi_kisi_id'])) {
             $kisi = LmsKisiKisi::find($data['kisi_kisi_id']);
             if ($kisi) {
                 $data['mata_pelajaran_id'] = $kisi->mata_pelajaran_id;
             }
         }
 
-        if (!isset($data['status'])) {
+        if (! isset($data['status'])) {
             $data['status'] = true;
         }
 
-        if (!isset($data['poin'])) {
+        if (! isset($data['poin'])) {
             $data['poin'] = 1.0;
         }
 
-        if (!isset($data['tingkat_kesulitan'])) {
+        if (! isset($data['tingkat_kesulitan'])) {
             $data['tingkat_kesulitan'] = 'sedang';
         }
 
@@ -67,11 +67,11 @@ class LmsBankSoalService
     public function ubah(string $id, array $data): ?LmsBankSoal
     {
         $existing = $this->bankSoalRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
-        if (empty($data['mata_pelajaran_id']) && !empty($data['kisi_kisi_id'])) {
+        if (empty($data['mata_pelajaran_id']) && ! empty($data['kisi_kisi_id'])) {
             $kisi = LmsKisiKisi::find($data['kisi_kisi_id']);
             if ($kisi) {
                 $data['mata_pelajaran_id'] = $kisi->mata_pelajaran_id;
@@ -93,7 +93,7 @@ class LmsBankSoalService
     public function hapus(string $id): bool
     {
         $soal = $this->bankSoalRepository->findById($id);
-        if (!$soal) {
+        if (! $soal) {
             return false;
         }
 

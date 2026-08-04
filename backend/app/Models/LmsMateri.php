@@ -36,6 +36,10 @@ class LmsMateri extends Model
         'created_by',
         'updated_by',
         'deleted_by',
+        'subject_id',
+        'teacher_id',
+        'ringkasan',
+        'bobot',
     ];
 
     protected function casts(): array
@@ -62,10 +66,10 @@ class LmsMateri extends Model
             if (empty($model->tipe)) {
                 $model->tipe = $model->tipe_materi ?? 'teks';
             }
-            if (empty($model->isi) && !empty($model->konten)) {
+            if (empty($model->isi) && ! empty($model->konten)) {
                 $model->isi = $model->konten;
             }
-            if (empty($model->konten) && !empty($model->isi)) {
+            if (empty($model->konten) && ! empty($model->isi)) {
                 $model->konten = $model->isi;
             }
         });
@@ -74,7 +78,7 @@ class LmsMateri extends Model
             if (Auth::check()) {
                 $model->updated_by = Auth::id();
             }
-            if (empty($model->konten) && !empty($model->isi)) {
+            if (empty($model->konten) && ! empty($model->isi)) {
                 $model->konten = $model->isi;
             }
         });
@@ -90,6 +94,56 @@ class LmsMateri extends Model
     public function modulAjar(): BelongsTo
     {
         return $this->belongsTo(LmsModulAjar::class, 'modul_ajar_id');
+    }
+
+    public function setTeacherIdAttribute($value): void
+    {
+        $this->attributes['guru_id'] = $value;
+    }
+
+    public function getTeacherIdAttribute()
+    {
+        return $this->attributes['guru_id'] ?? null;
+    }
+
+    public function setSubjectIdAttribute($value): void
+    {
+        $this->attributes['mata_pelajaran_id'] = $value;
+    }
+
+    public function getSubjectIdAttribute()
+    {
+        return $this->attributes['mata_pelajaran_id'] ?? null;
+    }
+
+    public function setRingkasanAttribute($value): void
+    {
+        $this->attributes['catatan'] = $value;
+    }
+
+    public function getRingkasanAttribute()
+    {
+        return $this->attributes['catatan'] ?? null;
+    }
+
+    public function setIsiAttribute($value): void
+    {
+        $this->attributes['konten'] = $value;
+    }
+
+    public function getIsiAttribute()
+    {
+        return $this->attributes['konten'] ?? null;
+    }
+
+    public function setStatusAttribute($value): void
+    {
+        $this->attributes['is_published'] = in_array($value, ['published', 'dipublikasikan', '1', 1, true], true);
+    }
+
+    public function getStatusAttribute(): string
+    {
+        return ! empty($this->attributes['is_published']) ? 'published' : 'draft';
     }
 
     public function subject(): BelongsTo

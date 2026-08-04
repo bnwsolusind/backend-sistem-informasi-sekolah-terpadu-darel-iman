@@ -43,7 +43,7 @@ class LmsPengumpulanTugasController extends Controller
     {
         $pengumpulan = $this->service->cariBerdasarkanId($id);
 
-        if (!$pengumpulan) {
+        if (! $pengumpulan) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pengumpulan tugas tidak ditemukan.',
@@ -60,7 +60,7 @@ class LmsPengumpulanTugasController extends Controller
     {
         $pengumpulan = $this->service->ubah($id, $request->validated());
 
-        if (!$pengumpulan) {
+        if (! $pengumpulan) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pengumpulan tugas tidak ditemukan atau gagal diperbarui.',
@@ -78,7 +78,7 @@ class LmsPengumpulanTugasController extends Controller
     {
         $deleted = $this->service->hapus($id);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pengumpulan tugas tidak ditemukan atau gagal dihapus.',
@@ -95,7 +95,7 @@ class LmsPengumpulanTugasController extends Controller
     {
         $restored = $this->service->pulihkan($id);
 
-        if (!$restored) {
+        if (! $restored) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memulihkan Pengumpulan tugas.',

@@ -18,9 +18,9 @@ return new class extends Migration
             $table->uuid('atasan_pegawai_id')->nullable()->after('atasan_langsung_id');
 
             $table->foreign('atasan_pegawai_id')
-                  ->references('id')
-                  ->on('employees')
-                  ->nullOnDelete();
+                ->references('id')
+                ->on('employees')
+                ->nullOnDelete();
         });
     }
 

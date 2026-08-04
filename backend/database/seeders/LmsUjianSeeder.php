@@ -21,7 +21,7 @@ class LmsUjianSeeder extends Seeder
         $guru = Employee::first();
         $siswa = Student::first();
 
-        if (!$kisi || !$kelas || !$semester) {
+        if (! $kisi || ! $kelas || ! $semester) {
             return;
         }
 

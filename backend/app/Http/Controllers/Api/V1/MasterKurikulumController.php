@@ -104,7 +104,7 @@ class MasterKurikulumController extends Controller
     {
         $kurikulum = $this->service->cariBerdasarkanId($id);
 
-        if (!$kurikulum) {
+        if (! $kurikulum) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data master kurikulum tidak ditemukan.',
@@ -126,7 +126,7 @@ class MasterKurikulumController extends Controller
         $userId = $request->user()?->id;
         $kurikulum = $this->service->ubah($id, $request->validated(), $userId);
 
-        if (!$kurikulum) {
+        if (! $kurikulum) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data master kurikulum tidak ditemukan.',
@@ -148,7 +148,7 @@ class MasterKurikulumController extends Controller
         $userId = $request->user()?->id;
         $result = $this->service->hapus($id, $userId);
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return response()->json([
                 'status' => 'error',
                 'message' => $result['message'],
@@ -168,7 +168,7 @@ class MasterKurikulumController extends Controller
     {
         $berhasil = $this->service->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan data master kurikulum.',
@@ -187,7 +187,7 @@ class MasterKurikulumController extends Controller
     public function import(Request $request): JsonResponse
     {
         $rows = $request->input('data', []);
-        if (!is_array($rows) || empty($rows)) {
+        if (! is_array($rows) || empty($rows)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Payload data impor tidak boleh kosong.',

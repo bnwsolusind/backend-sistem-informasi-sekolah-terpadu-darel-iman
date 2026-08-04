@@ -9,9 +9,7 @@ use Illuminate\Http\JsonResponse;
 
 class TeacherController extends Controller
 {
-    public function __construct(private readonly TeacherRepositoryInterface $teacherRepository)
-    {
-    }
+    public function __construct(private readonly TeacherRepositoryInterface $teacherRepository) {}
 
     public function index(IndexRequest $request): JsonResponse
     {

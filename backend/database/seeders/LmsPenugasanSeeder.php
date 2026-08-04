@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\AcademicYear;
-
 use App\Models\Employee;
 use App\Models\Kelas;
 use App\Models\LmsModulAjar;
@@ -86,7 +85,7 @@ class LmsPenugasanSeeder extends Seeder
             $semester = $semesters->first();
             $tahunAjaran = $academicYears->first();
 
-            if (!$subject || !$kelas || !$guru || !$semester || !$tahunAjaran) {
+            if (! $subject || ! $kelas || ! $guru || ! $semester || ! $tahunAjaran) {
                 continue;
             }
 
@@ -127,7 +126,7 @@ class LmsPenugasanSeeder extends Seeder
                         [
                             'id' => Str::uuid()->toString(),
                             'jawaban_teks' => 'Alhamdulillah berikut hasil pengerjaan tugas dari saya.',
-                            'file_path' => 'https://example.com/jawaban_siswa_' . ($sIdx + 1) . '.pdf',
+                            'file_path' => 'https://example.com/jawaban_siswa_'.($sIdx + 1).'.pdf',
                             'url_link' => 'https://drive.google.com/sample_answer',
                             'status' => $sIdx === 0 ? 'dinilai' : 'dikumpulkan',
                             'waktu_kumpul' => now()->subDays(1),

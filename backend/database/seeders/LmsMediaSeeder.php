@@ -14,6 +14,7 @@ class LmsMediaSeeder extends Seeder
 
         if ($materis->isEmpty()) {
             $this->command->info('Tidak ada data LmsMateri untuk di-attach LmsMedia.');
+
             return;
         }
 

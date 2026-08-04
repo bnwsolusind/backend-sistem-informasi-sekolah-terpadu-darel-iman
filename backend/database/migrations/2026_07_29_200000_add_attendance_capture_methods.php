@@ -75,10 +75,10 @@ return new class extends Migration
         Schema::dropIfExists('attendance_scan_logs');
         Schema::dropIfExists('attendance_devices');
         Schema::table('lms_presensi', fn (Blueprint $table) => $table->dropColumn([
-            'recorded_method','recorded_at','recorded_by','scan_log_id','confidence_score','device_identifier','capture_metadata',
+            'recorded_method', 'recorded_at', 'recorded_by', 'scan_log_id', 'confidence_score', 'device_identifier', 'capture_metadata',
         ]));
         Schema::table('lesson_attendance_sessions', fn (Blueprint $table) => $table->dropColumn([
-            'attendance_method','session_token_hash','session_started_at','session_expires_at','session_closed_at','device_id','scan_location','metadata',
+            'attendance_method', 'session_token_hash', 'session_started_at', 'session_expires_at', 'session_closed_at', 'device_id', 'scan_location', 'metadata',
         ]));
     }
 };

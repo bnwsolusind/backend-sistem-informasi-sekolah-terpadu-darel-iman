@@ -7,10 +7,9 @@ use App\Models\EducationUnit;
 use App\Models\MasterKurikulum;
 use App\Models\Semester;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\MasterKurikulum>
+ * @extends Factory<MasterKurikulum>
  */
 class MasterKurikulumFactory extends Factory
 {
@@ -34,8 +33,8 @@ class MasterKurikulumFactory extends Factory
         $jenjang = $unit->level ?? fake()->randomElement($jenjangOptions);
 
         return [
-            'kode_kurikulum' => 'KUR-' . strtoupper($jenjang) . '-' . fake()->unique()->numberBetween(100, 999),
-            'nama_kurikulum' => 'Kurikulum ' . $jenis . ' ' . $jenjang . ' ' . fake()->word(),
+            'kode_kurikulum' => 'KUR-'.strtoupper($jenjang).'-'.fake()->unique()->numberBetween(100, 999),
+            'nama_kurikulum' => 'Kurikulum '.$jenis.' '.$jenjang.' '.fake()->word(),
             'jenis_kurikulum' => $jenis,
             'unit_pendidikan_id' => $unit->id,
             'jenjang' => $jenjang,

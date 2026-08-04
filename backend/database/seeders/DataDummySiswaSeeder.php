@@ -8,6 +8,7 @@ use App\Models\Student;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class DataDummySiswaSeeder extends Seeder
 {
@@ -15,15 +16,16 @@ class DataDummySiswaSeeder extends Seeder
     {
         $tahunAjaranAktif = DB::table('academic_years')->first();
         if (! $tahunAjaranAktif) {
-            $tahunAjaranId = DB::table('academic_years')->insertGetId([
+            $tahunAjaranId = (string) Str::uuid();
+            DB::table('academic_years')->insert([
+                'id' => $tahunAjaranId,
                 'name' => '2024/2025',
                 'start_date' => '2024-07-01',
                 'end_date' => '2025-06-30',
                 'is_active' => true,
-                'metadata' => json_encode(['sumber' => 'seeder']),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ], 'id');
+            ]);
         } else {
             $tahunAjaranId = $tahunAjaranAktif->id;
         }
@@ -34,17 +36,18 @@ class DataDummySiswaSeeder extends Seeder
             ->first();
 
         if (! $semesterAktif) {
-            $semesterId = DB::table('semesters')->insertGetId([
+            $semesterId = (string) Str::uuid();
+            DB::table('semesters')->insert([
+                'id' => $semesterId,
                 'academic_year_id' => $tahunAjaranId,
                 'name' => 'Semester Ganjil',
                 'sequence' => 1,
                 'start_date' => '2024-07-01',
                 'end_date' => '2024-12-31',
                 'is_active' => true,
-                'metadata' => json_encode(['sumber' => 'seeder']),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ], 'id');
+            ]);
         } else {
             $semesterId = $semesterAktif->id;
         }
@@ -104,15 +107,29 @@ class DataDummySiswaSeeder extends Seeder
 
         foreach ($daftarKelas as $kelas) {
             $modelKelas = Kelas::query()->updateOrCreate(
-                ['kode_kelas' => 'K-' . $kelas['level'] . '-' . str_replace(' ', '', $kelas['name'])],
+                ['kode_kelas' => 'K-'.$kelas['level'].'-'.str_replace(' ', '', $kelas['name'])],
                 [
-                    'unit_pendidikan_id' => $unitPendidikanId ?? (string) \Illuminate\Support\Str::uuid(),
+                    'unit_pendidikan_id' => $unitPendidikanId ?? (string) Str::uuid(),
                     'tahun_ajaran_id' => $tahunAjaranId,
                     'semester_id' => $semesterId,
                     'jenjang' => 'SDIT',
                     'tingkat' => $kelas['level'],
                     'nama_kelas' => $kelas['name'],
                     'status' => 'Aktif',
+                ]
+            );
+
+            DB::table('classes')->updateOrInsert(
+                [
+                    'academic_year_id' => $tahunAjaranId,
+                    'semester_id' => $semesterId,
+                    'name' => $kelas['name'],
+                ],
+                [
+                    'id' => $modelKelas->id,
+                    'level' => (string) $kelas['level'],
+                    'updated_at' => now(),
+                    'created_at' => now(),
                 ]
             );
 
@@ -220,7 +237,7 @@ class DataDummySiswaSeeder extends Seeder
         $parents = ParentModel::all();
 
         foreach ($daftarSiswa as $index => $siswa) {
-            $parent = $parents->firstWhere('full_name', $siswa['metadata']['orang_tua']['nama_ayah'] ?? '') 
+            $parent = $parents->firstWhere('full_name', $siswa['metadata']['orang_tua']['nama_ayah'] ?? '')
                 ?? ($parents->isNotEmpty() ? $parents->get($index % $parents->count()) : null);
 
             Student::query()->updateOrCreate(

@@ -69,6 +69,7 @@ class JadwalPelajaranSeeder extends Seeder
             $this->command->warn(
                 'JadwalPelajaranSeeder dilewati: minimal empat guru aktif, mata pelajaran, dan kelas Ganjil diperlukan.'
             );
+
             return;
         }
 
@@ -118,7 +119,7 @@ class JadwalPelajaranSeeder extends Seeder
     private function buatKelasGenap(Collection $kelasGanjil, Semester $semesterGenap): Collection
     {
         return $kelasGanjil->map(function (Kelas $sumber) use ($semesterGenap) {
-            $kodeKelas = substr($sumber->kode_kelas, 0, 43) . '-G2';
+            $kodeKelas = substr($sumber->kode_kelas, 0, 43).'-G2';
 
             return Kelas::query()->updateOrCreate([
                 'kode_kelas' => $kodeKelas,

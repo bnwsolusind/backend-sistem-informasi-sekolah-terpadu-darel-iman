@@ -1,74 +1,380 @@
-import { useEffect, useState } from 'react'
-import { Fingerprint, ListChecks, QrCode, ScanBarcode, ScanFace, Wifi, WifiOff } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Camera, CameraOff, CheckCircle2, ListChecks, QrCode, RefreshCw, X, XCircle } from 'lucide-react'
+import Swal from 'sweetalert2'
 import { lmsPresensiService } from '../../services/lmsPresensiService'
 
 const methods = [
-  ['manual', 'Checklist Guru', ListChecks],
-  ['qr', 'Scan QR Code', QrCode],
-  ['barcode', 'Scan Barcode', ScanBarcode],
-  ['face', 'Face Recognition', ScanFace],
-  ['fingerprint', 'Fingerprint', Fingerprint],
+  ['manual', 'Pemanggilan Nama Siswa (Roll Call)', ListChecks],
+  ['qr', 'QR Code Kartu Siswa', QrCode],
 ]
 
 export function AttendanceMethodSelector({ value, onChange }) {
-  return <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{methods.map(([id, label, Icon]) =>
-    <button key={id} type="button" onClick={() => onChange(id)} className={`flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-bold transition ${value === id ? 'border-[#0E5C44] bg-emerald-50 text-[#0E5C44]' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-[#1B2433]'}`}><Icon size={19} />{label}</button>
-  )}</div>
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {methods.map(([id, label, Icon]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onChange(id)}
+          className={`flex items-center justify-center gap-3 rounded-2xl border p-4 text-center text-sm font-bold transition shadow-sm ${
+            value === id
+              ? 'border-[#0E5C44] bg-emerald-50 text-[#0E5C44] dark:bg-emerald-950/40 dark:text-emerald-300 ring-2 ring-[#0E5C44]'
+              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#1B2433] dark:text-slate-300'
+          }`}
+        >
+          <Icon size={20} />
+          {label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
-export function AttendanceCapturePanel({ method, session, onRecorded }) {
+export function AttendanceCapturePanel({ method, session, students = [], onRecorded, onScanMatch }) {
   const [identifier, setIdentifier] = useState('')
-  const [confidence, setConfidence] = useState(90)
-  const [active, setActive] = useState(Boolean(session?.session_started_at && !session?.session_closed_at))
-  const [result, setResult] = useState(null)
-  const [logs, setLogs] = useState([])
   const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
 
-  const loadLogs = async () => {
-    if (!session?.id) return
-    const response = await lmsPresensiService.getScanLogs(session.id)
-    setLogs(response?.data?.data || [])
-  }
-  useEffect(() => { loadLogs().catch(() => {}) }, [session?.id])
+  // Camera Pop-up State
+  const [showCameraModal, setShowCameraModal] = useState(false)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [cameraLoading, setCameraLoading] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const [modalInput, setModalInput] = useState('')
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
 
-  if (method === 'manual') return <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">Gunakan tabel siswa di bawah untuk checklist, status, jam hadir, menit terlambat, dan catatan. Input manual tetap dapat digunakan bila perangkat gagal.</div>
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    setCameraActive(false)
+  }
 
-  const start = async () => {
-    setBusy(true)
-    try { const response = await lmsPresensiService.startCaptureSession(session.id); setActive(true); setResult({ scan_status: 'success', message: `Sesi aktif sampai ${new Date(response.data.session.session_expires_at).toLocaleTimeString('id-ID')}` }) }
-    finally { setBusy(false) }
+  useEffect(() => {
+    return () => {
+      stopCamera()
+    }
+  }, [])
+
+  if (method === 'manual') {
+    return (
+      <div className="rounded-2xl bg-emerald-50/80 p-4 text-xs font-semibold text-emerald-900 border border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-200">
+        Gunakan tombol opsi status di bawah untuk checklist kehadiran siswa satu per satu (Hadir, Terlambat, Izin, Sakit, Alpha).
+      </div>
+    )
   }
-  const close = async () => {
-    setBusy(true)
-    try { await lmsPresensiService.closeCaptureSession(session.id); setActive(false); setResult({ scan_status: 'closed', message: 'Sesi pemindaian ditutup.' }) }
-    finally { setBusy(false) }
-  }
-  const scan = async (event) => {
-    event.preventDefault()
-    setBusy(true)
+
+  const startCamera = async () => {
+    setCameraLoading(true)
+    setCameraError('')
+    stopCamera()
+
     try {
-      const payload = method === 'face' ? { template_reference: identifier, confidence_score: Number(confidence) } : { identifier }
-      const response = await lmsPresensiService.scanAttendance(session.id, method, payload)
-      setResult(response.data)
-      if (response.data.scan_status === 'success') onRecorded?.(response.data)
-      setIdentifier('')
-      await loadLogs()
-    } catch (error) {
-      setResult({ scan_status: 'rejected', message: error.response?.data?.message || 'Pemindaian ditolak.' })
-    } finally { setBusy(false) }
+      let mediaStream = null
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        })
+      } catch (e) {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true })
+      }
+
+      streamRef.current = mediaStream
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream
+        await videoRef.current.play()
+      }
+      setCameraActive(true)
+    } catch (err) {
+      console.error('Camera Access Error:', err)
+      setCameraError('Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan di browser.')
+      setCameraActive(false)
+    } finally {
+      setCameraLoading(false)
+    }
   }
 
-  if (!session?.id) return <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Simpan Draft terlebih dahulu untuk membuat sesi pemindaian. Checklist manual tetap tersedia.</div>
-  if (method === 'fingerprint') return <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700"><div className="flex items-center gap-3"><WifiOff className="text-amber-600" /><div><b className="dark:text-white">Menunggu perangkat fingerprint</b><p className="text-xs text-slate-500">Perangkat mengirim event melalui REST bridge yang diautentikasi API key. Browser tidak membaca template sidik jari.</p></div></div><button type="button" disabled={busy} onClick={active ? close : start} className="rounded-xl bg-[#0E5C44] px-4 py-2 text-sm font-bold text-white">{active ? 'Tutup Sesi' : 'Mulai Sesi'}</button></div>
+  const openCameraModal = () => {
+    setShowCameraModal(true)
+    setTimeout(() => {
+      startCamera()
+    }, 200)
+  }
 
-  return <div className="space-y-4 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2">{active ? <Wifi className="text-emerald-600" /> : <WifiOff className="text-slate-400" />}<div><b className="dark:text-white">{active ? 'Scanner siap' : 'Sesi belum aktif'}</b><p className="text-xs text-slate-500">{method === 'face' ? 'Adapter provider memvalidasi template reference dan confidence.' : 'Masukkan hasil scanner kamera/kartu pada kolom di bawah.'}</p></div></div><button type="button" disabled={busy} onClick={active ? close : start} className="rounded-xl bg-[#0E5C44] px-4 py-2 text-sm font-bold text-white">{active ? 'Tutup Sesi' : 'Mulai Sesi'}</button></div>
-    <form onSubmit={scan} className="flex flex-col gap-3 md:flex-row">
-      <input required disabled={!active} autoFocus value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={method === 'face' ? 'Template reference dari provider' : method === 'qr' ? 'Payload QR terenkripsi' : 'NIS/NISN dari barcode'} className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-transparent p-3" />
-      {method === 'face' && <input type="number" min="0" max="100" value={confidence} onChange={(e) => setConfidence(e.target.value)} className="w-32 rounded-xl border border-slate-200 p-3" title="Confidence" />}
-      <button disabled={!active || busy} className="rounded-xl bg-[#1E8E5A] px-5 py-3 font-bold text-white disabled:opacity-50">Proses Scan</button>
-    </form>
-    {result && <div className={`rounded-xl p-3 text-sm ${result.scan_status === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}><b>{result.student?.full_name || result.scan_status}</b><p>{result.message}</p></div>}
-    <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="text-slate-500"><th className="py-2">Waktu</th><th>Siswa</th><th>Metode</th><th>Hasil</th><th>Pesan</th></tr></thead><tbody>{logs.slice(0, 8).map((log) => <tr key={log.id} className="border-t border-slate-100"><td className="py-2">{new Date(log.scanned_at).toLocaleTimeString('id-ID')}</td><td>{log.student?.full_name || '-'}</td><td>{log.scan_method}</td><td>{log.result_status}</td><td>{log.failure_reason || 'Berhasil'}</td></tr>)}</tbody></table></div>
-  </div>
+  const closeCameraModal = () => {
+    stopCamera()
+    setShowCameraModal(false)
+  }
+
+  const processScanCode = (codeToScan) => {
+    const cleanCode = String(codeToScan || '').trim().toLowerCase()
+    if (!cleanCode) return
+
+    setBusy(true)
+
+    // Find student in local class list
+    const foundStudent = students.find((st) => {
+      const nisn = String(st.nisn || '').toLowerCase()
+      const nis = String(st.nis || '').toLowerCase()
+      const id = String(st.id || '').toLowerCase()
+      const card = String(st.card_number || st.nomor_kartu || '').toLowerCase()
+      const name = String(st.full_name || st.nama_lengkap || '').toLowerCase()
+
+      return (
+        nisn === cleanCode ||
+        nis === cleanCode ||
+        id === cleanCode ||
+        card === cleanCode ||
+        (cleanCode.length > 3 && name.includes(cleanCode))
+      )
+    })
+
+    if (foundStudent) {
+      const nowStr = new Date().toTimeString().slice(0, 5)
+      onScanMatch?.(foundStudent.id, {
+        status: 'hadir',
+        arrival_time: nowStr,
+        recorded_method: 'qr_code',
+        verification_status: 'verified',
+      })
+
+      const successRes = {
+        scan_status: 'success',
+        student: foundStudent,
+        message: `${foundStudent.full_name || foundStudent.nama_lengkap} tercatat HADIR jam ${nowStr}.`,
+      }
+      setResult(successRes)
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Presensi QR Code Berhasil!',
+        html: `<b style="color:#0E5C44; font-size:1.1rem;">${foundStudent.full_name || foundStudent.nama_lengkap}</b><br/>Tercatat <b>HADIR</b> via QR Code Kartu.`,
+        timer: 2000,
+        showConfirmButton: false,
+      })
+    } else if (session?.id) {
+      // Try backend scan if session exists
+      lmsPresensiService
+        .scanAttendance(session.id, 'qr', { identifier: codeToScan })
+        .then((res) => {
+          setResult(res.data)
+          if (res.data.scan_status === 'success') {
+            onRecorded?.(res.data)
+            Swal.fire({
+              icon: 'success',
+              title: 'Presensi Berhasil',
+              text: res.data.message,
+              timer: 2000,
+              showConfirmButton: false,
+            })
+          }
+        })
+        .catch((err) => {
+          const msg = err.response?.data?.message || 'Siswa tidak ditemukan dalam rombel kelas ini.'
+          setResult({ scan_status: 'rejected', message: msg })
+          Swal.fire({ icon: 'error', title: 'Pemindaian Ditolak', text: msg })
+        })
+    } else {
+      const rejectRes = {
+        scan_status: 'rejected',
+        message: `Siswa dengan kode "${codeToScan}" tidak ditemukan pada daftar rombel kelas ini.`,
+      }
+      setResult(rejectRes)
+      Swal.fire({
+        icon: 'error',
+        title: 'Siswa Tidak Ditemukan',
+        text: rejectRes.message,
+      })
+    }
+
+    setIdentifier('')
+    setModalInput('')
+    setBusy(false)
+  }
+
+  const handleScanSubmit = (e) => {
+    e?.preventDefault()
+    if (!identifier.trim()) return
+    processScanCode(identifier)
+  }
+
+  const handleModalSubmit = (e) => {
+    e?.preventDefault()
+    if (!modalInput.trim()) return
+    processScanCode(modalInput)
+  }
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl bg-emerald-50/60 p-4 border border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900">
+        <div>
+          <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+            <Camera className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> Pemindai Kamera Live QR Code
+          </h4>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+            Gunakan kamera laptop/HP atau scanner USB kartu siswa.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openCameraModal}
+          className="flex items-center justify-center gap-2 rounded-xl bg-[#0E5C44] px-4 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-emerald-800 whitespace-nowrap"
+        >
+          <Camera className="h-4 w-4" /> Buka Kamera Pemindai Live
+        </button>
+      </div>
+
+      {/* Manual Input Scanner USB Form */}
+      <form onSubmit={handleScanSubmit} className="space-y-2">
+        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+          Input / Hardware Scanner USB Kartu
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            autoFocus
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="Scan QR code via scanner USB atau ketik NIS/NISN siswa..."
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-xl bg-[#0E5C44] px-5 py-3 text-xs font-bold text-white shadow transition hover:bg-emerald-800 disabled:opacity-50 whitespace-nowrap"
+          >
+            Proses QR
+          </button>
+        </div>
+      </form>
+
+      {/* Result feedback */}
+      {result && (
+        <div
+          className={`flex items-center gap-3 rounded-xl p-3.5 text-xs font-semibold ${
+            result.scan_status === 'success'
+              ? 'bg-emerald-100/70 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200'
+              : 'bg-rose-100/70 text-rose-900 dark:bg-rose-950/60 dark:text-rose-200'
+          }`}
+        >
+          {result.scan_status === 'success' ? (
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          ) : (
+            <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0" />
+          )}
+          <div>
+            <b className="text-sm">{result.student?.full_name || result.student?.nama_lengkap || 'Pemberitahuan'}</b>
+            <p className="mt-0.5">{result.message}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Live Camera Pop-up Modal */}
+      {showCameraModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+                  <Camera className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Pemindai Live QR Code Kartu Siswa</h3>
+                  <p className="text-xs text-slate-500">Presensi Mata Pelajaran</p>
+                </div>
+              </div>
+              <button
+                onClick={closeCameraModal}
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-inner dark:border-slate-800">
+                <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+
+                {cameraLoading && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 text-white gap-2">
+                    <RefreshCw className="h-8 w-8 animate-spin text-emerald-400" />
+                    <p className="text-xs font-semibold">Menghubungkan ke kamera...</p>
+                  </div>
+                )}
+
+                {cameraActive && (
+                  <div className="absolute inset-0 border-2 border-dashed border-emerald-400/80 pointer-events-none rounded-2xl m-6 flex flex-col items-center justify-between p-4">
+                    <span className="bg-black/60 backdrop-blur-sm px-3 py-1 text-[11px] font-bold text-emerald-300 rounded-full">
+                      🔴 LIVE — Dekatkan QR Code Kartu Siswa
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {cameraError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                  {cameraError}
+                </div>
+              )}
+
+              <form onSubmit={handleModalSubmit} className="space-y-2 pt-2">
+                <label className="block text-xs font-semibold text-slate-500 uppercase">Input Kode / NISN Kartu</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={modalInput}
+                    onChange={(e) => setModalInput(e.target.value)}
+                    placeholder="Hasil scan QR / Ketik NISN..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-[#0E5C44] px-5 py-3 text-xs font-bold text-white shadow hover:bg-emerald-800 whitespace-nowrap"
+                  >
+                    Proses Scan
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+              <button
+                type="button"
+                onClick={cameraActive ? stopCamera : startCamera}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {cameraActive ? (
+                  <>
+                    <CameraOff className="h-3.5 w-3.5 text-rose-500" /> Matikan Kamera
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-3.5 w-3.5 text-emerald-500" /> Nyalakan Ulang Kamera
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={closeCameraModal}
+                className="rounded-xl bg-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200"
+              >
+                Tutup Window
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

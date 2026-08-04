@@ -1,20 +1,41 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { FaMosque } from 'react-icons/fa6'
 import { usePengaturanStore } from '../stores/pengaturanStore'
-
 import LoginCard from '../components/auth/LoginCard'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const pengaturan = usePengaturanStore((state) => state.pengaturan)
+  const muatPengaturan = usePengaturanStore((state) => state.muatPengaturan)
 
-  const namaSekolah = pengaturan?.namaSekolah || 'YAYASAN DAR EL - IMAN'
+  useEffect(() => {
+    muatPengaturan()
+  }, [muatPengaturan])
+
+  const logoUrl = pengaturan?.logo_url || pengaturan?.logoUrl || ''
+  const faviconUrl = pengaturan?.favicon_url || pengaturan?.faviconUrl || ''
+  const namaSekolah = pengaturan?.school_name || pengaturan?.namaSekolah || 'YAYASAN DAR EL - IMAN'
+  const namaAplikasi = pengaturan?.application_name || 'Sistem Manajemen Sekolah Terpadu'
+
+  // Dynamic Favicon Update
+  useEffect(() => {
+    if (faviconUrl) {
+      let link = document.querySelector("link[rel*='icon']")
+      if (!link) {
+        link = document.createElement('link')
+        link.rel = 'shortcut icon'
+        document.getElementsByTagName('head')[0].appendChild(link)
+      }
+      link.href = faviconUrl
+    }
+  }, [faviconUrl])
 
   const handleLoginSuccess = () => {
     Swal.fire({
       title: 'Login Berhasil!',
-      text: `Selamat datang di Sistem Manajemen ${namaSekolah}.`,
+      text: `Selamat datang di ${namaSekolah}.`,
       icon: 'success',
       confirmButtonColor: '#065f46',
       timer: 1800,
@@ -37,15 +58,15 @@ export default function LoginPage() {
       {/* Top Info Bar */}
       <div className="relative z-10 border-b border-emerald-200/60 bg-white/80 backdrop-blur-sm shadow-xs">
         <div className="max-w-5xl mx-auto px-4 py-2.5 flex items-center gap-2">
-          {pengaturan?.logoUrl ? (
+          {logoUrl ? (
             <img
-              src={pengaturan.logoUrl}
-              alt="Logo"
-              className="w-6 h-6 rounded object-contain"
+              src={logoUrl}
+              alt="Logo Sekolah"
+              className="w-7 h-7 rounded object-contain p-0.5 bg-white border border-emerald-100 shadow-xs"
             />
           ) : (
-            <div className="w-6 h-6 rounded-lg bg-emerald-800 text-amber-300 flex items-center justify-center">
-              <FaMosque className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 rounded-lg bg-emerald-800 text-amber-300 flex items-center justify-center shadow-xs">
+              <FaMosque className="w-4 h-4" />
             </div>
           )}
           <span className="text-xs font-bold text-emerald-900 tracking-tight">
@@ -53,7 +74,7 @@ export default function LoginPage() {
           </span>
           <span className="hidden sm:block text-xs text-slate-400">•</span>
           <span className="hidden sm:block text-xs text-slate-500 font-medium">
-            Sistem Manajemen Sekolah Islam Terpadu
+            {namaAplikasi}
           </span>
         </div>
       </div>
@@ -62,12 +83,16 @@ export default function LoginPage() {
       <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <LoginCard onLoginSuccess={handleLoginSuccess} />
+          <button onClick={() => navigate('/masuk-keluarga')} className="mt-4 w-full rounded-xl border border-emerald-200 bg-white/80 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-50">
+            Masuk Portal Orang Tua / Siswa
+          </button>
         </div>
       </div>
 
       {/* Footer */}
       <div className="relative z-10 text-center py-4 text-[11px] text-slate-400 border-t border-slate-200/60 bg-white/60">
-        © {new Date().getFullYear()} {namaSekolah} — Sistem Manajemen Sekolah Islam Terpadu. All rights reserved. <span className="font-mono text-emerald-700 font-medium ml-1">Ver 1.0.0</span>
+        © {new Date().getFullYear()} {namaSekolah} — {namaAplikasi}. All rights reserved.{' '}
+        <span className="font-mono text-emerald-700 font-medium ml-1">Ver 2.1.0</span>
       </div>
     </div>
   )

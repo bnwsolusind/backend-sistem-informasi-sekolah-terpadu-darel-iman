@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('lms_capaian_pembelajaran', function (Blueprint $table) {
-            if (!Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
+            if (! Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
                 $table->uuid('unit_pendidikan_id')->nullable()->after('id');
                 $table->foreign('unit_pendidikan_id')
                     ->references('id')
@@ -20,7 +20,7 @@ return new class extends Migration
                     ->nullOnDelete();
             }
 
-            if (!Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
+            if (! Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
                 $table->uuid('tahun_ajaran_id')->nullable()->after('unit_pendidikan_id');
                 $table->foreign('tahun_ajaran_id')
                     ->references('id')

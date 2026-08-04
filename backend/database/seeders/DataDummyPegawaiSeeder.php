@@ -453,14 +453,14 @@ class DataDummyPegawaiSeeder extends Seeder
 
         foreach ($dummyEmployees as $data) {
             $teachings = $data['metadata']['teachings'] ?? [];
-            
+
             $emp = Employee::updateOrCreate(
                 ['niy' => $data['niy']],
                 $data
             );
 
             // Seed teachings relation table
-            if (!empty($teachings)) {
+            if (! empty($teachings)) {
                 EmployeeTeaching::where('employee_id', $emp->id)->delete();
                 foreach ($teachings as $t) {
                     EmployeeTeaching::create([

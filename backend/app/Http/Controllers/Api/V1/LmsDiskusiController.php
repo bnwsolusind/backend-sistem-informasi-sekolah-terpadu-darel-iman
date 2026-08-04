@@ -45,7 +45,7 @@ class LmsDiskusiController extends Controller
     {
         $diskusi = $this->diskusiService->cariBerdasarkanId($id);
 
-        if (!$diskusi) {
+        if (! $diskusi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Diskusi Kelas tidak ditemukan.',
@@ -62,7 +62,7 @@ class LmsDiskusiController extends Controller
     {
         $diskusi = $this->diskusiService->ubah($id, $request->validated());
 
-        if (!$diskusi) {
+        if (! $diskusi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Diskusi Kelas tidak ditemukan atau gagal diperbarui.',
@@ -80,7 +80,7 @@ class LmsDiskusiController extends Controller
     {
         $deleted = $this->diskusiService->hapus($id);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Diskusi Kelas tidak ditemukan atau gagal dihapus.',
@@ -97,7 +97,7 @@ class LmsDiskusiController extends Controller
     {
         $restored = $this->diskusiService->pulihkan($id);
 
-        if (!$restored) {
+        if (! $restored) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memulihkan Diskusi Kelas.',
@@ -114,7 +114,7 @@ class LmsDiskusiController extends Controller
     {
         $diskusi = $this->diskusiService->togglePin($id);
 
-        if (!$diskusi) {
+        if (! $diskusi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Diskusi Kelas tidak ditemukan.',
@@ -132,7 +132,7 @@ class LmsDiskusiController extends Controller
     {
         $diskusi = $this->diskusiService->toggleClose($id);
 
-        if (!$diskusi) {
+        if (! $diskusi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Diskusi Kelas tidak ditemukan.',
@@ -150,7 +150,7 @@ class LmsDiskusiController extends Controller
     {
         $diskusi = $this->diskusiService->cariBerdasarkanId($id);
 
-        if (!$diskusi) {
+        if (! $diskusi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Diskusi Kelas tidak ditemukan.',
@@ -177,7 +177,7 @@ class LmsDiskusiController extends Controller
     {
         $deleted = $this->diskusiService->hapusKomentar($komentarId);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Komentar tidak ditemukan atau gagal dihapus.',

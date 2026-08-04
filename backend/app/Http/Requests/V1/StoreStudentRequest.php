@@ -17,7 +17,10 @@ class StoreStudentRequest extends FormRequest
         $studentId = $this->route('student') ?? $this->route('id');
 
         return [
+            'parent_id' => ['nullable', 'uuid', 'exists:parents,id'],
+            'unit_id' => ['nullable', 'uuid', 'exists:education_units,id'],
             'class_id' => ['nullable', 'uuid', 'exists:classes,id'],
+            'nisn' => ['nullable', 'string', 'max:50'],
             'nis' => [
                 'required',
                 'string',
@@ -44,6 +47,7 @@ class StoreStudentRequest extends FormRequest
             'metadata.berat_badan' => ['nullable', 'numeric', 'min:0'],
             'metadata.tinggi_badan' => ['nullable', 'numeric', 'min:0'],
             'metadata.riwayat_penyakit' => ['nullable', 'string'],
+            'metadata.foto_url' => ['nullable', 'string', 'max:4194304'],
             'metadata.kewarganegaraan' => ['nullable', 'string', 'max:80'],
             'metadata.rt' => ['nullable', 'string', 'max:10'],
             'metadata.rw' => ['nullable', 'string', 'max:10'],
@@ -73,6 +77,20 @@ class StoreStudentRequest extends FormRequest
             'metadata.ibu' => ['nullable', 'array'],
             'metadata.wali' => ['nullable', 'array'],
             'metadata.akademik' => ['nullable', 'array'],
+            'metadata.nama_ayah' => ['nullable', 'string', 'max:255'],
+            'metadata.hp_ayah' => ['nullable', 'string', 'max:50'],
+            'metadata.nomor_wa_ayah' => ['nullable', 'string', 'max:50'],
+            'metadata.nama_ibu' => ['nullable', 'string', 'max:255'],
+            'metadata.hp_ibu' => ['nullable', 'string', 'max:50'],
+            'metadata.nomor_wa_ibu' => ['nullable', 'string', 'max:50'],
+            'metadata.nama_wali' => ['nullable', 'string', 'max:255'],
+            'metadata.hp_wali' => ['nullable', 'string', 'max:50'],
+            'metadata.nomor_wa_wali' => ['nullable', 'string', 'max:50'],
+            'metadata.orang_tua' => ['nullable', 'array'],
+            'metadata.orang_tua.nama_ayah' => ['nullable', 'string', 'max:255'],
+            'metadata.orang_tua.nama_ibu' => ['nullable', 'string', 'max:255'],
+            'metadata.orang_tua.nama_wali' => ['nullable', 'string', 'max:255'],
+            'metadata.orang_tua.no_hp' => ['nullable', 'string', 'max:50'],
         ];
     }
 }

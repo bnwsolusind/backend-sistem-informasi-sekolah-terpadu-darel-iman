@@ -16,6 +16,23 @@ export const studentService = {
     return data
   },
 
+  getAttendanceQrToken: async (id) => {
+    const { data } = await api.get(`/lesson-attendance/students/${id}/qr-token`)
+    return data
+  },
+
+  getCardSetting: async (educationUnitId) => {
+    const { data } = await api.get('/student-card-settings', {
+      params: educationUnitId ? { education_unit_id: educationUnitId } : {},
+    })
+    return data
+  },
+
+  saveCardSetting: async (payload) => {
+    const { data } = await api.post('/student-card-settings', payload)
+    return data
+  },
+
   tambah: async (payload) => {
     const { data } = await api.post('/students', payload)
     return data

@@ -65,6 +65,7 @@ class KelasController extends Controller
     public function options(): JsonResponse
     {
         $options = $this->kelasService->dapatkanOpsiMaster();
+
         return response()->json([
             'status' => 'success',
             'message' => 'Data opsi master berhasil dimuat.',
@@ -78,6 +79,7 @@ class KelasController extends Controller
     public function stats(): JsonResponse
     {
         $stats = $this->kelasService->dapatkanStatistik();
+
         return response()->json([
             'status' => 'success',
             'data' => $stats,
@@ -105,7 +107,7 @@ class KelasController extends Controller
     {
         $kelas = $this->kelasService->cariBerdasarkanId($id);
 
-        if (!$kelas) {
+        if (! $kelas) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data kelas tidak ditemukan.',
@@ -140,7 +142,7 @@ class KelasController extends Controller
     {
         $berhasil = $this->kelasService->hapus($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus data kelas.',
@@ -160,7 +162,7 @@ class KelasController extends Controller
     {
         $berhasil = $this->kelasService->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan data kelas.',
@@ -193,7 +195,7 @@ class KelasController extends Controller
     public function import(Request $request): JsonResponse
     {
         $rows = $request->input('data', []);
-        if (!is_array($rows) || empty($rows)) {
+        if (! is_array($rows) || empty($rows)) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Payload data impor tidak boleh kosong.',

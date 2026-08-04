@@ -25,36 +25,36 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
                 'pengumpulan.siswa',
             ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('judul_tugas', 'like', "%{$search}%")
-                  ->orWhere('deskripsi', 'like', "%{$search}%")
-                  ->orWhere('instruksi', 'like', "%{$search}%");
+                    ->orWhere('deskripsi', 'like', "%{$search}%")
+                    ->orWhere('instruksi', 'like', "%{$search}%");
             });
         }
 
-        if (!empty($filters['modul_ajar_id'])) {
+        if (! empty($filters['modul_ajar_id'])) {
             $query->where('modul_ajar_id', $filters['modul_ajar_id']);
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
-        if (!empty($filters['guru_id'])) {
+        if (! empty($filters['guru_id'])) {
             $query->where('guru_id', $filters['guru_id']);
         }
 
-        if (!empty($filters['mata_pelajaran_id'])) {
+        if (! empty($filters['mata_pelajaran_id'])) {
             $query->where('mata_pelajaran_id', $filters['mata_pelajaran_id']);
         }
 
-        if (!empty($filters['tipe'])) {
+        if (! empty($filters['tipe'])) {
             $query->where('tipe_tugas', $filters['tipe']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             if ($filters['status'] === 'dipublikasikan' || $filters['status'] === 'published') {
                 $query->where('is_published', true);
             } elseif ($filters['status'] === 'draft') {
@@ -104,11 +104,12 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
     public function update(string $id, array $data): ?LmsPenugasan
     {
         $penugasan = LmsPenugasan::find($id);
-        if (!$penugasan) {
+        if (! $penugasan) {
             return null;
         }
 
         $penugasan->update($data);
+
         return $penugasan->fresh([
             'modulAjar',
             'guru',
@@ -124,7 +125,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
     public function delete(string $id): bool
     {
         $penugasan = LmsPenugasan::find($id);
-        if (!$penugasan) {
+        if (! $penugasan) {
             return false;
         }
 
@@ -134,7 +135,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
     public function restore(string $id): bool
     {
         $penugasan = LmsPenugasan::withTrashed()->find($id);
-        if (!$penugasan) {
+        if (! $penugasan) {
             return false;
         }
 
@@ -144,11 +145,11 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
     public function togglePublish(string $id): ?LmsPenugasan
     {
         $penugasan = LmsPenugasan::find($id);
-        if (!$penugasan) {
+        if (! $penugasan) {
             return null;
         }
 
-        $penugasan->is_published = !$penugasan->is_published;
+        $penugasan->is_published = ! $penugasan->is_published;
         $penugasan->save();
 
         return $penugasan->fresh(['modulAjar', 'guru', 'kelas', 'subject']);
@@ -159,7 +160,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
         $penugasan = LmsPenugasan::findOrFail($penugasanId);
 
         $siswaId = $data['siswa_id'] ?? null;
-        if (!$siswaId) {
+        if (! $siswaId) {
             throw new \InvalidArgumentException('Siswa ID required.');
         }
 
@@ -179,7 +180,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
         }
         if (isset($data['waktu_kumpul'])) {
             $pengumpulan->waktu_kumpul = $data['waktu_kumpul'];
-        } elseif (!$pengumpulan->waktu_kumpul && isset($data['jawaban_teks'])) {
+        } elseif (! $pengumpulan->waktu_kumpul && isset($data['jawaban_teks'])) {
             $pengumpulan->waktu_kumpul = now();
         }
 
@@ -196,7 +197,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
 
         if (isset($data['status'])) {
             $pengumpulan->status = $data['status'];
-        } elseif (!$pengumpulan->status) {
+        } elseif (! $pengumpulan->status) {
             $pengumpulan->status = 'dikumpulkan';
         }
 

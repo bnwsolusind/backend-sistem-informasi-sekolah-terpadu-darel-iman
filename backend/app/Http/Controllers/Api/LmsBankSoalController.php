@@ -54,7 +54,7 @@ class LmsBankSoalController extends Controller
     {
         $soal = $this->bankSoalService->cariBerdasarkanId($id, true);
 
-        if (!$soal) {
+        if (! $soal) {
             return response()->json([
                 'success' => false,
                 'message' => 'Butir soal tidak ditemukan di Bank Soal.',
@@ -72,7 +72,7 @@ class LmsBankSoalController extends Controller
         $validated = $request->validated();
         $soal = $this->bankSoalService->ubah($id, $validated);
 
-        if (!$soal) {
+        if (! $soal) {
             return response()->json([
                 'success' => false,
                 'message' => 'Butir soal tidak ditemukan atau gagal diperbarui.',
@@ -90,7 +90,7 @@ class LmsBankSoalController extends Controller
     {
         $success = $this->bankSoalService->hapus($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Butir soal tidak ditemukan atau gagal dihapus.',
@@ -107,7 +107,7 @@ class LmsBankSoalController extends Controller
     {
         $success = $this->bankSoalService->pulihkan($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Butir soal tidak ditemukan atau tidak dalam status terhapus.',
@@ -124,7 +124,7 @@ class LmsBankSoalController extends Controller
     {
         $duplicated = $this->bankSoalService->duplikasi($id);
 
-        if (!$duplicated) {
+        if (! $duplicated) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menduplikasi butir soal.',

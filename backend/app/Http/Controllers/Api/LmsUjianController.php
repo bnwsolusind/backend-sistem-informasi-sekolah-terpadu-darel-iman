@@ -54,7 +54,7 @@ class LmsUjianController extends Controller
     {
         $ujian = $this->ujianService->cariBerdasarkanId($id, true);
 
-        if (!$ujian) {
+        if (! $ujian) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sesi CBT Ujian tidak ditemukan.',
@@ -72,7 +72,7 @@ class LmsUjianController extends Controller
         $validated = $request->validated();
         $ujian = $this->ujianService->ubah($id, $validated);
 
-        if (!$ujian) {
+        if (! $ujian) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sesi CBT Ujian tidak ditemukan atau gagal diperbarui.',
@@ -90,7 +90,7 @@ class LmsUjianController extends Controller
     {
         $success = $this->ujianService->hapus($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sesi CBT Ujian tidak ditemukan atau gagal dihapus.',
@@ -107,7 +107,7 @@ class LmsUjianController extends Controller
     {
         $success = $this->ujianService->pulihkan($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sesi CBT Ujian tidak ditemukan atau tidak dalam status terhapus.',
@@ -124,7 +124,7 @@ class LmsUjianController extends Controller
     {
         $duplicated = $this->ujianService->duplikasi($id);
 
-        if (!$duplicated) {
+        if (! $duplicated) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menduplikasi Sesi CBT Ujian.',
@@ -146,7 +146,7 @@ class LmsUjianController extends Controller
 
         $ujian = $this->ujianService->ubahStatusPublish($id, $request->status);
 
-        if (!$ujian) {
+        if (! $ujian) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengubah status publish CBT Ujian.',
@@ -164,12 +164,12 @@ class LmsUjianController extends Controller
     public function startSession(Request $request, string $id): JsonResponse
     {
         $siswaId = $request->input('siswa_id');
-        if (!$siswaId) {
+        if (! $siswaId) {
             $siswa = Student::first();
             $siswaId = $siswa?->id;
         }
 
-        if (!$siswaId) {
+        if (! $siswaId) {
             return response()->json([
                 'success' => false,
                 'message' => 'Data Siswa tidak ditemukan untuk pengerjaan ujian.',
@@ -197,7 +197,7 @@ class LmsUjianController extends Controller
         $jawaban = $request->input('jawaban', []);
         $success = $this->ujianService->simpanJawaban($sesiId, $jawaban);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menyimpan jawaban sementara atau sesi ujian telah berakhir.',
@@ -219,7 +219,7 @@ class LmsUjianController extends Controller
 
         $finalSesi = $this->ujianService->selesaikanSesi($sesiId);
 
-        if (!$finalSesi) {
+        if (! $finalSesi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengakhiri sesi CBT Ujian.',
@@ -252,7 +252,7 @@ class LmsUjianController extends Controller
 
         $success = $this->ujianService->nilaiEssay($jawabanId, (float) $request->poin_didapat, $request->catatan_guru);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menilai jawaban esai.',

@@ -16,8 +16,8 @@ return new class extends Migration
         // 1. Backfill jenis_unit_id if NULL exists in education_units
         if (Schema::hasTable('education_units') && Schema::hasColumn('education_units', 'jenis_unit_id')) {
             $defaultJenisUnit = DB::table('master_jenis_unit_pendidikan')->first();
-            
-            if (!$defaultJenisUnit) {
+
+            if (! $defaultJenisUnit) {
                 // Insert default record in master_jenis_unit_pendidikan if table is empty
                 $defaultUuid = (string) Str::uuid();
                 DB::table('master_jenis_unit_pendidikan')->insert([

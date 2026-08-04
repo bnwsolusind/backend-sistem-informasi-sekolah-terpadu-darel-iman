@@ -59,9 +59,23 @@ class LmsPresensi extends Model
     /**
      * Relasi ke Siswa (Student)
      */
+    /**
+     * Relasi ke Siswa via kolom `siswa_id`.
+     * CATATAN: Nama kolom adalah `siswa_id` (Bahasa Indonesia), bukan `student_id`.
+     * Ini inkonsistensi penamaan yang dipertahankan untuk backward compatibility.
+     */
     public function siswa(): BelongsTo
     {
         return $this->belongsTo(Student::class, 'siswa_id');
+    }
+
+    /**
+     * Alias relasi student() → siswa() untuk konsistensi dengan model lain.
+     * Kedua relasi mengarah ke FK `siswa_id` yang sama.
+     */
+    public function student(): BelongsTo
+    {
+        return $this->siswa();
     }
 
     public function session(): BelongsTo

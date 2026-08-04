@@ -19,7 +19,7 @@ class KelasRepository implements KelasRepositoryInterface
             ->withCount('siswa');
 
         // Search Query (Pencarian universal)
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower(trim($filters['search']));
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('LOWER(nama_kelas) LIKE ?', ["%{$search}%"])
@@ -32,37 +32,37 @@ class KelasRepository implements KelasRepositoryInterface
         }
 
         // Filter Unit Pendidikan
-        if (!empty($filters['unit_pendidikan_id'])) {
+        if (! empty($filters['unit_pendidikan_id'])) {
             $query->where('unit_pendidikan_id', $filters['unit_pendidikan_id']);
         }
 
         // Filter Tahun Ajaran
-        if (!empty($filters['tahun_ajaran_id'])) {
+        if (! empty($filters['tahun_ajaran_id'])) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);
         }
 
         // Filter Semester
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
 
         // Filter Jenjang
-        if (!empty($filters['jenjang'])) {
+        if (! empty($filters['jenjang'])) {
             $query->where('jenjang', $filters['jenjang']);
         }
 
         // Filter Tingkat
-        if (!empty($filters['tingkat'])) {
+        if (! empty($filters['tingkat'])) {
             $query->where('tingkat', $filters['tingkat']);
         }
 
         // Filter Status
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
         // Include Trashed (Soft Delete) jika diminta
-        if (!empty($filters['dengan_sampah']) && $filters['dengan_sampah'] === 'true') {
+        if (! empty($filters['dengan_sampah']) && $filters['dengan_sampah'] === 'true') {
             $query->withTrashed();
         }
 
@@ -79,11 +79,11 @@ class KelasRepository implements KelasRepositoryInterface
         $query = Kelas::with(['unitPendidikan', 'tahunAjaran', 'semester', 'waliKelas'])
             ->withCount('siswa');
 
-        if (!empty($filters['unit_pendidikan_id'])) {
+        if (! empty($filters['unit_pendidikan_id'])) {
             $query->where('unit_pendidikan_id', $filters['unit_pendidikan_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -106,18 +106,21 @@ class KelasRepository implements KelasRepositoryInterface
     {
         $kelas = Kelas::findOrFail($id);
         $kelas->update($data);
+
         return $kelas->fresh(['unitPendidikan', 'tahunAjaran', 'semester', 'waliKelas']);
     }
 
     public function hapus(string $id): bool
     {
         $kelas = Kelas::findOrFail($id);
+
         return (bool) $kelas->delete();
     }
 
     public function pulihkan(string $id): bool
     {
         $kelas = Kelas::withTrashed()->findOrFail($id);
+
         return (bool) $kelas->restore();
     }
 

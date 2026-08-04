@@ -12,7 +12,7 @@ class LmsAktivitasBelajarSeeder extends Seeder
     {
         $modul = LmsModulAjar::first();
 
-        if (!$modul) {
+        if (! $modul) {
             return;
         }
 

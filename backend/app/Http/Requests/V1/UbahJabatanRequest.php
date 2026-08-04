@@ -16,7 +16,7 @@ class UbahJabatanRequest extends FormRequest
         $id = $this->route('jabatan') ?? $this->route('id');
 
         return [
-            'kode_jabatan' => 'nullable|string|max:50|unique:positions,code,' . $id,
+            'kode_jabatan' => 'nullable|string|max:50|unique:positions,code,'.$id,
             'nama_jabatan' => 'sometimes|required|string|max:255',
             'satuan_kerja' => 'sometimes|required|string|in:Pengurus,Bidang Pendidikan,Unit Pendidikan',
             'unit_sekolah_id' => 'nullable|uuid|exists:education_units,id',

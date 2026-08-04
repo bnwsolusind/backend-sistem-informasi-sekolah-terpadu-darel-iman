@@ -3,32 +3,37 @@ import {
   Target,
   BookOpen,
   Layers,
-  Plus,
   Search,
-  Edit3,
-  Trash2,
   RefreshCw,
   CheckCircle,
   AlertCircle,
   X,
   Sparkles,
-  Filter,
   ChevronLeft,
   ChevronRight,
   FileText,
   Clock,
-  Building2,
-  Calendar,
-  GraduationCap,
+  Upload,
 } from 'lucide-react'
+import CsvImportModal from '../components/master-data/CsvImportModal'
 import { tujuanPembelajaranService } from '../services/tujuanPembelajaranService'
 import { capaianPembelajaranService } from '../services/capaianPembelajaranService'
 import { educationUnitService } from '../services/educationUnitService'
 import { tahunAjaranService } from '../services/tahunAjaranService'
 import { masterKurikulumService } from '../services/masterKurikulumService'
 import { subjectService } from '../services/subjectService'
+import {
+  MasterDataPage,
+  MasterActionButton,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+  MasterStatusBadge,
+  MasterActionGroup,
+  MasterActionIconButton,
+} from '../components/master-data'
 
-export default function MasterTujuanPembelajaranPage() {
+export default function MasterTujuanPembelajaranPage({ embedded = false, hideBreadcrumb = false }) {
   const [dataTp, setDataTp] = useState([])
   const [stats, setStats] = useState({
     total_tp: 0,
@@ -65,6 +70,7 @@ export default function MasterTujuanPembelajaranPage() {
   // 1. Unit Pendidikan -> 2. Tahun Ajaran -> 3. Kurikulum -> 4. Mata Pelajaran ->
   // 5. Dropdown CP (DB) -> 6. Kode TP (Auto) -> 7. Alokasi JP -> 8. Deskripsi TP -> 9. Urutan -> 10. Status
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [formSubmitting, setFormSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -293,78 +299,54 @@ export default function MasterTujuanPembelajaranPage() {
     }
   }
 
+  const handleImport = async (rows) => {
+    const failures = []
+    let success = 0
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]
+      try {
+        await tujuanPembelajaranService.tambah({
+          unit_pendidikan_id: row.unit_pendidikan_id,
+          tahun_ajaran_id: row.tahun_ajaran_id,
+          kurikulum_id: row.kurikulum_id,
+          mata_pelajaran_id: row.mata_pelajaran_id,
+          cp_id: row.cp_id,
+          kode_tp: row.kode_tp,
+          deskripsi_tp: row.deskripsi_tp,
+          alokasi_waktu_jp: Number(row.alokasi_waktu_jp || 2),
+          urutan: Number(row.urutan || index + 1),
+          status: !['0', 'false', 'nonaktif'].includes(String(row.status).toLowerCase()),
+        })
+        success += 1
+      } catch (error) { failures.push(`baris ${index + 2}: ${error.response?.data?.message || 'gagal'}`) }
+    }
+    await fetchDaftarTp(); await loadInitialMasters()
+    setSuccessMsg(`${success} TP berhasil diimpor${failures.length ? `, ${failures.length} gagal (${failures.slice(0, 3).join('; ')})` : '.'}`)
+  }
+
   return (
-    <div className="min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] p-4 sm:p-6 lg:p-8 transition-colors duration-200">
+    <MasterDataPage className="education-unit-page tp-master-page" hideBreadcrumb={embedded || hideBreadcrumb}>
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 sm:p-8 text-white shadow-xl mb-8">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-2">
-              <span>Kurikulum & LMS</span>
-              <span>/</span>
-              <span className="text-white">Tujuan Pembelajaran (TP)</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-              <Target className="w-8 h-8 text-emerald-200" />
-              Master Tujuan Pembelajaran (TP)
-            </h1>
-            <p className="mt-2 text-emerald-100 text-sm max-w-2xl">
-              Kelola Tujuan Pembelajaran (TP) berbasis relasi bertingkat: Unit Pendidikan → Tahun Ajaran → Kurikulum → Mata Pelajaran → CP Database → TP → Modul Ajar.
-            </p>
-          </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="self-start md:self-center inline-flex items-center gap-2 bg-white text-[#0E5C44] hover:bg-emerald-50 px-5 py-3 rounded-xl font-bold text-sm shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus className="w-5 h-5 text-[#0E5C44]" />
-            Tambah TP Baru
-          </button>
-        </div>
-        <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-      </div>
+      <MasterPageHeader
+        tone="brand"
+        icon={Target}
+        title="Master Tujuan Pembelajaran (TP)"
+        description="Kelola Tujuan Pembelajaran (TP) berbasis relasi bertingkat: Unit Pendidikan → Tahun Ajaran → Kurikulum → Mata Pelajaran → CP Database → TP → Modul Ajar."
+        actions={<><MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton><MasterActionButton onClick={() => handleOpenModal()}>Tambah TP Baru</MasterActionButton></>}
+      />
+
+      <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} title="Tujuan Pembelajaran" onImport={handleImport} columns={[
+        { key: 'unit_pendidikan_id' }, { key: 'tahun_ajaran_id' }, { key: 'kurikulum_id' }, { key: 'mata_pelajaran_id' }, { key: 'cp_id', required: true },
+        { key: 'kode_tp', required: true, example: 'TP-MTK-01' }, { key: 'deskripsi_tp', required: true, example: 'Peserta didik mampu...' }, { key: 'alokasi_waktu_jp', example: '2' }, { key: 'urutan', example: '1' }, { key: 'status', example: '1' },
+      ]} />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#0E5C44] dark:text-[#3FBF75]">
-            <Target className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Tujuan Pembelajaran</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total_tp ?? 0}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-950/50 flex items-center justify-center text-green-600 dark:text-green-400">
-            <CheckCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">TP Status Aktif</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total_tp_aktif ?? 0}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Capaian Pembelajaran</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total_cp ?? 0}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">CP Memiliki TP</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.cp_ber_tp ?? 0}</p>
-          </div>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={Target} label="TOTAL TUJUAN PEMBELAJARAN" value={stats.total_tp ?? 0} description="Terdaftar di sistem" variant="success" />
+        <MasterStatCard icon={CheckCircle} label="TP STATUS AKTIF" value={stats.total_tp_aktif ?? 0} description="Berfungsi aktif" variant="info" />
+        <MasterStatCard icon={BookOpen} label="TOTAL CP TERIKAT" value={stats.total_cp ?? 0} description="Capaian Pembelajaran" variant="warning" />
+        <MasterStatCard icon={Layers} label="CP MEMILIKI TP" value={stats.cp_ber_tp ?? 0} description="Sudah dilengkapi TP" variant="neutral" />
+      </MasterStatsGrid>
 
       {/* Notifications */}
       {successMsg && (
@@ -392,7 +374,7 @@ export default function MasterTujuanPembelajaranPage() {
       )}
 
       {/* Search & Filter Bar */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm mb-6">
+      <div className="rounded-[18px] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-[#1B2433]">
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-center">
           <div className="relative w-full lg:w-80">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -404,7 +386,7 @@ export default function MasterTujuanPembelajaranPage() {
                 setSearch(e.target.value)
                 setPage(1)
               }}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
+              className="h-12 w-full rounded-full border border-slate-200 bg-white pl-10 pr-4 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-100"
             />
           </div>
 
@@ -415,7 +397,7 @@ export default function MasterTujuanPembelajaranPage() {
                 setSelectedStatusFilter(e.target.value)
                 setPage(1)
               }}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
+              className="h-12 rounded-[14px] border border-slate-200 bg-white px-3.5 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827] dark:text-slate-100"
             >
               <option value="">-- Semua Status --</option>
               <option value="true">Aktif</option>
@@ -439,18 +421,18 @@ export default function MasterTujuanPembelajaranPage() {
       </div>
 
       {/* Main Table */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mb-8">
+      <div className="overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
+          <table className="w-full table-fixed text-left text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs tracking-wider font-semibold">
-                <th className="py-4 px-5 text-center w-16">Urutan</th>
-                <th className="py-4 px-5 w-44">Kode TP</th>
-                <th className="py-4 px-5">Capaian Pembelajaran (CP)</th>
-                <th className="py-4 px-5">Deskripsi Tujuan Pembelajaran (TP)</th>
-                <th className="py-4 px-5 text-center w-28">Alokasi (JP)</th>
-                <th className="py-4 px-5 text-center w-28">Status</th>
-                <th className="py-4 px-5 text-center w-32">Aksi</th>
+                <th className="w-[8%] px-3 py-4 text-center">Urutan</th>
+                <th className="w-[15%] px-3 py-4">Kode TP</th>
+                <th className="hidden w-[23%] px-3 py-4 md:table-cell">Capaian Pembelajaran</th>
+                <th className="w-[34%] px-3 py-4">Deskripsi TP</th>
+                <th className="hidden w-[10%] px-3 py-4 text-center lg:table-cell">Alokasi</th>
+                <th className="hidden w-[10%] px-3 py-4 text-center sm:table-cell">Status</th>
+                <th className="w-[16%] px-3 py-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -481,7 +463,7 @@ export default function MasterTujuanPembelajaranPage() {
                       </span>
                     </td>
 
-                    <td className="py-4 px-5">
+                    <td className="hidden px-3 py-4 md:table-cell">
                       <div className="font-semibold text-slate-800 dark:text-slate-100">
                         {item.capaian_pembelajaran?.kode_cp || '-'}
                       </div>
@@ -496,43 +478,22 @@ export default function MasterTujuanPembelajaranPage() {
                       </p>
                     </td>
 
-                    <td className="py-4 px-5 text-center font-semibold">
+                    <td className="hidden px-3 py-4 text-center font-semibold lg:table-cell">
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
                         {item.alokasi_waktu_jp ?? 2} JP
                       </span>
                     </td>
 
-                    <td className="py-4 px-5 text-center">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                          item.status
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                        }`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${item.status ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {item.status ? 'Aktif' : 'Nonaktif'}
-                      </span>
+                    <td className="hidden px-3 py-4 text-center sm:table-cell">
+                      <MasterStatusBadge active={item.status} />
                     </td>
 
                     <td className="py-4 px-5 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(item)}
-                          className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
-                          title="Edit TP"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleHapus(item.id, item.kode_tp)}
-                          className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                          title="Hapus TP"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <MasterActionGroup>
+                        <MasterActionIconButton variant="edit" label="Edit TP" onClick={() => handleOpenModal(item)} />
+                        <MasterActionIconButton variant="delete" label="Hapus TP" onClick={() => handleHapus(item.id, item.kode_tp)} />
+                      </MasterActionGroup>
                     </td>
                   </tr>
                 ))
@@ -794,6 +755,6 @@ export default function MasterTujuanPembelajaranPage() {
           </div>
         </div>
       )}
-    </div>
+    </MasterDataPage>
   )
 }

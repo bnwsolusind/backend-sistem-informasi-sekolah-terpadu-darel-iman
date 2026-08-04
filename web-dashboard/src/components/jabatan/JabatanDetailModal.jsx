@@ -1,5 +1,5 @@
 import React from 'react'
-import { FaTimes, FaBriefcase, FaUsers, FaUserEdit, FaTag } from 'react-icons/fa'
+import { X as FaTimes, Briefcase as FaBriefcase, Users as FaUsers, UserRoundPen as FaUserEdit, Tag as FaTag } from 'lucide-react'
 
 export default function JabatanDetailModal({ isOpen, onClose, jabatan = null }) {
   if (!isOpen || !jabatan) return null
@@ -7,10 +7,10 @@ export default function JabatanDetailModal({ isOpen, onClose, jabatan = null }) 
   const badgeWarna = jabatan.warna || '#3B82F6'
 
   return (
-    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="detail-jabatan-title">
-      <div className="ui-modal my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-labelledby="detail-jabatan-title">
+      <div className="ui-modal my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
         {/* Header Bar (Persis UI UX Referensi) */}
-        <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100 bg-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
           <div className="flex items-center space-x-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md font-bold text-lg shrink-0"
@@ -19,7 +19,7 @@ export default function JabatanDetailModal({ isOpen, onClose, jabatan = null }) 
               <FaBriefcase className="w-5 h-5" />
             </div>
             <div>
-              <h3 id="detail-jabatan-title" className="flex items-center space-x-2 text-xl font-black text-slate-800">
+              <h3 id="detail-jabatan-title" className="flex items-center space-x-2 text-lg font-bold text-slate-900 dark:text-white">
                 <span>{jabatan.nama_jabatan || jabatan.name}</span>
                 <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold">
                   {jabatan.kode_jabatan || jabatan.code}
@@ -33,16 +33,16 @@ export default function JabatanDetailModal({ isOpen, onClose, jabatan = null }) 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
             title="Tutup detail jabatan"
             aria-label="Tutup detail jabatan"
           >
-            <FaTimes className="w-4 h-4" />
+            <FaTimes className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-7 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
           {/* Status Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#f8fafc] p-4 rounded-2xl border border-slate-200/90">
             <div>
@@ -194,7 +194,7 @@ export default function JabatanDetailModal({ isOpen, onClose, jabatan = null }) 
         </div>
 
         {/* Footer Bar */}
-        <div className="px-7 py-4 border-t border-slate-100 bg-white flex justify-end">
+        <div className="flex shrink-0 justify-end border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
           <button
             type="button"
             onClick={onClose}

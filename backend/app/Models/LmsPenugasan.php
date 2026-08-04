@@ -38,6 +38,11 @@ class LmsPenugasan extends Model
         'created_by',
         'updated_by',
         'deleted_by',
+        'subject_id',
+        'teacher_id',
+        'judul',
+        'bobot',
+        'status',
     ];
 
     protected function casts(): array
@@ -105,6 +110,41 @@ class LmsPenugasan extends Model
     public function pengumpulan(): HasMany
     {
         return $this->hasMany(LmsPengumpulanTugas::class, 'penugasan_id');
+    }
+
+    public function pengumpulanTugas(): HasMany
+    {
+        return $this->pengumpulan();
+    }
+
+    public function setTeacherIdAttribute($value): void
+    {
+        $this->attributes['guru_id'] = $value;
+    }
+
+    public function getTeacherIdAttribute()
+    {
+        return $this->attributes['guru_id'] ?? null;
+    }
+
+    public function setSubjectIdAttribute($value): void
+    {
+        $this->attributes['mata_pelajaran_id'] = $value;
+    }
+
+    public function getSubjectIdAttribute()
+    {
+        return $this->attributes['mata_pelajaran_id'] ?? null;
+    }
+
+    public function setBobotAttribute($value): void
+    {
+        $this->attributes['bobot_persen'] = $value;
+    }
+
+    public function getBobotAttribute()
+    {
+        return $this->attributes['bobot_persen'] ?? null;
     }
 
     public function modulAjar(): BelongsTo

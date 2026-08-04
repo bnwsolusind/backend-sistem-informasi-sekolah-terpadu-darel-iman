@@ -12,7 +12,6 @@ use App\Models\Semester;
 use App\Models\Subject;
 use App\Services\LmsModulAjarService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ModulAjarServiceTest extends TestCase
@@ -20,12 +19,19 @@ class ModulAjarServiceTest extends TestCase
     use RefreshDatabase;
 
     protected LmsModulAjarService $service;
+
     protected EducationUnit $unit;
+
     protected AcademicYear $tahun;
+
     protected Semester $semester;
+
     protected MasterKurikulum $kurikulum;
+
     protected Subject $subject;
+
     protected Employee $guru;
+
     protected Kelas $kelas;
 
     protected function setUp(): void

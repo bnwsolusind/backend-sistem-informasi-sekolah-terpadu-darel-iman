@@ -50,7 +50,7 @@ class LmsReferensiController extends Controller
     {
         $referensi = $this->referensiService->cariBerdasarkanId($id);
 
-        if (!$referensi) {
+        if (! $referensi) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Referensi Pembelajaran tidak ditemukan.',
@@ -85,7 +85,7 @@ class LmsReferensiController extends Controller
 
         $referensi = $this->referensiService->ubah($id, $data, $file);
 
-        if (!$referensi) {
+        if (! $referensi) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Referensi Pembelajaran tidak ditemukan.',
@@ -103,7 +103,7 @@ class LmsReferensiController extends Controller
     {
         $berhasil = $this->referensiService->hapus($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus Referensi Pembelajaran atau data tidak ditemukan.',
@@ -120,7 +120,7 @@ class LmsReferensiController extends Controller
     {
         $berhasil = $this->referensiService->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan Referensi Pembelajaran.',

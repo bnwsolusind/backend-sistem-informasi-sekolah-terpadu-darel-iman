@@ -1,16 +1,29 @@
 <?php
 
+use App\Http\Controllers\Api\Approval\DeleteRequestController;
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\Auth\QrCredentialController;
+use App\Http\Controllers\Api\LmsBankSoalController;
+use App\Http\Controllers\Api\LmsKisiKisiController;
+use App\Http\Controllers\Api\LmsPenilaianController;
+use App\Http\Controllers\Api\LmsUjianController;
+use App\Http\Controllers\Api\V1\AlumniController;
+use App\Http\Controllers\Api\V1\AttendanceCaptureController;
 use App\Http\Controllers\Api\V1\AttendanceController;
 use App\Http\Controllers\Api\V1\AttendanceWorkflowController;
-use App\Http\Controllers\Api\V1\AttendanceCaptureController;
+use App\Http\Controllers\Api\V1\CapaianPembelajaranController;
 use App\Http\Controllers\Api\V1\ClassController;
-use App\Http\Controllers\Api\V1\DashboardPemantauanController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\DashboardPemantauanController;
 use App\Http\Controllers\Api\V1\DivisionController;
 use App\Http\Controllers\Api\V1\EducationUnitController;
+use App\Http\Controllers\Api\V1\EmployeeChatController;
 use App\Http\Controllers\Api\V1\EmployeeController;
+use App\Http\Controllers\Api\V1\EQuranController;
 use App\Http\Controllers\Api\V1\FeaturePlaceholderController;
+use App\Http\Controllers\Api\V1\FoundationDashboardController;
+use App\Http\Controllers\Api\V1\FoundationReportController;
+use App\Http\Controllers\Api\V1\GateAttendanceController;
 use App\Http\Controllers\Api\V1\GradeController;
 use App\Http\Controllers\Api\V1\HakAksesController;
 use App\Http\Controllers\Api\V1\JabatanController;
@@ -18,54 +31,204 @@ use App\Http\Controllers\Api\V1\JenisUnitPendidikanController;
 use App\Http\Controllers\Api\V1\KelasController;
 use App\Http\Controllers\Api\V1\LmsAktivitasBelajarController;
 use App\Http\Controllers\Api\V1\LmsDiskusiController;
-use App\Http\Controllers\Api\LmsKisiKisiController;
-use App\Http\Controllers\Api\LmsBankSoalController;
-use App\Http\Controllers\Api\LmsUjianController;
-use App\Http\Controllers\Api\LmsPenilaianController;
 use App\Http\Controllers\Api\V1\LmsMateriController;
 use App\Http\Controllers\Api\V1\LmsMediaController;
 use App\Http\Controllers\Api\V1\LmsModulAjarController;
-use App\Http\Controllers\Api\V1\LmsPenugasanController;
 use App\Http\Controllers\Api\V1\LmsPengumpulanTugasController;
+use App\Http\Controllers\Api\V1\LmsPenugasanController;
 use App\Http\Controllers\Api\V1\LmsPresensiController;
+use App\Http\Controllers\Api\V1\LmsRaporController;
 use App\Http\Controllers\Api\V1\LmsReferensiController;
 use App\Http\Controllers\Api\V1\MasterKurikulumController;
 use App\Http\Controllers\Api\V1\ModulSemesterController;
+use App\Http\Controllers\Api\V1\MutabaahAnalyticsController;
+use App\Http\Controllers\Api\V1\MutabaahDailyController;
+use App\Http\Controllers\Api\V1\MutabaahEnterpriseController;
+use App\Http\Controllers\Api\V1\MutabaahPortalController;
+use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\ScheduleController;
+use App\Http\Controllers\Api\V1\SiteSettingController;
 use App\Http\Controllers\Api\V1\StudentController;
+use App\Http\Controllers\Api\V1\StudentParentPortalController;
 use App\Http\Controllers\Api\V1\SubjectController;
 use App\Http\Controllers\Api\V1\TahfizhController;
 use App\Http\Controllers\Api\V1\TahunAjaranController;
 use App\Http\Controllers\Api\V1\TeacherController;
+use App\Http\Controllers\Api\V1\TeacherPortalController;
 use App\Http\Controllers\Api\V1\TujuanPembelajaranController;
 use App\Http\Controllers\Api\V1\UserAccountController;
-use App\Http\Controllers\Api\V1\CapaianPembelajaranController;
-use App\Http\Controllers\Api\V1\LmsRaporController;
-use App\Http\Controllers\Api\V1\SiteSettingController;
-use App\Http\Controllers\Api\V1\MutabaahController;
+use App\Http\Controllers\Api\V1\WorshipAttendanceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/site-settings', [SiteSettingController::class, 'show']);
+Route::get('/equran/surah', [EQuranController::class, 'surahs']);
+Route::post('/equran/surah', [EQuranController::class, 'store']);
+Route::get('/equran/surah/{id}', [EQuranController::class, 'show']);
+Route::put('/equran/surah/{id}', [EQuranController::class, 'update']);
+Route::delete('/equran/surah/{id}', [EQuranController::class, 'destroy']);
+Route::get('/equran/jadwal-sholat', [EQuranController::class, 'jadwalSholat']);
+Route::post('/equran/sync-surah', [EQuranController::class, 'syncSurah']);
+
+// Doa & Dzikir Endpoints (Standard /api/doa & /api/equran/doa)
+Route::get('/doa', [EQuranController::class, 'doas']);
+Route::post('/doa', [EQuranController::class, 'storeDoa']);
+Route::get('/doa/{id}', [EQuranController::class, 'doaDetail']);
+Route::put('/doa/{id}', [EQuranController::class, 'updateDoa']);
+Route::delete('/doa/{id}', [EQuranController::class, 'destroyDoa']);
+Route::post('/doa/sync', [EQuranController::class, 'syncDoa']);
+
+Route::get('/equran/doa', [EQuranController::class, 'doas']);
+Route::post('/equran/doa', [EQuranController::class, 'storeDoa']);
+Route::get('/equran/doa/{id}', [EQuranController::class, 'doaDetail']);
+Route::put('/equran/doa/{id}', [EQuranController::class, 'updateDoa']);
+Route::delete('/equran/doa/{id}', [EQuranController::class, 'destroyDoa']);
+Route::post('/equran/sync-doa', [EQuranController::class, 'syncDoa']);
+
+// Shalat Master Data & EQuran API v2 Compatibility Endpoints
+Route::get('/v2/shalat/provinsi', [EQuranController::class, 'provinsi']);
+Route::get('/shalat/provinsi', [EQuranController::class, 'provinsi']);
+Route::post('/v2/shalat/kabkota', [EQuranController::class, 'kabkota']);
+Route::post('/shalat/kabkota', [EQuranController::class, 'kabkota']);
+Route::post('/v2/shalat', [EQuranController::class, 'shalat']);
+Route::post('/shalat', [EQuranController::class, 'shalat']);
+
+Route::post('/v2/shalat/save-master', [EQuranController::class, 'saveMaster']);
+Route::post('/shalat/save-master', [EQuranController::class, 'saveMaster']);
+Route::get('/v2/shalat/master-list', [EQuranController::class, 'masterList']);
+Route::get('/shalat/master-list', [EQuranController::class, 'masterList']);
+Route::delete('/v2/shalat/master-list/{id}', [EQuranController::class, 'deleteMaster']);
+Route::delete('/shalat/master-list/{id}', [EQuranController::class, 'deleteMaster']);
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login/admin', [AuthController::class, 'loginAdmin']);
+    Route::post('/login/employee', [AuthController::class, 'loginEmployee']);
+    Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr']);
+    Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'profile']);
+        Route::post('/impersonate', [AuthController::class, 'impersonate']);
+
+        Route::post('/qr/employee/{employeeId}', [QrCredentialController::class, 'generateEmployeeQr']);
+        Route::post('/qr/student/{studentId}', [QrCredentialController::class, 'generateStudentQr']);
+        Route::post('/qr/{id}/revoke', [QrCredentialController::class, 'revokeQr']);
     });
 });
 
+Route::prefix('v2/auth')->group(function () {
+    Route::post('/login/admin', [AuthController::class, 'loginAdmin']);
+    Route::post('/login/employee', [AuthController::class, 'loginEmployee']);
+    Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr']);
+    Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent']);
+});
+
+Route::middleware('auth:sanctum')->prefix('v2/approval')->group(function () {
+    Route::get('/delete-requests', [DeleteRequestController::class, 'index']);
+    Route::post('/delete-requests', [DeleteRequestController::class, 'store']);
+    Route::post('/delete-requests/{id}/approve', [DeleteRequestController::class, 'approve']);
+    Route::post('/delete-requests/{id}/reject', [DeleteRequestController::class, 'reject']);
+});
+
 Route::middleware('auth:sanctum')->group(function () {
+    // Foundation Board Dashboard Monitoring Endpoints
+    Route::prefix('foundation')->group(function () {
+        Route::get('/dashboard', [FoundationDashboardController::class, 'index']);
+        Route::get('/units', [FoundationDashboardController::class, 'units']);
+        Route::get('/units/{id}', [FoundationDashboardController::class, 'unitDetail']);
+        Route::get('/employees', [FoundationDashboardController::class, 'employees']);
+        Route::get('/employees/{id}', [FoundationDashboardController::class, 'employeeDetail']);
+        Route::get('/students', [FoundationDashboardController::class, 'students']);
+        Route::get('/students/{id}', [FoundationDashboardController::class, 'studentDetail']);
+        Route::get('/new-students', [FoundationDashboardController::class, 'newStudents']);
+        Route::get('/student-mutations', [FoundationDashboardController::class, 'studentMutations']);
+        Route::get('/graduations', [FoundationDashboardController::class, 'graduations']);
+        Route::get('/alumni', [FoundationDashboardController::class, 'alumni']);
+        Route::get('/alumni/{id}', [FoundationDashboardController::class, 'alumniDetail']);
+        Route::get('/parents', [FoundationDashboardController::class, 'parents']);
+        Route::get('/parents/{id}', [FoundationDashboardController::class, 'parentDetail']);
+        Route::get('/classes', [FoundationDashboardController::class, 'classes']);
+        Route::get('/classes/{id}', [FoundationDashboardController::class, 'classDetail']);
+        Route::get('/rombel', [FoundationDashboardController::class, 'rombel']);
+        Route::get('/rombel/{id}', [FoundationDashboardController::class, 'rombelDetail']);
+        Route::get('/information', [FoundationDashboardController::class, 'information']);
+        Route::get('/reports', [FoundationDashboardController::class, 'reports']);
+
+        // Comprehensive Foundation Reports
+        Route::prefix('laporan')->group(function () {
+            Route::get('/sdm', [FoundationReportController::class, 'sdm']);
+            Route::get('/sdm/detail/{id}', [FoundationReportController::class, 'sdmDetail']);
+            Route::get('/siswa', [FoundationReportController::class, 'siswa']);
+            Route::get('/siswa/detail/{id}', [FoundationReportController::class, 'siswaDetail']);
+            Route::get('/mutasi', [FoundationReportController::class, 'mutasi']);
+            Route::get('/mutasi/detail/{id}', [FoundationReportController::class, 'mutasiDetail']);
+            Route::get('/kelulusan', [FoundationReportController::class, 'kelulusan']);
+            Route::get('/kelulusan/detail/{id}', [FoundationReportController::class, 'kelulusanDetail']);
+            Route::get('/alumni', [FoundationReportController::class, 'alumni']);
+            Route::get('/alumni/detail/{id}', [FoundationReportController::class, 'alumniDetail']);
+            Route::get('/lintas-unit', [FoundationReportController::class, 'lintasUnit']);
+            Route::get('/{type}/export', [FoundationReportController::class, 'export']);
+        });
+    });
+
+    Route::prefix('parent/mutabaah')->group(function () {
+        Route::get('/children', [MutabaahPortalController::class, 'children']);
+        Route::post('/{dailyHeaderId}/signature', [MutabaahPortalController::class, 'signature'])->whereUuid('dailyHeaderId');
+        Route::get('/{studentId}/history', [MutabaahPortalController::class, 'parentHistory'])->whereUuid('studentId');
+        Route::get('/{studentId}', [MutabaahPortalController::class, 'parentOverview'])->whereUuid('studentId');
+    });
+    Route::prefix('student/mutabaah')->group(function () {
+        Route::get('/', [MutabaahPortalController::class, 'studentOverview']);
+        Route::get('/history', [MutabaahPortalController::class, 'studentHistory']);
+    });
     Route::prefix('mutabaah')->group(function () {
-        Route::get('/options', [MutabaahController::class, 'options']);
-        Route::get('/agendas', [MutabaahController::class, 'agendas']);
-        Route::post('/agendas', [MutabaahController::class, 'storeAgenda']);
-        Route::put('/agendas/{agenda}', [MutabaahController::class, 'updateAgenda']);
-        Route::delete('/agendas/{agenda}', [MutabaahController::class, 'destroyAgenda']);
-        Route::get('/daily', [MutabaahController::class, 'daily']);
-        Route::post('/daily', [MutabaahController::class, 'saveDaily']);
-        Route::get('/history', [MutabaahController::class, 'history']);
+        Route::get('/analytics/dashboard', [MutabaahAnalyticsController::class, 'dashboard']);
+        Route::get('/analytics/recap', [MutabaahAnalyticsController::class, 'recap']);
+        Route::get('/analytics/recap/export', [MutabaahAnalyticsController::class, 'export']);
+        Route::get('/daily/context', [MutabaahDailyController::class, 'context']);
+        Route::get('/daily/students', [MutabaahDailyController::class, 'students']);
+        Route::post('/daily/save-cell', [MutabaahDailyController::class, 'saveCell']);
+        Route::post('/daily/bulk-save', [MutabaahDailyController::class, 'bulkSave']);
+        Route::post('/daily/copy-previous-day', [MutabaahDailyController::class, 'copyPreviousDay']);
+        Route::post('/daily/finalize-student', [MutabaahDailyController::class, 'finalizeStudent']);
+        Route::post('/daily/finalize-bulk', [MutabaahDailyController::class, 'finalizeBulk']);
+        Route::post('/daily/reopen', [MutabaahDailyController::class, 'reopen']);
+        Route::get('/daily/{studentId}', [MutabaahDailyController::class, 'show'])->whereUuid('studentId');
+
+        // Compatibility alias for the existing dashboard client. Keep this
+        // scoped through the enterprise handler instead of the legacy options
+        // endpoint, which returned every student and employee.
+        Route::get('/options', [MutabaahEnterpriseController::class, 'options']);
+        Route::get('/enterprise/options', [MutabaahEnterpriseController::class, 'options']);
+        Route::get('/enterprise/audit', [MutabaahEnterpriseController::class, 'audit']);
+        Route::get('/enterprise/{resource}/export', [MutabaahEnterpriseController::class, 'export']);
+        Route::post('/enterprise/{resource}/import', [MutabaahEnterpriseController::class, 'import']);
+        Route::delete('/enterprise/{resource}/bulk', [MutabaahEnterpriseController::class, 'bulkDelete']);
+        Route::post('/enterprise/{resource}/{id}/restore', [MutabaahEnterpriseController::class, 'restore']);
+        Route::get('/enterprise/{resource}', [MutabaahEnterpriseController::class, 'index']);
+        Route::post('/enterprise/{resource}', [MutabaahEnterpriseController::class, 'store']);
+        Route::get('/enterprise/{resource}/{id}', [MutabaahEnterpriseController::class, 'show']);
+        Route::put('/enterprise/{resource}/{id}', [MutabaahEnterpriseController::class, 'update']);
+        Route::delete('/enterprise/{resource}/{id}', [MutabaahEnterpriseController::class, 'destroy']);
+
+        foreach (['categories', 'agendas', 'templates', 'template-assignments', 'supervisor-assignments'] as $resource) {
+            Route::get("/{$resource}", [MutabaahEnterpriseController::class, 'index'])->defaults('resource', $resource);
+            Route::post("/{$resource}", [MutabaahEnterpriseController::class, 'store'])->defaults('resource', $resource);
+            Route::delete("/{$resource}/bulk", [MutabaahEnterpriseController::class, 'bulkDelete'])->defaults('resource', $resource);
+            Route::post("/{$resource}/bulk-restore", [MutabaahEnterpriseController::class, 'bulkRestore'])->defaults('resource', $resource);
+            Route::get("/{$resource}/{id}", [MutabaahEnterpriseController::class, 'show'])->defaults('resource', $resource);
+            Route::put("/{$resource}/{id}", [MutabaahEnterpriseController::class, 'update'])->defaults('resource', $resource);
+            Route::delete("/{$resource}/{id}", [MutabaahEnterpriseController::class, 'destroy'])->defaults('resource', $resource);
+            Route::post("/{$resource}/{id}/restore", [MutabaahEnterpriseController::class, 'restore'])->defaults('resource', $resource);
+            Route::delete("/{$resource}/{id}/force", [MutabaahEnterpriseController::class, 'forceDelete'])->defaults('resource', $resource);
+        }
+        Route::post('/templates/{id}/items', [MutabaahEnterpriseController::class, 'storeTemplateItem'])->defaults('resource', 'template-items');
+        Route::put('/template-items/{id}', [MutabaahEnterpriseController::class, 'updateTemplateItem'])->defaults('resource', 'template-items');
+        Route::delete('/template-items/{id}', [MutabaahEnterpriseController::class, 'destroyTemplateItem']);
+        Route::post('/templates/{id}/reorder', [MutabaahEnterpriseController::class, 'reorderTemplate']);
+
     });
     Route::post('/site-settings', [SiteSettingController::class, 'update'])
         ->middleware('can:sistem.pengaturan');
@@ -121,6 +284,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/students/dashboard', [StudentController::class, 'dashboard']);
     Route::apiResource('students', StudentController::class)->except(['create', 'edit']);
+    Route::get('/student-card-settings', [\App\Http\Controllers\Api\V1\StudentCardSettingController::class, 'show']);
+    Route::post('/student-card-settings', [\App\Http\Controllers\Api\V1\StudentCardSettingController::class, 'store']);
     Route::apiResource('education-units', EducationUnitController::class)->except(['create', 'edit']);
     Route::apiResource('teachers', TeacherController::class)->only(['index']);
     Route::apiResource('classes', ClassController::class)->only(['index']);
@@ -246,19 +411,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/sessions/{session}/start-session', [AttendanceCaptureController::class, 'start']);
         Route::post('/sessions/{session}/close-session', [AttendanceCaptureController::class, 'close']);
         Route::post('/sessions/{session}/manual-check', [AttendanceCaptureController::class, 'manual']);
-        Route::post('/sessions/{session}/scan/{method}', [AttendanceCaptureController::class, 'scan'])->whereIn('method', ['qr','barcode','face']);
+        Route::post('/sessions/{session}/scan/{method}', [AttendanceCaptureController::class, 'scan'])->whereIn('method', ['qr', 'rfid', 'barcode', 'face']);
+        Route::post('/identify-card/{method}', [AttendanceCaptureController::class, 'identifyCard'])->whereIn('method', ['qr', 'rfid']);
         Route::get('/sessions/{session}/scan-logs', [AttendanceCaptureController::class, 'logs']);
         Route::get('/students/{student}/qr-token', [AttendanceCaptureController::class, 'studentToken']);
     });
     Route::get('/student-attendance/me', [AttendanceWorkflowController::class, 'myAttendance']);
-    Route::match(['get','post'], '/student-attendance/permissions', [AttendanceWorkflowController::class, 'permissions']);
+    Route::match(['get', 'post'], '/student-attendance/permissions', [AttendanceWorkflowController::class, 'permissions']);
     Route::put('/student-attendance/permissions/{permission}', [AttendanceWorkflowController::class, 'updatePermission']);
     Route::post('/student-attendance/permissions/{permission}/submit', [AttendanceWorkflowController::class, 'submitPermission']);
     Route::post('/student-attendance/permissions/{permission}/cancel', [AttendanceWorkflowController::class, 'cancelPermission']);
     Route::get('/homeroom-attendance/permissions', [AttendanceWorkflowController::class, 'homeroomPermissions']);
     Route::post('/homeroom-attendance/permissions/{permission}/review', [AttendanceWorkflowController::class, 'reviewPermission']);
     Route::get('/homeroom-attendance/dashboard', [AttendanceWorkflowController::class, 'homeroomDashboard']);
-    Route::match(['get','post'], '/homeroom-attendance/follow-ups', [AttendanceWorkflowController::class, 'followUps']);
+    Route::match(['get', 'post'], '/homeroom-attendance/follow-ups', [AttendanceWorkflowController::class, 'followUps']);
     Route::put('/homeroom-attendance/follow-ups/{followUp}', [AttendanceWorkflowController::class, 'updateFollowUp']);
     Route::post('/homeroom-attendance/follow-ups/{followUp}/complete', [AttendanceWorkflowController::class, 'completeFollowUp']);
     Route::post('/homeroom-attendance/follow-ups/{followUp}/close', [AttendanceWorkflowController::class, 'closeFollowUp']);
@@ -286,13 +452,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance-permissions/{permission}', [AttendanceWorkflowController::class, 'showPermission']);
     Route::put('/attendance-permissions/{permission}', [AttendanceWorkflowController::class, 'updatePermission']);
     Route::post('/attendance-permissions/{permission}/submit', [AttendanceWorkflowController::class, 'submitPermission']);
-    Route::post('/attendance-permissions/{permission}/{action}', [AttendanceWorkflowController::class, 'permissionReviewAction'])->whereIn('action', ['approve','reject','revision']);
+    Route::post('/attendance-permissions/{permission}/{action}', [AttendanceWorkflowController::class, 'permissionReviewAction'])->whereIn('action', ['approve', 'reject', 'revision']);
     Route::post('/attendance-permissions/{permission}/cancel', [AttendanceWorkflowController::class, 'cancelPermission']);
 
     Route::get('/attendance-corrections', [AttendanceWorkflowController::class, 'corrections']);
     Route::post('/attendance-corrections', [AttendanceWorkflowController::class, 'correction']);
     Route::get('/attendance-corrections/{correction}', [AttendanceWorkflowController::class, 'showCorrection']);
-    Route::post('/attendance-corrections/{correction}/{action}', [AttendanceWorkflowController::class, 'correctionReviewAction'])->whereIn('action', ['approve','reject']);
+    Route::post('/attendance-corrections/{correction}/{action}', [AttendanceWorkflowController::class, 'correctionReviewAction'])->whereIn('action', ['approve', 'reject']);
     Route::post('/attendance-corrections/{correction}/cancel', [AttendanceWorkflowController::class, 'cancelCorrection']);
 
     Route::get('/attendance-follow-ups', [AttendanceWorkflowController::class, 'followUps']);
@@ -304,19 +470,67 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance/reports/summary', [AttendanceWorkflowController::class, 'report']);
     Route::get('/attendance/reports/export', [AttendanceWorkflowController::class, 'report']);
 
+    Route::get('/tahfizh/weekly-sheet', [TahfizhController::class, 'getWeeklySheet']);
+    Route::post('/tahfizh/daily-log', [TahfizhController::class, 'saveDailyLog']);
+    Route::post('/tahfizh/upload-audio', [TahfizhController::class, 'uploadAudio']);
+    Route::get('/tahfizh/student-progress/{studentId}', [TahfizhController::class, 'getStudentProgress']);
     Route::post('/tahfizh/store', [TahfizhController::class, 'inputSetoran']);
     Route::get('/tahfizh/report', [TahfizhController::class, 'rekapTahfizh']);
 
     Route::get('/mutabaah', fn () => app(FeaturePlaceholderController::class)('mutabaah'));
     Route::get('/materials', fn () => app(FeaturePlaceholderController::class)('materials'));
     Route::get('/assignments', fn () => app(FeaturePlaceholderController::class)('assignments'));
-    Route::get('/exams', fn () => app(FeaturePlaceholderController::class)('exams'));
-    Route::get('/alumni', fn () => app(FeaturePlaceholderController::class)('alumni'));
-    Route::get('/notifications', fn () => app(FeaturePlaceholderController::class)('notifications'));
+    Route::get('/alumni', [AlumniController::class, 'index']);
+    Route::get('/alumni/stats', [AlumniController::class, 'stats']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+
+    // Foundation Notification Endpoints
+    Route::get('/foundation/notifications', [NotificationController::class, 'index']);
+    Route::get('/foundation/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/foundation/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/foundation/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+
+    // Logged-in User Profile Management Endpoints
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar']);
+    Route::put('/profile/password', [ProfileController::class, 'changePassword']);
+
+    // Foundation Profile Endpoints
+    Route::get('/foundation/profile', [ProfileController::class, 'show']);
+    Route::put('/foundation/profile', [ProfileController::class, 'update']);
+    Route::post('/foundation/profile/avatar', [ProfileController::class, 'updateAvatar']);
+    Route::put('/foundation/profile/password', [ProfileController::class, 'changePassword']);
 
     // =========================================================================
     // SAFE REFACTOR — Routes Baru (tidak mengubah routes di atas)
     // =========================================================================
+
+    // Gate Attendance (Absensi Kedatangan & Pulang Sekolah)
+    Route::prefix('gate-attendance')->group(function () {
+        Route::get('/logs', [GateAttendanceController::class, 'index']);
+        Route::get('/stats', [GateAttendanceController::class, 'stats']);
+        Route::get('/schedule-config', [GateAttendanceController::class, 'getScheduleConfig']);
+        Route::get('/schedule-config/all', [GateAttendanceController::class, 'getAllScheduleConfigs']);
+        Route::post('/schedule-config', [GateAttendanceController::class, 'saveScheduleConfig']);
+        Route::post('/scan-in', [GateAttendanceController::class, 'scanCheckIn']);
+        Route::post('/scan-out', [GateAttendanceController::class, 'scanCheckOut']);
+    });
+
+    // Santri Worship Attendance (Absensi Ibadah Santri)
+    Route::prefix('worship-attendance')->group(function () {
+        Route::get('/templates', [WorshipAttendanceController::class, 'templates']);
+        Route::post('/templates', [WorshipAttendanceController::class, 'storeTemplate']);
+        Route::get('/sessions', [WorshipAttendanceController::class, 'sessions']);
+        Route::get('/sessions/{session}', [WorshipAttendanceController::class, 'showSession']);
+        Route::post('/sessions/{session}/scan', [WorshipAttendanceController::class, 'scan']);
+        Route::post('/sessions/{session}/verify', [WorshipAttendanceController::class, 'verifyStudent']);
+        Route::post('/sessions/{session}/close', [WorshipAttendanceController::class, 'closeSession']);
+    });
 
     // Direct Capaian Pembelajaran Dropdown
     Route::get('/capaian-pembelajaran/dropdown', [CapaianPembelajaranController::class, 'dropdown']);
@@ -455,4 +669,106 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/rapor/{id}/restore', [LmsRaporController::class, 'restore']);
         Route::apiResource('rapor', LmsRaporController::class);
     });
-});
+
+    // Teacher Portal Routes (/api/teacher/*)
+    Route::prefix('teacher')->group(function () {
+            Route::get('/dashboard', [TeacherPortalController::class, 'dashboard']);
+            Route::get('/schedules', [TeacherPortalController::class, 'schedules']);
+            Route::get('/classes', [TeacherPortalController::class, 'classes']);
+            Route::get('/students', [TeacherPortalController::class, 'students']);
+            Route::get('/attendance', [TeacherPortalController::class, 'attendance']);
+            Route::post('/attendance', [TeacherPortalController::class, 'saveAttendance']);
+            Route::get('/materials', [TeacherPortalController::class, 'materials']);
+            Route::post('/materials', [TeacherPortalController::class, 'saveMaterial']);
+            Route::put('/materials/{id}', [TeacherPortalController::class, 'updateMaterial']);
+            Route::delete('/materials/{id}', [TeacherPortalController::class, 'deleteMaterial']);
+            Route::get('/assignments', [TeacherPortalController::class, 'assignments']);
+            Route::post('/assignments', [TeacherPortalController::class, 'saveAssignment']);
+            Route::get('/submissions', [TeacherPortalController::class, 'submissions']);
+            Route::post('/submissions/{id}/grade', [TeacherPortalController::class, 'gradeSubmission']);
+            Route::get('/grades', [TeacherPortalController::class, 'grades']);
+            Route::post('/grades', [TeacherPortalController::class, 'saveGrades']);
+            Route::get('/tahfizh', [TeacherPortalController::class, 'tahfizh']);
+            Route::post('/tahfizh', [TeacherPortalController::class, 'saveTahfizh']);
+            Route::get('/mutabaah', [TeacherPortalController::class, 'mutabaah']);
+            Route::post('/mutabaah/{id}/verify', [TeacherPortalController::class, 'verifyMutabaah']);
+            Route::get('/student-notes', [TeacherPortalController::class, 'studentNotes']);
+            Route::post('/student-notes', [TeacherPortalController::class, 'saveStudentNote']);
+            Route::get('/student-notes/{id}', [TeacherPortalController::class, 'showStudentNote']);
+            Route::put('/student-notes/{id}', [TeacherPortalController::class, 'updateStudentNote']);
+            Route::delete('/student-notes/{id}', [TeacherPortalController::class, 'deleteStudentNote']);
+            Route::get('/notifications', [TeacherPortalController::class, 'notifications']);
+            Route::get('/profile', [TeacherPortalController::class, 'profile']);
+            Route::post('/profile', [TeacherPortalController::class, 'updateProfile']);
+
+            // Teacher Chat Routes
+            Route::get('/chat/conversations', [TeacherPortalController::class, 'chatConversations']);
+            Route::get('/chat/parent/{parentUserId}/student/{studentId}', [TeacherPortalController::class, 'chatMessages']);
+            Route::post('/chat/parent/{parentUserId}/student/{studentId}', [TeacherPortalController::class, 'sendChatMessage']);
+        });
+
+        // Parent & Student Portal Routes (/api/portal/*)
+        Route::prefix('portal')->middleware('role:Orang Tua|Siswa')->group(function () {
+            Route::get('/dashboard', [StudentParentPortalController::class, 'dashboard']);
+            Route::get('/children', [StudentParentPortalController::class, 'children']);
+            Route::get('/profile', [StudentParentPortalController::class, 'profile']);
+            Route::get('/schedules', [StudentParentPortalController::class, 'schedules']);
+            Route::get('/attendance', [StudentParentPortalController::class, 'attendance']);
+            Route::post('/permissions', [StudentParentPortalController::class, 'submitPermission']);
+            Route::get('/permissions', [StudentParentPortalController::class, 'permissionsHistory']);
+            Route::get('/materials', [StudentParentPortalController::class, 'materials']);
+            Route::get('/assignments', [StudentParentPortalController::class, 'assignments']);
+            Route::post('/assignments/{id}/submit', [StudentParentPortalController::class, 'submitAssignment'])->middleware('role:Siswa');
+            Route::get('/grades', [StudentParentPortalController::class, 'grades']);
+            Route::get('/tahfizh', [StudentParentPortalController::class, 'tahfizh']);
+            Route::get('/mutabaah', [StudentParentPortalController::class, 'mutabaah']);
+            Route::post('/mutabaah', [StudentParentPortalController::class, 'saveMutabaahStudent'])->middleware('role:Siswa');
+            Route::get('/student-notes', [StudentParentPortalController::class, 'studentNotes']);
+            Route::get('/achievements', [StudentParentPortalController::class, 'achievements']);
+            Route::get('/announcements', [StudentParentPortalController::class, 'announcements']);
+            Route::get('/school-information', [StudentParentPortalController::class, 'schoolInformation']);
+            Route::get('/school-information/summary', [StudentParentPortalController::class, 'schoolInformationSummary']);
+            Route::patch('/school-information/read-all', [StudentParentPortalController::class, 'markAllSchoolInformationRead']);
+            Route::patch('/school-information/{informationId}/state', [StudentParentPortalController::class, 'updateSchoolInformationState']);
+            Route::get('/notifications', [StudentParentPortalController::class, 'notifications']);
+            Route::get('/bills', [StudentParentPortalController::class, 'bills']);
+            Route::get('/reports', [StudentParentPortalController::class, 'reports']);
+            Route::get('/reports/{id}/download', [StudentParentPortalController::class, 'downloadReport']);
+
+            // Parent Chat Routes
+            Route::get('/chat/contacts', [StudentParentPortalController::class, 'chatContacts']);
+            Route::get('/chat/available-teachers', [StudentParentPortalController::class, 'chatContacts']);
+            Route::get('/chat/{teacherUserId}', [StudentParentPortalController::class, 'chatMessages']);
+            Route::post('/chat/{teacherUserId}', [StudentParentPortalController::class, 'sendChatMessage']);
+
+            Route::get('/lms/exams', [StudentParentPortalController::class, 'examOverview']);
+            Route::get('/exam-grids', [StudentParentPortalController::class, 'examGrids']);
+            Route::get('/results', [StudentParentPortalController::class, 'results']);
+            Route::post('/lms/exams/{id}/start', [StudentParentPortalController::class, 'startExam'])->middleware('role:Siswa');
+            Route::post('/lms/exam-sessions/{sesiId}/answers', [StudentParentPortalController::class, 'saveExamAnswers'])->middleware('role:Siswa');
+            Route::post('/lms/exam-sessions/{sesiId}/finish', [StudentParentPortalController::class, 'finishExam'])->middleware('role:Siswa');
+        });
+
+        // Unified Chat Alias Routes (/api/chat/*)
+        Route::prefix('chat')->group(function () {
+            Route::get('/contacts', [StudentParentPortalController::class, 'chatContacts']);
+            Route::get('/available-teachers', [StudentParentPortalController::class, 'chatContacts']);
+            Route::get('/conversations', [TeacherPortalController::class, 'chatConversations']);
+            Route::get('/messages/{teacherUserId}', [StudentParentPortalController::class, 'chatMessages']);
+            Route::post('/messages/{teacherUserId}', [StudentParentPortalController::class, 'sendChatMessage']);
+
+            // Employee Chat Alias Routes
+            Route::get('/employee/contacts', [EmployeeChatController::class, 'employeeContacts']);
+            Route::get('/employee/conversations', [EmployeeChatController::class, 'employeeConversations']);
+            Route::get('/employee/messages/{recipientUserId}', [EmployeeChatController::class, 'employeeMessages']);
+            Route::post('/employee/messages/{recipientUserId}', [EmployeeChatController::class, 'sendEmployeeMessage']);
+        });
+
+        // Employee Chat Dedicated Routes (/api/employee/chat/*)
+        Route::prefix('employee/chat')->group(function () {
+            Route::get('/contacts', [EmployeeChatController::class, 'employeeContacts']);
+            Route::get('/conversations', [EmployeeChatController::class, 'employeeConversations']);
+            Route::get('/messages/{recipientUserId}', [EmployeeChatController::class, 'employeeMessages']);
+            Route::post('/messages/{recipientUserId}', [EmployeeChatController::class, 'sendEmployeeMessage']);
+        });
+    });

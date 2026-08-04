@@ -64,7 +64,7 @@ class SiteSettingController extends Controller
 
     private function replaceFile(Request $request, SiteSetting $setting, string $input, string $column, string $directory): void
     {
-        if (!$request->hasFile($input)) {
+        if (! $request->hasFile($input)) {
             return;
         }
 

@@ -57,7 +57,7 @@ class RoleAccessMatrixTest extends TestCase
     public function test_every_default_account_has_a_valid_password_and_single_role(): void
     {
         $accounts = [
-            'superadmin@school-erp.local' => ['SuperAdmin@2026!', 'Super Admin'],
+            'superadmin@school-erp.local' => [env('DEFAULT_SUPER_ADMIN_PASSWORD', 'Password123!'), 'Super Admin'],
             'kepsek@school-erp.local' => ['Kepsek@2026!', 'Kepala Sekolah'],
             'divisi.pendidikan@school-erp.local' => ['Divisi@2026!', 'Divisi Pendidikan'],
             'tu@school-erp.local' => ['TU@2026!', 'Tata Usaha'],

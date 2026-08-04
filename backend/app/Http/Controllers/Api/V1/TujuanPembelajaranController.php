@@ -45,7 +45,7 @@ class TujuanPembelajaranController extends Controller
     {
         $tp = $this->tpService->cariBerdasarkanId($id, true);
 
-        if (!$tp) {
+        if (! $tp) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tujuan Pembelajaran tidak ditemukan.',
@@ -62,7 +62,7 @@ class TujuanPembelajaranController extends Controller
     {
         $tp = $this->tpService->ubah($id, $request->validated());
 
-        if (!$tp) {
+        if (! $tp) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tujuan Pembelajaran tidak ditemukan.',
@@ -80,7 +80,7 @@ class TujuanPembelajaranController extends Controller
     {
         $success = $this->tpService->hapus($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menghapus Tujuan Pembelajaran.',
@@ -97,7 +97,7 @@ class TujuanPembelajaranController extends Controller
     {
         $success = $this->tpService->pulihkan($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memulihkan Tujuan Pembelajaran.',

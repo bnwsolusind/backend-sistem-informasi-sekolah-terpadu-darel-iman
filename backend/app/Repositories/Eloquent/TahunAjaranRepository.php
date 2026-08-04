@@ -13,15 +13,15 @@ class TahunAjaranRepository implements TahunAjaranRepositoryInterface
     {
         $query = AcademicYear::query();
 
-        if (!empty($filters['dengan_sampah']) && filter_var($filters['dengan_sampah'], FILTER_VALIDATE_BOOLEAN)) {
+        if (! empty($filters['dengan_sampah']) && filter_var($filters['dengan_sampah'], FILTER_VALIDATE_BOOLEAN)) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['search'])) {
-            $search = '%' . $filters['search'] . '%';
+        if (! empty($filters['search'])) {
+            $search = '%'.$filters['search'].'%';
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ILIKE', $search)
-                  ->orWhereRaw("metadata->>'keterangan' ILIKE ?", [$search]);
+                    ->orWhereRaw("metadata->>'keterangan' ILIKE ?", [$search]);
             });
         }
 
@@ -31,7 +31,7 @@ class TahunAjaranRepository implements TahunAjaranRepositoryInterface
         }
 
         $allowedColumns = ['name', 'start_date', 'end_date', 'is_active', 'created_at'];
-        if (!in_array($orderBy, $allowedColumns)) {
+        if (! in_array($orderBy, $allowedColumns)) {
             $orderBy = 'start_date';
         }
         $orderDir = strtolower($orderDir) === 'asc' ? 'asc' : 'desc';
@@ -46,7 +46,7 @@ class TahunAjaranRepository implements TahunAjaranRepositoryInterface
 
     public function create(array $data): AcademicYear
     {
-        if (!empty($data['is_active'])) {
+        if (! empty($data['is_active'])) {
             AcademicYear::where('is_active', true)->update(['is_active' => false]);
         }
 
@@ -56,22 +56,23 @@ class TahunAjaranRepository implements TahunAjaranRepositoryInterface
     public function update(string|int $id, array $data): ?AcademicYear
     {
         $item = $this->findById($id);
-        if (!$item) {
+        if (! $item) {
             return null;
         }
 
-        if (!empty($data['is_active'])) {
+        if (! empty($data['is_active'])) {
             AcademicYear::where('id', '!=', $id)->where('is_active', true)->update(['is_active' => false]);
         }
 
         $item->update($data);
+
         return $item->fresh();
     }
 
     public function delete(string|int $id): bool
     {
         $item = $this->findById($id);
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 
@@ -81,7 +82,7 @@ class TahunAjaranRepository implements TahunAjaranRepositoryInterface
     public function restore(string|int $id): bool
     {
         $item = AcademicYear::onlyTrashed()->find($id);
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 
@@ -91,7 +92,7 @@ class TahunAjaranRepository implements TahunAjaranRepositoryInterface
     public function setAktif(string|int $id): ?AcademicYear
     {
         $item = $this->findById($id);
-        if (!$item) {
+        if (! $item) {
             return null;
         }
 

@@ -12,7 +12,7 @@ return new class extends Migration
         $isPgsql = DB::getDriverName() === 'pgsql';
 
         // 1. Pivot Subject N:N Guru Pengampu
-        if (!Schema::hasTable('subject_teachers')) {
+        if (! Schema::hasTable('subject_teachers')) {
             Schema::create('subject_teachers', function (Blueprint $table) use ($isPgsql) {
                 if ($isPgsql) {
                     $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
@@ -30,7 +30,7 @@ return new class extends Migration
         }
 
         // 2. Pivot Subject N:N Kelas
-        if (!Schema::hasTable('subject_classes')) {
+        if (! Schema::hasTable('subject_classes')) {
             Schema::create('subject_classes', function (Blueprint $table) use ($isPgsql) {
                 if ($isPgsql) {
                     $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
@@ -47,7 +47,7 @@ return new class extends Migration
         }
 
         // 3. Pivot Subject N:N Rombel
-        if (!Schema::hasTable('subject_rombel')) {
+        if (! Schema::hasTable('subject_rombel')) {
             Schema::create('subject_rombel', function (Blueprint $table) use ($isPgsql) {
                 if ($isPgsql) {
                     $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));

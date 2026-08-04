@@ -14,31 +14,31 @@ class LmsMateriRepository implements LmsMateriRepositoryInterface
     {
         $query = LmsMateri::with(['modulAjar', 'subject', 'guru', 'media', 'creator']);
 
-        if (!empty($filters['dengan_sampah'])) {
+        if (! empty($filters['dengan_sampah'])) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['modul_ajar_id'])) {
+        if (! empty($filters['modul_ajar_id'])) {
             $query->where('modul_ajar_id', $filters['modul_ajar_id']);
         }
 
-        if (!empty($filters['tipe'])) {
+        if (! empty($filters['tipe'])) {
             $query->where(function ($q) use ($filters) {
                 $q->where('tipe', $filters['tipe'])
-                  ->orWhere('tipe_materi', $filters['tipe']);
+                    ->orWhere('tipe_materi', $filters['tipe']);
             });
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['search'])) {
-            $search = '%' . $filters['search'] . '%';
+        if (! empty($filters['search'])) {
+            $search = '%'.$filters['search'].'%';
             $query->where(function ($q) use ($search) {
                 $q->where('judul', 'like', $search)
-                  ->orWhere('isi', 'like', $search)
-                  ->orWhere('konten', 'like', $search);
+                    ->orWhere('isi', 'like', $search)
+                    ->orWhere('konten', 'like', $search);
             });
         }
 
@@ -51,6 +51,7 @@ class LmsMateriRepository implements LmsMateriRepositoryInterface
         if ($withTrashed) {
             $query->withTrashed();
         }
+
         return $query->find($id);
     }
 
@@ -70,28 +71,31 @@ class LmsMateriRepository implements LmsMateriRepositoryInterface
     public function update(string $id, array $data): ?LmsMateri
     {
         $materi = $this->findById($id);
-        if (!$materi) {
+        if (! $materi) {
             return null;
         }
         $materi->update($data);
+
         return $materi->fresh(['modulAjar', 'subject', 'guru', 'media', 'creator']);
     }
 
     public function delete(string $id): bool
     {
         $materi = $this->findById($id);
-        if (!$materi) {
+        if (! $materi) {
             return false;
         }
+
         return (bool) $materi->delete();
     }
 
     public function restore(string $id): bool
     {
         $materi = LmsMateri::withTrashed()->find($id);
-        if (!$materi) {
+        if (! $materi) {
             return false;
         }
+
         return (bool) $materi->restore();
     }
 

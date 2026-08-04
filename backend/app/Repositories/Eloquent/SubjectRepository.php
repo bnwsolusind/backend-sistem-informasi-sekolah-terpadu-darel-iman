@@ -19,7 +19,7 @@ class SubjectRepository implements SubjectRepositoryInterface
             ->filter($filters);
 
         $allowedSorts = ['kode_mapel', 'nama_mapel', 'code', 'name', 'kelompok_mapel', 'kategori', 'jenjang', 'kkm', 'status', 'created_at'];
-        if (!in_array($orderBy, $allowedSorts)) {
+        if (! in_array($orderBy, $allowedSorts)) {
             $orderBy = 'created_at';
         }
 
@@ -60,7 +60,7 @@ class SubjectRepository implements SubjectRepositoryInterface
     public function update(string $id, array $data): ?Subject
     {
         $subject = $this->findById($id);
-        if (!$subject) {
+        if (! $subject) {
             return null;
         }
 
@@ -87,7 +87,7 @@ class SubjectRepository implements SubjectRepositoryInterface
     public function delete(string $id): bool
     {
         $subject = $this->findById($id);
-        if (!$subject) {
+        if (! $subject) {
             return false;
         }
 
@@ -97,7 +97,7 @@ class SubjectRepository implements SubjectRepositoryInterface
     public function restore(string $id): bool
     {
         $subject = Subject::onlyTrashed()->where('id', $id)->first();
-        if (!$subject) {
+        if (! $subject) {
             return false;
         }
 
@@ -147,6 +147,7 @@ class SubjectRepository implements SubjectRepositoryInterface
                 $count++;
             }
         }
+
         return $count;
     }
 

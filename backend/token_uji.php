@@ -1,15 +1,18 @@
 <?php
 
-require __DIR__ . '/vendor/autoload.php';
+use App\Models\User;
+use Illuminate\Contracts\Console\Kernel;
 
-$app = require __DIR__ . '/bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+require __DIR__.'/vendor/autoload.php';
+
+$app = require __DIR__.'/bootstrap/app.php';
+$kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-$u = \App\Models\User::where('email', 'superadmin@school-erp.local')->first();
+$u = User::where('email', 'superadmin@school-erp.local')->first();
 
 if (! $u) {
-    $u = \App\Models\User::create([
+    $u = User::create([
         'name' => 'Super Admin',
         'email' => 'superadmin@school-erp.local',
         'password' => 'Password123!',
@@ -18,4 +21,4 @@ if (! $u) {
     $u->assignRole('Super Admin');
 }
 
-echo $u->createToken('uji-api')->plainTextToken . PHP_EOL;
+echo $u->createToken('uji-api')->plainTextToken.PHP_EOL;

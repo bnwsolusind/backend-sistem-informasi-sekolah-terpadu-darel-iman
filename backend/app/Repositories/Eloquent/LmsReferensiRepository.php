@@ -14,7 +14,7 @@ class LmsReferensiRepository implements LmsReferensiRepositoryInterface
     {
         $query = LmsReferensi::with(['modulAjar', 'modulAjar.subject', 'creator']);
 
-        if (!empty($filters['modul_ajar_id'])) {
+        if (! empty($filters['modul_ajar_id'])) {
             if (in_array(strtolower($filters['modul_ajar_id']), ['umum', 'tanpa_modul', 'null'])) {
                 $query->whereNull('modul_ajar_id');
             } else {
@@ -22,21 +22,21 @@ class LmsReferensiRepository implements LmsReferensiRepositoryInterface
             }
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', strtolower($filters['status']));
         }
 
-        if (!empty($filters['search'])) {
-            $search = '%' . $filters['search'] . '%';
+        if (! empty($filters['search'])) {
+            $search = '%'.$filters['search'].'%';
             $query->where(function ($q) use ($search) {
                 $q->where('judul', 'like', $search)
-                  ->orWhere('penulis', 'like', $search)
-                  ->orWhere('penerbit', 'like', $search)
-                  ->orWhere('tahun', 'like', $search)
-                  ->orWhereHas('modulAjar', function ($mq) use ($search) {
-                      $mq->where('judul_modul', 'like', $search)
-                        ->orWhere('kode_modul', 'like', $search);
-                  });
+                    ->orWhere('penulis', 'like', $search)
+                    ->orWhere('penerbit', 'like', $search)
+                    ->orWhere('tahun', 'like', $search)
+                    ->orWhereHas('modulAjar', function ($mq) use ($search) {
+                        $mq->where('judul_modul', 'like', $search)
+                            ->orWhere('kode_modul', 'like', $search);
+                    });
             });
         }
 
@@ -64,28 +64,31 @@ class LmsReferensiRepository implements LmsReferensiRepositoryInterface
     public function update(string $id, array $data): ?LmsReferensi
     {
         $referensi = $this->findById($id);
-        if (!$referensi) {
+        if (! $referensi) {
             return null;
         }
         $referensi->update($data);
+
         return $referensi->fresh(['modulAjar', 'creator']);
     }
 
     public function delete(string $id): bool
     {
         $referensi = $this->findById($id);
-        if (!$referensi) {
+        if (! $referensi) {
             return false;
         }
+
         return (bool) $referensi->delete();
     }
 
     public function restore(string $id): bool
     {
         $referensi = LmsReferensi::withTrashed()->find($id);
-        if (!$referensi) {
+        if (! $referensi) {
             return false;
         }
+
         return (bool) $referensi->restore();
     }
 

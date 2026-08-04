@@ -23,7 +23,7 @@ class ModulSemesterSeeder extends Seeder
         $subject = Subject::first();
         $guru = Employee::first();
 
-        if (!$ta || !$sem || !$kelas || !$subject || !$guru) {
+        if (! $ta || ! $sem || ! $kelas || ! $subject || ! $guru) {
             return;
         }
 

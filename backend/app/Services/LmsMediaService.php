@@ -57,7 +57,7 @@ class LmsMediaService
     public function ubah(string $id, array $data, ?UploadedFile $file = null): ?LmsMedia
     {
         $existing = $this->mediaRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -87,7 +87,7 @@ class LmsMediaService
     public function hapus(string $id): bool
     {
         $media = $this->mediaRepository->findById($id);
-        if (!$media) {
+        if (! $media) {
             return false;
         }
 

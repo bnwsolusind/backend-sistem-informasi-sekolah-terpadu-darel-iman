@@ -49,7 +49,7 @@ class LmsReferensiSeeder extends Seeder
 
         // 1. Buat Data Referensi Umum (Tanpa Modul / modul_ajar_id = null)
         foreach ($sampleReferensi as $item) {
-            if (!LmsReferensi::where('judul', $item['judul'])->whereNull('modul_ajar_id')->exists()) {
+            if (! LmsReferensi::where('judul', $item['judul'])->whereNull('modul_ajar_id')->exists()) {
                 LmsReferensi::create(array_merge($item, ['modul_ajar_id' => null]));
             }
         }

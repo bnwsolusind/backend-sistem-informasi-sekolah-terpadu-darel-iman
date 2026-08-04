@@ -118,9 +118,9 @@ export default function LaporanSiswaPage() {
   return (
     <div className="ls-page">
       <header className="ls-header">
-        <div><h1>Laporan Siswa</h1><p>Dashboard <b>›</b> Laporan <b>›</b> Laporan Siswa</p></div>
+        <div><h1>Rekap Data Siswa</h1><p>Dashboard <b>›</b> Rekap Data <b>›</b> Siswa</p></div>
         <div className="ls-header-actions">
-          <button onClick={() => exportCsv('laporan-siswa.csv', kolomCsv, hasilFilter)}><FileSpreadsheet size={17} /> Export Excel</button>
+          <button onClick={() => exportCsv('rekap-siswa.csv', kolomCsv, hasilFilter)}><FileSpreadsheet size={17} /> Export Excel</button>
           <button onClick={() => window.print()}><FileText size={17} /> Export PDF</button>
           <button className="ls-primary" onClick={() => window.print()}><Printer size={17} /> Cetak Laporan</button>
         </div>

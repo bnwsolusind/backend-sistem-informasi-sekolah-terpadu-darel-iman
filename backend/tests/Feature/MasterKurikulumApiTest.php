@@ -15,8 +15,11 @@ class MasterKurikulumApiTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected EducationUnit $unit;
+
     protected AcademicYear $tahun;
+
     protected Semester $semester;
 
     protected function setUp(): void

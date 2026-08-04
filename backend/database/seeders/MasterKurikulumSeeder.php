@@ -19,7 +19,7 @@ class MasterKurikulumSeeder extends Seeder
         $tahunAktif = AcademicYear::where('is_active', true)->first() ?? AcademicYear::first();
         $semesterAktif = Semester::where('is_active', true)->first() ?? Semester::first();
 
-        if ($units->isEmpty() || !$tahunAktif) {
+        if ($units->isEmpty() || ! $tahunAktif) {
             return;
         }
 

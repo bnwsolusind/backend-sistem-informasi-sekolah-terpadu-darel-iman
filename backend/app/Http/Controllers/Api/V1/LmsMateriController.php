@@ -52,7 +52,7 @@ class LmsMateriController extends Controller
     {
         $materi = $this->materiService->cariBerdasarkanId($id, true);
 
-        if (!$materi) {
+        if (! $materi) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Materi Pembelajaran tidak ditemukan.',
@@ -87,7 +87,7 @@ class LmsMateriController extends Controller
 
         $materi = $this->materiService->ubah($id, $data, $file);
 
-        if (!$materi) {
+        if (! $materi) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Materi Pembelajaran tidak ditemukan.',
@@ -105,7 +105,7 @@ class LmsMateriController extends Controller
     {
         $berhasil = $this->materiService->hapus($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus Materi Pembelajaran atau data tidak ditemukan.',
@@ -122,7 +122,7 @@ class LmsMateriController extends Controller
     {
         $berhasil = $this->materiService->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan Materi Pembelajaran atau data tidak ditemukan.',

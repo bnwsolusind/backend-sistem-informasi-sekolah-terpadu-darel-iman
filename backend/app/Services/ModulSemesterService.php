@@ -135,7 +135,7 @@ class ModulSemesterService
             ->where('kelas_id', $data['kelas_id'])
             ->where('mata_pelajaran_id', $data['mata_pelajaran_id']);
 
-        if (!empty($data['unit_pendidikan_id'])) {
+        if (! empty($data['unit_pendidikan_id'])) {
             $query->where('unit_pendidikan_id', $data['unit_pendidikan_id']);
         }
 
@@ -171,6 +171,7 @@ class ModulSemesterService
     {
         $prefix = 'MDS';
         $rand = strtoupper(Str::random(5));
-        return "{$prefix}-" . date('Ym') . "-{$rand}";
+
+        return "{$prefix}-".date('Ym')."-{$rand}";
     }
 }

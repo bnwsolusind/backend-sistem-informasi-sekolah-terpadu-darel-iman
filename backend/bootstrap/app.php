@@ -13,6 +13,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->redirectGuestsTo(fn () => null);
+        $middleware->alias([
+            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
+            'foundation.readonly' => \App\Http\Middleware\EnsureFoundationReadOnly::class,
+        ]);
+        $middleware->appendToGroup('api', \App\Http\Middleware\EnsureFoundationReadOnly::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

@@ -37,13 +37,13 @@ class StudentGrade extends Model
 
     protected $casts = [
         'score_assignment' => 'float',
-        'score_quiz'       => 'float',
-        'score_project'    => 'float',
-        'score_midterm'    => 'float',
-        'score_final'      => 'float',
-        'final_score'      => 'float',
-        'is_passed'        => 'boolean',
-        'metadata'         => 'array',
+        'score_quiz' => 'float',
+        'score_project' => 'float',
+        'score_midterm' => 'float',
+        'score_final' => 'float',
+        'final_score' => 'float',
+        'is_passed' => 'boolean',
+        'metadata' => 'array',
     ];
 
     protected static function booted(): void
@@ -72,17 +72,17 @@ class StudentGrade extends Model
             ->where('semester_id', $this->semester_id)
             ->first();
 
-        $bobotTugas   = $modul?->bobot_tugas   ?? 20.0;
-        $bobotQuiz    = $modul?->bobot_quiz     ?? 15.0;
-        $bobotProjek  = $modul?->bobot_projek   ?? 25.0;
-        $bobotUTS     = $modul?->bobot_uts      ?? 20.0;
-        $bobotUAS     = $modul?->bobot_uas      ?? 20.0;
+        $bobotTugas = $modul?->bobot_tugas ?? 20.0;
+        $bobotQuiz = $modul?->bobot_quiz ?? 15.0;
+        $bobotProjek = $modul?->bobot_projek ?? 25.0;
+        $bobotUTS = $modul?->bobot_uts ?? 20.0;
+        $bobotUAS = $modul?->bobot_uas ?? 20.0;
 
         $total = ($this->score_assignment ?? 0) * ($bobotTugas / 100)
-            + ($this->score_quiz    ?? 0) * ($bobotQuiz / 100)
+            + ($this->score_quiz ?? 0) * ($bobotQuiz / 100)
             + ($this->score_project ?? 0) * ($bobotProjek / 100)
             + ($this->score_midterm ?? 0) * ($bobotUTS / 100)
-            + ($this->score_final   ?? 0) * ($bobotUAS / 100);
+            + ($this->score_final ?? 0) * ($bobotUAS / 100);
 
         return round($total, 2);
     }
@@ -97,7 +97,7 @@ class StudentGrade extends Model
             $score >= 80 => 'B',
             $score >= 70 => 'C',
             $score >= 60 => 'D',
-            default      => 'E',
+            default => 'E',
         };
     }
 

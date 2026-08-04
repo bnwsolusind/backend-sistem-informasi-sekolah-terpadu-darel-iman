@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\AcademicYear;
 use App\Models\Employee;
 use App\Models\Kelas;
-use App\Models\LmsRapor;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Services\LmsRaporService;
@@ -19,7 +18,7 @@ class LmsRaporSeeder extends Seeder
         $academicYear = AcademicYear::first();
         $kelas = Kelas::first();
 
-        if (!$semester || !$academicYear) {
+        if (! $semester || ! $academicYear) {
             return;
         }
 

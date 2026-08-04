@@ -45,7 +45,7 @@ class LmsPenugasanController extends Controller
     {
         $penugasan = $this->penugasanService->cariBerdasarkanId($id);
 
-        if (!$penugasan) {
+        if (! $penugasan) {
             return response()->json([
                 'success' => false,
                 'message' => 'Penugasan tidak ditemukan.',
@@ -62,7 +62,7 @@ class LmsPenugasanController extends Controller
     {
         $penugasan = $this->penugasanService->ubah($id, $request->validated());
 
-        if (!$penugasan) {
+        if (! $penugasan) {
             return response()->json([
                 'success' => false,
                 'message' => 'Penugasan tidak ditemukan atau gagal diperbarui.',
@@ -80,7 +80,7 @@ class LmsPenugasanController extends Controller
     {
         $deleted = $this->penugasanService->hapus($id);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Penugasan tidak ditemukan atau gagal dihapus.',
@@ -97,7 +97,7 @@ class LmsPenugasanController extends Controller
     {
         $restored = $this->penugasanService->pulihkan($id);
 
-        if (!$restored) {
+        if (! $restored) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memulihkan Penugasan.',
@@ -114,7 +114,7 @@ class LmsPenugasanController extends Controller
     {
         $penugasan = $this->penugasanService->togglePublish($id);
 
-        if (!$penugasan) {
+        if (! $penugasan) {
             return response()->json([
                 'success' => false,
                 'message' => 'Penugasan tidak ditemukan.',
@@ -132,7 +132,7 @@ class LmsPenugasanController extends Controller
     {
         $penugasan = $this->penugasanService->cariBerdasarkanId($id);
 
-        if (!$penugasan) {
+        if (! $penugasan) {
             return response()->json([
                 'success' => false,
                 'message' => 'Penugasan tidak ditemukan.',

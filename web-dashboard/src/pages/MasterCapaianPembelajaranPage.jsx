@@ -1,31 +1,38 @@
 import { useState, useEffect } from 'react'
 import {
   BookOpen,
-  Layers,
-  Plus,
-  Search,
-  Edit3,
-  Trash2,
   RefreshCw,
   CheckCircle,
   AlertCircle,
   X,
   Sparkles,
-  Filter,
   ChevronLeft,
   ChevronRight,
   FileText,
-  Building2,
-  Calendar,
-  GraduationCap,
+  Upload,
 } from 'lucide-react'
+import CsvImportModal from '../components/master-data/CsvImportModal'
 import { capaianPembelajaranService } from '../services/capaianPembelajaranService'
 import { educationUnitService } from '../services/educationUnitService'
 import { tahunAjaranService } from '../services/tahunAjaranService'
 import { masterKurikulumService } from '../services/masterKurikulumService'
 import { subjectService } from '../services/subjectService'
+import {
+  MasterDataPage,
+  MasterActionButton,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+  MasterFilterBar,
+  MasterSearchInput,
+  MasterFilterSelect,
+  MasterDataTable,
+  MasterStatusBadge,
+  MasterActionGroup,
+  MasterActionIconButton,
+} from '../components/master-data'
 
-export default function MasterCapaianPembelajaranPage() {
+export default function MasterCapaianPembelajaranPage({ embedded = false, hideBreadcrumb = false }) {
   const [dataCp, setDataCp] = useState([])
   const [units, setUnits] = useState([])
   const [tahunAjarans, setTahunAjarans] = useState([])
@@ -58,6 +65,7 @@ export default function MasterCapaianPembelajaranPage() {
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [formSubmitting, setFormSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -234,68 +242,57 @@ export default function MasterCapaianPembelajaranPage() {
     }
   }
 
+  const handleImport = async (rows) => {
+    const failures = []
+    let success = 0
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]
+      try {
+        await capaianPembelajaranService.tambah({
+          unit_pendidikan_id: row.unit_pendidikan_id,
+          tahun_ajaran_id: row.tahun_ajaran_id,
+          kurikulum_id: row.kurikulum_id,
+          mata_pelajaran_id: row.mata_pelajaran_id,
+          kode_cp: row.kode_cp,
+          nama_cp: row.nama_cp,
+          deskripsi: row.deskripsi || '',
+          fase: row.fase || 'Fase A',
+          kelas_target: row.kelas_target || 'Kelas 1',
+          urutan: Number(row.urutan || index + 1),
+          status: !['0', 'false', 'nonaktif'].includes(String(row.status).toLowerCase()),
+        })
+        success += 1
+      } catch (error) { failures.push(`baris ${index + 2}: ${error.response?.data?.message || 'gagal'}`) }
+    }
+    await fetchDaftarCp(); await loadDropdownMasterData()
+    setSuccessMsg(`${success} CP berhasil diimpor${failures.length ? `, ${failures.length} gagal (${failures.slice(0, 3).join('; ')})` : '.'}`)
+  }
+
   return (
-    <div className="min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] p-4 sm:p-6 lg:p-8 transition-colors duration-200">
+    <MasterDataPage
+      className="education-unit-page cp-master-page"
+      hideBreadcrumb={embedded || hideBreadcrumb}
+    >
       {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 sm:p-8 text-white shadow-xl mb-8">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-2">
-              <span>Kurikulum & LMS</span>
-              <span>/</span>
-              <span className="text-white">Capaian Pembelajaran (CP)</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-              <BookOpen className="w-8 h-8 text-emerald-200" />
-              Master Capaian Pembelajaran (CP)
-            </h1>
-            <p className="mt-2 text-emerald-100 text-sm max-w-2xl">
-              Kelola Master Capaian Pembelajaran (CP) berbasis Kurikulum, Unit Pendidikan, dan Mata Pelajaran sebagai fondasi utama penyusunan Tujuan Pembelajaran (TP) & Modul Ajar.
-            </p>
-          </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="self-start md:self-center inline-flex items-center gap-2 bg-white text-[#0E5C44] hover:bg-emerald-50 px-5 py-3 rounded-xl font-bold text-sm shadow-md transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus className="w-5 h-5 text-[#0E5C44]" />
-            Tambah CP Baru
-          </button>
-        </div>
-        <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-      </div>
+      <MasterPageHeader
+        tone="brand"
+        icon={BookOpen}
+        title="Master Capaian Pembelajaran (CP)"
+        description="Kelola Master Capaian Pembelajaran (CP) berbasis Kurikulum, Unit Pendidikan, dan Mata Pelajaran sebagai fondasi utama penyusunan Tujuan Pembelajaran (TP) & Modul Ajar."
+        actions={<><MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton><MasterActionButton onClick={() => handleOpenModal()}>Tambah CP Baru</MasterActionButton></>}
+      />
+
+      <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} title="Capaian Pembelajaran" onImport={handleImport} columns={[
+        { key: 'unit_pendidikan_id' }, { key: 'tahun_ajaran_id' }, { key: 'kurikulum_id', required: true }, { key: 'mata_pelajaran_id', required: true },
+        { key: 'kode_cp', required: true, example: 'CP-MTK-01' }, { key: 'nama_cp', required: true, example: 'Bilangan' }, { key: 'deskripsi' }, { key: 'fase', example: 'Fase A' }, { key: 'kelas_target', example: 'Kelas 1' }, { key: 'urutan', example: '1' }, { key: 'status', example: '1' },
+      ]} />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-        <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#0E5C44] dark:text-[#3FBF75]">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total Capaian Pembelajaran</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total_cp ?? 0}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-950/50 flex items-center justify-center text-green-600 dark:text-green-400">
-            <CheckCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">CP Status Aktif</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total_cp_aktif ?? 0}</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">CP Status Nonaktif</p>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total_cp_nonaktif ?? 0}</p>
-          </div>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={BookOpen} label="TOTAL CAPAIAN PEMBELAJARAN" value={stats.total_cp ?? 0} description="Terdaftar di sistem" variant="success" />
+        <MasterStatCard icon={CheckCircle} label="CP STATUS AKTIF" value={stats.total_cp_aktif ?? 0} description="Siap digunakan" variant="info" />
+        <MasterStatCard icon={AlertCircle} label="CP NONAKTIF" value={stats.total_cp_nonaktif ?? 0} description="Arsip / Nonaktif" variant="warning" />
+      </MasterStatsGrid>
 
       {/* Notifications */}
       {successMsg && (
@@ -323,103 +320,64 @@ export default function MasterCapaianPembelajaranPage() {
       )}
 
       {/* Filters Bar */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-2xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full lg:w-72">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Cari kode / nama CP..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            <select
-              value={selectedUnit}
-              onChange={(e) => {
-                setSelectedUnit(e.target.value)
-                setPage(1)
-              }}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
-            >
-              <option value="">-- Semua Unit --</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name || u.code}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={selectedKurikulum}
-              onChange={(e) => {
-                setSelectedKurikulum(e.target.value)
-                setPage(1)
-              }}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
-            >
-              <option value="">-- Semua Kurikulum --</option>
-              {kurikulums.map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.nama_kurikulum || k.kode_kurikulum}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={selectedSubject}
-              onChange={(e) => {
-                setSelectedSubject(e.target.value)
-                setPage(1)
-              }}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
-            >
-              <option value="">-- Semua Mata Pelajaran --</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.nama_mapel || s.name}
-                </option>
-              ))}
-            </select>
-
+      <MasterFilterBar
+        search={
+          <MasterSearchInput
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Cari kode atau nama CP..."
+          />
+        }
+        filters={
+          <>
+            <MasterFilterSelect value={selectedUnit} onChange={(e) => { setSelectedUnit(e.target.value); setPage(1) }}>
+              <option value="">Semua Unit</option>
+              {units.map((item) => <option key={item.id} value={item.id}>{item.name || item.code}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedTahun} onChange={(e) => { setSelectedTahun(e.target.value); setPage(1) }}>
+              <option value="">Semua Tahun Ajaran</option>
+              {tahunAjarans.map((item) => <option key={item.id} value={item.id}>{item.tahun || item.name}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedKurikulum} onChange={(e) => { setSelectedKurikulum(e.target.value); setSelectedSubject(''); setPage(1) }}>
+              <option value="">Semua Kurikulum</option>
+              {kurikulums.map((item) => <option key={item.id} value={item.id}>{item.nama_kurikulum || item.kode_kurikulum}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedSubject} onChange={(e) => { setSelectedSubject(e.target.value); setPage(1) }}>
+              <option value="">Semua Mata Pelajaran</option>
+              {subjects
+                .filter((item) => !selectedKurikulum || item.kurikulum_id === selectedKurikulum)
+                .map((item) => <option key={item.id} value={item.id}>{item.nama_mapel || item.name}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedStatus} onChange={(e) => { setSelectedStatus(e.target.value); setPage(1) }}>
+              <option value="">Semua Status</option>
+              <option value="aktif">Aktif</option>
+              <option value="tidak_aktif">Nonaktif</option>
+            </MasterFilterSelect>
             <button
+              type="button"
               onClick={() => {
-                setSearch('')
-                setSelectedUnit('')
-                setSelectedTahun('')
-                setSelectedKurikulum('')
-                setSelectedSubject('')
-                setSelectedStatus('')
-                setPage(1)
+                setSearch(''); setSelectedUnit(''); setSelectedTahun(''); setSelectedKurikulum(''); setSelectedSubject(''); setSelectedStatus(''); setPage(1)
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="inline-flex h-12 shrink-0 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              <RefreshCw className="w-4 h-4" />
-              Reset
+              <RefreshCw className="h-4 w-4" /> Reset
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Main Table */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mb-8">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
+      <MasterDataTable>
+          <table className="w-full table-fixed text-left text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs tracking-wider font-semibold">
-                <th className="py-4 px-5 text-center w-16">Urutan</th>
-                <th className="py-4 px-5 w-40">Kode CP</th>
-                <th className="py-4 px-5">Nama & Deskripsi CP</th>
-                <th className="py-4 px-5">Kurikulum & Mapel</th>
-                <th className="py-4 px-5 text-center w-28">Fase / Kelas</th>
-                <th className="py-4 px-5 text-center w-28">Status</th>
-                <th className="py-4 px-5 text-center w-32">Aksi</th>
+                <th className="w-[8%] px-3 py-4 text-center">Urutan</th>
+                <th className="w-[14%] px-3 py-4">Kode CP</th>
+                <th className="w-[32%] px-3 py-4">Nama & Deskripsi CP</th>
+                <th className="hidden w-[20%] px-3 py-4 md:table-cell">Kurikulum & Mapel</th>
+                <th className="hidden w-[12%] px-3 py-4 text-center lg:table-cell">Fase / Kelas</th>
+                <th className="hidden w-[10%] px-3 py-4 text-center sm:table-cell">Status</th>
+                <th className="w-[16%] px-3 py-4 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -459,7 +417,7 @@ export default function MasterCapaianPembelajaranPage() {
                       )}
                     </td>
 
-                    <td className="py-4 px-5">
+                    <td className="hidden px-3 py-4 md:table-cell">
                       <div className="font-semibold text-slate-800 dark:text-slate-200">
                         {item.subject?.nama_mapel || item.subject?.name || '-'}
                       </div>
@@ -468,50 +426,27 @@ export default function MasterCapaianPembelajaranPage() {
                       </div>
                     </td>
 
-                    <td className="py-4 px-5 text-center">
+                    <td className="hidden px-3 py-4 text-center lg:table-cell">
                       <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold">
                         {item.fase || '-'} ({item.kelas_target || 'Semua'})
                       </span>
                     </td>
 
-                    <td className="py-4 px-5 text-center">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                          item.status
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
-                        }`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${item.status ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {item.status ? 'Aktif' : 'Nonaktif'}
-                      </span>
+                    <td className="hidden px-3 py-4 text-center sm:table-cell">
+                      <MasterStatusBadge active={item.status} />
                     </td>
 
                     <td className="py-4 px-5 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleOpenModal(item)}
-                          className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
-                          title="Edit CP"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleHapus(item.id, item.kode_cp)}
-                          className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                          title="Hapus CP"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <MasterActionGroup>
+                        <MasterActionIconButton variant="edit" label="Edit CP" onClick={() => handleOpenModal(item)} />
+                        <MasterActionIconButton variant="delete" label="Hapus CP" onClick={() => handleHapus(item.id, item.kode_cp)} />
+                      </MasterActionGroup>
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
-        </div>
-
         {pagination.last_page > 1 && (
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40 text-xs text-slate-500">
             <div>
@@ -536,7 +471,7 @@ export default function MasterCapaianPembelajaranPage() {
             </div>
           </div>
         )}
-      </div>
+      </MasterDataTable>
 
       {/* Modal Form */}
       {modalOpen && (
@@ -753,6 +688,6 @@ export default function MasterCapaianPembelajaranPage() {
           </div>
         </div>
       )}
-    </div>
+    </MasterDataPage>
   )
 }

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('lms_aktivitas_belajar')) {
+        if (! Schema::hasTable('lms_aktivitas_belajar')) {
             Schema::create('lms_aktivitas_belajar', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('modul_ajar_id')->nullable()->comment('Relasi 1:N ke LmsModulAjar');

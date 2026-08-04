@@ -15,7 +15,9 @@ class SubjectApiTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected EducationUnit $unit;
+
     protected MasterKurikulum $kurikulum;
 
     protected function setUp(): void

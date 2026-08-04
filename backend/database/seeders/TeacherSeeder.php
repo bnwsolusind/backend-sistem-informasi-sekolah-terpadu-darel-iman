@@ -2,11 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\Role;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class TeacherSeeder extends Seeder
 {

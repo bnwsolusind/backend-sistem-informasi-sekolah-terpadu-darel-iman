@@ -15,6 +15,7 @@ class ParentModel extends Model
 
     protected $fillable = [
         'user_id',
+        'nik',
         'full_name',
         'phone',
         'email',
@@ -41,10 +42,19 @@ class ParentModel extends Model
         return $this->hasMany(Student::class, 'parent_id');
     }
 
+    /** Relasi anak aktif, termasuk tautan wali non-primer pada pivot. */
+    public function studentsPivot()
+    {
+        return $this->belongsToMany(Student::class, 'student_parents', 'parent_id', 'student_id')
+            ->withPivot(['relationship_type', 'is_primary'])
+            ->withTimestamps();
+    }
+
     // Scopes
     public function scopeSearch($query, string $keyword)
     {
         return $query->where('full_name', 'ILIKE', "%{$keyword}%")
+            ->orWhere('nik', 'ILIKE', "%{$keyword}%")
             ->orWhere('phone', 'ILIKE', "%{$keyword}%")
             ->orWhere('email', 'ILIKE', "%{$keyword}%");
     }

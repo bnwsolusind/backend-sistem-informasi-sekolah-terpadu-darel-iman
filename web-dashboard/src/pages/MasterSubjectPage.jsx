@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Swal from 'sweetalert2'
 import {
   BookOpen,
-  Plus,
   Search,
   Filter,
   CheckCircle,
@@ -30,12 +29,18 @@ import {
 import { subjectService } from '../services/subjectService'
 import { masterKurikulumService } from '../services/masterKurikulumService'
 import { educationUnitService } from '../services/educationUnitService'
-import { MasterDataPage } from '../components/master-data'
+import {
+  MasterActionButton,
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatCard,
+  MasterStatsGrid,
+} from '../components/master-data'
 
 const KELOMPOK_LIST = ['Kelompok A', 'Kelompok B', 'Kekhasan SIT', 'Muatan Lokal', 'Al-Qur\'an/Tahfizh']
 const KATEGORI_LIST = ['Wajib', 'Pilihan', 'Tahfizh/Diniyah', 'Ekstrakurikuler', 'Vokasi']
 
-export default function MasterSubjectPage() {
+export default function MasterSubjectPage({ embedded = false, hideBreadcrumb = false }) {
   const queryClient = useQueryClient()
 
   // Filter States
@@ -60,6 +65,8 @@ export default function MasterSubjectPage() {
   const [selectedForDetail, setSelectedForDetail] = useState(null)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [importFile, setImportFile] = useState(null)
+  const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false)
+  const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false)
 
   // Form State
   const [formData, setFormData] = useState({
@@ -85,7 +92,7 @@ export default function MasterSubjectPage() {
   })
 
   // Queries
-  const { data: responseData = {}, isLoading } = useQuery({
+  const { data: responseData = {}, isLoading, isError, refetch } = useQuery({
     queryKey: [
       'master-subjects-list',
       page,
@@ -194,6 +201,21 @@ export default function MasterSubjectPage() {
   const stats = responseData.statistik || { total: 0, aktif: 0, tidak_aktif: 0, terhapus: 0 }
   const lastPage = Math.max(Number(meta.last_page) || 1, 1)
   const archiveCount = Number(stats.tidak_aktif || 0) + Number(stats.terhapus || 0)
+  const activePercent = Number(stats.total) > 0
+    ? Math.round((Number(stats.aktif || 0) / Number(stats.total)) * 100)
+    : 0
+
+  const resetFilters = () => {
+    setSearch('')
+    setSelectedUnitFilter('')
+    setSelectedKurikulumFilter('')
+    setSelectedKelompokFilter('')
+    setSelectedKategoriFilter('')
+    setSelectedJenjangFilter('')
+    setSelectedStatusFilter('')
+    setDenganSampahFilter('')
+    setPage(1)
+  }
 
   // Multi select logic
   const isAllSelected = items.length > 0 && selectedIds.length === items.length
@@ -339,116 +361,58 @@ export default function MasterSubjectPage() {
   }
 
   return (
-    <MasterDataPage>
+    <MasterDataPage
+      className="education-unit-page subject-master-page"
+      hideBreadcrumb={embedded || hideBreadcrumb}
+    >
       {/* PAGE HEADER */}
-      <section className="ui-enter rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-800">Master Mata Pelajaran</h1>
-            <p className="mt-1 text-xs text-slate-500">
-              Kelola referensi mata pelajaran untuk kurikulum, jadwal, penilaian, dan rapor.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              onClick={handleExportExcel}
-              className="ui-button inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              <span>Ekspor Excel</span>
-            </button>
-            <button
-              onClick={handleExportPdf}
-              className="ui-button inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-            >
-              <FileText className="h-4 w-4" />
-              <span>Ekspor PDF</span>
-            </button>
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="ui-button inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-            >
-              <Upload className="h-4 w-4" />
-              <span>Impor</span>
-            </button>
-            <button
-              onClick={handleOpenFormTambah}
-              className="ui-button inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-800 px-5 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-800/20 hover:bg-emerald-900"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Tambah Pelajaran</span>
-            </button>
-          </div>
-        </div>
-      </section>
+      <MasterPageHeader
+        tone="brand"
+        icon={BookOpen}
+        title="Master Mata Pelajaran"
+        description="Kelola referensi mata pelajaran untuk kurikulum, jadwal, penilaian, dan rapor."
+        actions={
+          <MasterActionButton onClick={handleOpenFormTambah}>
+            Tambah Mata Pelajaran
+          </MasterActionButton>
+        }
+      />
 
       {/* KPI STATISTIC CARDS */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="ui-card ui-enter flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm" style={{ animationDelay: '60ms' }}>
-          <div className="shrink-0 rounded-xl border border-emerald-100 bg-emerald-50 p-3.5 text-emerald-600">
-            <Library className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Mata Pelajaran</p>
-            <h3 className="mt-0.5 text-2xl font-black text-gray-900">{stats.total || 0}</h3>
-            <p className="mt-0.5 text-xs font-medium text-emerald-600">Terdaftar di sistem</p>
-          </div>
-        </div>
-
-        <div className="ui-card ui-enter flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm" style={{ animationDelay: '110ms' }}>
-          <div className="shrink-0 rounded-xl border border-emerald-100 bg-emerald-50 p-3.5 text-emerald-600">
-            <CheckCircle className="h-6 w-6 text-emerald-500" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Mata Pelajaran Aktif</p>
-            <h3 className="mt-0.5 text-2xl font-black text-gray-900">{stats.aktif || 0}</h3>
-            <p className="mt-0.5 text-xs font-medium text-emerald-600">Siap digunakan saat ini</p>
-          </div>
-        </div>
-
-        <div className="ui-card ui-enter flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm" style={{ animationDelay: '160ms' }}>
-          <div className="shrink-0 rounded-xl border border-amber-100 bg-amber-50 p-3.5 text-amber-600">
-            <CircleX className="h-6 w-6 text-amber-500" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Arsip / Nonaktif</p>
-            <h3 className="mt-0.5 text-2xl font-black text-gray-900">{archiveCount}</h3>
-            <p className="mt-0.5 text-xs font-medium text-amber-600">Nonaktif atau terhapus</p>
-          </div>
-        </div>
-
-        <div className="ui-card ui-enter flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm" style={{ animationDelay: '210ms' }}>
-          <div className="shrink-0 rounded-xl border border-blue-100 bg-blue-50 p-3.5 text-blue-600">
-            <Target className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Kategori Mapel</p>
-            <h3 className="mt-0.5 text-2xl font-black text-gray-900">{KATEGORI_LIST.length}</h3>
-            <p className="mt-0.5 text-xs font-medium text-blue-600">Kelompok pembelajaran</p>
-          </div>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={Library} label="Total Mata Pelajaran" value={stats.total || 0} description="Terdaftar di sistem" variant="success" delay={60} />
+        <MasterStatCard icon={CheckCircle} label="Mata Pelajaran Aktif" value={stats.aktif || 0} description="Siap digunakan saat ini" variant="success" delay={110} />
+        <MasterStatCard icon={CircleX} label="Arsip / Nonaktif" value={archiveCount} description="Nonaktif atau terhapus" variant="warning" delay={160} />
+        <MasterStatCard icon={Target} label="Kategori Mapel" value={KATEGORI_LIST.length} description="Kelompok pembelajaran" variant="info" delay={210} />
+      </MasterStatsGrid>
 
       {/* FILTER CONTROL BAR */}
       <section
-        className="ui-enter flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm md:flex-row md:items-center"
+        className="ui-enter space-y-3 rounded-[18px] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-[#1B2433]"
         style={{ animationDelay: '210ms' }}
       >
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Cari Nama Mata Pelajaran... Cari Kode..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-xs font-semibold text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-600"
-            aria-label="Cari nama atau kode mata pelajaran"
-          />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              placeholder="Cari nama atau kode mata pelajaran..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              className="h-12 w-full rounded-full border border-slate-200 bg-white pl-10 pr-4 text-xs font-semibold text-slate-700 shadow-sm transition-all placeholder:text-slate-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-600 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
+              aria-label="Cari nama atau kode mata pelajaran"
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+            <MasterActionButton variant="import" icon={Upload} onClick={() => setIsImportModalOpen(true)}>Impor</MasterActionButton>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>Excel</MasterActionButton>
+            <MasterActionButton variant="export" icon={FileText} onClick={handleExportPdf}>PDF</MasterActionButton>
+            <MasterActionButton onClick={handleOpenFormTambah}>Tambah</MasterActionButton>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="flex items-center gap-1.5 font-bold text-gray-600">
+        <div className="flex items-center gap-3 overflow-x-auto border-t border-slate-100 pt-3 text-sm dark:border-slate-700 [&_select]:dark:border-slate-700 [&_select]:dark:bg-[#111827] [&_select]:dark:text-slate-200">
+          <span className="flex items-center gap-1.5 font-bold text-gray-600 dark:text-slate-300">
             <Filter className="h-3.5 w-3.5 text-emerald-600" />
             Filter:
           </span>
@@ -533,9 +497,19 @@ export default function MasterSubjectPage() {
             <option value="">Data Aktif</option>
             <option value="1">Termasuk Arsip</option>
           </select>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="ui-button inline-flex h-12 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Reset
+          </button>
         </div>
       </section>
 
+      <div className="subject-workspace grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <main className="min-w-0 space-y-4">
       {/* BULK ACTION BAR */}
       {selectedIds.length > 0 && (
         <div className="ui-enter flex flex-col gap-3 rounded-2xl border border-emerald-700 bg-emerald-900 p-4 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
@@ -587,40 +561,56 @@ export default function MasterSubjectPage() {
       )}
 
       {/* TABLE DATA */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-200/80 bg-amber-50/60 text-[10px] font-black uppercase tracking-[0.12em] text-slate-700">
-                <th className="p-3.5 w-10 text-center">
+      <section className="overflow-hidden rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="subject-table-title">
+        <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+          <div>
+            <h2 id="subject-table-title" className="text-base font-bold text-slate-900 dark:text-white">Daftar Mata Pelajaran</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data mata pelajaran sesuai filter dan kewenangan pengguna.</p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{meta.total || stats.total || 0} mapel</span>
+        </div>
+        <div className="overflow-hidden">
+          <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar mata pelajaran">
+            <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:border-slate-700 dark:bg-slate-800/70">
+              <tr>
+                <th className="w-[5%] px-2 py-3 text-center">
                   <button onClick={toggleSelectAll} className="rounded text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600" aria-label={isAllSelected ? 'Batalkan pilih semua' : 'Pilih semua mata pelajaran'}>
                     {isAllSelected ? <CheckSquare className="h-4 w-4 text-emerald-600" /> : <Square className="h-4 w-4" />}
                   </button>
                 </th>
-                <th className="p-3.5">Kode & Mapel</th>
-                <th className="p-3.5">Kurikulum & Unit</th>
-                <th className="p-3.5">Kelompok & Kategori</th>
-                <th className="p-3.5 text-center">JP</th>
-                <th className="p-3.5 text-center">KKM</th>
-                <th className="p-3.5 text-center">Bobot (P / K / S)</th>
-                <th className="p-3.5 text-center">Status</th>
-                <th className="p-3.5 text-right">Aksi</th>
+                <th className="w-[27%] px-3 py-3 font-bold">Identitas Mapel</th>
+                <th className="hidden w-[21%] px-3 py-3 font-bold md:table-cell">Kurikulum & Unit</th>
+                <th className="hidden w-[17%] px-3 py-3 font-bold lg:table-cell">Klasifikasi</th>
+                <th className="hidden w-[13%] px-3 py-3 text-center font-bold xl:table-cell">Parameter</th>
+                <th className="hidden w-[10%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
+                <th className="w-[17%] px-2 py-3 text-center font-bold">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {isLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={`skeleton-${index}`} aria-hidden="true">
+                    <td colSpan="7" className="px-4 py-3">
+                      <div className="h-11 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-700/70" />
+                    </td>
+                  </tr>
+                ))
+              ) : isError ? (
                 <tr>
-                  <td colSpan="9" className="p-8 text-center text-slate-400">
-                    <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin text-emerald-800" />
-                    Memuat data master mata pelajaran...
+                  <td colSpan="7" className="p-10 text-center">
+                    <CircleX className="mx-auto h-8 w-8 text-rose-500" />
+                    <p className="mt-3 font-bold text-slate-800">Data mata pelajaran gagal dimuat</p>
+                    <p className="mt-1 text-xs text-slate-500">Periksa koneksi lalu coba kembali.</p>
+                    <button type="button" onClick={() => refetch()} className="mt-4 h-10 rounded-xl bg-emerald-800 px-4 font-semibold text-white">Coba Lagi</button>
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="p-8 text-center text-slate-400">
+                  <td colSpan="7" className="p-8 text-center text-slate-400">
                     <BookOpen className="mx-auto mb-2 h-7 w-7 text-slate-300" />
                     <p className="font-semibold text-slate-600">Mata pelajaran tidak ditemukan</p>
                     <p className="mt-1 text-xs">Ubah kata pencarian atau reset filter untuk melihat data lainnya.</p>
+                    <button type="button" onClick={handleOpenFormTambah} className="mt-4 h-10 rounded-xl bg-emerald-800 px-4 font-semibold text-white">Tambah Mata Pelajaran</button>
                   </td>
                 </tr>
               ) : (
@@ -634,15 +624,15 @@ export default function MasterSubjectPage() {
                       className={`ui-row transition-colors hover:bg-emerald-50/40 ${isSelected ? 'bg-emerald-50/60' : ''}`}
                       style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
                     >
-                      <td className="p-3.5 text-center">
+                      <td className="px-2 py-3 text-center">
                         <button onClick={() => toggleSelectRow(row.id)} className="rounded focus:outline-none focus:ring-2 focus:ring-emerald-600" aria-label={`${isSelected ? 'Batalkan pilihan' : 'Pilih'} ${row.nama_mapel || row.name}`}>
                           {isSelected ? <CheckSquare className="h-4 w-4 text-emerald-600" /> : <Square className="h-4 w-4 text-slate-300" />}
                         </button>
                       </td>
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-3">
+                      <td className="px-3 py-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
                           <span
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border"
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border"
                             style={{
                               color: subjectColor,
                               borderColor: `${subjectColor}33`,
@@ -651,42 +641,39 @@ export default function MasterSubjectPage() {
                           >
                             <BookOpen className="h-5 w-5" />
                           </span>
-                          <div>
-                            <p className="text-sm font-extrabold text-slate-900">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-extrabold leading-5 text-slate-900 dark:text-white" title={subjectName}>
                               {subjectName}
                             </p>
-                            <p className="text-[10px] font-semibold text-slate-400 font-mono">
+                            <p className="truncate font-mono text-[9px] font-medium text-slate-400">
                               {row.kode_mapel || row.code} {row.nama_singkat ? `(${row.nama_singkat})` : ''}
                             </p>
+                            <p className="mt-0.5 truncate text-[9px] text-slate-400 md:hidden">{row.kurikulum?.nama_kurikulum || 'Kurikulum Terpadu'} · {row.unit_pendidikan?.name || 'Semua Unit'}</p>
+                            <p className={`mt-0.5 text-[9px] font-bold sm:hidden ${row.status ? 'text-emerald-700' : 'text-rose-600'}`}>• {row.status ? 'Aktif' : 'Nonaktif'}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-3.5">
-                        <p className="font-bold text-slate-800">
+                      <td className="hidden px-3 py-3 md:table-cell">
+                        <p className="truncate text-xs font-bold text-slate-800 dark:text-slate-100">
                           {row.kurikulum?.nama_kurikulum || 'Kurikulum Terpadu'}
                         </p>
                         <p className="text-[10px] text-slate-400">
                           {row.unit_pendidikan?.name || 'Semua Unit'}
                         </p>
                       </td>
-                      <td className="p-3.5">
-                        <span className="mr-1 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                      <td className="hidden px-3 py-3 lg:table-cell">
+                        <span className="mb-1 inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-700">
                           {row.kelompok_mapel || 'Kelompok A'}
                         </span>
-                        <span className="inline-block rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                        <span className="block w-fit rounded-md bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
                           {row.kategori || 'Wajib'}
                         </span>
                       </td>
-                      <td className="p-3.5 text-center font-bold text-slate-800">
-                        {row.jam_pelajaran || 2} JP
+                      <td className="hidden px-3 py-3 text-center xl:table-cell">
+                        <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200">{row.jam_pelajaran || 2} JP · KKM {row.kkm || 75}</p>
+                        <p className="mt-1 text-[9px] font-medium text-slate-400">{row.bobot_pengetahuan || 40}/{row.bobot_keterampilan || 40}/{row.bobot_sikap || 20}</p>
                       </td>
-                      <td className="p-3.5 text-center font-extrabold text-emerald-700">
-                        {row.kkm || 75}
-                      </td>
-                      <td className="p-3.5 text-center font-semibold text-slate-600">
-                        {row.bobot_pengetahuan || 40}% / {row.bobot_keterampilan || 40}% / {row.bobot_sikap || 20}%
-                      </td>
-                      <td className="p-3.5 text-center">
+                      <td className="hidden px-2 py-3 text-center sm:table-cell">
                         {row.status ? (
                           <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black text-emerald-800">
                             AKTIF
@@ -697,36 +684,36 @@ export default function MasterSubjectPage() {
                           </span>
                         )}
                       </td>
-                      <td className="p-3.5">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="px-2 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
                         {row.is_deleted ? (
                           <button
                             onClick={() => pulihkanMutation.mutate(row.id)}
                             disabled={pulihkanMutation.isPending}
-                            className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 transition-colors hover:bg-amber-100 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="ui-button flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 hover:text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-60"
                             title="Pulihkan data"
                             aria-label={`Pulihkan mata pelajaran ${subjectName}`}
                           >
-                            <RefreshCw className="h-4 w-4" />
+                            <RefreshCw className="h-4 w-4" strokeWidth={2.5} />
                           </button>
                         ) : null}
                         <button
                           onClick={() => handleOpenDetail(row)}
-                          className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                          className="ui-button flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                           title="Lihat detail"
                           aria-label={`Lihat detail mata pelajaran ${subjectName}`}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-4 w-4" strokeWidth={2.5} />
                         </button>
                         {!row.is_deleted && (
                           <>
                             <button
                               onClick={() => handleOpenFormEdit(row)}
-                              className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 transition-colors hover:bg-amber-100 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                              className="ui-button hidden h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-600 transition-colors hover:bg-amber-100 hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500/40 sm:flex"
                               title="Edit data"
                               aria-label={`Edit mata pelajaran ${subjectName}`}
                             >
-                              <Edit2 className="h-4 w-4" />
+                              <Edit2 className="h-4 w-4" strokeWidth={2.5} />
                             </button>
                             <button
                               onClick={() => {
@@ -744,11 +731,11 @@ export default function MasterSubjectPage() {
                                 })
                               }}
                               disabled={hapusMutation.isPending}
-                              className="ui-button flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="ui-button hidden h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/40 disabled:cursor-not-allowed disabled:opacity-60 sm:flex"
                               title="Hapus data"
                               aria-label={`Hapus mata pelajaran ${subjectName}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" strokeWidth={2.5} />
                             </button>
                           </>
                         )}
@@ -791,6 +778,49 @@ export default function MasterSubjectPage() {
               </button>
             </div>
           </div>
+      </section>
+        </main>
+
+        <aside className="space-y-4 xl:sticky xl:top-5" aria-label="Ringkasan mata pelajaran">
+          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"><Library className="h-5 w-5" /></span>
+              <div><h2 className="text-sm font-bold text-slate-900 dark:text-white">Ringkasan Mapel</h2><p className="text-xs text-slate-500 dark:text-slate-400">Data halaman aktif</p></div>
+            </div>
+            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+              {[
+                ['Total Mapel', stats.total || 0, Library, 'text-emerald-700 bg-emerald-50'],
+                ['Mapel Aktif', stats.aktif || 0, CheckCircle, 'text-emerald-700 bg-emerald-50'],
+                ['Nonaktif', stats.tidak_aktif || 0, CircleX, 'text-amber-700 bg-amber-50'],
+                ['Terhapus', stats.terhapus || 0, Archive, 'text-rose-700 bg-rose-50'],
+                ['Kategori', KATEGORI_LIST.length, Target, 'text-blue-700 bg-blue-50'],
+              ].map(([label, value, Icon, color]) => (
+                <div key={label} className="flex items-center gap-3 py-3">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-500 dark:text-slate-300">{label}</span>
+                  <strong className="text-sm font-black tabular-nums text-slate-900 dark:text-white">{Number(value).toLocaleString('id-ID')}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Aksi Cepat</h2>
+            <div className="mt-3 grid gap-2">
+              {[
+                ['Tambah Mata Pelajaran', BookOpen, handleOpenFormTambah, 'text-emerald-700 bg-emerald-50'],
+                ['Import Data Mapel', Upload, () => setIsImportModalOpen(true), 'text-blue-700 bg-blue-50'],
+                ['Export Excel', FileSpreadsheet, handleExportExcel, 'text-emerald-700 bg-emerald-50'],
+                ['Export PDF', FileText, handleExportPdf, 'text-rose-600 bg-rose-50'],
+                ['Lihat Statistik', ChartNoAxesColumn, () => setIsStatisticsModalOpen(true), 'text-violet-700 bg-violet-50'],
+              ].map(([label, Icon, action, color]) => (
+                <button key={label} type="button" onClick={action} className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-700/20 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-emerald-950/40">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>{label}
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
       </div>
 
       {/* FORM MODAL (CREATE & EDIT) */}
@@ -1056,6 +1086,36 @@ export default function MasterSubjectPage() {
         </div>
       )}
 
+      {/* STATISTICS MODAL */}
+      {isStatisticsModalOpen && (
+        <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="subject-statistics-title">
+          <div className="ui-modal max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+            <header className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white p-5 dark:border-slate-700 dark:bg-[#1B2433]">
+              <div>
+                <h2 id="subject-statistics-title" className="text-lg font-bold text-slate-900 dark:text-white">Statistik Mata Pelajaran</h2>
+                <p className="mt-1 text-xs text-slate-500">Ringkasan berdasarkan filter aktif.</p>
+              </div>
+              <button type="button" onClick={() => setIsStatisticsModalOpen(false)} aria-label="Tutup statistik" className="h-10 w-10 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><X className="mx-auto h-5 w-5" /></button>
+            </header>
+            <div className="space-y-5 p-5">
+              <MasterStatsGrid className="education-unit-kpis">
+                <MasterStatCard icon={Library} label="Total" value={stats.total || 0} description="Mata pelajaran" variant="success" />
+                <MasterStatCard icon={CheckCircle} label="Aktif" value={stats.aktif || 0} description={`${activePercent}% dari total`} variant="success" />
+                <MasterStatCard icon={CircleX} label="Arsip" value={archiveCount} description="Nonaktif / terhapus" variant="warning" />
+              </MasterStatsGrid>
+              <section className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  <span>Tingkat keaktifan</span><span>{activePercent}%</span>
+                </div>
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                  <div className="h-full rounded-full bg-emerald-600 transition-[width] duration-200" style={{ width: `${activePercent}%` }} />
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* IMPORT MODAL */}
       {isImportModalOpen && (
         <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="subject-import-title">
@@ -1109,6 +1169,34 @@ export default function MasterSubjectPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setIsMobileActionsOpen(true)}
+        className="fixed bottom-22 left-1/2 z-40 inline-flex h-14 -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-800 px-5 text-sm font-bold text-white shadow-xl shadow-emerald-900/25 xl:hidden"
+        aria-label="Buka aksi mata pelajaran"
+      >
+        <BookOpen className="h-5 w-5" />
+        Aksi
+      </button>
+
+      {isMobileActionsOpen && (
+        <div className="ui-backdrop fixed inset-0 z-50 flex items-end bg-slate-950/55" role="dialog" aria-modal="true" aria-label="Aksi mata pelajaran">
+          <div className="ui-modal w-full rounded-t-[24px] bg-white p-5 pb-8 shadow-2xl dark:bg-[#1B2433]">
+            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200 dark:bg-slate-600" />
+            <div className="flex items-center justify-between">
+              <div><h2 className="font-bold text-slate-900 dark:text-white">Aksi Mata Pelajaran</h2><p className="text-xs text-slate-500">Pilih tindakan yang ingin dilakukan.</p></div>
+              <button type="button" onClick={() => setIsMobileActionsOpen(false)} aria-label="Tutup menu aksi" className="h-11 w-11 rounded-xl text-slate-500 hover:bg-slate-100"><X className="mx-auto h-5 w-5" /></button>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <MasterActionButton onClick={() => { setIsMobileActionsOpen(false); handleOpenFormTambah() }}>Tambah</MasterActionButton>
+              <MasterActionButton variant="import" icon={Upload} onClick={() => { setIsMobileActionsOpen(false); setIsImportModalOpen(true) }}>Impor</MasterActionButton>
+              <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={() => { setIsMobileActionsOpen(false); handleExportExcel() }}>Ekspor</MasterActionButton>
+              <MasterActionButton variant="import" icon={ChartNoAxesColumn} onClick={() => { setIsMobileActionsOpen(false); setIsStatisticsModalOpen(true) }}>Statistik</MasterActionButton>
+            </div>
           </div>
         </div>
       )}

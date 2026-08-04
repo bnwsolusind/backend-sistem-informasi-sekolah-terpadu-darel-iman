@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class CapaianPembelajaran extends Model
 {
@@ -59,6 +61,32 @@ class CapaianPembelajaran extends Model
         });
 
         static::deleting(function ($model) {
+            // Guard: Cegah penghapusan CP yang masih memiliki Tujuan Pembelajaran aktif.
+            // Ini berlaku sebagai perlindungan aplikasi selain FK RESTRICT di database.
+            // Jika soft delete (bukan force delete), izinkan — TP turunan tetap aktif tapi CP terhapus soft.
+            if (! $model->isForceDeleting()) {
+                // Soft delete diizinkan — set deleted_by saja
+                if (Auth::check()) {
+                    $model->deleted_by = Auth::id();
+                    $model->saveQuietly();
+                }
+
+                return; // Lanjutkan soft delete
+            }
+
+            // Force delete: cek apakah ada TP yang mengacu ke CP ini (termasuk yang sudah soft deleted)
+            $hasTP = TujuanPembelajaran::withTrashed()
+                ->where('cp_id', $model->id)
+                ->exists();
+
+            if ($hasTP) {
+                throw new \RuntimeException(
+                    "Capaian Pembelajaran '{$model->kode_cp}' tidak dapat dihapus permanen " .
+                    'karena masih memiliki Tujuan Pembelajaran yang merujuk padanya. ' .
+                    'Hapus semua TP terlebih dahulu.'
+                );
+            }
+
             if (Auth::check()) {
                 $model->deleted_by = Auth::id();
                 $model->saveQuietly();
@@ -103,7 +131,7 @@ class CapaianPembelajaran extends Model
 
     public function scopeFilter($query, array $filters)
     {
-        $likeOp = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+        $likeOp = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
 
         $query->when($filters['search'] ?? null, function ($q, $search) use ($likeOp) {
             $q->where(function ($sub) use ($search, $likeOp) {
@@ -114,13 +142,13 @@ class CapaianPembelajaran extends Model
         });
 
         $query->when($filters['unit_pendidikan_id'] ?? null, function ($q, $unitId) {
-            if ($unitId !== '' && $unitId !== 'semua' && \Illuminate\Support\Facades\Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
+            if ($unitId !== '' && $unitId !== 'semua' && Schema::hasColumn('lms_capaian_pembelajaran', 'unit_pendidikan_id')) {
                 $q->where('unit_pendidikan_id', $unitId);
             }
         });
 
         $query->when($filters['tahun_ajaran_id'] ?? null, function ($q, $tahunId) {
-            if ($tahunId !== '' && $tahunId !== 'semua' && \Illuminate\Support\Facades\Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
+            if ($tahunId !== '' && $tahunId !== 'semua' && Schema::hasColumn('lms_capaian_pembelajaran', 'tahun_ajaran_id')) {
                 $q->where('tahun_ajaran_id', $tahunId);
             }
         });

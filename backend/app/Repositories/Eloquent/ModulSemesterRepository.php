@@ -24,7 +24,7 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
             'details',
         ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = strtolower(trim($filters['search']));
             $query->where(function ($q) use ($search) {
                 $q->whereRaw('LOWER(nama_modul) LIKE ?', ["%{$search}%"])
@@ -42,31 +42,31 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
             });
         }
 
-        if (!empty($filters['tahun_ajaran_id'])) {
+        if (! empty($filters['tahun_ajaran_id'])) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);
         }
 
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
 
-        if (!empty($filters['unit_pendidikan_id'])) {
+        if (! empty($filters['unit_pendidikan_id'])) {
             $query->where('unit_pendidikan_id', $filters['unit_pendidikan_id']);
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
-        if (!empty($filters['guru_id'])) {
+        if (! empty($filters['guru_id'])) {
             $query->where('guru_id', $filters['guru_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['dengan_sampah']) && $filters['dengan_sampah'] === 'true') {
+        if (! empty($filters['dengan_sampah']) && $filters['dengan_sampah'] === 'true') {
             $query->withTrashed();
         }
 
@@ -81,7 +81,7 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
     {
         $query = ModulSemester::with(['tahunAjaran', 'semester', 'unitPendidikan', 'kelas', 'subject', 'guru']);
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -107,12 +107,12 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
         return DB::transaction(function () use ($data, $details) {
             $modul = ModulSemester::create($data);
 
-            if (!empty($details) && is_array($details)) {
+            if (! empty($details) && is_array($details)) {
                 foreach ($details as $idx => $detail) {
                     ModulSemesterDetail::create([
                         'modul_semester_id' => $modul->id,
                         'minggu' => $detail['minggu'] ?? ($idx + 1),
-                        'materi' => $detail['materi'] ?? 'Materi ' . ($idx + 1),
+                        'materi' => $detail['materi'] ?? 'Materi '.($idx + 1),
                         'atp' => $detail['atp'] ?? null,
                         'cp' => $detail['cp'] ?? null,
                         'jp' => $detail['jp'] ?? 2,
@@ -146,7 +146,7 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
                     ModulSemesterDetail::create([
                         'modul_semester_id' => $modul->id,
                         'minggu' => $detail['minggu'] ?? ($idx + 1),
-                        'materi' => $detail['materi'] ?? 'Materi ' . ($idx + 1),
+                        'materi' => $detail['materi'] ?? 'Materi '.($idx + 1),
                         'atp' => $detail['atp'] ?? null,
                         'cp' => $detail['cp'] ?? null,
                         'jp' => $detail['jp'] ?? 2,
@@ -170,12 +170,14 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
     public function hapus(string $id): bool
     {
         $modul = ModulSemester::findOrFail($id);
+
         return (bool) $modul->delete();
     }
 
     public function pulihkan(string $id): bool
     {
         $modul = ModulSemester::withTrashed()->findOrFail($id);
+
         return (bool) $modul->restore();
     }
 
@@ -183,6 +185,7 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
     {
         $modul = ModulSemester::findOrFail($id);
         $modul->update(['status' => $status]);
+
         return $modul->fresh([
             'tahunAjaran',
             'semester',
@@ -203,9 +206,9 @@ class ModulSemesterRepository implements ModulSemesterRepositoryInterface
             unset($newData['id'], $newData['created_at'], $newData['updated_at'], $newData['deleted_at'], $newData['details']);
 
             // Auto-generate new unique code
-            $newCode = 'MDS-' . strtoupper(Str::random(6));
+            $newCode = 'MDS-'.strtoupper(Str::random(6));
             $newData['kode_modul'] = $newCode;
-            $newData['nama_modul'] = $original->nama_modul . ' (Salinan)';
+            $newData['nama_modul'] = $original->nama_modul.' (Salinan)';
             $newData['status'] = 'Aktif';
 
             $newModul = ModulSemester::create($newData);

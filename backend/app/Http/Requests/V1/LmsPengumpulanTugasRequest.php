@@ -16,7 +16,7 @@ class LmsPengumpulanTugasRequest extends FormRequest
         return [
             'penugasan_id' => ['nullable', 'string', 'exists:lms_penugasan,id'],
             'siswa_id' => ['nullable', 'string', 'exists:students,id'],
-            
+
             // Standard columns
             'jawaban_teks' => ['nullable', 'string'],
             'file_path' => ['nullable', 'string', 'max:500'],
@@ -24,7 +24,7 @@ class LmsPengumpulanTugasRequest extends FormRequest
             'nilai_guru' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'catatan_guru' => ['nullable', 'string'],
             'status' => ['nullable', 'string', 'in:belum,dikumpulkan,terlambat,dinilai,revisi'],
-            
+
             // Aliases requested in user prompt
             'file' => ['nullable', 'string', 'max:500'],
             'link' => ['nullable', 'string', 'max:1000'],

@@ -72,7 +72,7 @@ return new class extends Migration
             }
 
             // Backfill 3: Match berdasarkan full_name (last resort, jika masih NULL)
-            DB::statement("
+            DB::statement('
                 UPDATE teachers t
                 SET employee_id = e.id,
                     migrated_to_employee = true
@@ -82,7 +82,7 @@ return new class extends Migration
                   AND e.nama_lengkap IS NOT NULL
                   AND t.employee_id IS NULL
                   AND e.deleted_at IS NULL
-            ");
+            ');
         }
     }
 

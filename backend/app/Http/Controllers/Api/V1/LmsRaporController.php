@@ -55,7 +55,7 @@ class LmsRaporController extends Controller
     {
         $rapor = $this->raporService->cariBerdasarkanId($id, true);
 
-        if (!$rapor) {
+        if (! $rapor) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rapor Digital tidak ditemukan.',
@@ -73,7 +73,7 @@ class LmsRaporController extends Controller
         $validated = $request->validated();
         $rapor = $this->raporService->ubah($id, $validated);
 
-        if (!$rapor) {
+        if (! $rapor) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rapor Digital tidak ditemukan atau gagal diperbarui.',
@@ -91,7 +91,7 @@ class LmsRaporController extends Controller
     {
         $success = $this->raporService->hapus($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rapor Digital tidak ditemukan atau gagal dihapus.',
@@ -108,7 +108,7 @@ class LmsRaporController extends Controller
     {
         $success = $this->raporService->pulihkan($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rapor Digital tidak ditemukan atau tidak dalam status terhapus.',

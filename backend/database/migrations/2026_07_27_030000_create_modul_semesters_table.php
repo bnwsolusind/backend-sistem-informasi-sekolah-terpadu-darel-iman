@@ -24,7 +24,7 @@ return new class extends Migration
             $table->uuid('kelas_id')->index();
             $table->uuid('mata_pelajaran_id')->index();
             $table->uuid('guru_id')->index()->comment('FK ke tabel employees (Guru Pengampu)');
-            
+
             $table->string('kode_modul', 50)->unique();
             $table->string('nama_modul', 150);
             $table->string('jenjang', 50)->nullable();

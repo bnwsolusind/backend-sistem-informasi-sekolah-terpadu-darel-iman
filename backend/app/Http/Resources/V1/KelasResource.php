@@ -57,7 +57,7 @@ class KelasResource extends JsonResource
                     'nama_lengkap' => $this->waliKelas->nama_lengkap,
                     'gelar_depan' => $this->waliKelas->gelar_depan,
                     'gelar_belakang' => $this->waliKelas->gelar_belakang,
-                    'nama_tampil' => trim(($this->waliKelas->gelar_depan ? $this->waliKelas->gelar_depan . ' ' : '') . $this->waliKelas->nama_lengkap . ($this->waliKelas->gelar_belakang ? ', ' . $this->waliKelas->gelar_belakang : '')),
+                    'nama_tampil' => trim(($this->waliKelas->gelar_depan ? $this->waliKelas->gelar_depan.' ' : '').$this->waliKelas->nama_lengkap.($this->waliKelas->gelar_belakang ? ', '.$this->waliKelas->gelar_belakang : '')),
                     'no_hp' => $this->waliKelas->no_hp,
                     'email' => $this->waliKelas->email,
                     'foto' => $this->waliKelas->foto,

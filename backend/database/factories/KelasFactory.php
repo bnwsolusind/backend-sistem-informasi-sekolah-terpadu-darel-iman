@@ -34,11 +34,11 @@ class KelasFactory extends Factory
             'semester_id' => Semester::factory(),
             'jenjang' => $jenjang,
             'tingkat' => $tingkat,
-            'kode_kelas' => 'KLS-' . strtoupper($jenjang) . '-' . $tingkat . $paralel . '-' . $this->faker->unique()->randomNumber(3),
-            'nama_kelas' => 'Kelas ' . $tingkat . ' ' . $paralel,
+            'kode_kelas' => 'KLS-'.strtoupper($jenjang).'-'.$tingkat.$paralel.'-'.$this->faker->unique()->randomNumber(3),
+            'nama_kelas' => 'Kelas '.$tingkat.' '.$paralel,
             'wali_kelas_id' => Employee::factory(),
             'kapasitas' => $this->faker->numberBetween(25, 36),
-            'ruangan' => 'Ruang R-' . $this->faker->numberBetween(101, 305),
+            'ruangan' => 'Ruang R-'.$this->faker->numberBetween(101, 305),
             'status' => 'Aktif',
         ];
     }

@@ -19,12 +19,19 @@ class ModulAjarApiTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected EducationUnit $unit;
+
     protected AcademicYear $tahun;
+
     protected Semester $semester;
+
     protected MasterKurikulum $kurikulum;
+
     protected Subject $subject;
+
     protected Employee $guru;
+
     protected Kelas $kelas;
 
     protected function setUp(): void

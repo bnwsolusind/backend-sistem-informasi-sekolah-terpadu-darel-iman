@@ -23,11 +23,11 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
             'guru:id,nama_lengkap',
         ])->withCount('sesi');
 
-        if (!empty($filters['with_trashed']) && filter_var($filters['with_trashed'], FILTER_VALIDATE_BOOLEAN)) {
+        if (! empty($filters['with_trashed']) && filter_var($filters['with_trashed'], FILTER_VALIDATE_BOOLEAN)) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('judul_ujian', 'like', "%{$search}%")
@@ -38,20 +38,20 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
             });
         }
 
-        if (!empty($filters['kisi_kisi_id'])) {
+        if (! empty($filters['kisi_kisi_id'])) {
             $query->where('kisi_kisi_id', $filters['kisi_kisi_id']);
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
         $allowedColumns = ['created_at', 'judul_ujian', 'waktu_mulai', 'waktu_selesai', 'durasi_menit', 'nilai_kkm', 'status'];
-        if (!in_array($orderBy, $allowedColumns)) {
+        if (! in_array($orderBy, $allowedColumns)) {
             $orderBy = 'created_at';
         }
 
@@ -87,18 +87,19 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     public function update(string $id, array $data): ?LmsUjian
     {
         $ujian = LmsUjian::find($id);
-        if (!$ujian) {
+        if (! $ujian) {
             return null;
         }
 
         $ujian->update($data);
+
         return $ujian->fresh(['kisiKisi', 'kelas', 'semester', 'guru']);
     }
 
     public function delete(string $id): bool
     {
         $ujian = LmsUjian::find($id);
-        if (!$ujian) {
+        if (! $ujian) {
             return false;
         }
 
@@ -108,7 +109,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     public function restore(string $id): bool
     {
         $ujian = LmsUjian::withTrashed()->find($id);
-        if (!$ujian || !$ujian->trashed()) {
+        if (! $ujian || ! $ujian->trashed()) {
             return false;
         }
 
@@ -118,13 +119,13 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     public function duplicate(string $id): ?LmsUjian
     {
         $existing = LmsUjian::find($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
         $replicated = $existing->replicate();
         $replicated->id = (string) Str::uuid();
-        $replicated->judul_ujian = '[Salinan] ' . $existing->judul_ujian;
+        $replicated->judul_ujian = '[Salinan] '.$existing->judul_ujian;
         $replicated->status = 'draft';
         $replicated->created_at = now();
         $replicated->updated_at = now();
@@ -137,7 +138,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     {
         $query = LmsUjian::query();
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
@@ -207,7 +208,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     public function saveJawabanSesi(string $sesiId, array $jawabanData): bool
     {
         $sesi = LmsUjianSesi::find($sesiId);
-        if (!$sesi || $sesi->status !== 'proses') {
+        if (! $sesi || $sesi->status !== 'proses') {
             return false;
         }
 
@@ -235,7 +236,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     public function finalizeSesiUjian(string $sesiId): ?LmsUjianSesi
     {
         $sesi = LmsUjianSesi::with(['ujian', 'jawaban'])->find($sesiId);
-        if (!$sesi) {
+        if (! $sesi) {
             return null;
         }
 
@@ -254,7 +255,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
             $maxPossiblePoints += $soal->poin;
             $jawabanRecord = $sesi->jawaban->firstWhere('soal_id', $soal->id);
 
-            if (!$jawabanRecord) {
+            if (! $jawabanRecord) {
                 // Not answered
                 $jumlahKosong++;
                 LmsJawabanSiswa::create([
@@ -263,6 +264,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
                     'is_correct' => false,
                     'poin_didapat' => 0,
                 ]);
+
                 continue;
             }
 
@@ -272,7 +274,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
             if ($soal->tipe_soal === 'pg') {
                 $chosen = strtoupper(trim($jawabanRecord->jawaban_dipilih ?? ''));
                 $key = strtoupper(trim($soal->kunci_jawaban ?? ''));
-                if (!empty($chosen) && $chosen === $key) {
+                if (! empty($chosen) && $chosen === $key) {
                     $isCorrect = true;
                     $poinDidapat = $soal->poin;
                     $jumlahBenar++;
@@ -284,7 +286,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
             } elseif ($soal->tipe_soal === 'benar_salah') {
                 $chosen = strtolower(trim($jawabanRecord->jawaban_dipilih ?? ''));
                 $key = strtolower(trim($soal->kunci_jawaban ?? ''));
-                if (!empty($chosen) && $chosen === $key) {
+                if (! empty($chosen) && $chosen === $key) {
                     $isCorrect = true;
                     $poinDidapat = $soal->poin;
                     $jumlahBenar++;
@@ -297,7 +299,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
                 $chosen = trim($jawabanRecord->jawaban_esai ?? '');
                 $key = trim($soal->kunci_jawaban ?? '');
 
-                if (!empty($chosen)) {
+                if (! empty($chosen)) {
                     $arrChosen = json_decode($chosen, true);
                     $arrKey = json_decode($key, true);
 
@@ -310,6 +312,18 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
                     }
                 } else {
                     $jumlahKosong++;
+                }
+            } elseif ($soal->tipe_soal === 'isian') {
+                $chosen = mb_strtolower(trim($jawabanRecord->jawaban_esai ?? ''));
+                $key = mb_strtolower(trim($soal->kunci_jawaban ?? ''));
+                if ($chosen === '') {
+                    $jumlahKosong++;
+                } elseif ($chosen === $key) {
+                    $isCorrect = true;
+                    $poinDidapat = $soal->poin;
+                    $jumlahBenar++;
+                } else {
+                    $jumlahSalah++;
                 }
             } elseif ($soal->tipe_soal === 'esai') {
                 $chosen = trim($jawabanRecord->jawaban_esai ?? '');
@@ -355,7 +369,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     public function getHasilUjian(string $ujianId): array
     {
         $ujian = LmsUjian::with(['kisiKisi.subject', 'kelas', 'guru'])->find($ujianId);
-        if (!$ujian) {
+        if (! $ujian) {
             return [];
         }
 
@@ -413,7 +427,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
     public function gradeEssayAnswer(string $jawabanId, float $poinDidapat, ?string $catatanGuru = null, ?string $guruId = null): bool
     {
         $jawaban = LmsJawabanSiswa::with('sesi')->find($jawabanId);
-        if (!$jawaban) {
+        if (! $jawaban) {
             return false;
         }
 

@@ -10,7 +10,16 @@ use Illuminate\Support\Facades\Auth;
 
 /**
  * Model Kelas / Rombongan Belajar (Rombel)
- * Mengelola data kelas, wali kelas, kapasitas, serta audit logging.
+ *
+ * CATATAN ARSITEKTUR:
+ * Tabel `tbl_kelas` adalah TABEL KELAS AKTIF yang digunakan seluruh sistem.
+ * Tabel `classes` (dari migration awal) adalah tabel legacy.
+ *
+ * Relasi di sini adalah sumber kebenaran (source of truth) untuk:
+ * - Siswa per rombel  : students.kelas_id → tbl_kelas.id (primer baru)
+ * - Jadwal pelajaran  : class_schedules.kelas_id → tbl_kelas.id
+ * - Modul ajar        : lms_modul_ajar.kelas_id → tbl_kelas.id
+ * - Modul semester    : modul_semesters.kelas_id → tbl_kelas.id
  */
 class Kelas extends Model
 {
@@ -104,11 +113,50 @@ class Kelas extends Model
     }
 
     /**
-     * Relasi ke Data Siswa dalam Rombel
+     * Relasi ke Data Siswa dalam Rombel.
+     *
+     * Mendukung DUA FK:
+     * - students.kelas_id (primer baru, migration 2026_08_01_000001)
+     * - students.class_id (legacy, backward compat)
+     *
+     * Prioritaskan kelas_id. Gunakan siswaByClassId() jika butuh relasi lama.
      */
     public function siswa()
     {
+        return $this->hasMany(Student::class, 'kelas_id');
+    }
+
+    /**
+     * Relasi legacy ke siswa via class_id (kolom lama).
+     * Gunakan hanya untuk backward compat atau data historis.
+     */
+    public function siswaLegacy()
+    {
         return $this->hasMany(Student::class, 'class_id');
+    }
+
+    /**
+     * Relasi ke jadwal pelajaran dalam kelas ini.
+     */
+    public function jadwal()
+    {
+        return $this->hasMany(ClassSchedule::class, 'kelas_id');
+    }
+
+    /**
+     * Relasi ke modul ajar yang diajarkan di kelas ini.
+     */
+    public function modulAjar()
+    {
+        return $this->hasMany(LmsModulAjar::class, 'kelas_id');
+    }
+
+    /**
+     * Relasi ke modul semester di kelas ini.
+     */
+    public function modulSemester()
+    {
+        return $this->hasMany(ModulSemester::class, 'kelas_id');
     }
 
     /**

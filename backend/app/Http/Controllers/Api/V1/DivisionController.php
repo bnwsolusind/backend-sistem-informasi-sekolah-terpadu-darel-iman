@@ -21,10 +21,10 @@ class DivisionController extends Controller
         $query = Division::query();
 
         if ($request->filled('search')) {
-            $search = '%' . $request->query('search') . '%';
+            $search = '%'.$request->query('search').'%';
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ILIKE', $search)
-                  ->orWhere('code', 'ILIKE', $search);
+                    ->orWhere('code', 'ILIKE', $search);
             });
         }
 
@@ -43,21 +43,21 @@ class DivisionController extends Controller
             ->paginate($perPage);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Daftar divisi berhasil diambil.',
-            'data'    => $data,
+            'data' => $data,
         ]);
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'code'        => 'required|string|max:50|unique:divisions,code',
-            'name'        => 'required|string|max:120',
+            'code' => 'required|string|max:50|unique:divisions,code',
+            'name' => 'required|string|max:120',
             'description' => 'nullable|string',
-            'parent_id'   => 'nullable|uuid|exists:divisions,id',
-            'is_active'   => 'nullable|boolean',
-            'metadata'    => 'nullable|array',
+            'parent_id' => 'nullable|uuid|exists:divisions,id',
+            'is_active' => 'nullable|boolean',
+            'metadata' => 'nullable|array',
         ]);
 
         $validated['created_by'] = Auth::id();
@@ -65,9 +65,9 @@ class DivisionController extends Controller
         $division = Division::create($validated);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Divisi berhasil ditambahkan.',
-            'data'    => $division->load('parent'),
+            'data' => $division->load('parent'),
         ], 201);
     }
 
@@ -91,21 +91,21 @@ class DivisionController extends Controller
         }
 
         $validated = $request->validate([
-            'code'        => 'sometimes|string|max:50|unique:divisions,code,' . $id,
-            'name'        => 'sometimes|string|max:120',
+            'code' => 'sometimes|string|max:50|unique:divisions,code,'.$id,
+            'name' => 'sometimes|string|max:120',
             'description' => 'nullable|string',
-            'parent_id'   => 'nullable|uuid|exists:divisions,id',
-            'is_active'   => 'nullable|boolean',
-            'metadata'    => 'nullable|array',
+            'parent_id' => 'nullable|uuid|exists:divisions,id',
+            'is_active' => 'nullable|boolean',
+            'metadata' => 'nullable|array',
         ]);
 
         $validated['updated_by'] = Auth::id();
         $division->update($validated);
 
         return response()->json([
-            'status'  => 'success',
+            'status' => 'success',
             'message' => 'Divisi berhasil diperbarui.',
-            'data'    => $division->fresh('parent'),
+            'data' => $division->fresh('parent'),
         ]);
     }
 

@@ -14,24 +14,24 @@ class LmsDiskusiRepository implements LmsDiskusiRepositoryInterface
     {
         $query = LmsDiskusi::with(['modulAjar', 'creator', 'komentar.user', 'komentar.replies.user']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('judul', 'like', "%{$search}%")
-                  ->orWhere('deskripsi', 'like', "%{$search}%")
-                  ->orWhere('kategori', 'like', "%{$search}%");
+                    ->orWhere('deskripsi', 'like', "%{$search}%")
+                    ->orWhere('kategori', 'like', "%{$search}%");
             });
         }
 
-        if (!empty($filters['modul_ajar_id'])) {
+        if (! empty($filters['modul_ajar_id'])) {
             $query->where('modul_ajar_id', $filters['modul_ajar_id']);
         }
 
-        if (!empty($filters['kategori'])) {
+        if (! empty($filters['kategori'])) {
             $query->where('kategori', $filters['kategori']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -71,18 +71,19 @@ class LmsDiskusiRepository implements LmsDiskusiRepositoryInterface
     public function update(string $id, array $data): ?LmsDiskusi
     {
         $diskusi = LmsDiskusi::find($id);
-        if (!$diskusi) {
+        if (! $diskusi) {
             return null;
         }
 
         $diskusi->update($data);
+
         return $diskusi->fresh(['modulAjar', 'creator', 'komentar.user', 'komentar.replies.user']);
     }
 
     public function delete(string $id): bool
     {
         $diskusi = LmsDiskusi::find($id);
-        if (!$diskusi) {
+        if (! $diskusi) {
             return false;
         }
 
@@ -92,7 +93,7 @@ class LmsDiskusiRepository implements LmsDiskusiRepositoryInterface
     public function restore(string $id): bool
     {
         $diskusi = LmsDiskusi::withTrashed()->find($id);
-        if (!$diskusi) {
+        if (! $diskusi) {
             return false;
         }
 
@@ -102,35 +103,38 @@ class LmsDiskusiRepository implements LmsDiskusiRepositoryInterface
     public function togglePin(string $id): ?LmsDiskusi
     {
         $diskusi = LmsDiskusi::find($id);
-        if (!$diskusi) {
+        if (! $diskusi) {
             return null;
         }
 
-        $diskusi->update(['is_pinned' => !$diskusi->is_pinned]);
+        $diskusi->update(['is_pinned' => ! $diskusi->is_pinned]);
+
         return $diskusi->fresh(['modulAjar', 'creator']);
     }
 
     public function toggleClose(string $id): ?LmsDiskusi
     {
         $diskusi = LmsDiskusi::find($id);
-        if (!$diskusi) {
+        if (! $diskusi) {
             return null;
         }
 
-        $diskusi->update(['is_closed' => !$diskusi->is_closed]);
+        $diskusi->update(['is_closed' => ! $diskusi->is_closed]);
+
         return $diskusi->fresh(['modulAjar', 'creator']);
     }
 
     public function addComment(string $diskusiId, array $data): LmsDiskusiKomentar
     {
         $data['diskusi_id'] = $diskusiId;
+
         return LmsDiskusiKomentar::create($data);
     }
 
     public function deleteComment(string $komentarId): bool
     {
         $komentar = LmsDiskusiKomentar::find($komentarId);
-        if (!$komentar) {
+        if (! $komentar) {
             return false;
         }
 

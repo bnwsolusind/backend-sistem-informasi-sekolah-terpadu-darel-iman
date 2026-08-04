@@ -27,7 +27,7 @@ class LmsModulAjarService
     public function simpan(array $data): LmsModulAjar
     {
         if (empty($data['kode_modul'])) {
-            $data['kode_modul'] = 'MA-' . strtoupper(Str::random(6));
+            $data['kode_modul'] = 'MA-'.strtoupper(Str::random(6));
         }
 
         if (empty($data['status'])) {
@@ -46,12 +46,12 @@ class LmsModulAjarService
     public function ubah(string $id, array $data): ?LmsModulAjar
     {
         $existing = $this->modulAjarRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
         // Handle Auto Version Increment if version parameter increment requested
-        if (!empty($data['naikkan_versi']) && $data['naikkan_versi']) {
+        if (! empty($data['naikkan_versi']) && $data['naikkan_versi']) {
             $currentVer = (float) ($existing->versi ?? '1.0');
             $data['versi'] = number_format($currentVer + 0.1, 1, '.', '');
         }
@@ -64,28 +64,31 @@ class LmsModulAjarService
     public function hapus(string $id): bool
     {
         Log::info('Menghapus (soft delete) Modul Ajar', ['id' => $id]);
+
         return $this->modulAjarRepository->delete($id);
     }
 
     public function pulihkan(string $id): bool
     {
         Log::info('Memulihkan Modul Ajar', ['id' => $id]);
+
         return $this->modulAjarRepository->restore($id);
     }
 
     public function publikasikan(string $id): ?LmsModulAjar
     {
         Log::info('Mempublikasikan Modul Ajar', ['id' => $id]);
+
         return $this->modulAjarRepository->update($id, [
             'status' => 'Publish',
-            'catatan_revisi' => 'Publikasi Modul Ajar'
+            'catatan_revisi' => 'Publikasi Modul Ajar',
         ]);
     }
 
     public function duplikasi(string $id): ?LmsModulAjar
     {
         $existing = $this->modulAjarRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -104,8 +107,8 @@ class LmsModulAjarService
             $newData['kisi_kisi']
         );
 
-        $newData['judul_modul'] = $existing->judul_modul . ' (Salinan)';
-        $newData['kode_modul'] = 'MA-' . strtoupper(Str::random(6));
+        $newData['judul_modul'] = $existing->judul_modul.' (Salinan)';
+        $newData['kode_modul'] = 'MA-'.strtoupper(Str::random(6));
         $newData['status'] = 'Draft';
         $newData['versi'] = '1.0';
 

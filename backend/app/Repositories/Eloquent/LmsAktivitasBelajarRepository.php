@@ -13,24 +13,24 @@ class LmsAktivitasBelajarRepository implements LmsAktivitasBelajarRepositoryInte
     {
         $query = LmsAktivitasBelajar::with(['modulAjar:id,judul_modul,kode_modul', 'creator:id,name']);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('nama_aktivitas', 'like', "%{$search}%")
-                  ->orWhere('instruksi', 'like', "%{$search}%")
-                  ->orWhere('jenis_aktivitas', 'like', "%{$search}%");
+                    ->orWhere('instruksi', 'like', "%{$search}%")
+                    ->orWhere('jenis_aktivitas', 'like', "%{$search}%");
             });
         }
 
-        if (!empty($filters['modul_ajar_id'])) {
+        if (! empty($filters['modul_ajar_id'])) {
             $query->where('modul_ajar_id', $filters['modul_ajar_id']);
         }
 
-        if (!empty($filters['jenis_aktivitas'])) {
+        if (! empty($filters['jenis_aktivitas'])) {
             $query->where('jenis_aktivitas', $filters['jenis_aktivitas']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
@@ -57,18 +57,19 @@ class LmsAktivitasBelajarRepository implements LmsAktivitasBelajarRepositoryInte
     public function update(string $id, array $data): ?LmsAktivitasBelajar
     {
         $aktivitas = LmsAktivitasBelajar::find($id);
-        if (!$aktivitas) {
+        if (! $aktivitas) {
             return null;
         }
 
         $aktivitas->update($data);
+
         return $aktivitas->fresh(['modulAjar', 'creator']);
     }
 
     public function delete(string $id): bool
     {
         $aktivitas = LmsAktivitasBelajar::find($id);
-        if (!$aktivitas) {
+        if (! $aktivitas) {
             return false;
         }
 
@@ -78,7 +79,7 @@ class LmsAktivitasBelajarRepository implements LmsAktivitasBelajarRepositoryInte
     public function restore(string $id): bool
     {
         $aktivitas = LmsAktivitasBelajar::withTrashed()->find($id);
-        if (!$aktivitas) {
+        if (! $aktivitas) {
             return false;
         }
 

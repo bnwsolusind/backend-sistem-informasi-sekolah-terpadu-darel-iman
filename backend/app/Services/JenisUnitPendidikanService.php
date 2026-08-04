@@ -6,6 +6,7 @@ use App\Models\JenisUnitPendidikan;
 use App\Repositories\Contracts\JenisUnitPendidikanRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class JenisUnitPendidikanService
@@ -62,7 +63,7 @@ class JenisUnitPendidikanService
     public function hapus(string|int $id, int|string|null $userId = null): array
     {
         $item = $this->repository->findById($id);
-        if (!$item) {
+        if (! $item) {
             return [
                 'success' => false,
                 'message' => 'Data jenis unit pendidikan tidak ditemukan.',
@@ -70,7 +71,7 @@ class JenisUnitPendidikanService
         }
 
         // Integrity check: If unit pendidikan exists with this jenis_unit_id
-        if (\Illuminate\Support\Facades\Schema::hasColumn('education_units', 'jenis_unit_id')) {
+        if (Schema::hasColumn('education_units', 'jenis_unit_id')) {
             if ($item->unitPendidikan()->count() > 0) {
                 return [
                     'success' => false,
@@ -130,12 +131,13 @@ class JenisUnitPendidikanService
             if (empty($kode) || empty($nama)) {
                 $gagal++;
                 $errors[] = "Baris {$rowNum}: Kode dan Nama jenis wajib diisi.";
+
                 continue;
             }
 
             try {
                 $status = isset($row['status'])
-                    ? (is_bool($row['status']) ? $row['status'] : in_array(strtolower((string)$row['status']), ['1', 'true', 'aktif', 'active']))
+                    ? (is_bool($row['status']) ? $row['status'] : in_array(strtolower((string) $row['status']), ['1', 'true', 'aktif', 'active']))
                     : true;
 
                 JenisUnitPendidikan::updateOrCreate(
@@ -157,7 +159,7 @@ class JenisUnitPendidikanService
                 $berhasil++;
             } catch (\Exception $e) {
                 $gagal++;
-                $errors[] = "Baris {$rowNum}: " . $e->getMessage();
+                $errors[] = "Baris {$rowNum}: ".$e->getMessage();
             }
         }
 

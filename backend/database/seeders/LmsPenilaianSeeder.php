@@ -20,7 +20,7 @@ class LmsPenilaianSeeder extends Seeder
         $semester = Semester::first();
         $academicYear = AcademicYear::first();
 
-        if (!$siswa || !$subject || !$semester) {
+        if (! $siswa || ! $subject || ! $semester) {
             return;
         }
 

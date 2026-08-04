@@ -33,7 +33,7 @@ class LmsKisiKisiService
 
     public function simpan(array $data): LmsKisiKisi
     {
-        if (!isset($data['status'])) {
+        if (! isset($data['status'])) {
             $data['status'] = true;
         }
 
@@ -63,7 +63,7 @@ class LmsKisiKisiService
     public function ubah(string $id, array $data): ?LmsKisiKisi
     {
         $existing = $this->kisiKisiRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -82,7 +82,7 @@ class LmsKisiKisiService
     public function hapus(string $id): bool
     {
         $kisi = $this->kisiKisiRepository->findById($id);
-        if (!$kisi) {
+        if (! $kisi) {
             return false;
         }
 
@@ -135,6 +135,7 @@ class LmsKisiKisiService
             ->map(function ($item) {
                 $name = $item->nama_mapel ?? $item->name ?? 'Mata Pelajaran';
                 $code = $item->kode_mapel ?? $item->code ?? '';
+
                 return [
                     'id' => $item->id,
                     'name' => $name,
@@ -176,7 +177,7 @@ class LmsKisiKisiService
                 $q->where('status', true)->orWhereNull('status');
             });
 
-        if (!empty($mataPelajaranId) && $mataPelajaranId !== '' && $mataPelajaranId !== 'null') {
+        if (! empty($mataPelajaranId) && $mataPelajaranId !== '' && $mataPelajaranId !== 'null') {
             $cpQuery->where('mata_pelajaran_id', $mataPelajaranId);
         }
 
@@ -184,6 +185,7 @@ class LmsKisiKisiService
             ->map(function ($item) {
                 $nama = $item->nama_cp ?? $item->deskripsi ?? 'Capaian Pembelajaran';
                 $kode = $item->kode_cp ?? '';
+
                 return [
                     'id' => $item->id,
                     'mata_pelajaran_id' => $item->mata_pelajaran_id,
@@ -201,9 +203,9 @@ class LmsKisiKisiService
                 $q->where('status', true)->orWhereNull('status');
             });
 
-        if (!empty($cpId) && $cpId !== '' && $cpId !== 'null') {
+        if (! empty($cpId) && $cpId !== '' && $cpId !== 'null') {
             $tpQuery->where('cp_id', $cpId);
-        } elseif (!empty($mataPelajaranId) && $mataPelajaranId !== '' && $mataPelajaranId !== 'null') {
+        } elseif (! empty($mataPelajaranId) && $mataPelajaranId !== '' && $mataPelajaranId !== 'null') {
             $validCpIds = CapaianPembelajaran::where('mata_pelajaran_id', $mataPelajaranId)->pluck('id');
             $tpQuery->whereIn('cp_id', $validCpIds);
         }
@@ -212,6 +214,7 @@ class LmsKisiKisiService
             ->map(function ($item) {
                 $nama = $item->nama_tp ?? $item->deskripsi ?? 'Tujuan Pembelajaran';
                 $kode = $item->kode_tp ?? '';
+
                 return [
                     'id' => $item->id,
                     'cp_id' => $item->cp_id,

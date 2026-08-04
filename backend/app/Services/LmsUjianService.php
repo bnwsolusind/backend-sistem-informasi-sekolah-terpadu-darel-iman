@@ -31,19 +31,19 @@ class LmsUjianService
 
     public function simpan(array $data): LmsUjian
     {
-        if (!isset($data['status'])) {
+        if (! isset($data['status'])) {
             $data['status'] = 'draft';
         }
 
-        if (!isset($data['durasi_menit'])) {
+        if (! isset($data['durasi_menit'])) {
             $data['durasi_menit'] = 60;
         }
 
-        if (!isset($data['nilai_kkm'])) {
+        if (! isset($data['nilai_kkm'])) {
             $data['nilai_kkm'] = 70.0;
         }
 
-        if (!isset($data['max_attempt'])) {
+        if (! isset($data['max_attempt'])) {
             $data['max_attempt'] = 1;
         }
 
@@ -73,7 +73,7 @@ class LmsUjianService
     public function ubah(string $id, array $data): ?LmsUjian
     {
         $existing = $this->ujianRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
@@ -92,7 +92,7 @@ class LmsUjianService
     public function hapus(string $id): bool
     {
         $ujian = $this->ujianRepository->findById($id);
-        if (!$ujian) {
+        if (! $ujian) {
             return false;
         }
 
@@ -133,7 +133,7 @@ class LmsUjianService
     public function ubahStatusPublish(string $id, string $status): ?LmsUjian
     {
         $allowed = ['draft', 'published', 'berlangsung', 'selesai', 'dibatalkan'];
-        if (!in_array($status, $allowed)) {
+        if (! in_array($status, $allowed)) {
             return null;
         }
 
@@ -154,7 +154,7 @@ class LmsUjianService
     public function mulaiSesi(string $ujianId, string $siswaId): array
     {
         $ujian = $this->ujianRepository->findById($ujianId);
-        if (!$ujian) {
+        if (! $ujian) {
             throw new \InvalidArgumentException('Ujian tidak ditemukan.');
         }
 
@@ -184,6 +184,17 @@ class LmsUjianService
                 }
             }
 
+            $matchingItems = null;
+            if ($soal->tipe_soal === 'menjodohkan' && $soal->kunci_jawaban) {
+                $pairs = json_decode($soal->kunci_jawaban, true);
+                if (is_array($pairs)) {
+                    $matchingItems = [
+                        'kiri' => collect($pairs)->pluck('kiri')->filter()->values()->all(),
+                        'kanan' => collect($pairs)->pluck('kanan')->filter()->shuffle()->values()->all(),
+                    ];
+                }
+            }
+
             return [
                 'id' => $soal->id,
                 'kode_soal' => $soal->kode_soal,
@@ -191,7 +202,8 @@ class LmsUjianService
                 'tipe_soal' => $soal->tipe_soal,
                 'poin' => (float) $soal->poin,
                 'opsi' => $options,
-                'pasangan_menjodohkan' => $soal->tipe_soal === 'menjodohkan' && $soal->kunci_jawaban ? json_decode($soal->kunci_jawaban, true) : null,
+                // Jangan pernah mengirim pasangan kunci yang benar ke browser siswa.
+                'pasangan_menjodohkan' => $matchingItems,
             ];
         });
 

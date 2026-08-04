@@ -41,17 +41,15 @@ export default function LaporanPegawaiPage() {
   ], [dashboard, rows])
 
   return (
-    <section className="content-grid">
-      <article className="panel wide laporan-produksi">
-        <ReportHeader title="Laporan Pegawai & Guru" description="Daftar pegawai aktif berdasarkan master pegawai yang telah berjalan." onRefresh={load} onExport={() => exportCsv('laporan-pegawai.csv', columns, rows)} />
+    <section className="laporan-page">
+      <article className="laporan-produksi">
+        <ReportHeader eyebrow="Rekap Data" title="Rekap Pegawai & Guru" description="Rekapan baca-saja berdasarkan hasil CRUD master pegawai." onRefresh={load} onExport={() => exportCsv('rekap-pegawai.csv', columns, rows)} />
         <ReportFilters><label>Cari pegawai<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nama atau NIP" /></label></ReportFilters>
         <ReportState loading={loading} error={error}>
           <ReportStats items={stats} />
-          <h4>Daftar Pegawai</h4>
-          <ReportTable columns={columns} rows={rows} />
+          <ReportTable title="Daftar Pegawai & Guru" columns={columns} rows={rows} />
         </ReportState>
       </article>
     </section>
   )
 }
-

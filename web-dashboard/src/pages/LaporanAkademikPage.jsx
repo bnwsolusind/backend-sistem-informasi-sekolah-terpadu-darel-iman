@@ -46,17 +46,16 @@ export default function LaporanAkademikPage() {
   }, [rows])
 
   return (
-    <section className="content-grid">
-      <article className="panel wide laporan-produksi">
-        <ReportHeader title="Laporan Akademik & Nilai" description="Leger operasional dari nilai siswa yang telah tersimpan." onRefresh={load} onExport={() => exportCsv('laporan-akademik.csv', columns, rows)} />
+    <section className="laporan-page">
+      <article className="laporan-produksi">
+        <ReportHeader eyebrow="Rekap Data" title="Rekap Akademik & Nilai" description="Rekapan baca-saja dari nilai siswa yang telah tersimpan." onRefresh={load} onExport={() => exportCsv('rekap-akademik.csv', columns, rows)} />
         <ReportFilters>
           <label>ID Kelas<input value={filters.kelas_id} onChange={(e) => setFilters({ ...filters, kelas_id: e.target.value })} placeholder="Opsional" /></label>
           <label>ID Semester<input value={filters.semester_id} onChange={(e) => setFilters({ ...filters, semester_id: e.target.value })} placeholder="Opsional" /></label>
         </ReportFilters>
         <ReportState loading={loading} error={error}>
           <ReportStats items={stats} />
-          <h4>Leger Nilai</h4>
-          <ReportTable columns={columns} rows={rows} />
+          <ReportTable title="Leger Nilai Siswa" columns={columns} rows={rows} />
         </ReportState>
       </article>
     </section>

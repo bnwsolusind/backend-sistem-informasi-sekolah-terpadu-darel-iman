@@ -14,7 +14,7 @@ class JenisUnitPendidikanRepository implements JenisUnitPendidikanRepositoryInte
         $query = JenisUnitPendidikan::with(['creator', 'updater'])->filter($filters);
 
         $allowedSorts = ['kode_jenis', 'nama_jenis', 'singkatan', 'jenjang', 'urutan', 'status', 'created_at'];
-        if (!in_array($orderBy, $allowedSorts)) {
+        if (! in_array($orderBy, $allowedSorts)) {
             $orderBy = 'urutan';
         }
 
@@ -44,7 +44,7 @@ class JenisUnitPendidikanRepository implements JenisUnitPendidikanRepositoryInte
     public function update(string|int $id, array $data): ?JenisUnitPendidikan
     {
         $item = $this->findById($id);
-        if (!$item) {
+        if (! $item) {
             return null;
         }
 
@@ -56,7 +56,7 @@ class JenisUnitPendidikanRepository implements JenisUnitPendidikanRepositoryInte
     public function delete(string|int $id, int|string|null $deletedBy = null): bool
     {
         $item = $this->findById($id);
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 
@@ -80,7 +80,7 @@ class JenisUnitPendidikanRepository implements JenisUnitPendidikanRepositoryInte
             })
             ->first();
 
-        if (!$item) {
+        if (! $item) {
             return false;
         }
 

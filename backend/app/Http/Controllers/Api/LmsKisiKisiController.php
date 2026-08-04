@@ -57,7 +57,7 @@ class LmsKisiKisiController extends Controller
     {
         $kisi = $this->kisiKisiService->cariBerdasarkanId($id, true);
 
-        if (!$kisi) {
+        if (! $kisi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kisi-kisi Ujian tidak ditemukan.',
@@ -75,7 +75,7 @@ class LmsKisiKisiController extends Controller
         $validated = $request->validated();
         $kisi = $this->kisiKisiService->ubah($id, $validated);
 
-        if (!$kisi) {
+        if (! $kisi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kisi-kisi Ujian tidak ditemukan atau gagal diperbarui.',
@@ -93,7 +93,7 @@ class LmsKisiKisiController extends Controller
     {
         $success = $this->kisiKisiService->hapus($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kisi-kisi Ujian tidak ditemukan atau gagal dihapus.',
@@ -110,7 +110,7 @@ class LmsKisiKisiController extends Controller
     {
         $success = $this->kisiKisiService->pulihkan($id);
 
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kisi-kisi Ujian tidak ditemukan atau tidak dalam status terhapus.',
@@ -127,7 +127,7 @@ class LmsKisiKisiController extends Controller
     {
         $duplicated = $this->kisiKisiService->duplikasi($id);
 
-        if (!$duplicated) {
+        if (! $duplicated) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menduplikasi Kisi-kisi Ujian.',

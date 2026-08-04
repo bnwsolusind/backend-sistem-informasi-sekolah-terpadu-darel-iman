@@ -47,8 +47,35 @@ return new class extends Migration
             }
         } else {
             Schema::table('attendances', function (Blueprint $table) {
+                if (! Schema::hasColumn('attendances', 'tipe_presensi')) {
+                    $table->string('tipe_presensi', 20)->default('Siswa')->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'student_id')) {
+                    $table->uuid('student_id')->nullable();
+                }
                 if (! Schema::hasColumn('attendances', 'employee_id')) {
-                    $table->uuid('employee_id')->nullable()->after('student_id');
+                    $table->uuid('employee_id')->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'unit_pendidikan_id')) {
+                    $table->uuid('unit_pendidikan_id')->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'keterangan')) {
+                    $table->text('keterangan')->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'latitude')) {
+                    $table->decimal('latitude', 10, 7)->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'longitude')) {
+                    $table->decimal('longitude', 10, 7)->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'attachment_path')) {
+                    $table->string('attachment_path')->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'created_by')) {
+                    $table->string('created_by')->nullable();
+                }
+                if (! Schema::hasColumn('attendances', 'updated_by')) {
+                    $table->string('updated_by')->nullable();
                 }
             });
         }
@@ -61,15 +88,15 @@ return new class extends Migration
     private function fixPartitionedTable(): void
     {
         $cols = [
-            'tipe_presensi'    => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS tipe_presensi VARCHAR(20) DEFAULT 'Siswa'",
-            'employee_id'      => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS employee_id UUID NULL",
-            'unit_pendidikan_id' => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS unit_pendidikan_id UUID NULL",
-            'tipe_presensi_keterangan' => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS keterangan TEXT NULL",
-            'latitude'         => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS latitude DECIMAL(10,7) NULL",
-            'longitude'        => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS longitude DECIMAL(10,7) NULL",
-            'attachment_path'  => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS attachment_path VARCHAR(255) NULL",
-            'created_by'       => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NULL",
-            'updated_by'       => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255) NULL",
+            'tipe_presensi' => "ALTER TABLE attendances ADD COLUMN IF NOT EXISTS tipe_presensi VARCHAR(20) DEFAULT 'Siswa'",
+            'employee_id' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS employee_id UUID NULL',
+            'unit_pendidikan_id' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS unit_pendidikan_id UUID NULL',
+            'tipe_presensi_keterangan' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS keterangan TEXT NULL',
+            'latitude' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS latitude DECIMAL(10,7) NULL',
+            'longitude' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS longitude DECIMAL(10,7) NULL',
+            'attachment_path' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS attachment_path VARCHAR(255) NULL',
+            'created_by' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NULL',
+            'updated_by' => 'ALTER TABLE attendances ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255) NULL',
         ];
 
         foreach ($cols as $col => $sql) {
@@ -126,10 +153,10 @@ return new class extends Migration
             return false;
         }
 
-        $result = DB::select("
+        $result = DB::select('
             SELECT 1 FROM pg_indexes
             WHERE tablename = ? AND indexname = ?
-        ", [$table, $indexName]);
+        ', [$table, $indexName]);
 
         return ! empty($result);
     }

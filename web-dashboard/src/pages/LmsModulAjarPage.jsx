@@ -3,49 +3,38 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Swal from 'sweetalert2'
 import {
   BookOpen,
-  Plus,
   Search,
-  Filter,
   CheckCircle,
   XCircle,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
   Edit2,
   Trash2,
   RefreshCw,
   Eye,
   Layers,
-  Award,
   Download,
-  Upload,
-  FileSpreadsheet,
   FileText,
   Copy,
-  Clock,
   Printer,
   History,
-  FileCheck,
   Send,
-  Archive,
-  CheckSquare,
-  AlertCircle,
   User,
-  GraduationCap,
-  Calendar,
-  Tag,
-  Book,
 } from 'lucide-react'
 import { lmsModulAjarService } from '../services/lmsModulAjarService'
+import {
+  MasterActionButton,
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatCard,
+  MasterStatsGrid,
+} from '../components/master-data'
 
 const FASE_LIST = ['Fase A', 'Fase B', 'Fase C', 'Fase D', 'Fase E', 'Fase F']
 const STATUS_LIST = ['Draft', 'Review', 'Publish', 'Arsip']
 
-export default function LmsModulAjarPage() {
+export default function LmsModulAjarPage({ embedded = false, hideBreadcrumb = false }) {
   const queryClient = useQueryClient()
 
   // State Filter & Paginasi
-  const [activeTab, setActiveTab] = useState('daftar') // 'daftar' | 'dashboard'
   const [search, setSearch] = useState('')
   const [selectedUnitFilter, setSelectedUnitFilter] = useState('')
   const [selectedMapelFilter, setSelectedMapelFilter] = useState('')
@@ -60,7 +49,6 @@ export default function LmsModulAjarPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false)
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
 
   const [selectedModul, setSelectedModul] = useState(null)
   const [formStep, setFormStep] = useState(1) // 1: Identitas, 2: Content, 3: Aktivitas, 4: Asesmen
@@ -316,72 +304,27 @@ export default function LmsModulAjarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] p-4 lg:p-8 text-slate-800 dark:text-slate-100 transition-colors duration-200">
-      {/* Header Banner Modern Enterprise SaaS */}
-      <div className="relative mb-8 overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 lg:p-8 text-white shadow-xl">
-        <div className="absolute right-0 top-0 -mr-12 -mt-12 h-64 w-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur-md mb-3">
-              <Sparkles className="h-3.5 w-3.5 text-yellow-300" />
-              Perencanaan Pembelajaran Merdeka & SIT
-            </div>
-            <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight">Modul Ajar (RPP Digital)</h1>
-            <p className="mt-2 max-w-2xl text-sm lg:text-base text-emerald-100">
-              Pusat perencanaan aktivitas harian Guru yang terintegrasi dengan Kurikulum, CP/TP, Penugasan, Kisi-kisi Ujian, dan Rapor Digital.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleExportExcel}
-              className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/30 px-4 py-2.5 text-sm font-medium text-white transition-all shadow-sm hover:scale-[1.02] active:scale-95"
-            >
-              <Download className="h-4 w-4" /> Export CSV
-            </button>
-
-            <button
-              onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2 rounded-xl bg-white text-[#0E5C44] hover:bg-emerald-50 px-5 py-2.5 text-sm font-bold shadow-lg transition-all hover:scale-[1.03] active:scale-95"
-            >
-              <Plus className="h-4 w-4 stroke-[3]" /> Buat Modul Ajar
-            </button>
-          </div>
-        </div>
-      </div>
+    <MasterDataPage className="education-unit-page modul-ajar-master-page" hideBreadcrumb={embedded || hideBreadcrumb}>
+      <MasterPageHeader
+        tone="brand"
+        icon={BookOpen}
+        title="Modul Ajar (RPP Digital)"
+        description="Pusat perencanaan aktivitas guru yang terintegrasi dengan Kurikulum, CP, TP, penugasan, evaluasi, dan rapor."
+        actions={
+          <>
+            <MasterActionButton variant="export" icon={Download} onClick={handleExportExcel}>Export CSV</MasterActionButton>
+            <MasterActionButton onClick={handleOpenAddModal}>Buat Modul Ajar</MasterActionButton>
+          </>
+        }
+      />
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <div className="rounded-[18px] bg-white dark:bg-[#1B2433] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-slate-500 font-medium">Total Modul</p>
-          <p className="text-2xl font-bold text-[#0E5C44] dark:text-emerald-400 mt-1">{stats.total_modul || 0}</p>
-        </div>
-
-        <div className="rounded-[18px] bg-white dark:bg-[#1B2433] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-slate-500 font-medium">Draft</p>
-          <p className="text-2xl font-bold text-amber-500 mt-1">{stats.total_draft || 0}</p>
-        </div>
-
-        <div className="rounded-[18px] bg-white dark:bg-[#1B2433] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-slate-500 font-medium">Review</p>
-          <p className="text-2xl font-bold text-blue-500 mt-1">{stats.total_review || 0}</p>
-        </div>
-
-        <div className="rounded-[18px] bg-white dark:bg-[#1B2433] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-slate-500 font-medium">Published</p>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{stats.total_published || 0}</p>
-        </div>
-
-        <div className="rounded-[18px] bg-white dark:bg-[#1B2433] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-slate-500 font-medium">Arsip</p>
-          <p className="text-2xl font-bold text-slate-400 mt-1">{stats.total_archived || 0}</p>
-        </div>
-
-        <div className="rounded-[18px] bg-white dark:bg-[#1B2433] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-slate-500 font-medium">TP Ter-cover</p>
-          <p className="text-2xl font-bold text-indigo-500 mt-1">{stats.total_tp_tercover || 0}</p>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={BookOpen} label="Total Modul" value={stats.total_modul || 0} description="Terdaftar di sistem" variant="success" />
+        <MasterStatCard icon={FileText} label="Draft & Review" value={(stats.total_draft || 0) + (stats.total_review || 0)} description="Dalam penyusunan" variant="warning" />
+        <MasterStatCard icon={CheckCircle} label="Dipublikasikan" value={stats.total_published || 0} description="Siap digunakan" variant="info" />
+        <MasterStatCard icon={Layers} label="TP Ter-cover" value={stats.total_tp_tercover || 0} description="Terhubung ke modul" variant="neutral" />
+      </MasterStatsGrid>
 
       {/* Main Card Data Table */}
       <div className="rounded-[18px] bg-white dark:bg-[#1B2433] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
@@ -472,16 +415,16 @@ export default function LmsModulAjarPage() {
 
         {/* Table Content */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full table-fixed text-left text-sm">
             <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold text-xs uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4">Kode & Judul Modul</th>
-                <th className="px-6 py-4">Mata Pelajaran & Guru</th>
-                <th className="px-6 py-4">Kelas & Fase</th>
-                <th className="px-6 py-4 text-center">Alokasi JP</th>
-                <th className="px-6 py-4 text-center">Versi</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-right">Aksi</th>
+                <th className="w-[28%] px-4 py-4">Kode & Judul Modul</th>
+                <th className="w-[22%] px-4 py-4">Mata Pelajaran & Guru</th>
+                <th className="hidden w-[15%] px-4 py-4 md:table-cell">Kelas & Fase</th>
+                <th className="hidden w-[10%] px-4 py-4 text-center lg:table-cell">Alokasi</th>
+                <th className="hidden w-[8%] px-4 py-4 text-center xl:table-cell">Versi</th>
+                <th className="hidden w-[10%] px-4 py-4 text-center sm:table-cell">Status</th>
+                <th className="w-[24%] px-4 py-4 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -503,7 +446,7 @@ export default function LmsModulAjarPage() {
               ) : (
                 moduls.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="hidden px-4 py-4 md:table-cell">
                       <div className="font-bold text-slate-900 dark:text-white">{item.judul_modul}</div>
                       <div className="text-xs text-slate-400 font-mono mt-0.5">{item.kode_modul || 'MA-AUTO'}</div>
                     </td>
@@ -522,15 +465,15 @@ export default function LmsModulAjarPage() {
                       </span>
                       <div className="text-xs text-slate-400 mt-1">{item.kelas?.nama_kelas || item.kelas?.name || 'Semua Kelas'}</div>
                     </td>
-                    <td className="px-6 py-4 text-center font-semibold text-slate-700 dark:text-slate-300">
+                    <td className="hidden px-4 py-4 text-center font-semibold text-slate-700 dark:text-slate-300 lg:table-cell">
                       {item.alokasi_waktu_jp || 2} JP
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="hidden px-4 py-4 text-center xl:table-cell">
                       <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                         v{item.versi || '1.0'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="hidden px-4 py-4 text-center sm:table-cell">
                       <span
                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                           item.status === 'Publish'
@@ -1206,6 +1149,6 @@ export default function LmsModulAjarPage() {
           </div>
         </div>
       )}
-    </div>
+    </MasterDataPage>
   )
 }

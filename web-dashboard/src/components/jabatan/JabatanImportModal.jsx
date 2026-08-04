@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FaTimes, FaFileImport, FaDownload, FaUpload, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa'
+import { X as FaTimes, FileInput as FaFileImport, Download as FaDownload, UploadCloud as FaUpload, CircleCheck as FaCheckCircle, CircleAlert as FaExclamationCircle } from 'lucide-react'
 
 export default function JabatanImportModal({ isOpen, onClose, onImport, isSubmitting = false }) {
   const [file, setFile] = useState(null)
@@ -92,16 +92,16 @@ export default function JabatanImportModal({ isOpen, onClose, onImport, isSubmit
   }
 
   return (
-    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="impor-jabatan-title">
-      <div className="ui-modal my-8 w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
+    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-labelledby="impor-jabatan-title">
+      <div className="ui-modal my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100 bg-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
           <div className="flex items-center space-x-3">
             <div className="p-2.5 rounded-xl bg-emerald-50 text-[#054e3b] font-bold">
               <FaFileImport className="w-5 h-5" />
             </div>
             <div>
-              <h3 id="impor-jabatan-title" className="text-xl font-black text-slate-800">
+              <h3 id="impor-jabatan-title" className="text-lg font-bold text-slate-900 dark:text-white">
                 Impor Data Jabatan
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -112,16 +112,16 @@ export default function JabatanImportModal({ isOpen, onClose, onImport, isSubmit
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
             title="Tutup impor jabatan"
             aria-label="Tutup impor jabatan"
           >
-            <FaTimes className="w-4 h-4" />
+            <FaTimes className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="p-7 space-y-5">
+        <form onSubmit={handleSubmit} className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
           {/* Template Download Option */}
           <div className="flex items-center justify-between p-4 bg-[#f8fafc] rounded-2xl border border-slate-200/90 text-xs">
             <div>
@@ -172,7 +172,7 @@ export default function JabatanImportModal({ isOpen, onClose, onImport, isSubmit
           )}
 
           {/* Footer Bar (Persis UI UX Referensi) */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+          <div className="sticky bottom-0 -mx-5 -mb-5 flex items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433] sm:-mx-6 sm:-mb-6 sm:px-6">
             <button
               type="button"
               onClick={onClose}

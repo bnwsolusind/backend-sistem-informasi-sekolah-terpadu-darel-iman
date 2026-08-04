@@ -27,11 +27,11 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
             'waliKelas',
         ]);
 
-        if (!empty($filters['with_trashed'])) {
+        if (! empty($filters['with_trashed'])) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->whereHas('siswa', function ($qSiswa) use ($search) {
@@ -39,29 +39,29 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
                         ->orWhere('nisn', 'like', "%{$search}%")
                         ->orWhere('nis', 'like', "%{$search}%");
                 })
-                ->orWhereHas('kelas', function ($qKelas) use ($search) {
-                    $qKelas->where('nama_kelas', 'like', "%{$search}%");
-                });
+                    ->orWhereHas('kelas', function ($qKelas) use ($search) {
+                        $qKelas->where('nama_kelas', 'like', "%{$search}%");
+                    });
             });
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
 
-        if (!empty($filters['tahun_ajaran_id'])) {
+        if (! empty($filters['tahun_ajaran_id'])) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);
         }
 
-        if (!empty($filters['status_rapor'])) {
+        if (! empty($filters['status_rapor'])) {
             $query->where('status_rapor', $filters['status_rapor']);
         }
 
-        if (!empty($filters['siswa_id'])) {
+        if (! empty($filters['siswa_id'])) {
             $query->where('siswa_id', $filters['siswa_id']);
         }
 
@@ -94,10 +94,10 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
             'tahunAjaran',
             'waliKelas',
         ])
-        ->where('siswa_id', $siswaId)
-        ->where('semester_id', $semesterId)
-        ->where('tahun_ajaran_id', $tahunAjaranId)
-        ->first();
+            ->where('siswa_id', $siswaId)
+            ->where('semester_id', $semesterId)
+            ->where('tahun_ajaran_id', $tahunAjaranId)
+            ->first();
     }
 
     public function create(array $data): LmsRapor
@@ -108,11 +108,12 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
     public function update(string $id, array $data): ?LmsRapor
     {
         $rapor = $this->findById($id);
-        if (!$rapor) {
+        if (! $rapor) {
             return null;
         }
 
         $rapor->update($data);
+
         return $rapor->fresh([
             'siswa',
             'kelas',
@@ -125,7 +126,7 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
     public function delete(string $id): bool
     {
         $rapor = $this->findById($id);
-        if (!$rapor) {
+        if (! $rapor) {
             return false;
         }
 
@@ -135,7 +136,7 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
     public function restore(string $id): bool
     {
         $rapor = LmsRapor::withTrashed()->find($id);
-        if (!$rapor || !$rapor->trashed()) {
+        if (! $rapor || ! $rapor->trashed()) {
             return false;
         }
 
@@ -163,9 +164,9 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
         // Query Presensi Kehadiran
         $presensiQuery = LmsPresensi::where('siswa_id', $siswaId)
             ->where('semester_id', $semesterId);
-        
+
         $totalHadir = (clone $presensiQuery)->where('status_hadir', 'hadir')->count();
-        $totalIzin  = (clone $presensiQuery)->where('status_hadir', 'izin')->count();
+        $totalIzin = (clone $presensiQuery)->where('status_hadir', 'izin')->count();
         $totalSakit = (clone $presensiQuery)->where('status_hadir', 'sakit')->count();
         $totalAlpha = (clone $presensiQuery)->where('status_hadir', 'alpa')->count();
         $totalHariEfektif = $totalHadir + $totalIzin + $totalSakit + $totalAlpha;
@@ -251,13 +252,13 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
     {
         $query = LmsRapor::query();
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
-        if (!empty($filters['tahun_ajaran_id'])) {
+        if (! empty($filters['tahun_ajaran_id'])) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);
         }
 

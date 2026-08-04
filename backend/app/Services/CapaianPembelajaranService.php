@@ -31,7 +31,7 @@ class CapaianPembelajaranService
 
     public function simpan(array $data): CapaianPembelajaran
     {
-        if (!isset($data['status'])) {
+        if (! isset($data['status'])) {
             $data['status'] = true;
         }
 
@@ -52,7 +52,7 @@ class CapaianPembelajaranService
     public function ubah(string $id, array $data): ?CapaianPembelajaran
     {
         $existing = $this->cpRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 

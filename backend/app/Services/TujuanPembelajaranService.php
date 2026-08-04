@@ -8,6 +8,7 @@ use App\Repositories\Contracts\TujuanPembelajaranRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TujuanPembelajaranService
@@ -40,13 +41,13 @@ class TujuanPembelajaranService
         }
 
         $cp = CapaianPembelajaran::with(['subject', 'unitPendidikan'])->find($data['cp_id']);
-        if (!$cp) {
+        if (! $cp) {
             throw ValidationException::withMessages([
                 'cp_id' => ['Capaian Pembelajaran (CP) tidak ditemukan.'],
             ]);
         }
 
-        if (!$cp->status) {
+        if (! $cp->status) {
             throw ValidationException::withMessages([
                 'cp_id' => ['Tujuan Pembelajaran tidak dapat dibuat karena Capaian Pembelajaran (CP) yang dipilih berstatus tidak aktif.'],
             ]);
@@ -67,11 +68,11 @@ class TujuanPembelajaranService
             $data['deskripsi'] = $data['deskripsi_tp'];
         }
 
-        if (empty($data['nama_tp']) && !empty($data['deskripsi'])) {
-            $data['nama_tp'] = \Illuminate\Support\Str::limit($data['deskripsi'], 240);
+        if (empty($data['nama_tp']) && ! empty($data['deskripsi'])) {
+            $data['nama_tp'] = Str::limit($data['deskripsi'], 240);
         }
 
-        if (!isset($data['status'])) {
+        if (! isset($data['status'])) {
             $data['status'] = true;
         }
 
@@ -92,18 +93,18 @@ class TujuanPembelajaranService
     public function ubah(string $id, array $data): ?TujuanPembelajaran
     {
         $existing = $this->tpRepository->findById($id);
-        if (!$existing) {
+        if (! $existing) {
             return null;
         }
 
-        if (!empty($data['cp_id'])) {
+        if (! empty($data['cp_id'])) {
             $cp = CapaianPembelajaran::find($data['cp_id']);
-            if (!$cp) {
+            if (! $cp) {
                 throw ValidationException::withMessages([
                     'cp_id' => ['Capaian Pembelajaran (CP) tidak ditemukan.'],
                 ]);
             }
-            if (!$cp->status) {
+            if (! $cp->status) {
                 throw ValidationException::withMessages([
                     'cp_id' => ['Tujuan Pembelajaran tidak dapat diubah ke Capaian Pembelajaran (CP) yang berstatus tidak aktif.'],
                 ]);
@@ -113,7 +114,7 @@ class TujuanPembelajaranService
         if (isset($data['deskripsi_tp'])) {
             $data['deskripsi'] = $data['deskripsi_tp'];
             if (empty($data['nama_tp'])) {
-                $data['nama_tp'] = \Illuminate\Support\Str::limit($data['deskripsi_tp'], 240);
+                $data['nama_tp'] = Str::limit($data['deskripsi_tp'], 240);
             }
         }
 

@@ -50,7 +50,7 @@ class LmsMediaController extends Controller
     {
         $media = $this->mediaService->cariBerdasarkanId($id);
 
-        if (!$media) {
+        if (! $media) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Media Pembelajaran tidak ditemukan.',
@@ -85,7 +85,7 @@ class LmsMediaController extends Controller
 
         $media = $this->mediaService->ubah($id, $data, $file);
 
-        if (!$media) {
+        if (! $media) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Media Pembelajaran tidak ditemukan.',
@@ -103,7 +103,7 @@ class LmsMediaController extends Controller
     {
         $berhasil = $this->mediaService->hapus($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus Media Pembelajaran atau data tidak ditemukan.',

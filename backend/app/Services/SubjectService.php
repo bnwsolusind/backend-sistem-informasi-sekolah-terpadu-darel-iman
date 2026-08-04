@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Repositories\Contracts\SubjectRepositoryInterface;
 use App\Models\Subject;
+use App\Repositories\Contracts\SubjectRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
@@ -40,6 +40,7 @@ class SubjectService
     public function simpan(array $data): Subject
     {
         Log::info('Membuat mata pelajaran baru', ['code' => $data['code'] ?? null, 'name' => $data['name'] ?? null]);
+
         return $this->subjectRepository->create($data);
     }
 
@@ -49,6 +50,7 @@ class SubjectService
     public function ubah(string $id, array $data): ?Subject
     {
         Log::info("Memperbarui mata pelajaran ID: {$id}", $data);
+
         return $this->subjectRepository->update($id, $data);
     }
 
@@ -58,6 +60,7 @@ class SubjectService
     public function hapus(string $id): bool
     {
         Log::info("Menghapus mata pelajaran ID: {$id}");
+
         return $this->subjectRepository->delete($id);
     }
 
@@ -67,6 +70,7 @@ class SubjectService
     public function pulihkan(string $id): bool
     {
         Log::info("Memulihkan mata pelajaran ID: {$id}");
+
         return $this->subjectRepository->restore($id);
     }
 
@@ -92,6 +96,7 @@ class SubjectService
     public function ubahStatusMassal(array $ids, bool $status): int
     {
         Log::info('Memperbarui status mata pelajaran secara massal', ['ids' => $ids, 'status' => $status]);
+
         return $this->subjectRepository->bulkStatusUpdate($ids, $status);
     }
 
@@ -101,6 +106,7 @@ class SubjectService
     public function hapusMassal(array $ids): int
     {
         Log::info('Menghapus data mata pelajaran secara massal', ['ids' => $ids]);
+
         return $this->subjectRepository->bulkDelete($ids);
     }
 

@@ -6,8 +6,6 @@ use App\Models\LmsModulAjar;
 use App\Models\LmsModulAjarRevision;
 use App\Repositories\Contracts\LmsModulAjarRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 
 class LmsModulAjarRepository implements LmsModulAjarRepositoryInterface
 {
@@ -29,58 +27,58 @@ class LmsModulAjarRepository implements LmsModulAjarRepositoryInterface
             'creator',
         ]);
 
-        if (!empty($filters['dengan_sampah'])) {
+        if (! empty($filters['dengan_sampah'])) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['search'])) {
-            $s = '%' . strtolower($filters['search']) . '%';
+        if (! empty($filters['search'])) {
+            $s = '%'.strtolower($filters['search']).'%';
             $query->where(function ($q) use ($s) {
                 $q->whereRaw('LOWER(judul_modul) LIKE ?', [$s])
-                  ->orWhereRaw('LOWER(kode_modul) LIKE ?', [$s])
-                  ->orWhereRaw('LOWER(tujuan_pembelajaran) LIKE ?', [$s])
-                  ->orWhereRaw('LOWER(fase) LIKE ?', [$s]);
+                    ->orWhereRaw('LOWER(kode_modul) LIKE ?', [$s])
+                    ->orWhereRaw('LOWER(tujuan_pembelajaran) LIKE ?', [$s])
+                    ->orWhereRaw('LOWER(fase) LIKE ?', [$s]);
             });
         }
 
-        if (!empty($filters['unit_pendidikan_id'])) {
+        if (! empty($filters['unit_pendidikan_id'])) {
             $query->where('unit_pendidikan_id', $filters['unit_pendidikan_id']);
         }
 
-        if (!empty($filters['tahun_ajaran_id'])) {
+        if (! empty($filters['tahun_ajaran_id'])) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);
         }
 
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
 
-        if (!empty($filters['kurikulum_id'])) {
+        if (! empty($filters['kurikulum_id'])) {
             $query->where('kurikulum_id', $filters['kurikulum_id']);
         }
 
-        if (!empty($filters['mata_pelajaran_id'])) {
+        if (! empty($filters['mata_pelajaran_id'])) {
             $query->where('mata_pelajaran_id', $filters['mata_pelajaran_id']);
         }
 
-        if (!empty($filters['guru_id'])) {
+        if (! empty($filters['guru_id'])) {
             $query->where('guru_id', $filters['guru_id']);
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
-        if (!empty($filters['fase'])) {
+        if (! empty($filters['fase'])) {
             $query->where('fase', $filters['fase']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
         $allowedSorts = ['kode_modul', 'judul_modul', 'fase', 'status', 'versi', 'created_at'];
-        if (!in_array($orderBy, $allowedSorts)) {
+        if (! in_array($orderBy, $allowedSorts)) {
             $orderBy = 'created_at';
         }
 
@@ -122,14 +120,14 @@ class LmsModulAjarRepository implements LmsModulAjarRepositoryInterface
 
         $modul = LmsModulAjar::create($data);
 
-        if (!empty($cpIds)) {
+        if (! empty($cpIds)) {
             $modul->cps()->sync($cpIds);
         }
-        if (!empty($tpIds)) {
+        if (! empty($tpIds)) {
             $modul->tps()->sync($tpIds);
         }
 
-        $this->createRevision($modul, 'Inisiasi pembuatan Modul Ajar baru (v' . ($modul->versi ?? '1.0') . ')');
+        $this->createRevision($modul, 'Inisiasi pembuatan Modul Ajar baru (v'.($modul->versi ?? '1.0').')');
 
         return $this->findById($modul->id);
     }
@@ -137,7 +135,7 @@ class LmsModulAjarRepository implements LmsModulAjarRepositoryInterface
     public function update(string $id, array $data): ?LmsModulAjar
     {
         $modul = LmsModulAjar::find($id);
-        if (!$modul) {
+        if (! $modul) {
             return null;
         }
 
@@ -167,6 +165,7 @@ class LmsModulAjarRepository implements LmsModulAjarRepositoryInterface
         if ($modul) {
             return (bool) $modul->delete();
         }
+
         return false;
     }
 
@@ -176,6 +175,7 @@ class LmsModulAjarRepository implements LmsModulAjarRepositoryInterface
         if ($modul) {
             return (bool) $modul->restore();
         }
+
         return false;
     }
 

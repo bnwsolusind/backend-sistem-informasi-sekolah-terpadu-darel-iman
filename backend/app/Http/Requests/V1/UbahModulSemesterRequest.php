@@ -22,8 +22,8 @@ class UbahModulSemesterRequest extends FormRequest
             'kelas_id' => ['required', 'uuid', 'exists:tbl_kelas,id'],
             'mata_pelajaran_id' => ['required', 'uuid', 'exists:subjects,id'],
             'guru_id' => ['required', 'uuid', 'exists:employees,id'],
-            
-            'kode_modul' => ['required', 'string', 'max:50', 'unique:modul_semesters,kode_modul,' . $id],
+
+            'kode_modul' => ['required', 'string', 'max:50', 'unique:modul_semesters,kode_modul,'.$id],
             'nama_modul' => ['required', 'string', 'max:150'],
             'jenjang' => ['nullable', 'string', 'max:50'],
             'kurikulum' => ['nullable', 'string', 'max:100'],

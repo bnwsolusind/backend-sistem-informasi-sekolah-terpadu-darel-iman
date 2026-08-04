@@ -13,7 +13,7 @@ class LmsReferensiResource extends JsonResource
         if ($this->file) {
             $fileUrl = str_starts_with($this->file, 'http')
                 ? $this->file
-                : asset('storage/' . $this->file);
+                : asset('storage/'.$this->file);
         }
 
         return [

@@ -88,7 +88,7 @@ class ModulSemesterController extends Controller
     {
         $modul = $this->modulSemesterService->cariBerdasarkanId($id);
 
-        if (!$modul) {
+        if (! $modul) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data Master Modul Semester tidak ditemukan.',
@@ -117,7 +117,7 @@ class ModulSemesterController extends Controller
     {
         $berhasil = $this->modulSemesterService->hapus($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus data modul semester.',
@@ -134,7 +134,7 @@ class ModulSemesterController extends Controller
     {
         $berhasil = $this->modulSemesterService->pulihkan($id);
 
-        if (!$berhasil) {
+        if (! $berhasil) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan data modul semester.',

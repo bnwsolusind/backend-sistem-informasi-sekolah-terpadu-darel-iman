@@ -11,7 +11,7 @@ class LmsBankSoalSeeder extends Seeder
     public function run(): void
     {
         $kisi = LmsKisiKisi::first();
-        if (!$kisi) {
+        if (! $kisi) {
             return;
         }
 

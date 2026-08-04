@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\LmsPresensiBulkRequest;
 use App\Http\Requests\V1\LmsPresensiRequest;
 use App\Http\Resources\V1\LmsPresensiResource;
-use App\Services\LmsPresensiService;
 use App\Services\AttendanceAccessService;
+use App\Services\LmsPresensiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -35,9 +35,9 @@ class LmsPresensiController extends Controller
         $user = $request->user();
         if ($user->hasRole('Siswa')) {
             $filters['siswa_id'] = $this->access->student($user)?->id ?? '__none__';
-        } elseif ($user->hasRole('Wali Kelas') && !$user->hasRole('Super Admin')) {
+        } elseif ($user->hasRole('Wali Kelas') && ! $user->hasRole('Super Admin')) {
             $filters['class_ids'] = $this->access->homeroomClasses($user)->pluck('id')->all();
-        } elseif ($user->hasRole('Guru') && !$user->hasRole('Super Admin')) {
+        } elseif ($user->hasRole('Guru') && ! $user->hasRole('Super Admin')) {
             $filters['employee_id'] = $this->access->employee($user)?->id ?? '__none__';
         }
         $perPage = (int) $request->get('per_page', 15);
@@ -51,7 +51,7 @@ class LmsPresensiController extends Controller
 
     public function store(LmsPresensiRequest $request): JsonResponse
     {
-        abort_unless($request->user()->hasAnyPermission(['lesson_attendance.create']) || $request->user()->hasAnyRole(['Guru','Super Admin']), 403);
+        abort_unless($request->user()->hasAnyPermission(['lesson_attendance.create']) || $request->user()->hasAnyRole(['Guru', 'Super Admin']), 403);
         $schedule = $this->access->assertTeacherOwnsSchedule($request->user(), $request->validated('jadwal_pelajaran_id'));
         $this->access->assertStudentInSchedule($schedule, $request->validated('siswa_id'));
         $presensi = $this->service->simpan($request->validated());
@@ -59,13 +59,13 @@ class LmsPresensiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Presensi pembelajaran berhasil disimpan.',
-            'data'    => new LmsPresensiResource($presensi->load(['jadwalPelajaran.subject', 'jadwalPelajaran.kelas', 'siswa'])),
+            'data' => new LmsPresensiResource($presensi->load(['jadwalPelajaran.subject', 'jadwalPelajaran.kelas', 'siswa'])),
         ], 201);
     }
 
     public function bulkStore(LmsPresensiBulkRequest $request): JsonResponse
     {
-        abort_unless($request->user()->hasAnyPermission(['lesson_attendance.create']) || $request->user()->hasAnyRole(['Guru','Super Admin']), 403);
+        abort_unless($request->user()->hasAnyPermission(['lesson_attendance.create']) || $request->user()->hasAnyRole(['Guru', 'Super Admin']), 403);
         $validated = $request->validated();
         $jadwalPelajaranId = $validated['jadwal_pelajaran_id'];
         $tanggal = $validated['tanggal'];
@@ -81,7 +81,7 @@ class LmsPresensiController extends Controller
         return response()->json([
             'success' => true,
             'message' => sprintf('Berhasil mencatat presensi untuk %d siswa.', $results->count()),
-            'data'    => LmsPresensiResource::collection($results),
+            'data' => LmsPresensiResource::collection($results),
         ], 200);
     }
 
@@ -89,7 +89,7 @@ class LmsPresensiController extends Controller
     {
         $presensi = $this->service->cariBerdasarkanId($id);
 
-        if (!$presensi) {
+        if (! $presensi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Data presensi tidak ditemukan.',
@@ -99,19 +99,19 @@ class LmsPresensiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => new LmsPresensiResource($presensi),
+            'data' => new LmsPresensiResource($presensi),
         ]);
     }
 
     public function update(LmsPresensiRequest $request, string $id): JsonResponse
     {
-        abort_unless($request->user()->hasAnyPermission(['lesson_attendance.update']) || $request->user()->hasAnyRole(['Guru','Super Admin']), 403);
+        abort_unless($request->user()->hasAnyPermission(['lesson_attendance.update']) || $request->user()->hasAnyRole(['Guru', 'Super Admin']), 403);
         $existing = $this->service->cariBerdasarkanId($id);
         abort_unless($existing && $this->access->canAccessAttendance($request->user(), $existing), 403);
         abort_if(in_array($existing->session?->status, ['final', 'locked']), 422, 'Presensi final atau terkunci hanya dapat diubah melalui koreksi.');
         $presensi = $this->service->ubah($id, $request->validated());
 
-        if (!$presensi) {
+        if (! $presensi) {
             return response()->json([
                 'success' => false,
                 'message' => 'Data presensi tidak ditemukan atau gagal diperbarui.',
@@ -121,19 +121,19 @@ class LmsPresensiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Data presensi berhasil diperbarui.',
-            'data'    => new LmsPresensiResource($presensi),
+            'data' => new LmsPresensiResource($presensi),
         ]);
     }
 
     public function destroy(string $id): JsonResponse
     {
-        abort_unless(request()->user()->hasAnyPermission(['lesson_attendance.update']) || request()->user()->hasAnyRole(['Guru','Super Admin']), 403);
+        abort_unless(request()->user()->hasAnyPermission(['lesson_attendance.update']) || request()->user()->hasAnyRole(['Guru', 'Super Admin']), 403);
         $existing = $this->service->cariBerdasarkanId($id);
         abort_unless($existing && $this->access->canAccessAttendance(request()->user(), $existing), 403);
         abort_if(in_array($existing->session?->status, ['final', 'locked']), 422, 'Presensi final atau terkunci tidak dapat dibatalkan langsung.');
         $deleted = $this->service->hapus($id);
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'success' => false,
                 'message' => 'Data presensi tidak ditemukan atau gagal dihapus.',
@@ -151,7 +151,7 @@ class LmsPresensiController extends Controller
         abort_unless(request()->user()->hasAnyPermission(['lesson_attendance.unlock']) || request()->user()->hasRole('Super Admin'), 403);
         $restored = $this->service->pulihkan($id);
 
-        if (!$restored) {
+        if (! $restored) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memulihkan data presensi.',
@@ -166,11 +166,11 @@ class LmsPresensiController extends Controller
 
     public function stats(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasAnyRole(['Guru','Super Admin']), 403);
+        abort_unless($request->user()->hasAnyRole(['Guru', 'Super Admin']), 403);
         $filters = $request->only(['jadwal_pelajaran_id', 'tanggal']);
         if ($request->user()->hasRole('Guru') && ! $request->user()->hasRole('Super Admin')) {
             abort_unless(
-                !empty($filters['jadwal_pelajaran_id'])
+                ! empty($filters['jadwal_pelajaran_id'])
                 && $this->access->teacherSchedules($request->user())->whereKey($filters['jadwal_pelajaran_id'])->exists(),
                 403
             );
@@ -179,7 +179,7 @@ class LmsPresensiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $stats,
+            'data' => $stats,
         ]);
     }
 
@@ -190,7 +190,7 @@ class LmsPresensiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $options,
+            'data' => $options,
         ]);
     }
 }

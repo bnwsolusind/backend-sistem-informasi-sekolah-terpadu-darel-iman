@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class HakAksesController extends Controller
 {
@@ -32,21 +33,21 @@ class HakAksesController extends Controller
             $query->where('name', 'ilike', "%{$search}%");
         }
 
-        $roles = $query->get()->map(fn($r) => [
-            'id'               => $r->id,
-            'name'             => $r->name,
-            'guard_name'       => $r->guard_name,
-            'jumlah_izin'      => $r->permissions_count,
-            'jumlah_pengguna'  => $r->users_count,
-            'permissions'      => $r->permissions->pluck('name'),
-            'created_at'       => $r->created_at,
-            'updated_at'       => $r->updated_at,
+        $roles = $query->get()->map(fn ($r) => [
+            'id' => $r->id,
+            'name' => $r->name,
+            'guard_name' => $r->guard_name,
+            'jumlah_izin' => $r->permissions_count,
+            'jumlah_pengguna' => $r->users_count,
+            'permissions' => $r->permissions->pluck('name'),
+            'created_at' => $r->created_at,
+            'updated_at' => $r->updated_at,
         ]);
 
         return response()->json([
             'success' => true,
-            'data'    => $roles,
-            'total'   => $roles->count(),
+            'data' => $roles,
+            'total' => $roles->count(),
         ]);
     }
 
@@ -56,20 +57,20 @@ class HakAksesController extends Controller
     public function storeRole(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'           => ['required', 'string', 'min:2', 'max:100', 'unique:roles,name'],
-            'guard_name'     => ['nullable', 'string', 'max:50'],
-            'permissions'    => ['nullable', 'array'],
-            'permissions.*'  => ['string', 'exists:permissions,name'],
+            'name' => ['required', 'string', 'min:2', 'max:100', 'unique:roles,name'],
+            'guard_name' => ['nullable', 'string', 'max:50'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', 'exists:permissions,name'],
         ]);
 
         try {
             $role = DB::transaction(function () use ($validated) {
                 $role = Role::create([
-                    'name'       => $validated['name'],
+                    'name' => $validated['name'],
                     'guard_name' => $validated['guard_name'] ?? 'web',
                 ]);
 
-                if (!empty($validated['permissions'])) {
+                if (! empty($validated['permissions'])) {
                     $role->syncPermissions($validated['permissions']);
                 }
 
@@ -79,12 +80,12 @@ class HakAksesController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => "Role '{$role->name}' berhasil ditambahkan.",
-                'data'    => $role->load('permissions'),
+                'data' => $role->load('permissions'),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan role: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan role: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -98,13 +99,13 @@ class HakAksesController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => [
-                'id'          => $role->id,
-                'name'        => $role->name,
-                'guard_name'  => $role->guard_name,
+            'data' => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'guard_name' => $role->guard_name,
                 'permissions' => $role->permissions->pluck('name'),
-                'created_at'  => $role->created_at,
-                'updated_at'  => $role->updated_at,
+                'created_at' => $role->created_at,
+                'updated_at' => $role->updated_at,
             ],
         ]);
     }
@@ -117,16 +118,16 @@ class HakAksesController extends Controller
         $role = Role::findOrFail($id);
 
         $validated = $request->validate([
-            'name'           => ['required', 'string', 'min:2', 'max:100', Rule::unique('roles', 'name')->ignore($role->id)],
-            'guard_name'     => ['nullable', 'string', 'max:50'],
-            'permissions'    => ['nullable', 'array'],
-            'permissions.*'  => ['string', 'exists:permissions,name'],
+            'name' => ['required', 'string', 'min:2', 'max:100', Rule::unique('roles', 'name')->ignore($role->id)],
+            'guard_name' => ['nullable', 'string', 'max:50'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', 'exists:permissions,name'],
         ]);
 
         try {
             DB::transaction(function () use ($role, $validated) {
                 $role->update([
-                    'name'       => $validated['name'],
+                    'name' => $validated['name'],
                     'guard_name' => $validated['guard_name'] ?? $role->guard_name,
                 ]);
 
@@ -136,12 +137,12 @@ class HakAksesController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => "Role '{$role->name}' berhasil diperbarui.",
-                'data'    => $role->fresh()->load('permissions'),
+                'data' => $role->fresh()->load('permissions'),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal memperbarui role: ' . $e->getMessage(),
+                'message' => 'Gagal memperbarui role: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -189,23 +190,23 @@ class HakAksesController extends Controller
         $permissions = $query->get();
 
         // Kelompokkan berdasarkan prefix modul (sebelum titik)
-        $grouped = $permissions->groupBy(fn($p) => explode('.', $p->name)[0] ?? 'lainnya')
-            ->map(fn($items, $modul) => [
-                'modul'  => $modul,
-                'total'  => $items->count(),
-                'izin'   => $items->map(fn($p) => [
-                    'id'         => $p->id,
-                    'name'       => $p->name,
+        $grouped = $permissions->groupBy(fn ($p) => explode('.', $p->name)[0] ?? 'lainnya')
+            ->map(fn ($items, $modul) => [
+                'modul' => $modul,
+                'total' => $items->count(),
+                'izin' => $items->map(fn ($p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
                     'guard_name' => $p->guard_name,
                 ]),
             ])
             ->values();
 
         return response()->json([
-            'success'    => true,
-            'data'       => $grouped,
-            'total'      => $permissions->count(),
-            'flat_list'  => $permissions->pluck('name'),
+            'success' => true,
+            'data' => $grouped,
+            'total' => $permissions->count(),
+            'flat_list' => $permissions->pluck('name'),
         ]);
     }
 
@@ -215,25 +216,25 @@ class HakAksesController extends Controller
     public function storePermission(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'       => ['required', 'string', 'min:2', 'max:150', 'unique:permissions,name'],
+            'name' => ['required', 'string', 'min:2', 'max:150', 'unique:permissions,name'],
             'guard_name' => ['nullable', 'string', 'max:50'],
         ]);
 
         try {
             $permission = Permission::create([
-                'name'       => $validated['name'],
+                'name' => $validated['name'],
                 'guard_name' => $validated['guard_name'] ?? 'web',
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => "Izin akses '{$permission->name}' berhasil ditambahkan.",
-                'data'    => $permission,
+                'data' => $permission,
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menyimpan permission: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan permission: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -260,11 +261,11 @@ class HakAksesController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data'    => [
-                'total_role'        => Role::count(),
-                'total_permission'  => Permission::count(),
-                'total_modul'       => Permission::get()->groupBy(fn($p) => explode('.', $p->name)[0])->count(),
-                'role_tanpa_user'   => Role::withCount('users')->get()->filter(fn($r) => $r->users_count === 0)->count(),
+            'data' => [
+                'total_role' => Role::count(),
+                'total_permission' => Permission::count(),
+                'total_modul' => Permission::get()->groupBy(fn ($p) => explode('.', $p->name)[0])->count(),
+                'role_tanpa_user' => Role::withCount('users')->get()->filter(fn ($r) => $r->users_count === 0)->count(),
             ],
         ]);
     }
@@ -288,9 +289,9 @@ class HakAksesController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('nama_lengkap', 'ilike', "%{$search}%")
-                  ->orWhere('niy', 'ilike', "%{$search}%")
-                  ->orWhere('nik', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%");
+                    ->orWhere('niy', 'ilike', "%{$search}%")
+                    ->orWhere('nik', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%");
             });
         }
 
@@ -316,40 +317,40 @@ class HakAksesController extends Controller
             $allPermissions = $user ? $user->getAllPermissions()->pluck('name') : collect([]);
 
             return [
-                'id'                 => $emp->id,
-                'niy'                => $emp->niy,
-                'nik'                => $emp->nik,
-                'nama_lengkap'       => $emp->nama_lengkap,
-                'email'              => $emp->email,
-                'no_hp'              => $emp->no_hp,
-                'unit'               => $emp->unit ? [
-                    'id'   => $emp->unit->id,
+                'id' => $emp->id,
+                'niy' => $emp->niy,
+                'nik' => $emp->nik,
+                'nama_lengkap' => $emp->nama_lengkap,
+                'email' => $emp->email,
+                'no_hp' => $emp->no_hp,
+                'unit' => $emp->unit ? [
+                    'id' => $emp->unit->id,
                     'nama' => $emp->unit->nama_unit ?? $emp->unit->name ?? '-',
                 ] : null,
-                'position'           => $emp->position ? [
-                    'id'   => $emp->position->id,
+                'position' => $emp->position ? [
+                    'id' => $emp->position->id,
                     'nama' => $emp->position->name ?? $emp->position->nama_jabatan ?? '-',
                 ] : null,
-                'user_id'            => $emp->user_id,
-                'has_user'           => (bool) $user,
-                'user_email'         => $user ? $user->email : null,
-                'roles'              => $roles,
-                'primary_role'       => $roles->first() ?? 'Belum Ada Role',
+                'user_id' => $emp->user_id,
+                'has_user' => (bool) $user,
+                'user_email' => $user ? $user->email : null,
+                'roles' => $roles,
+                'primary_role' => $roles->first() ?? 'Belum Ada Role',
                 'direct_permissions' => $directPermissions,
-                'all_permissions'    => $allPermissions,
-                'status_pegawai'     => $emp->status_pegawai,
-                'status'             => $emp->status,
+                'all_permissions' => $allPermissions,
+                'status_pegawai' => $emp->status_pegawai,
+                'status' => $emp->status,
             ];
         });
 
         return response()->json([
             'success' => true,
-            'data'    => $mappedData,
-            'meta'    => [
+            'data' => $mappedData,
+            'meta' => [
                 'current_page' => $pegawai->currentPage(),
-                'last_page'    => $pegawai->lastPage(),
-                'per_page'     => $pegawai->perPage(),
-                'total'        => $pegawai->total(),
+                'last_page' => $pegawai->lastPage(),
+                'per_page' => $pegawai->perPage(),
+                'total' => $pegawai->total(),
             ],
         ]);
     }
@@ -360,10 +361,10 @@ class HakAksesController extends Controller
     public function assignPegawaiRole(Request $request, string $employeeId): JsonResponse
     {
         $validated = $request->validate([
-            'role_name'     => ['required', 'string', 'exists:roles,name'],
-            'permissions'   => ['nullable', 'array'],
+            'role_name' => ['required', 'string', 'exists:roles,name'],
+            'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string', 'exists:permissions,name'],
-            'password'      => ['nullable', 'string', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->letters()->numbers()->symbols()],
+            'password' => ['nullable', 'string', Password::min(8)->mixedCase()->letters()->numbers()->symbols()],
         ]);
 
         $employee = Employee::findOrFail($employeeId);
@@ -372,15 +373,15 @@ class HakAksesController extends Controller
             DB::transaction(function () use ($employee, $validated) {
                 // Tentukan atau buat akun User jika belum terhubung
                 $user = $employee->user;
-                if (!$user) {
-                    $email = $employee->email ?: strtolower($employee->niy ?: $employee->id) . '@sims.local';
+                if (! $user) {
+                    $email = $employee->email ?: strtolower($employee->niy ?: $employee->id).'@sims.local';
                     $user = User::create([
-                        'name'      => $employee->nama_lengkap,
-                        'email'     => $email,
-                        'password'  => $validated['password'] ?? 'AkunBaru@2026!',
-                        'phone'     => $employee->no_hp,
+                        'name' => $employee->nama_lengkap,
+                        'email' => $email,
+                        'password' => $validated['password'] ?? 'AkunBaru@2026!',
+                        'phone' => $employee->no_hp,
                         'is_active' => true,
-                        'metadata'  => ['must_change_password' => true, 'created_by' => 'employee_access_module'],
+                        'metadata' => ['must_change_password' => true, 'created_by' => 'employee_access_module'],
                     ]);
 
                     $employee->user_id = $user->id;
@@ -407,7 +408,7 @@ class HakAksesController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal memperbarui hak akses pegawai: ' . $e->getMessage(),
+                'message' => 'Gagal memperbarui hak akses pegawai: '.$e->getMessage(),
             ], 500);
         }
     }

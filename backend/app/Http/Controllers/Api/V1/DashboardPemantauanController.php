@@ -164,6 +164,7 @@ class DashboardPemantauanController extends Controller
     public function detailPemantauanDivisi(Request $request, string $id): JsonResponse
     {
         $this->pastikanHakAkses($request);
+
         return response()->json(PemantauanDivisi::query()->findOrFail($id));
     }
 
@@ -174,6 +175,7 @@ class DashboardPemantauanController extends Controller
         $model = DB::transaction(function () use ($request, $id) {
             $model = PemantauanDivisi::query()->findOrFail($id);
             $model->update($request->validated());
+
             return $model->fresh();
         });
 
@@ -217,6 +219,7 @@ class DashboardPemantauanController extends Controller
     public function detailLaporanBulanan(Request $request, string $id): JsonResponse
     {
         $this->pastikanHakAkses($request);
+
         return response()->json(LaporanBulanan::query()->findOrFail($id));
     }
 
@@ -273,6 +276,7 @@ class DashboardPemantauanController extends Controller
     public function detailRekapPrestasiSiswa(Request $request, string $id): JsonResponse
     {
         $this->pastikanHakAkses($request);
+
         return response()->json(RekapPrestasiSiswa::query()->with('siswa:id,full_name,nis')->findOrFail($id));
     }
 
@@ -325,6 +329,7 @@ class DashboardPemantauanController extends Controller
     public function detailPengumumanSekolah(Request $request, string $id): JsonResponse
     {
         $this->pastikanHakAkses($request);
+
         return response()->json(PengumumanSekolah::query()->findOrFail($id));
     }
 
@@ -378,6 +383,7 @@ class DashboardPemantauanController extends Controller
     public function detailIndikatorKinerjaUtama(Request $request, string $id): JsonResponse
     {
         $this->pastikanHakAkses($request);
+
         return response()->json(IndikatorKinerjaUtama::query()->findOrFail($id));
     }
 

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class MasterKurikulum extends Model
 {
@@ -104,7 +105,7 @@ class MasterKurikulum extends Model
      */
     public function scopeFilter($query, array $filters)
     {
-        $likeOp = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+        $likeOp = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
         $query->when($filters['search'] ?? null, function ($q, $search) use ($likeOp) {
             $q->where(function ($sub) use ($search, $likeOp) {
                 $sub->where('kode_kurikulum', $likeOp, "%{$search}%")

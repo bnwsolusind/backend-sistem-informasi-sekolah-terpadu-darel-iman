@@ -9,6 +9,7 @@ import {
   FileInput,
   FileSpreadsheet,
   Filter,
+  Home,
   LoaderCircle,
   Pencil,
   Plus,
@@ -16,28 +17,64 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 
 export const masterStyles = {
-  card: 'rounded-[18px] border border-slate-200/80 bg-white shadow-[var(--shadow-soft-xl)]',
+  card: 'rounded-[var(--master-card-radius,18px)] border border-slate-200/80 bg-white shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]',
   control:
-    'h-12 rounded-[14px] border border-slate-200 bg-white text-xs font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 disabled:cursor-not-allowed disabled:opacity-50',
-  label: 'mb-1.5 block text-sm font-semibold text-slate-800',
+    'h-12 rounded-[var(--master-control-radius,14px)] border border-slate-200 bg-white text-xs font-semibold text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200',
+  label: 'mb-1.5 block text-sm font-semibold text-slate-800 dark:text-slate-100',
   error: 'mt-1.5 text-xs font-medium text-rose-600',
 }
 
-export function MasterDataPage({ children, className = '' }) {
-  return <div className={`master-data-page space-y-6 pb-12 ${className}`}>{children}</div>
+export function MasterDataPage({ children, className = '', hideBreadcrumb = false }) {
+  const location = useLocation()
+  const currentLabel = {
+    '/dashboard/students/unit-pendidikan': 'Unit Pendidikan',
+    '/dashboard/master-jenis-unit': 'Jenis Unit',
+    '/dashboard/master-tahun-ajaran': 'Tahun Ajaran',
+    '/dashboard/master-subjects': 'Mata Pelajaran',
+    '/dashboard/master-jabatan': 'Jabatan',
+    '/dashboard/employees': 'Pegawai',
+    '/dashboard/students': 'Siswa',
+  }[location.pathname] || 'Master Data'
+
+  return (
+    <div className={`master-data-page space-y-6 pb-12 ${className}`}>
+      {!hideBreadcrumb && (
+        <nav className="master-breadcrumb ui-enter" aria-label="Breadcrumb">
+          <Link to="/dashboard" aria-label="Kembali ke Dashboard"><Home aria-hidden="true" /></Link>
+          <ChevronRight aria-hidden="true" />
+          <span>Master Data</span>
+          <ChevronRight aria-hidden="true" />
+          <strong aria-current="page">{currentLabel}</strong>
+        </nav>
+      )}
+      {children}
+    </div>
+  )
 }
 
-export function MasterPageHeader({ title, description, actions }) {
+export function MasterPageHeader({ title, description, actions, tone = 'default', icon: Icon }) {
+  const isBrand = tone === 'brand'
   return (
-    <header className={`${masterStyles.card} master-page-header ui-enter p-6 md:p-8`}>
-      <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl">{title}</h1>
-          {description && <p className="mt-1.5 max-w-2xl text-xs text-slate-500">{description}</p>}
+    <header className={`${masterStyles.card} master-page-header ${isBrand ? 'master-page-header--brand' : ''} ui-enter relative overflow-hidden p-6 md:p-8`}>
+      {isBrand && (
+        <div className="master-page-header__visual" aria-hidden="true">
+          <span className="master-page-header__sun" />
+          <span className="master-page-header__tree master-page-header__tree--left" />
+          <span className="master-page-header__tree master-page-header__tree--right" />
+          <span className="master-page-header__building">
+            {Icon ? <Icon /> : <Database />}
+          </span>
         </div>
-        {actions && <MasterHeaderActions>{actions}</MasterHeaderActions>}
+      )}
+      <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+        <div className="relative z-10">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl dark:text-white">{title}</h1>
+          {description && <p className="mt-1.5 max-w-2xl text-sm text-slate-500 dark:text-slate-400">{description}</p>}
+        </div>
+        {actions && <div className="relative z-10"><MasterHeaderActions>{actions}</MasterHeaderActions></div>}
       </div>
     </header>
   )
@@ -68,8 +105,8 @@ export function MasterActionButton({ variant = 'primary', icon: CustomIcon, chil
   )
 }
 
-export function MasterStatsGrid({ children }) {
-  return <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">{children}</section>
+export function MasterStatsGrid({ children, className = '' }) {
+  return <section className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 ${className}`}>{children}</section>
 }
 
 const statVariants = {
@@ -163,7 +200,7 @@ export function MasterActionIconButton({ variant = 'view', icon: CustomIcon, lab
   const config = iconButtonVariants[variant] || iconButtonVariants.view
   const Icon = loading ? LoaderCircle : (CustomIcon || config.Icon)
   const title = label || config.label
-  return <button type="button" title={title} aria-label={title} className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition hover:scale-105 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-700/20 disabled:pointer-events-none disabled:opacity-50 ${config.className}`} {...props}><Icon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
+  return <button type="button" title={title} aria-label={title} className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border transition hover:scale-105 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-700/20 disabled:pointer-events-none disabled:opacity-50 ${config.className}`} {...props}><Icon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
 }
 
 export function MasterPagination({ meta = {}, page = 1, onPageChange, label = 'data' }) {

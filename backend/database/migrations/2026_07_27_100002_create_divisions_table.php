@@ -60,12 +60,12 @@ return new class extends Migration
                 ->pluck('nama_divisi');
 
             foreach ($namaUnik as $index => $nama) {
-                $code = 'DIV-' . str_pad($index + 1, 3, '0', STR_PAD_LEFT);
+                $code = 'DIV-'.str_pad($index + 1, 3, '0', STR_PAD_LEFT);
                 DB::table('divisions')->insert([
-                    'id'         => DB::raw('gen_random_uuid()'),
-                    'code'       => $code,
-                    'name'       => $nama,
-                    'is_active'  => true,
+                    'id' => DB::raw('gen_random_uuid()'),
+                    'code' => $code,
+                    'name' => $nama,
+                    'is_active' => true,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

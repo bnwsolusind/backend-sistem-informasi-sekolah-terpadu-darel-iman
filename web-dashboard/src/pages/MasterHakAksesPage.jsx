@@ -2,28 +2,43 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Swal from 'sweetalert2'
 import {
-  FaShieldAlt,
-  FaPlus,
-  FaSearch,
-  FaEdit,
-  FaTrash,
-  FaTimes,
-  FaLock,
-  FaKey,
-  FaUsers,
-  FaCheckCircle,
-  FaSave,
-  FaUserShield,
-  FaUserCheck,
-  FaUserTimes,
-  FaUserCog,
-  FaBuilding,
-  FaBriefcase,
-  FaArrowRight,
-  FaLayerGroup,
-} from 'react-icons/fa'
+  Shield,
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
+  X,
+  Lock,
+  Key,
+  Users,
+  CheckCircle,
+  Save,
+  UserCheck,
+  UserX,
+  UserCog,
+  Building,
+  Briefcase,
+  ArrowRight,
+  Layers,
+  ShieldCheck,
+} from 'lucide-react'
 import { hakAksesService } from '../services/hakAksesService'
 import UserAccountManagement from '../components/auth/UserAccountManagement'
+import {
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+  MasterFilterBar,
+  MasterSearchInput,
+  MasterFilterSelect,
+  MasterDataTable,
+  MasterBadge,
+  MasterStatusBadge,
+  MasterActionGroup,
+  MasterActionIconButton,
+  MasterPagination,
+} from '../components/master-data'
 
 // ─────────────────────────────────────────────────────────────────
 // MODAL ROLE FORM
@@ -82,7 +97,7 @@ function RoleFormModal({ isOpen, onClose, onSubmit, initialData = null, allPermi
             {isEdit ? 'Edit Role Akses' : 'Tambah Role Akses Baru'}
           </h2>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-            <FaTimes className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -122,7 +137,7 @@ function RoleFormModal({ isOpen, onClose, onSubmit, initialData = null, allPermi
                         <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
                           allModulSelected ? 'bg-[#054e3b] border-[#054e3b]' : someSelected ? 'bg-[#054e3b]/30 border-[#054e3b]' : 'border-slate-300'
                         }`}>
-                          {allModulSelected && <FaCheckCircle className="w-2.5 h-2.5 text-white" />}
+                          {allModulSelected && <CheckCircle className="w-2.5 h-2.5 text-white" />}
                         </div>
                         <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">{modul}</span>
                       </div>
@@ -160,7 +175,7 @@ function RoleFormModal({ isOpen, onClose, onSubmit, initialData = null, allPermi
               Batal
             </button>
             <button type="submit" disabled={isSubmitting} className="flex items-center gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-800/20 transition-all hover:bg-emerald-900 disabled:opacity-50">
-              <FaSave className="w-3.5 h-3.5" />
+              <Save className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Tambah Role'}</span>
             </button>
           </div>
@@ -196,7 +211,7 @@ function PermissionFormModal({ isOpen, onClose, onSubmit, isSubmitting = false }
         <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
           <h2 className="text-xl font-black text-[#0f172a]">Tambah Izin Akses Baru</h2>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 transition-colors">
-            <FaTimes className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -221,7 +236,7 @@ function PermissionFormModal({ isOpen, onClose, onSubmit, isSubmitting = false }
               Batal
             </button>
             <button type="submit" disabled={isSubmitting} className="flex items-center gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-800/20 transition-all hover:bg-emerald-900 disabled:opacity-50">
-              <FaKey className="w-3.5 h-3.5" />
+              <Key className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Menyimpan...' : 'Tambah Izin Akses'}</span>
             </button>
           </div>
@@ -289,7 +304,7 @@ function PegawaiRoleModal({ isOpen, onClose, onSubmit, employee = null, availabl
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-200 transition-colors">
-            <FaTimes className="w-4 h-4" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -298,7 +313,7 @@ function PegawaiRoleModal({ isOpen, onClose, onSubmit, employee = null, availabl
           <div className={`p-4 rounded-2xl border flex items-center justify-between ${employee.has_user ? 'bg-emerald-50/80 border-emerald-200' : 'bg-amber-50/80 border-amber-200'}`}>
             <div className="flex items-center gap-3">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${employee.has_user ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'}`}>
-                {employee.has_user ? <FaUserCheck className="w-4 h-4" /> : <FaUserTimes className="w-4 h-4" />}
+                {employee.has_user ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
               </div>
               <div>
                 <p className="text-xs font-bold text-slate-900">
@@ -381,7 +396,7 @@ function PegawaiRoleModal({ isOpen, onClose, onSubmit, employee = null, availabl
               Batal
             </button>
             <button type="submit" disabled={isSubmitting} className="flex items-center gap-1.5 rounded-xl bg-emerald-800 px-6 py-2.5 text-xs font-semibold text-white shadow-md shadow-emerald-800/20 transition-all hover:bg-emerald-900 disabled:opacity-50">
-              <FaSave className="w-3.5 h-3.5" />
+              <Save className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Hak Akses Pegawai'}</span>
             </button>
           </div>
@@ -563,7 +578,6 @@ export default function MasterHakAksesPage() {
       tambahRoleMutation.mutate(formData)
     }
   }
-
   const handleOpenPegawaiModal = (employee) => {
     setSelectedEmployee(employee)
     setIsPegawaiModalOpen(true)
@@ -577,89 +591,73 @@ export default function MasterHakAksesPage() {
     roles: {
       label: 'Role',
       description: 'Kelompok akses pengguna',
-      icon: FaShieldAlt,
+      icon: Shield,
       count: stats.total_role ?? 0,
       search: 'Cari nama role...',
     },
     permissions: {
       label: 'Izin akses',
       description: 'Aksi yang dapat dilakukan',
-      icon: FaKey,
+      icon: Key,
       count: stats.total_permission ?? 0,
       search: 'Cari modul atau izin akses...',
     },
     pegawai: {
       label: 'Akses pegawai',
       description: 'Role setiap anggota tim',
-      icon: FaUserShield,
+      icon: UserCheck,
       count: metaPegawai.total ?? '—',
       search: 'Cari nama, NIY, atau email pegawai...',
     },
     akun: {
       label: 'Akun login',
       description: 'CRUD akun, role, status, dan password',
-      icon: FaUserCog,
+      icon: UserCog,
       count: '—',
       search: 'Pencarian tersedia pada tabel akun...',
     },
   }
 
-  const activeTabConfig = tabConfig[activeTab]
+  const activeTabConfig = tabConfig[activeTab] || tabConfig.roles
   const ActiveTabIcon = activeTabConfig.icon
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* ───── Page header ───── */}
-      <section className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs md:flex-row md:items-center">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              Manajemen Hak Akses
-            </h1>
-            <p className="mt-1 text-xs text-slate-500">
-              Atur siapa yang dapat melihat dan mengelola setiap bagian sistem sekolah melalui role dan izin yang terstruktur.
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+    <MasterDataPage>
+      {/* Page Header */}
+      <MasterPageHeader
+        tone="brand"
+        icon={ShieldCheck}
+        title="Manajemen Hak Akses & Matriks Role"
+        description="Atur hak akses pengguna, role penugasan pegawai, serta kontrol permission sistem secara terpusat."
+        actions={
+          <>
             <button
+              type="button"
               onClick={() => { setActiveTab('permissions'); setIsPermModalOpen(true) }}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition-all hover:bg-slate-100"
+              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
-              <FaKey className="h-3.5 w-3.5 text-slate-500" />
-              <span>Tambah izin</span>
+              <Key className="h-4 w-4 text-emerald-700" />
+              <span>Tambah Izin</span>
             </button>
             <button
+              type="button"
               onClick={() => { setActiveTab('roles'); handleOpenCreateRole() }}
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white shadow-md shadow-emerald-800/20 transition-all hover:bg-emerald-900 hover:shadow-lg"
+              className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-emerald-800 px-5 text-xs font-semibold text-white shadow-lg shadow-emerald-800/20 transition hover:bg-emerald-900"
             >
-              <FaPlus className="w-3.5 h-3.5" />
-              <span>Tambah role</span>
+              <Plus className="h-4 w-4" />
+              <span>Tambah Role</span>
             </button>
-          </div>
-      </section>
+          </>
+        }
+      />
 
-      {/* ───── Stats Cards ───── */}
-      <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          { label: 'Role aktif', value: stats.total_role ?? 0, icon: FaShieldAlt, tone: 'emerald', sub: 'Kelompok akses' },
-          { label: 'Izin tersedia', value: stats.total_permission ?? 0, icon: FaKey, tone: 'blue', sub: 'Aksi terdaftar' },
-          { label: 'Modul terlindungi', value: stats.total_modul ?? 0, icon: FaLayerGroup, tone: 'violet', sub: 'Area sistem' },
-          { label: 'Belum digunakan', value: stats.role_tanpa_user ?? 0, icon: FaUsers, tone: 'amber', sub: 'Role tanpa pengguna' },
-        ].map((card) => (
-          <div key={card.label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-            <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${
-              card.tone === 'emerald' ? 'bg-emerald-50 text-emerald-700' :
-              card.tone === 'blue' ? 'bg-blue-50 text-blue-700' :
-              card.tone === 'violet' ? 'bg-violet-50 text-violet-700' :
-              'bg-amber-50 text-amber-700'
-            }`}>
-              <card.icon className="w-5 h-5" />
-            </div>
-            <p className="text-2xl font-black leading-none text-slate-900 sm:text-3xl">{card.value}</p>
-            <p className="mt-2 truncate text-xs font-extrabold text-slate-700">{card.label}</p>
-            <p className="mt-0.5 truncate text-[11px] text-slate-400">{card.sub}</p>
-          </div>
-        ))}
-      </section>
+      {/* Stats Grid */}
+      <MasterStatsGrid>
+        <MasterStatCard icon={Shield} label="ROLE AKTIF" value={stats.total_role ?? 0} description="Kelompok akses" variant="success" />
+        <MasterStatCard icon={Key} label="IZIN TERSEDIA" value={stats.total_permission ?? 0} description="Aksi terdaftar" variant="info" />
+        <MasterStatCard icon={Layers} label="MODUL TERLINDUNGI" value={stats.total_modul ?? 0} description="Area sistem" variant="warning" />
+        <MasterStatCard icon={Users} label="BELUM DIGUNAKAN" value={stats.role_tanpa_user ?? 0} description="Role tanpa pengguna" variant="neutral" />
+      </MasterStatsGrid>
 
       {/* ───── Tabs ───── */}
       <section className="flex gap-1 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white p-2 shadow-xs">
@@ -698,7 +696,7 @@ export default function MasterHakAksesPage() {
             </div>
           </div>
           <div className="relative w-full sm:max-w-sm">
-            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs w-4 h-4" />
             <input
               type="text"
               value={search}
@@ -709,7 +707,7 @@ export default function MasterHakAksesPage() {
             />
             {search && (
               <button type="button" onClick={() => setSearch('')} aria-label="Hapus pencarian" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                <FaTimes className="h-3 w-3" />
+                <X className="h-3 w-3" />
               </button>
             )}
           </div>
@@ -736,10 +734,10 @@ export default function MasterHakAksesPage() {
               ) : roles.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><FaShieldAlt className="h-5 w-5" /></div>
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700"><Shield className="h-5 w-5" /></div>
                     <p className="mt-3 text-sm font-extrabold text-slate-800">{search ? 'Role tidak ditemukan' : 'Belum ada role'}</p>
                     <p className="mt-1 text-xs text-slate-400">{search ? 'Coba gunakan kata kunci yang berbeda.' : 'Buat role pertama untuk mulai mengatur akses pengguna.'}</p>
-                    {!search && <button type="button" onClick={handleOpenCreateRole} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#064e3b] px-4 py-2 text-xs font-bold text-white"><FaPlus className="h-3 w-3" />Tambah role</button>}
+                    {!search && <button type="button" onClick={handleOpenCreateRole} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#064e3b] px-4 py-2 text-xs font-bold text-white"><Plus className="h-3 w-3" />Tambah role</button>}
                   </td>
                 </tr>
               ) : roles.map((role, idx) => (
@@ -748,7 +746,7 @@ export default function MasterHakAksesPage() {
                   <td className="py-3.5 px-4">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-xl bg-[#dcfce7] flex items-center justify-center shrink-0">
-                        <FaShieldAlt className="w-3.5 h-3.5 text-[#15803d]" />
+                        <Shield className="w-3.5 h-3.5 text-[#15803d]" />
                       </div>
                       <div>
                         <p className="font-extrabold text-slate-900 text-sm">{role.name}</p>
@@ -758,13 +756,13 @@ export default function MasterHakAksesPage() {
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     <span className="inline-flex items-center gap-1 font-extrabold text-xs text-[#1d4ed8] bg-[#dbeafe] border border-blue-200 px-2.5 py-1 rounded-lg">
-                      <FaKey className="w-3 h-3" />
+                      <Key className="w-3 h-3" />
                       {role.jumlah_izin ?? 0}
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-center">
                     <span className="inline-flex items-center gap-1 font-extrabold text-xs text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg">
-                      <FaUsers className="w-3 h-3 text-slate-400" />
+                      <Users className="w-3 h-3 text-slate-400" />
                       {role.jumlah_pengguna ?? 0}
                     </span>
                   </td>
@@ -790,14 +788,14 @@ export default function MasterHakAksesPage() {
                         className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-[#fffbe6] text-[#d97706] hover:bg-amber-100 transition-colors"
                         title="Edit Role"
                       >
-                        <FaEdit className="w-3.5 h-3.5" />
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteRole(role)}
                         className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 bg-[#fef2f2] text-[#dc2626] hover:bg-red-100 transition-colors"
                         title="Hapus Role"
                       >
-                        <FaTrash className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>
@@ -815,7 +813,7 @@ export default function MasterHakAksesPage() {
             <div className="col-span-full rounded-[22px] border border-slate-200/80 bg-white p-16 text-center text-xs font-medium text-slate-400">Memuat izin akses...</div>
           ) : permissionsGrouped.length === 0 ? (
             <div className="col-span-full rounded-[22px] border border-slate-200/80 bg-white p-16 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><FaKey className="h-5 w-5" /></div>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><Key className="h-5 w-5" /></div>
               <p className="mt-3 text-sm font-extrabold text-slate-800">{search ? 'Izin tidak ditemukan' : 'Belum ada izin akses'}</p>
               <p className="mt-1 text-xs text-slate-400">{search ? 'Periksa kembali kata kunci pencarian.' : 'Tambahkan izin untuk mendefinisikan aksi di setiap modul.'}</p>
             </div>
@@ -825,7 +823,7 @@ export default function MasterHakAksesPage() {
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-5 py-4">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                    <FaLock className="w-3 h-3" />
+                    <Lock className="w-3 h-3" />
                   </div>
                   <span className="text-xs font-black uppercase tracking-wider text-slate-800">{group.modul}</span>
                 </div>
@@ -843,7 +841,7 @@ export default function MasterHakAksesPage() {
                       className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                       title="Hapus izin"
                     >
-                      <FaTimes className="w-3 h-3" />
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -872,7 +870,7 @@ export default function MasterHakAksesPage() {
                 {isLoadingPegawai ? (
                   <tr><td colSpan={6} className="py-12 text-center text-slate-400 text-xs font-medium">Memuat data pegawai...</td></tr>
                 ) : listPegawai.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-16 text-center"><FaUsers className="mx-auto h-6 w-6 text-slate-300" /><p className="mt-3 text-sm font-extrabold text-slate-800">Pegawai tidak ditemukan</p><p className="mt-1 text-xs text-slate-400">Coba gunakan nama, NIY, atau email yang berbeda.</p></td></tr>
+                  <tr><td colSpan={6} className="px-4 py-16 text-center"><Users className="mx-auto h-6 w-6 text-slate-300" /><p className="mt-3 text-sm font-extrabold text-slate-800">Pegawai tidak ditemukan</p><p className="mt-1 text-xs text-slate-400">Coba gunakan nama, NIY, atau email yang berbeda.</p></td></tr>
                 ) : listPegawai.map((emp, idx) => (
                   <tr key={emp.id} className="hover:bg-emerald-50/30 transition-colors">
                     <td className="py-3.5 px-4 text-center text-xs font-bold text-slate-500">
@@ -887,11 +885,11 @@ export default function MasterHakAksesPage() {
                     <td className="py-3.5 px-4">
                       <div className="space-y-0.5">
                         <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <FaBriefcase className="w-3 h-3 text-slate-400" />
+                          <Briefcase className="w-3 h-3 text-slate-400" />
                           {emp.position?.nama || '-'}
                         </p>
                         <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                          <FaBuilding className="w-3 h-3 text-slate-400" />
+                          <Building className="w-3 h-3 text-slate-400" />
                           {emp.unit?.nama || '-'}
                         </p>
                       </div>
@@ -899,19 +897,19 @@ export default function MasterHakAksesPage() {
                     <td className="py-3.5 px-4 text-center">
                       {emp.has_user ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-                          <FaUserCheck className="w-3 h-3" />
+                          <UserCheck className="w-3 h-3" />
                           Terhubung
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
-                          <FaUserTimes className="w-3 h-3" />
+                          <UserX className="w-3 h-3" />
                           Belum Punya Akun
                         </span>
                       )}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="inline-flex items-center gap-1 font-extrabold text-xs text-[#054e3b] bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-xl">
-                        <FaShieldAlt className="w-3 h-3 text-[#054e3b]" />
+                        <Shield className="w-3 h-3 text-[#054e3b]" />
                         {emp.primary_role}
                       </span>
                     </td>
@@ -920,9 +918,9 @@ export default function MasterHakAksesPage() {
                         onClick={() => handleOpenPegawaiModal(emp)}
                         className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-800 transition-all hover:border-emerald-700 hover:bg-emerald-700 hover:text-white"
                       >
-                        <FaUserCog className="w-3.5 h-3.5" />
+                        <UserCog className="w-3.5 h-3.5" />
                         <span>Kelola akses</span>
-                        <FaArrowRight className="h-2.5 w-2.5" />
+                        <ArrowRight className="h-2.5 w-2.5" />
                       </button>
                     </td>
                   </tr>
@@ -991,6 +989,6 @@ export default function MasterHakAksesPage() {
         allPermissions={allPerms}
         isSubmitting={isPegawaiSubmitting}
       />
-    </div>
+    </MasterDataPage>
   )
 }

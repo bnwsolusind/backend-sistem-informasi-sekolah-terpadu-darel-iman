@@ -2,35 +2,41 @@ import { useMemo, useState } from 'react'
 import Swal from 'sweetalert2'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  FaArrowLeft,
-  FaBook,
-  FaBookOpen,
-  FaCalendarAlt,
-  FaChalkboardTeacher,
-  FaCheckCircle,
-  FaChevronLeft,
-  FaChevronRight,
-  FaCopy,
-  FaDownload,
-  FaEdit,
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaEye,
-  FaFileExcel,
-  FaFileImport,
-  FaFilter,
-  FaGraduationCap,
-  FaLayerGroup,
-  FaLink,
-  FaPlus,
-  FaPrint,
-  FaRedo,
-  FaSave,
-  FaSearch,
-  FaTimes,
-  FaTrash,
-} from 'react-icons/fa'
+  BookOpen,
+  Book,
+  CheckCircle2,
+  Layers,
+  GraduationCap,
+  Plus,
+  Search,
+  Filter,
+  FileSpreadsheet,
+  Upload,
+  Pencil,
+  Trash2,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Link,
+  Save,
+  CheckCircle,
+  AlertTriangle,
+  X,
+} from 'lucide-react'
 import { modulSemesterService } from '../services/modulSemesterService'
+import CsvImportModal from '../components/master-data/CsvImportModal'
+import {
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+  MasterFilterBar,
+  MasterSearchInput,
+  MasterFilterSelect,
+  MasterPagination,
+  MasterStatusBadge,
+} from '../components/master-data'
 
 const UNIT_BADGES = {
   TK: { bg: 'bg-emerald-700', text: 'text-white', border: 'border-emerald-600' },
@@ -141,6 +147,7 @@ export default function MasterModulSemesterPage() {
 
   // Form Modal & Drawer
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [activeTab, setActiveTab] = useState('umum') // 'umum' | 'pembelajaran' | 'target' | 'materi' | 'bobot'
   const [formData, setFormData] = useState(initialFormState())
@@ -495,104 +502,71 @@ export default function MasterModulSemesterPage() {
     document.body.removeChild(link)
   }
 
+  const handleImportRows = async (rows) => {
+    let success = 0
+    const failures = []
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]
+      try {
+        await modulSemesterService.tambah({
+          ...initialFormState(), ...row,
+          alokasi_jam: Number(row.alokasi_jam || 36), jumlah_pertemuan: Number(row.jumlah_pertemuan || 18),
+          details: [],
+        })
+        success += 1
+      } catch (error) { failures.push(`baris ${index + 2}: ${error.response?.data?.message || 'gagal'}`) }
+    }
+    queryClient.invalidateQueries({ queryKey: ['modul-semester'] })
+    await Swal.fire({ icon: failures.length ? 'warning' : 'success', title: 'Import selesai', text: `${success} modul berhasil, ${failures.length} gagal.${failures.length ? ` ${failures.slice(0, 3).join('; ')}` : ''}`, confirmColor: '#0E5C44' })
+  }
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* HEADER BANNER - ENTERPRISE GREEN STYLING (IDENTIK REFERENSI GAMBAR) */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-700 p-6 md:p-8 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          {/* Header Left Text */}
-          <div>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-700/80 text-emerald-100 border border-emerald-500/30 uppercase tracking-widest mb-3">
-              AKADEMIK SEKOLAH
-            </span>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Data Modul Semester
-            </h1>
-            <p className="text-emerald-100/90 text-sm mt-1.5 max-w-xl leading-relaxed">
-              Kelola seluruh modul semester di lingkungan Dar El-Iman sebagai acuan pembelajaran terpadu.
-            </p>
-          </div>
-
-          {/* Header Right Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
+    <MasterDataPage className="education-unit-page" hideBreadcrumb>
+      {/* HEADER BANNER */}
+      <MasterPageHeader
+        tone="brand"
+        icon={BookOpen}
+        title="Data Modul Semester"
+        description="Kelola seluruh modul semester di lingkungan Yayasan sebagai acuan pembelajaran terpadu."
+        actions={
+          <>
+            <button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-emerald-200 bg-white px-4 text-xs font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50"><Upload className="h-4 w-4" /> Import CSV</button>
             <button
+              type="button"
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm backdrop-blur-xs border border-white/20 transition-all shadow-xs"
+              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
-              <FaFileExcel className="w-4 h-4 text-emerald-300" />
-              📥 Export Excel
+              <FileSpreadsheet className="h-4 w-4 text-emerald-700" /> Export Excel
             </button>
-
             <button
+              type="button"
               onClick={handleOpenTambahModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm transition-all shadow-md hover:shadow-emerald-500/20 active:scale-95"
+              className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-emerald-800 px-5 text-xs font-semibold text-white shadow-lg shadow-emerald-800/20 transition hover:bg-emerald-900"
             >
-              <FaPlus className="w-4 h-4" />
-              ➕ Tambah Modul
+              <Plus className="h-4 w-4" /> Tambah Modul
             </button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* Decorative background blur */}
-        <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-      </div>
+      <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} title="Modul Semester" onImport={handleImportRows} columns={[
+        { key: 'tahun_ajaran_id', required: true }, { key: 'semester_id', required: true }, { key: 'unit_pendidikan_id' }, { key: 'kelas_id', required: true }, { key: 'mata_pelajaran_id', required: true }, { key: 'guru_id', required: true },
+        { key: 'kode_modul', example: 'MOD-MTK-01' }, { key: 'nama_modul', required: true, example: 'Matematika Semester 1' }, { key: 'kurikulum', example: 'Kurikulum Merdeka' }, { key: 'status', example: 'Aktif' }, { key: 'alokasi_jam', example: '36' }, { key: 'jumlah_pertemuan', example: '18' },
+      ]} />
 
-      {/* DASHBOARD CARDS (4 STAT CARDS IDENTIK REFERENSI) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1 */}
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-800 flex items-center gap-4 hover:shadow-md transition-all">
-          <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-100 dark:border-emerald-800/40">
-            <FaBook className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-wider">Total Modul Semester</p>
-            <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-0.5">{stats.total_modul ?? 0}</h3>
-            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">Terdaftar di sistem</p>
-          </div>
-        </div>
-
-        {/* Card 2 */}
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-800 flex items-center gap-4 hover:shadow-md transition-all">
-          <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 border border-blue-100 dark:border-blue-800/40">
-            <FaCheckCircle className="w-6 h-6 text-blue-500" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-wider">Modul Aktif</p>
-            <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-0.5">{stats.total_aktif ?? 0}</h3>
-            <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-0.5">Beroperasi secara penuh</p>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-800 flex items-center gap-4 hover:shadow-md transition-all">
-          <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 border border-purple-100 dark:border-purple-800/40">
-            <FaLayerGroup className="w-6 h-6 text-purple-500" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-wider">Total Alokasi Jam</p>
-            <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-0.5">{stats.total_jam ?? 0} JP</h3>
-            <p className="text-xs font-medium text-purple-600 dark:text-purple-400 mt-0.5">Dari semua unit</p>
-          </div>
-        </div>
-
-        {/* Card 4 */}
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-800 flex items-center gap-4 hover:shadow-md transition-all">
-          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-100 dark:border-amber-800/40">
-            <FaGraduationCap className="w-6 h-6 text-amber-500" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-gray-400 dark:text-slate-400 uppercase tracking-wider">Total Rincian Materi</p>
-            <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-0.5">{stats.total_materi ?? 0}</h3>
-            <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-0.5">Materi mingguan terpadu</p>
-          </div>
-        </div>
-      </div>
+      {/* STATS GRID */}
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={Book} label="TOTAL MODUL SEMESTER" value={stats.total_modul ?? 0} description="Terdaftar di sistem" variant="success" />
+        <MasterStatCard icon={CheckCircle2} label="MODUL AKTIF" value={stats.total_aktif ?? 0} description="Beroperasi secara penuh" variant="info" />
+        <MasterStatCard icon={Layers} label="TOTAL ALOKASI JAM" value={`${stats.total_jam ?? 0} JP`} description="Dari semua unit" variant="warning" />
+        <MasterStatCard icon={GraduationCap} label="TOTAL RINCIAN MATERI" value={stats.total_materi ?? 0} description="Materi mingguan terpadu" variant="neutral" />
+      </MasterStatsGrid>
 
       {/* SEARCH & FILTER BAR (IDENTIK REFERENSI) */}
       <div className="bg-white dark:bg-[#1B2433] p-4 rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search Box */}
         <div className="relative flex-1">
-          <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
           <input
             type="text"
             value={search}
@@ -601,14 +575,17 @@ export default function MasterModulSemesterPage() {
               setPage(1)
             }}
             placeholder="Cari kode modul, nama modul, mapel, atau guru..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50/80 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-colors"
+            className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-gray-50/80 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-colors"
           />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400 bg-gray-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-gray-300/60 dark:border-slate-700">
+            Ctrl + K
+          </span>
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <span className="flex items-center gap-1.5 font-bold text-gray-600 dark:text-slate-300">
-            <FaFilter className="w-3.5 h-3.5 text-emerald-600" />
+            <Filter className="w-3.5 h-3.5 text-emerald-600" />
             Filter:
           </span>
 
@@ -727,7 +704,7 @@ export default function MasterModulSemesterPage() {
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-gray-400 dark:text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <FaBookOpen className="w-10 h-10 text-gray-300 dark:text-slate-600 mb-1" />
+                      <BookOpen className="w-10 h-10 text-gray-300 dark:text-slate-600 mb-1" />
                       <p className="font-bold text-gray-700 dark:text-slate-300 text-sm">
                         Belum Ada Data Master Modul Semester
                       </p>
@@ -787,7 +764,7 @@ export default function MasterModulSemesterPage() {
                           {item.mata_pelajaran?.name || '-'}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                          <FaChalkboardTeacher className="text-emerald-600" />
+                          <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
                           <span>{item.guru?.nama_lengkap || '-'}</span>
                         </div>
                       </td>
@@ -834,28 +811,28 @@ export default function MasterModulSemesterPage() {
                             title="Detail Modul"
                             className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-900 transition-all border border-blue-100 dark:border-blue-900"
                           >
-                            <FaEye className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(item)}
                             title="Edit Modul"
                             className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900 transition-all border border-amber-100 dark:border-amber-900"
                           >
-                            <FaEdit className="w-3.5 h-3.5" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleConfirmDuplikasi(item)}
                             title="Duplikasi Modul"
                             className="p-2 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-950/50 dark:text-purple-400 dark:hover:bg-purple-900 transition-all border border-purple-100 dark:border-purple-900"
                           >
-                            <FaCopy className="w-3.5 h-3.5" />
+                            <Copy className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleConfirmHapus(item)}
                             title="Hapus Modul"
                             className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 dark:hover:bg-rose-900 transition-all border border-rose-100 dark:border-rose-900"
                           >
-                            <FaTrash className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -881,7 +858,7 @@ export default function MasterModulSemesterPage() {
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}
                 className="px-3.5 py-2 border border-gray-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 font-bold text-gray-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700 transition flex items-center gap-1"
               >
-                <FaChevronLeft className="w-3 h-3" /> Sebelumnya
+                <ChevronLeft className="w-3 h-3" /> Sebelumnya
               </button>
               <span className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold rounded-xl border border-emerald-200 dark:border-emerald-800">
                 {meta.current_page} / {meta.last_page}
@@ -891,7 +868,7 @@ export default function MasterModulSemesterPage() {
                 onClick={() => setPage((p) => p + 1)}
                 className="px-3.5 py-2 border border-gray-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 font-bold text-gray-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700 transition flex items-center gap-1"
               >
-                Selanjutnya <FaChevronRight className="w-3 h-3" />
+                Selanjutnya <ChevronRight className="w-3 h-3" />
               </button>
             </div>
           </div>
@@ -906,7 +883,7 @@ export default function MasterModulSemesterPage() {
             <div className="px-6 py-4 bg-gradient-to-r from-emerald-900 to-emerald-800 text-white flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold flex items-center gap-2">
-                  <FaBookOpen className="text-emerald-300" />
+                  <BookOpen className="text-emerald-300 h-5 w-5" />
                   {isEditMode ? 'Edit Master Modul Semester' : 'Tambah Master Modul Semester'}
                 </h3>
                 <p className="text-xs text-emerald-100/90">
@@ -917,7 +894,7 @@ export default function MasterModulSemesterPage() {
                 onClick={() => setIsModalOpen(false)}
                 className="p-2 text-white/80 hover:text-white rounded-lg transition"
               >
-                <FaTimes />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -1389,7 +1366,7 @@ export default function MasterModulSemesterPage() {
                       onClick={handleTambahDetailMateri}
                       className="px-3 py-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-xl hover:bg-emerald-200 transition font-bold flex items-center gap-1.5"
                     >
-                      <FaPlus /> Tambah Minggu
+                      <Plus className="h-4 w-4" /> Tambah Minggu
                     </button>
                   </div>
 
@@ -1459,7 +1436,7 @@ export default function MasterModulSemesterPage() {
                                 onClick={() => handleHapusDetailMateri(idx)}
                                 className="p-1.5 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950 rounded transition"
                               >
-                                <FaTrash />
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </td>
                           </tr>
@@ -1494,7 +1471,7 @@ export default function MasterModulSemesterPage() {
 
                   {totalBobotPenilaian !== 100 && (
                     <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 flex items-center gap-2 text-xs">
-                      <FaExclamationTriangle className="text-rose-500 shrink-0" />
+                      <AlertTriangle className="text-rose-500 shrink-0 h-4 w-4" />
                       <span>
                         Peringatan: Total bobot penilaian saat ini adalah <b>{totalBobotPenilaian}%</b>. Sesuaikan angka di bawah hingga total pas 100%.
                       </span>
@@ -1618,7 +1595,7 @@ export default function MasterModulSemesterPage() {
                       disabled={simpanMutation.isPending || totalBobotPenilaian !== 100}
                       className="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-md transition flex items-center gap-2"
                     >
-                      <FaSave />
+                      <Save className="w-4 h-4" />
                       {simpanMutation.isPending ? 'Memproses...' : 'Simpan Modul'}
                     </button>
                   )}
@@ -1636,7 +1613,7 @@ export default function MasterModulSemesterPage() {
             <div>
               <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-6">
                 <div className="flex items-center gap-2.5">
-                  <FaBookOpen className="text-emerald-600 text-xl" />
+                  <BookOpen className="text-emerald-600 text-xl h-5 w-5" />
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">{detailModul.nama_modul}</h3>
                     <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
@@ -1648,7 +1625,7 @@ export default function MasterModulSemesterPage() {
                   onClick={() => setIsDrawerOpen(false)}
                   className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition"
                 >
-                  <FaTimes />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
@@ -1713,12 +1690,12 @@ export default function MasterModulSemesterPage() {
                 }}
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-1.5 shadow"
               >
-                <FaEdit /> Edit Modul Ini
+                <Pencil className="h-4 w-4" /> Edit Modul Ini
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </MasterDataPage>
   )
 }

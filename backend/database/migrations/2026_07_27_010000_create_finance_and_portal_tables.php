@@ -66,7 +66,7 @@ return new class extends Migration
         });
 
         // 4. Notifications (Portal Broadcast & Alerting)
-        if (!Schema::hasTable('notifications')) {
+        if (! Schema::hasTable('notifications')) {
             Schema::create('notifications', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('user_id');

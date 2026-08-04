@@ -10,16 +10,22 @@ import {
   Filter,
   CheckCircle,
   XCircle,
-  ChevronLeft,
-  ChevronRight,
-  Layers,
-  Sparkles,
 } from 'lucide-react'
 import { masterKurikulumService } from '../services/masterKurikulumService'
 import KurikulumTable from '../components/kurikulum/KurikulumTable'
 import KurikulumFormModal from '../components/kurikulum/KurikulumFormModal'
 import KurikulumDetailModal from '../components/kurikulum/KurikulumDetailModal'
 import KurikulumImportModal from '../components/kurikulum/KurikulumImportModal'
+import {
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+  MasterFilterBar,
+  MasterSearchInput,
+  MasterFilterSelect,
+  MasterPagination,
+} from '../components/master-data'
 
 const JENIS_LIST = ['SIT', 'Merdeka', 'Nasional', 'Pesantren', 'Lokal', 'Lainnya']
 const JENJANG_LIST = ['TK', 'PAUD', 'SD', 'MI', 'SMP', 'MTs', 'SMA', 'MA', 'Pesantren']
@@ -301,183 +307,132 @@ export default function MasterKurikulumPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* HEADER BANNER - ENTERPRISE GREEN STYLING */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-700 p-6 md:p-8 text-white shadow-xl border border-emerald-600/30">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          {/* Header Left Text */}
-          <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-700/80 text-emerald-100 border border-emerald-500/30 uppercase tracking-widest mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-              AKADEMIK & MANAJEMEN SEKOLAH
-            </span>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-              Master Data Kurikulum
-            </h1>
-            <p className="text-emerald-100/90 text-sm mt-1.5 max-w-xl leading-relaxed font-medium">
-              Kelola seluruh kurikulum pendidikan yang digunakan oleh setiap Unit Pendidikan Sekolah Islam Terpadu.
-            </p>
-          </div>
-
-          {/* Header Right Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
+    <MasterDataPage className="education-unit-page" hideBreadcrumb>
+      {/* Header Banner */}
+      <MasterPageHeader
+        tone="brand"
+        icon={BookOpen}
+        title="Master Data Kurikulum"
+        description="Kelola seluruh kurikulum pendidikan yang digunakan oleh setiap Unit Pendidikan Sekolah Islam Terpadu."
+        actions={
+          <>
             <button
+              type="button"
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm backdrop-blur-xs border border-white/20 transition-all shadow-xs"
+              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
-              Export CSV/Excel
+              <FileSpreadsheet className="h-4 w-4 text-emerald-700" /> Export CSV/Excel
             </button>
-
             <button
+              type="button"
               onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm backdrop-blur-xs border border-white/20 transition-all shadow-xs"
+              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
-              <Upload className="w-4 h-4 text-emerald-300" />
-              Import Data
+              <Upload className="h-4 w-4 text-emerald-700" /> Import Data
             </button>
-
             <button
+              type="button"
               onClick={handleOpenFormTambah}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm transition-all shadow-md hover:shadow-emerald-500/20 active:scale-95"
+              className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-emerald-800 px-5 text-xs font-semibold text-white shadow-lg shadow-emerald-800/20 transition hover:bg-emerald-900"
             >
-              <Plus className="w-4 h-4" />
-              Tambah Kurikulum
+              <Plus className="h-4 w-4" /> Tambah Kurikulum
             </button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* Decorative Background Blob */}
-        <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-      </div>
+      {/* KPI Cards */}
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard
+          icon={BookOpen}
+          label="TOTAL KURIKULUM"
+          value={stats.total ?? 0}
+          description="Terdaftar di sistem"
+          variant="success"
+        />
+        <MasterStatCard
+          icon={CheckCircle}
+          label="KURIKULUM AKTIF"
+          value={stats.aktif ?? 0}
+          description="Sedang diberlakukan"
+          variant="info"
+        />
+        <MasterStatCard
+          icon={XCircle}
+          label="KURIKULUM NONAKTIF"
+          value={stats.tidak_aktif ?? 0}
+          description="Arsip / Tidak aktif"
+          variant="warning"
+        />
+      </MasterStatsGrid>
 
-      {/* KPI DASHBOARD CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        {/* Card 1 */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100 flex items-center gap-4 hover:shadow-md transition-all">
-          <div className="p-3.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Kurikulum</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-0.5">{stats.total ?? 0}</h3>
-            <p className="text-xs font-medium text-emerald-600 mt-0.5">Terdaftar di sistem</p>
-          </div>
-        </div>
-
-        {/* Card 2 */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100 flex items-center gap-4 hover:shadow-md transition-all">
-          <div className="p-3.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100">
-            <CheckCircle className="w-6 h-6 text-emerald-500" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kurikulum Aktif</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-0.5">{stats.aktif ?? 0}</h3>
-            <p className="text-xs font-medium text-emerald-600 mt-0.5">Sedang diberlakukan</p>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100 flex items-center gap-4 hover:shadow-md transition-all">
-          <div className="p-3.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100">
-            <XCircle className="w-6 h-6 text-amber-500" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Kurikulum Nonaktif</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-0.5">{stats.tidak_aktif ?? 0}</h3>
-            <p className="text-xs font-medium text-amber-600 mt-0.5">Arsip / Tidak aktif</p>
-          </div>
-        </div>
-      </div>
-
-      {/* SEARCH & FILTER BAR */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search Box */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-          <input
-            type="text"
+      {/* Search & Filter Bar */}
+      <MasterFilterBar
+        search={
+          <MasterSearchInput
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
               setPage(1)
             }}
             placeholder="Cari Kode Kurikulum, Nama Kurikulum, atau Deskripsi..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50/80 border border-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-colors"
           />
-        </div>
+        }
+        filters={
+          <>
+            <MasterFilterSelect
+              value={selectedJenisFilter}
+              onChange={(e) => {
+                setSelectedJenisFilter(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Semua Jenis</option>
+              {JENIS_LIST.map((j) => (
+                <option key={j} value={j}>{j}</option>
+              ))}
+            </MasterFilterSelect>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <span className="flex items-center gap-1.5 font-bold text-slate-600">
-            <Filter className="w-3.5 h-3.5 text-emerald-600" />
-            Filter:
-          </span>
+            <MasterFilterSelect
+              value={selectedJenjangFilter}
+              onChange={(e) => {
+                setSelectedJenjangFilter(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Semua Jenjang</option>
+              {JENJANG_LIST.map((j) => (
+                <option key={j} value={j}>{j}</option>
+              ))}
+            </MasterFilterSelect>
 
-          {/* Filter Jenis */}
-          <select
-            value={selectedJenisFilter}
-            onChange={(e) => {
-              setSelectedJenisFilter(e.target.value)
-              setPage(1)
-            }}
-            className="px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-200 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-          >
-            <option value="">Semua Jenis</option>
-            {JENIS_LIST.map((j) => (
-              <option key={j} value={j}>
-                {j}
-              </option>
-            ))}
-          </select>
+            <MasterFilterSelect
+              value={selectedStatusFilter}
+              onChange={(e) => {
+                setSelectedStatusFilter(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Semua Status</option>
+              <option value="aktif">Aktif</option>
+              <option value="tidak_aktif">Nonaktif</option>
+            </MasterFilterSelect>
 
-          {/* Filter Jenjang */}
-          <select
-            value={selectedJenjangFilter}
-            onChange={(e) => {
-              setSelectedJenjangFilter(e.target.value)
-              setPage(1)
-            }}
-            className="px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-200 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-          >
-            <option value="">Semua Jenjang</option>
-            {JENJANG_LIST.map((j) => (
-              <option key={j} value={j}>
-                {j}
-              </option>
-            ))}
-          </select>
+            <MasterFilterSelect
+              value={denganSampahFilter}
+              onChange={(e) => {
+                setDenganSampahFilter(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="">Data Aktif</option>
+              <option value="true">Termasuk Terhapus</option>
+            </MasterFilterSelect>
+          </>
+        }
+      />
 
-          {/* Filter Status */}
-          <select
-            value={selectedStatusFilter}
-            onChange={(e) => {
-              setSelectedStatusFilter(e.target.value)
-              setPage(1)
-            }}
-            className="px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-200 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-          >
-            <option value="">Semua Status</option>
-            <option value="aktif">Aktif</option>
-            <option value="tidak_aktif">Nonaktif</option>
-          </select>
-
-          {/* Filter Trash */}
-          <select
-            value={denganSampahFilter}
-            onChange={(e) => {
-              setDenganSampahFilter(e.target.value)
-              setPage(1)
-            }}
-            className="px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-200 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
-          >
-            <option value="">Data Aktif</option>
-            <option value="true">Termasuk Terhapus</option>
-          </select>
-        </div>
-      </div>
-
-      {/* TABLE DATA */}
+      {/* Table Data */}
       <KurikulumTable
         data={listData}
         isLoading={isLoading || isFetching}
@@ -489,37 +444,21 @@ export default function MasterKurikulumPage() {
         onRestore={handleConfirmRestore}
       />
 
-      {/* PAGINATION FOOTER */}
-      {meta.total > 0 && (
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-slate-600 font-medium">
-          <div>
-            Menampilkan <strong>{meta.from || 0}</strong> - <strong>{meta.to || 0}</strong> dari{' '}
-            <strong>{meta.total || 0}</strong> data Master Kurikulum
-          </div>
+      {/* Pagination Footer */}
+      <MasterPagination
+        meta={{
+          total: meta.total || listData.length,
+          from: meta.from || 1,
+          to: meta.to || listData.length,
+          last_page: meta.last_page || 1,
+          current_page: meta.current_page || page,
+        }}
+        page={page}
+        onPageChange={(newPage) => setPage(newPage)}
+        label="kurikulum"
+      />
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-emerald-50 disabled:opacity-40 disabled:hover:bg-transparent transition-colors inline-flex items-center gap-1 font-bold"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" /> Prev
-            </button>
-            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
-              {meta.current_page || 1} / {meta.last_page || 1}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(p + 1, meta.last_page || 1))}
-              disabled={page >= (meta.last_page || 1)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-emerald-50 disabled:opacity-40 disabled:hover:bg-transparent transition-colors inline-flex items-center gap-1 font-bold"
-            >
-              Next <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* MODALS */}
+      {/* Modals */}
       <KurikulumFormModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
@@ -540,6 +479,6 @@ export default function MasterKurikulumPage() {
         onImport={(rows) => importMutation.mutate(rows)}
         isSubmitting={importMutation.isPending}
       />
-    </div>
+    </MasterDataPage>
   )
 }

@@ -10,6 +10,7 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Services\AttendanceCaptureService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
@@ -57,6 +58,7 @@ class AttendanceWorkflowTest extends TestCase
             'nis' => 'S-001', 'full_name' => 'Siswa Penguji', 'gender' => 'male',
             'is_active' => true,
         ]);
+
         return compact('teacherUser', 'studentUser', 'schedule', 'student');
     }
 
@@ -158,6 +160,28 @@ class AttendanceWorkflowTest extends TestCase
             'session_id' => $id, 'siswa_id' => $ctx['student']->id, 'recorded_method' => 'barcode',
         ]);
         $this->assertDatabaseCount('attendance_scan_logs', 2);
+    }
+
+    public function test_teacher_can_identify_student_qr_and_rfid_card_for_own_schedule(): void
+    {
+        $ctx = $this->context();
+        $ctx['student']->update(['metadata' => ['card_number' => 'RFID-001', 'rfid_uid' => 'UID-001']]);
+        Sanctum::actingAs($ctx['teacherUser']);
+        $qrToken = app(AttendanceCaptureService::class)->studentQrToken($ctx['student']);
+
+        $this->postJson('/api/lesson-attendance/identify-card/qr', [
+            'schedule_id' => $ctx['schedule']->id,
+            'identifier' => $qrToken,
+        ])->assertOk()
+            ->assertJsonPath('data.student.id', $ctx['student']->id)
+            ->assertJsonPath('data.method', 'qr_code');
+
+        $this->postJson('/api/lesson-attendance/identify-card/rfid', [
+            'schedule_id' => $ctx['schedule']->id,
+            'identifier' => 'UID-001',
+        ])->assertOk()
+            ->assertJsonPath('data.student.id', $ctx['student']->id)
+            ->assertJsonPath('data.method', 'rfid');
     }
 
     public function test_low_confidence_face_requires_manual_review(): void

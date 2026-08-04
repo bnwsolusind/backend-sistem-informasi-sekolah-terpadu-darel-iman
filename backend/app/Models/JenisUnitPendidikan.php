@@ -2,17 +2,32 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class JenisUnitPendidikan extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'master_jenis_unit_pendidikan';
+
+    /**
+     * Primary key adalah INTEGER (auto-increment bigint) bukan UUID.
+     * Kolom `uuid` adalah secondary identifier yang digunakan sebagai FK public.
+     * Jangan gunakan HasUuids trait karena akan mencoba generate UUID di kolom id.
+     */
+    protected $primaryKey = 'id';
+    public $incrementing = true;
+    protected $keyType = 'int';
+
+    /**
+     * Route model binding menggunakan `uuid` bukan `id` (integer)
+     * agar URL tetap mengekspos UUID, bukan integer.
+     */
+    protected $routeKeyName = 'uuid';
 
     protected $fillable = [
         'uuid',
@@ -38,9 +53,17 @@ class JenisUnitPendidikan extends Model
         'deleted_at' => 'datetime',
     ];
 
-    public function uniqueIds(): array
+    /**
+     * Generate UUID otomatis untuk kolom `uuid` saat record baru dibuat.
+     * Ini menggantikan HasUuids::uniqueIds() yang sebelumnya digunakan.
+     */
+    protected static function booted(): void
     {
-        return ['uuid'];
+        static::creating(function (self $model) {
+            if (empty($model->uuid)) {
+                $model->uuid = (string) Str::uuid();
+            }
+        });
     }
 
     /**
@@ -81,7 +104,7 @@ class JenisUnitPendidikan extends Model
     public function scopeFilter($query, array $filters)
     {
         $query->when($filters['search'] ?? null, function ($q, $search) {
-            $likeOp = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+            $likeOp = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
             $q->where(function ($sub) use ($search, $likeOp) {
                 $sub->where('kode_jenis', $likeOp, "%{$search}%")
                     ->orWhere('nama_jenis', $likeOp, "%{$search}%")

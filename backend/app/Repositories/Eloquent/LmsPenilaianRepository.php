@@ -4,7 +4,6 @@ namespace App\Repositories\Eloquent;
 
 use App\Models\AcademicYear;
 use App\Models\LmsPengumpulanTugas;
-use App\Models\LmsUjian;
 use App\Models\LmsUjianSesi;
 use App\Models\Student;
 use App\Models\StudentGrade;
@@ -24,11 +23,11 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
             'academicYear:id,name',
         ]);
 
-        if (!empty($filters['with_trashed']) && filter_var($filters['with_trashed'], FILTER_VALIDATE_BOOLEAN)) {
+        if (! empty($filters['with_trashed']) && filter_var($filters['with_trashed'], FILTER_VALIDATE_BOOLEAN)) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->whereHas('student', function ($s) use ($search) {
@@ -42,15 +41,15 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
             });
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
-        if (!empty($filters['subject_id'])) {
+        if (! empty($filters['subject_id'])) {
             $query->where('subject_id', $filters['subject_id']);
         }
 
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
 
@@ -59,7 +58,7 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
         }
 
         $allowedColumns = ['created_at', 'final_score', 'score_assignment', 'score_quiz', 'score_midterm', 'score_final', 'grade_letter'];
-        if (!in_array($orderBy, $allowedColumns)) {
+        if (! in_array($orderBy, $allowedColumns)) {
             $orderBy = 'created_at';
         }
 
@@ -104,7 +103,7 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
     public function update(string $id, array $data): ?StudentGrade
     {
         $grade = StudentGrade::find($id);
-        if (!$grade) {
+        if (! $grade) {
             return null;
         }
 
@@ -126,7 +125,7 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
     public function delete(string $id): bool
     {
         $grade = StudentGrade::find($id);
-        if (!$grade) {
+        if (! $grade) {
             return false;
         }
 
@@ -136,7 +135,7 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
     public function restore(string $id): bool
     {
         $grade = StudentGrade::withTrashed()->find($id);
-        if (!$grade || !$grade->trashed()) {
+        if (! $grade || ! $grade->trashed()) {
             return false;
         }
 
@@ -157,7 +156,7 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
             $students = Student::take(20)->get();
         }
 
-        $results = new Collection();
+        $results = new Collection;
 
         foreach ($students as $siswa) {
             // 1. Pull Assignment scores
@@ -232,13 +231,13 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
     {
         $query = StudentGrade::query();
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
-        if (!empty($filters['subject_id'])) {
+        if (! empty($filters['subject_id'])) {
             $query->where('subject_id', $filters['subject_id']);
         }
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
 
@@ -282,9 +281,12 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
         $uas = $data['score_final'] ?? 0;
 
         $totalWeight = $bobotTugas + $bobotUh + $bobotUts + $bobotUas;
-        if ($totalWeight <= 0) return 0;
+        if ($totalWeight <= 0) {
+            return 0;
+        }
 
         $sum = ($tugas * $bobotTugas) + ($uh * $bobotUh) + ($uts * $bobotUts) + ($uas * $bobotUas);
+
         return round($sum / $totalWeight, 2);
     }
 }

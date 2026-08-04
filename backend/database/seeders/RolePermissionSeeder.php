@@ -19,6 +19,14 @@ class RolePermissionSeeder extends Seeder
             'Tata Usaha',
             'Guru',
             'Wali Kelas',
+            'Ketua Yayasan',
+            'Pembimbing',
+            'Guru Tahfizh',
+            'Guru PAI',
+            'TU',
+            'Musyrif',
+            'Musyrifah',
+            'Musyrif / Musyrifah',
             'Orang Tua',
             'Siswa',
         ];
@@ -30,6 +38,26 @@ class RolePermissionSeeder extends Seeder
             'dashboard.pemantauan.kelola',
             'divisi.monitoring',
             'divisi.laporan_bulanan',
+
+            // Dashboard Pengurus Yayasan (Foundation Monitoring)
+            'foundation.dashboard.view',
+            'foundation.unit.view',
+            'foundation.employee.view',
+            'foundation.teacher.view',
+            'foundation.student.view',
+            'foundation.student_new.view',
+            'foundation.student_mutation.view',
+            'foundation.graduation.view',
+            'foundation.alumni.view',
+            'foundation.information.view',
+            'foundation.report.view',
+            'foundation.report.export',
+            'foundation.notification.view',
+            'foundation.notification.read',
+            'foundation.notification.read_all',
+            'foundation.profile.view',
+            'foundation.profile.update',
+            'foundation.profile.change_password',
 
             // Kehadiran & Absensi Siswa
             'kehadiran.siswa.monitoring',
@@ -83,6 +111,26 @@ class RolePermissionSeeder extends Seeder
             'tahfizh.perhitungan_tercapai',
             'tahfizh.hafalan_terbanyak',
             'tahfizh.total_hafalan',
+            'mutabaah.view',
+            'mutabaah.create',
+            'mutabaah.update',
+            'mutabaah.delete',
+            'mutabaah.restore',
+            'mutabaah.daily.reopen',
+            'mutabaah.export',
+            'mutabaah.import',
+            'mutabaah.approve',
+            'mutabaah.print',
+            'mutabaah.input',
+            'mutabaah.agenda.manage',
+            'mutabaah.dashboard.view',
+            'mutabaah.category.view', 'mutabaah.category.create', 'mutabaah.category.update', 'mutabaah.category.delete', 'mutabaah.category.restore',
+            'mutabaah.agenda.view', 'mutabaah.agenda.create', 'mutabaah.agenda.update', 'mutabaah.agenda.delete', 'mutabaah.agenda.restore',
+            'mutabaah.template.view', 'mutabaah.template.create', 'mutabaah.template.update', 'mutabaah.template.delete', 'mutabaah.template.assign',
+            'mutabaah.supervisor.view', 'mutabaah.supervisor.create', 'mutabaah.supervisor.update', 'mutabaah.supervisor.delete',
+            'mutabaah.daily.view', 'mutabaah.daily.input', 'mutabaah.daily.update', 'mutabaah.daily.finalize', 'mutabaah.daily.reopen',
+            'mutabaah.recap.view', 'mutabaah.report.view', 'mutabaah.report.export',
+            'mutabaah.parent.monitor', 'mutabaah.parent.sign',
 
             // Kesiswaan & Kelulusan
             'kesiswaan.rekap_prestasi',
@@ -117,6 +165,71 @@ class RolePermissionSeeder extends Seeder
             'sistem.hak_akses',
             'sistem.pengaturan',
             'sistem.master_data',
+
+            // Portal Guru
+            'teacher.dashboard.view',
+            'teacher.schedule.view',
+            'teacher.attendance.view',
+            'teacher.attendance.create',
+            'teacher.attendance.update',
+            'teacher.material.view',
+            'teacher.material.create',
+            'teacher.material.update',
+            'teacher.material.delete',
+            'teacher.assignment.view',
+            'teacher.assignment.create',
+            'teacher.assignment.update',
+            'teacher.assignment.delete',
+            'teacher.submission.view',
+            'teacher.grade.view',
+            'teacher.grade.create',
+            'teacher.grade.update',
+            'teacher.tahfizh.view',
+            'teacher.tahfizh.create',
+            'teacher.tahfizh.update',
+            'teacher.mutabaah.view',
+            'teacher.mutabaah.create',
+            'teacher.mutabaah.update',
+            'teacher.student_note.view',
+            'teacher.student_note.create',
+            'teacher.student_note.update',
+
+            // Portal Orang Tua
+            'parent.portal.view',
+            'parent.child.view',
+            'parent.attendance.view',
+            'parent.permission.create',
+            'parent.assignment.view',
+            'parent.grade.view',
+            'parent.tahfizh.view',
+            'parent.mutabaah.view',
+            'parent.notification.view',
+
+            // Portal Siswa
+            'student.portal.view',
+            'student.profile.view',
+            'student.attendance.view',
+            'student.material.view',
+            'student.assignment.view',
+            'student.submission.create',
+            'student.submission.update',
+            'student.grade.view',
+            'student.tahfizh.view',
+            'student.mutabaah.view',
+            'student.mutabaah.create',
+            'student.notification.view',
+            // Komunikasi Sekolah & Chat Guru
+            'chat.conversation.view',
+            'chat.conversation.create',
+            'chat.conversation.archive',
+            'chat.message.view',
+            'chat.message.send',
+            'chat.message.read',
+            'chat.message.attachment',
+            'chat.homeroom.view',
+            'chat.subject_teacher.view',
+            'chat.analytics.view',
+            'chat.configuration.manage',
         ];
 
         foreach ($permissions as $permissionName) {
@@ -242,6 +355,12 @@ class RolePermissionSeeder extends Seeder
                 'lesson_attendance.session.start',
                 'lesson_attendance.session.close',
                 'lesson_attendance.scan_logs.view',
+                'chat.conversation.view',
+                'chat.message.view',
+                'chat.message.send',
+                'chat.message.read',
+                'chat.message.attachment',
+                'chat.subject_teacher.view',
             ],
             'Wali Kelas' => [
                 'dashboard.view',
@@ -265,9 +384,24 @@ class RolePermissionSeeder extends Seeder
                 'homeroom_attendance.verify_permission',
                 'homeroom_attendance.export',
                 'lesson_attendance.correct',
+                'chat.conversation.view',
+                'chat.message.view',
+                'chat.message.send',
+                'chat.message.read',
+                'chat.message.attachment',
+                'chat.homeroom.view',
             ],
             'Orang Tua' => [
                 'dashboard.view',
+                'parent.portal.view',
+                'parent.child.view',
+                'parent.attendance.view',
+                'parent.permission.create',
+                'parent.assignment.view',
+                'parent.grade.view',
+                'parent.tahfizh.view',
+                'parent.mutabaah.view',
+                'parent.notification.view',
                 'kehadiran.siswa.barcode_kartu',
                 'kehadiran.siswa.izin_sakit',
                 'tahfizh.laporan_target',
@@ -277,9 +411,29 @@ class RolePermissionSeeder extends Seeder
                 'pembelajaran.materi',
                 'pembelajaran.kisi_kisi_ujian',
                 'pembelajaran.bank_soal',
+                'chat.conversation.view',
+                'chat.conversation.create',
+                'chat.message.view',
+                'chat.message.send',
+                'chat.message.read',
+                'chat.message.attachment',
+                'chat.homeroom.view',
+                'chat.subject_teacher.view',
             ],
             'Siswa' => [
                 'dashboard.view',
+                'student.portal.view',
+                'student.profile.view',
+                'student.attendance.view',
+                'student.material.view',
+                'student.assignment.view',
+                'student.submission.create',
+                'student.submission.update',
+                'student.grade.view',
+                'student.tahfizh.view',
+                'student.mutabaah.view',
+                'student.mutabaah.create',
+                'student.notification.view',
                 'kehadiran.siswa.barcode_kartu',
                 'kehadiran.siswa.izin_sakit',
                 'tahfizh.laporan_target',
@@ -296,15 +450,69 @@ class RolePermissionSeeder extends Seeder
             ],
         ];
 
+        $foundationPerms = [
+            'dashboard.view',
+            'foundation.dashboard.view',
+            'foundation.unit.view',
+            'foundation.employee.view',
+            'foundation.teacher.view',
+            'foundation.student.view',
+            'foundation.student_new.view',
+            'foundation.student_mutation.view',
+            'foundation.graduation.view',
+            'foundation.alumni.view',
+            'foundation.information.view',
+            'foundation.report.view',
+            'foundation.report.export',
+            'foundation.notification.view',
+            'foundation.notification.read',
+            'foundation.notification.read_all',
+            'foundation.profile.view',
+            'foundation.profile.update',
+            'foundation.profile.change_password',
+        ];
+        $readAll = ['mutabaah.dashboard.view', 'mutabaah.recap.view', 'mutabaah.report.view', 'mutabaah.report.export'];
+        foreach (['Ketua Yayasan', 'Yayasan', 'ketua_yayasan', 'sekretaris_yayasan', 'bendahara_yayasan', 'pengurus_yayasan'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap[$roleName] ?? ['dashboard.view'], $readAll, $foundationPerms)));
+        }
+        $rolePermissionMap['Kepala Sekolah'] = array_values(array_unique(array_merge($rolePermissionMap['Kepala Sekolah'], [
+            ...$readAll, 'mutabaah.supervisor.view', 'mutabaah.parent.monitor',
+        ])));
+        $tuPermissions = [
+            'mutabaah.dashboard.view', 'mutabaah.recap.view', 'mutabaah.report.view', 'mutabaah.report.export', 'mutabaah.parent.monitor',
+            'mutabaah.category.view', 'mutabaah.category.create', 'mutabaah.category.update', 'mutabaah.category.delete', 'mutabaah.category.restore',
+            'mutabaah.agenda.view', 'mutabaah.agenda.create', 'mutabaah.agenda.update', 'mutabaah.agenda.delete', 'mutabaah.agenda.restore',
+            'mutabaah.template.view', 'mutabaah.template.create', 'mutabaah.template.update', 'mutabaah.template.delete', 'mutabaah.template.assign',
+            'mutabaah.supervisor.view', 'mutabaah.supervisor.create', 'mutabaah.supervisor.update', 'mutabaah.supervisor.delete',
+        ];
+        foreach (['Tata Usaha', 'TU'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap[$roleName] ?? ['dashboard.view'], $tuPermissions)));
+        }
+        $dailyPermissions = ['mutabaah.daily.view', 'mutabaah.daily.input', 'mutabaah.daily.update', 'mutabaah.daily.finalize', 'mutabaah.recap.view'];
+        foreach (['Guru', 'Wali Kelas', 'Pembimbing', 'Guru PAI', 'Guru Tahfizh', 'Musyrif', 'Musyrifah'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap[$roleName] ?? ['dashboard.view'], $dailyPermissions)));
+        }
+        $rolePermissionMap['Orang Tua'] = array_values(array_unique(array_merge($rolePermissionMap['Orang Tua'], ['mutabaah.daily.view', 'mutabaah.parent.sign'])));
+        $rolePermissionMap['Siswa'] = array_values(array_unique(array_merge($rolePermissionMap['Siswa'], ['mutabaah.daily.view'])));
+
         foreach ($roles as $roleName) {
             $role = Role::query()->firstOrCreate([
                 'name' => $roleName,
                 'guard_name' => 'web',
             ]);
 
-            if (isset($rolePermissionMap[$roleName])) {
+            if ($roleName !== 'Super Admin' && isset($rolePermissionMap[$roleName])) {
                 $role->syncPermissions($rolePermissionMap[$roleName]);
             }
         }
+
+        // Super Admin wajib memiliki seluruh permission tanpa terkecuali
+        $superAdminRole = Role::query()->firstOrCreate([
+            'name' => 'Super Admin',
+            'guard_name' => 'web',
+        ]);
+        $superAdminRole->syncPermissions(
+            Permission::where('guard_name', 'web')->get()
+        );
     }
 }

@@ -35,8 +35,15 @@ class ClassSchedule extends Model
 
     protected $casts = [
         'day_of_week' => 'integer',
-        'is_active'   => 'boolean',
-        'metadata'    => 'array',
+        'is_active' => 'boolean',
+        'metadata' => 'array',
+    ];
+
+    protected $appends = [
+        'day_name',
+        'nama_hari',
+        'start_time',
+        'end_time',
     ];
 
     // Peta nama hari
@@ -55,6 +62,21 @@ class ClassSchedule extends Model
     public function getNamaHariAttribute(): string
     {
         return static::DAY_NAMES[$this->day_of_week] ?? "Hari {$this->day_of_week}";
+    }
+
+    public function getDayNameAttribute(): string
+    {
+        return $this->getNamaHariAttribute();
+    }
+
+    public function getStartTimeAttribute(): ?string
+    {
+        return $this->attributes['time_start'] ?? null;
+    }
+
+    public function getEndTimeAttribute(): ?string
+    {
+        return $this->attributes['time_end'] ?? null;
     }
 
     // --- Relations (Primer) ---
@@ -111,7 +133,6 @@ class ClassSchedule extends Model
     {
         return $this->hasMany(LmsPresensi::class, 'jadwal_pelajaran_id');
     }
-
 
     // --- Scopes ---
 

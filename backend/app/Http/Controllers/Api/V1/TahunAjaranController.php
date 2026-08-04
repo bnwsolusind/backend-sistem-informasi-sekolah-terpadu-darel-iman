@@ -82,7 +82,7 @@ class TahunAjaranController extends Controller
     public function show(string $id): JsonResponse
     {
         $item = $this->service->dapatkanBerdasarkanId($id);
-        if (!$item) {
+        if (! $item) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Data tahun ajaran tidak ditemukan.',
@@ -99,7 +99,7 @@ class TahunAjaranController extends Controller
     public function update(UbahTahunAjaranRequest $request, string $id): JsonResponse
     {
         $item = $this->service->ubah($id, $request->validated());
-        if (!$item) {
+        if (! $item) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memperbarui data tahun ajaran.',
@@ -116,7 +116,7 @@ class TahunAjaranController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $success = $this->service->hapus($id);
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal menghapus data tahun ajaran.',
@@ -132,7 +132,7 @@ class TahunAjaranController extends Controller
     public function restore(string $id): JsonResponse
     {
         $success = $this->service->pulihkan($id);
-        if (!$success) {
+        if (! $success) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal memulihkan data tahun ajaran.',
@@ -148,7 +148,7 @@ class TahunAjaranController extends Controller
     public function setAktif(string $id): JsonResponse
     {
         $item = $this->service->setAktif($id);
-        if (!$item) {
+        if (! $item) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Gagal mengaktifkan tahun ajaran.',

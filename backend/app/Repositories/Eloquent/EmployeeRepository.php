@@ -12,8 +12,8 @@ class EmployeeRepository implements EmployeeRepositoryInterface
     {
         $query = Employee::query()->with(['unit', 'position', 'user', 'role', 'teachings.subject', 'teachings.classroom']);
 
-        if (!empty($filters['search'])) {
-            $search = '%' . $filters['search'] . '%';
+        if (! empty($filters['search'])) {
+            $search = '%'.$filters['search'].'%';
             $query->where(function ($q) use ($search) {
                 $q->where('niy', 'like', $search)
                     ->orWhere('nik', 'like', $search)
@@ -24,23 +24,23 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             });
         }
 
-        if (!empty($filters['unit_id'])) {
+        if (! empty($filters['unit_id'])) {
             $query->where('unit_id', $filters['unit_id']);
         }
 
-        if (!empty($filters['jabatan_id'])) {
+        if (! empty($filters['jabatan_id'])) {
             $query->where('jabatan_id', $filters['jabatan_id']);
         }
 
-        if (!empty($filters['status_pegawai'])) {
+        if (! empty($filters['status_pegawai'])) {
             $query->where('status_pegawai', $filters['status_pegawai']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['jenis_kelamin'])) {
+        if (! empty($filters['jenis_kelamin'])) {
             $query->where('jenis_kelamin', $filters['jenis_kelamin']);
         }
 
@@ -61,12 +61,14 @@ class EmployeeRepository implements EmployeeRepositoryInterface
     {
         $employee = Employee::findOrFail($id);
         $employee->update($data);
+
         return $employee->fresh(['unit', 'position', 'user', 'role', 'teachings.subject', 'teachings.classroom']);
     }
 
     public function delete(string $id): bool
     {
         $employee = Employee::findOrFail($id);
+
         return $employee->delete();
     }
 }

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('lms_diskusi')) {
+        if (! Schema::hasTable('lms_diskusi')) {
             Schema::create('lms_diskusi', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('modul_ajar_id')->nullable()->comment('Relasi 1:N ke LmsModulAjar');
@@ -42,7 +42,7 @@ return new class extends Migration
             });
         }
 
-        if (!Schema::hasTable('lms_diskusi_komentar')) {
+        if (! Schema::hasTable('lms_diskusi_komentar')) {
             Schema::create('lms_diskusi_komentar', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->uuid('diskusi_id');

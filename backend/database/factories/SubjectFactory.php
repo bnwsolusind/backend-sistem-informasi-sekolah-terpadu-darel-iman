@@ -25,8 +25,8 @@ class SubjectFactory extends Factory
         $kategoriList = ['Wajib', 'Pilihan', 'Tahfizh/Diniyah', 'Ekstrakurikuler'];
         $jenjangList = ['TK', 'SD', 'SMP', 'SMA'];
 
-        $kodeMapel = 'MP-' . fake()->unique()->numberBetween(100, 999);
-        $namaMapel = fake()->word() . ' ' . fake()->word();
+        $kodeMapel = 'MP-'.fake()->unique()->numberBetween(100, 999);
+        $namaMapel = fake()->word().' '.fake()->word();
 
         return [
             'unit_pendidikan_id' => $unit->id,

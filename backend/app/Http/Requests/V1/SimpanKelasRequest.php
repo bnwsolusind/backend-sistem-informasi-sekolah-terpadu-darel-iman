@@ -75,7 +75,7 @@ class SimpanKelasRequest extends FormRequest
                 if ($duplikatNama) {
                     $validator->errors()->add(
                         'nama_kelas',
-                        'Nama kelas "' . $namaKelas . '" sudah ada pada unit dan semester tahun ajaran ini.'
+                        'Nama kelas "'.$namaKelas.'" sudah ada pada unit dan semester tahun ajaran ini.'
                     );
                 }
             }

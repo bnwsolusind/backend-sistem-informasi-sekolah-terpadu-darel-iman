@@ -15,8 +15,11 @@ class MasterKurikulumServiceTest extends TestCase
     use RefreshDatabase;
 
     protected MasterKurikulumService $service;
+
     protected EducationUnit $unit;
+
     protected AcademicYear $tahun;
+
     protected Semester $semester;
 
     protected function setUp(): void

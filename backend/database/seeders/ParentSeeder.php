@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\ParentModel;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class ParentSeeder extends Seeder
 {

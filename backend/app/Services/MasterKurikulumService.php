@@ -44,7 +44,7 @@ class MasterKurikulumService
 
         if (empty($data['kode_kurikulum'])) {
             $jenjang = strtoupper($data['jenjang'] ?? 'SIT');
-            $data['kode_kurikulum'] = 'KUR-' . $jenjang . '-' . strtoupper(Str::random(5));
+            $data['kode_kurikulum'] = 'KUR-'.$jenjang.'-'.strtoupper(Str::random(5));
         }
 
         return $this->repository->create($data);
@@ -62,7 +62,7 @@ class MasterKurikulumService
     public function hapus(string $id, ?string $userId = null): array
     {
         $kurikulum = $this->repository->findById($id);
-        if (!$kurikulum) {
+        if (! $kurikulum) {
             return [
                 'success' => false,
                 'message' => 'Data master kurikulum tidak ditemukan.',
@@ -97,7 +97,7 @@ class MasterKurikulumService
                     $kode = trim($row['kode_kurikulum'] ?? '');
                     if (empty($kode)) {
                         $jenjang = strtoupper($row['jenjang'] ?? 'SIT');
-                        $kode = 'KUR-' . $jenjang . '-' . rand(100, 999);
+                        $kode = 'KUR-'.$jenjang.'-'.rand(100, 999);
                     }
 
                     $nama = trim($row['nama_kurikulum'] ?? '');
@@ -106,7 +106,8 @@ class MasterKurikulumService
 
                     if (empty($nama) || empty($unitId) || empty($tahunId)) {
                         $gagal++;
-                        $errors[] = "Baris " . ($index + 1) . ": Nama kurikulum, Unit Pendidikan, dan Tahun Ajaran wajib diisi.";
+                        $errors[] = 'Baris '.($index + 1).': Nama kurikulum, Unit Pendidikan, dan Tahun Ajaran wajib diisi.';
+
                         continue;
                     }
 
@@ -131,13 +132,14 @@ class MasterKurikulumService
                     $berhasil++;
                 } catch (\Exception $e) {
                     $gagal++;
-                    $errors[] = "Baris " . ($index + 1) . ": " . $e->getMessage();
+                    $errors[] = 'Baris '.($index + 1).': '.$e->getMessage();
                 }
             }
 
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
+
             return [
                 'berhasil' => 0,
                 'gagal' => count($rows),

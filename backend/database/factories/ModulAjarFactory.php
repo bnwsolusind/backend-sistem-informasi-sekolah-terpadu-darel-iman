@@ -42,8 +42,8 @@ class ModulAjarFactory extends Factory
             'rombel_id' => $kelas?->id,
             'cp_id' => $cp?->id,
             'tp_id' => $tp?->id,
-            'kode_modul' => 'MA-' . $this->faker->unique()->numberBetween(100, 999),
-            'judul_modul' => 'Modul Pembelajaran ' . $this->faker->words(3, true),
+            'kode_modul' => 'MA-'.$this->faker->unique()->numberBetween(100, 999),
+            'judul_modul' => 'Modul Pembelajaran '.$this->faker->words(3, true),
             'fase' => $this->faker->randomElement(['Fase A', 'Fase B', 'Fase C', 'Fase D', 'Fase E', 'Fase F']),
             'semester' => $this->faker->randomElement(['Ganjil', 'Genap']),
             'alokasi_waktu_jp' => $this->faker->numberBetween(2, 8),
@@ -64,7 +64,7 @@ class ModulAjarFactory extends Factory
             'refleksi_guru' => '85% siswa mencapai KKM pada pertemuan pertama. Perlu remedial untuk 4 siswa.',
             'lampiran' => [
                 ['nama' => 'LKPD Pertemuan 1.pdf', 'url' => '/storage/lampiran/lkpd1.pdf'],
-                ['nama' => 'Rubrik Penilaian Presentasi.pdf', 'url' => '/storage/lampiran/rubrik.pdf']
+                ['nama' => 'Rubrik Penilaian Presentasi.pdf', 'url' => '/storage/lampiran/rubrik.pdf'],
             ],
             'status' => $this->faker->randomElement(['Draft', 'Review', 'Publish', 'Arsip']),
             'deskripsi' => 'Modul Ajar Kurikulum Merdeka terpadu untuk pembelajaran efektif.',

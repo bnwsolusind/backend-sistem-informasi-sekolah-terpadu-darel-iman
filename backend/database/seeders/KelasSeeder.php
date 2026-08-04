@@ -8,7 +8,7 @@ use App\Models\Employee;
 use App\Models\Kelas;
 use App\Models\Semester;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Seeder data awal untuk Master Data Kelas / Rombongan Belajar (Rombel).
@@ -79,7 +79,7 @@ class KelasSeeder extends Seeder
 
         foreach ($units as $unit) {
             $levelKey = strtoupper(preg_replace('/[^A-Za-z]/', '', $unit->level ?? 'SDIT'));
-            if (!isset($sampleClasses[$levelKey])) {
+            if (! isset($sampleClasses[$levelKey])) {
                 $levelKey = 'SDIT';
             }
 
@@ -91,8 +91,8 @@ class KelasSeeder extends Seeder
                     $employeeIndex++;
                 }
 
-                Kelas::updateOrCreate(
-                    ['kode_kelas' => $c['kode'] . '-' . $unit->code],
+                $kelasModel = Kelas::updateOrCreate(
+                    ['kode_kelas' => $c['kode'].'-'.$unit->code],
                     [
                         'unit_pendidikan_id' => $unit->id,
                         'tahun_ajaran_id' => $tahunAjaran->id,
@@ -104,6 +104,21 @@ class KelasSeeder extends Seeder
                         'kapasitas' => $c['kapasitas'],
                         'ruangan' => $c['ruangan'],
                         'status' => 'Aktif',
+                    ]
+                );
+
+                // Sinkronkan ke tabel legacy classes untuk backward compatibility FK
+                DB::table('classes')->updateOrInsert(
+                    [
+                        'academic_year_id' => $tahunAjaran->id,
+                        'semester_id' => $semester->id,
+                        'name' => $c['nama'],
+                    ],
+                    [
+                        'id' => $kelasModel->id,
+                        'level' => (string) $c['tingkat'],
+                        'updated_at' => now(),
+                        'created_at' => now(),
                     ]
                 );
             }

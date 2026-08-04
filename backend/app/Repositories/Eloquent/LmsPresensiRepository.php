@@ -22,57 +22,57 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
                 'siswa',
             ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->whereHas('siswa', function ($sq) use ($search) {
                     $sq->where('full_name', 'ilike', "%{$search}%")
-                       ->orWhere('nis', 'ilike', "%{$search}%")
-                       ->orWhere('nisn', 'ilike', "%{$search}%");
+                        ->orWhere('nis', 'ilike', "%{$search}%")
+                        ->orWhere('nisn', 'ilike', "%{$search}%");
                 })->orWhereHas('jadwalPelajaran.subject', function ($sq) use ($search) {
                     $sq->where('name', 'ilike', "%{$search}%")
-                       ->orWhere('code', 'ilike', "%{$search}%");
+                        ->orWhere('code', 'ilike', "%{$search}%");
                 })->orWhere('keterangan', 'ilike', "%{$search}%");
             });
         }
 
-        if (!empty($filters['jadwal_pelajaran_id'])) {
+        if (! empty($filters['jadwal_pelajaran_id'])) {
             $query->where('jadwal_pelajaran_id', $filters['jadwal_pelajaran_id']);
         }
 
-        if (!empty($filters['siswa_id'])) {
+        if (! empty($filters['siswa_id'])) {
             $query->where('siswa_id', $filters['siswa_id']);
         }
 
-        if (!empty($filters['status_hadir'])) {
+        if (! empty($filters['status_hadir'])) {
             $query->where('status_hadir', strtolower($filters['status_hadir']));
         }
 
-        if (!empty($filters['tanggal'])) {
+        if (! empty($filters['tanggal'])) {
             $query->whereDate('tanggal', $filters['tanggal']);
         }
 
-        if (!empty($filters['tanggal_mulai']) && !empty($filters['tanggal_selesai'])) {
+        if (! empty($filters['tanggal_mulai']) && ! empty($filters['tanggal_selesai'])) {
             $query->whereBetween('tanggal', [$filters['tanggal_mulai'], $filters['tanggal_selesai']]);
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->whereHas('jadwalPelajaran', function ($q) use ($filters) {
                 $q->where('kelas_id', $filters['kelas_id']);
             });
         }
 
-        if (!empty($filters['subject_id'])) {
+        if (! empty($filters['subject_id'])) {
             $query->whereHas('jadwalPelajaran', function ($q) use ($filters) {
                 $q->where('subject_id', $filters['subject_id']);
             });
         }
 
-        if (!empty($filters['employee_id'])) {
+        if (! empty($filters['employee_id'])) {
             $query->whereHas('jadwalPelajaran', fn ($q) => $q->where('employee_id', $filters['employee_id']));
         }
 
-        if (!empty($filters['class_ids'])) {
+        if (! empty($filters['class_ids'])) {
             $query->whereHas('jadwalPelajaran', fn ($q) => $q->whereIn('kelas_id', $filters['class_ids']));
         }
 
@@ -103,11 +103,12 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
     public function update(string $id, array $data): ?LmsPresensi
     {
         $presensi = LmsPresensi::find($id);
-        if (!$presensi) {
+        if (! $presensi) {
             return null;
         }
 
         $presensi->update($data);
+
         return $presensi->fresh([
             'jadwalPelajaran.subject',
             'jadwalPelajaran.kelas',
@@ -119,7 +120,7 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
     public function delete(string $id): bool
     {
         $presensi = LmsPresensi::find($id);
-        if (!$presensi) {
+        if (! $presensi) {
             return false;
         }
 
@@ -129,7 +130,7 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
     public function restore(string $id): bool
     {
         $presensi = LmsPresensi::withTrashed()->find($id);
-        if (!$presensi) {
+        if (! $presensi) {
             return false;
         }
 
@@ -138,20 +139,20 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
 
     public function bulkUpsert(string $jadwalPelajaranId, string $tanggal, int $pertemuanKe, array $presensiItems): Collection
     {
-        $results = new Collection();
+        $results = new Collection;
 
         DB::transaction(function () use ($jadwalPelajaranId, $tanggal, $pertemuanKe, $presensiItems, &$results) {
             foreach ($presensiItems as $item) {
                 $presensi = LmsPresensi::updateOrCreate(
                     [
                         'jadwal_pelajaran_id' => $jadwalPelajaranId,
-                        'siswa_id'            => $item['siswa_id'],
-                        'tanggal'             => $tanggal,
+                        'siswa_id' => $item['siswa_id'],
+                        'tanggal' => $tanggal,
                     ],
                     [
-                        'status_hadir'   => strtolower($item['status_hadir'] ?? 'hadir'),
-                        'keterangan'     => $item['keterangan'] ?? null,
-                        'pertemuan_ke'   => $pertemuanKe,
+                        'status_hadir' => strtolower($item['status_hadir'] ?? 'hadir'),
+                        'keterangan' => $item['keterangan'] ?? null,
+                        'pertemuan_ke' => $pertemuanKe,
                         'waktu_presensi' => now(),
                     ]
                 );
@@ -167,11 +168,11 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
     {
         $query = LmsPresensi::query();
 
-        if (!empty($filters['jadwal_pelajaran_id'])) {
+        if (! empty($filters['jadwal_pelajaran_id'])) {
             $query->where('jadwal_pelajaran_id', $filters['jadwal_pelajaran_id']);
         }
 
-        if (!empty($filters['tanggal'])) {
+        if (! empty($filters['tanggal'])) {
             $query->whereDate('tanggal', $filters['tanggal']);
         }
 
@@ -185,12 +186,12 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
         $persentaseHadir = $total > 0 ? round((($hadir + $terlambat) / $total) * 100, 1) : 0;
 
         return [
-            'total'            => $total,
-            'hadir'            => $hadir,
-            'izin'             => $izin,
-            'sakit'            => $sakit,
-            'alpa'             => $alpa,
-            'terlambat'        => $terlambat,
+            'total' => $total,
+            'hadir' => $hadir,
+            'izin' => $izin,
+            'sakit' => $sakit,
+            'alpa' => $alpa,
+            'terlambat' => $terlambat,
             'persentase_hadir' => $persentaseHadir,
         ];
     }
@@ -207,18 +208,18 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
             ])
             ->where(function ($q) {
                 $q->where('is_active', true)
-                  ->orWhere('is_active', 1)
-                  ->orWhereNull('is_active');
+                    ->orWhere('is_active', 1)
+                    ->orWhereNull('is_active');
             })
             ->get()
             ->map(function ($s) {
                 $subjectName = $s->subject->name ?? $s->subject->nama ?? 'Mata Pelajaran';
-                $kelasName   = $s->kelas->nama_kelas ?? $s->schoolClass->nama_kelas ?? $s->schoolClass->name ?? 'Kelas';
+                $kelasName = $s->kelas->nama_kelas ?? $s->schoolClass->nama_kelas ?? $s->schoolClass->name ?? 'Kelas';
                 $teacherName = $s->employee->full_name ?? $s->teacher->full_name ?? $s->teacher->name ?? 'Guru';
-                $dayName     = $s->nama_hari ?? ($s->day_of_week ? "Hari {$s->day_of_week}" : '');
-                $timeStart   = $s->time_start ? substr($s->time_start, 0, 5) : '';
-                $timeEnd     = $s->time_end ? substr($s->time_end, 0, 5) : '';
-                $timeStr     = ($timeStart && $timeEnd) ? " ({$timeStart}-{$timeEnd})" : '';
+                $dayName = $s->nama_hari ?? ($s->day_of_week ? "Hari {$s->day_of_week}" : '');
+                $timeStart = $s->time_start ? substr($s->time_start, 0, 5) : '';
+                $timeEnd = $s->time_end ? substr($s->time_end, 0, 5) : '';
+                $timeStr = ($timeStart && $timeEnd) ? " ({$timeStart}-{$timeEnd})" : '';
 
                 $label = sprintf(
                     '%s | %s | %s%s',
@@ -229,15 +230,15 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
                 );
 
                 return [
-                    'id'           => $s->id,
-                    'label'        => $label,
-                    'nama_jadwal'  => $label,
-                    'name'         => $label,
-                    'kelas_id'     => $s->kelas_id ?? $s->class_id,
-                    'class_id'     => $s->class_id ?? $s->kelas_id,
-                    'subject_id'   => $s->subject_id,
+                    'id' => $s->id,
+                    'label' => $label,
+                    'nama_jadwal' => $label,
+                    'name' => $label,
+                    'kelas_id' => $s->kelas_id ?? $s->class_id,
+                    'class_id' => $s->class_id ?? $s->kelas_id,
+                    'subject_id' => $s->subject_id,
                     'teacher_name' => $teacherName,
-                    'day_name'     => $dayName,
+                    'day_name' => $dayName,
                 ];
             });
 
@@ -245,16 +246,16 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
             ->select('id', 'full_name', 'nis', 'nisn', 'class_id')
             ->where(function ($q) {
                 $q->where('is_active', true)
-                  ->orWhere('is_active', 1)
-                  ->orWhereNull('is_active');
+                    ->orWhere('is_active', 1)
+                    ->orWhereNull('is_active');
             })
             ->orderBy('full_name')
             ->get();
 
         return [
             'schedules' => $schedules,
-            'students'  => $students,
-            'statuses'  => [
+            'students' => $students,
+            'statuses' => [
                 ['value' => 'hadir', 'label' => 'Hadir', 'color' => 'emerald'],
                 ['value' => 'izin', 'label' => 'Izin', 'color' => 'indigo'],
                 ['value' => 'sakit', 'label' => 'Sakit', 'color' => 'sky'],

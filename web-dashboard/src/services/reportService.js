@@ -12,5 +12,37 @@ export const reportService = {
   submissionStats: async () => unwrap(await api.get('/lms/pengumpulan-tugas/stats')),
   reportCardStats: async (params = {}) => unwrap(await api.get('/lms/rapor/stats', { params })),
   submissions: async (params = {}) => unwrap(await api.get('/lms/pengumpulan-tugas', { params: { ...params, per_page: 100 } })),
+  tahfizhReport: async (params = {}) => unwrap(await api.get('/tahfizh/report', { params })),
+  tahfizhAnalytics: async () => unwrap(await api.get('/mutabaah/analytics/recap')),
+  alumni: async (params = {}) => unwrap(await api.get('/alumni', { params })),
+  alumniStats: async () => unwrap(await api.get('/alumni/stats')),
+  notifications: async (params = {}) => unwrap(await api.get('/notifications', { params })),
+  notificationUnreadCount: async () => unwrap(await api.get('/notifications/unread-count')),
+  markNotificationRead: async (id) => unwrap(await api.post(`/notifications/${id}/read`)),
+  markAllNotificationsRead: async () => unwrap(await api.post('/notifications/mark-all-read')),
+
+  // Foundation Report Endpoints
+  getFoundationSdmReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/sdm', { params })),
+  getFoundationSdmDetail: async (id) => unwrap(await api.get(`/foundation/laporan/sdm/detail/${id}`)),
+
+  getFoundationSiswaReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/siswa', { params })),
+  getFoundationSiswaDetail: async (id) => unwrap(await api.get(`/foundation/laporan/siswa/detail/${id}`)),
+
+  getFoundationMutasiReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/mutasi', { params })),
+  getFoundationMutasiDetail: async (id) => unwrap(await api.get(`/foundation/laporan/mutasi/detail/${id}`)),
+
+  getFoundationKelulusanReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/kelulusan', { params })),
+  getFoundationKelulusanDetail: async (id) => unwrap(await api.get(`/foundation/laporan/kelulusan/detail/${id}`)),
+
+  getFoundationAlumniReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/alumni', { params })),
+  getFoundationAlumniDetail: async (id) => unwrap(await api.get(`/foundation/laporan/alumni/detail/${id}`)),
+
+  getFoundationLintasUnitReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/lintas-unit', { params })),
+
+  exportFoundationReport: (type, params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return `${api.defaults.baseURL}/foundation/laporan/${type}/export?${query}`
+  },
 }
+
 

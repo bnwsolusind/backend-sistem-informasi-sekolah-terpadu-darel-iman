@@ -49,16 +49,14 @@ export default function LaporanLmsPage() {
   ], [data])
 
   return (
-    <section className="content-grid">
-      <article className="panel wide laporan-produksi">
-        <ReportHeader title="Laporan Aktivitas LMS" description="Ringkasan materi, penugasan, pengumpulan, penilaian, dan rapor dari modul LMS aktif." onRefresh={load} onExport={() => exportCsv('laporan-lms.csv', columns, data.rows)} />
+    <section className="laporan-page">
+      <article className="laporan-produksi">
+        <ReportHeader eyebrow="Rekap Data" title="Rekap Aktivitas LMS" description="Rekapan materi, penugasan, pengumpulan, penilaian, dan rapor dari hasil CRUD LMS." onRefresh={load} onExport={() => exportCsv('rekap-lms.csv', columns, data.rows)} />
         <ReportState loading={loading} error={error}>
           <ReportStats items={stats} />
-          <h4>Status Pengumpulan Tugas</h4>
-          <ReportTable columns={columns} rows={data.rows} />
+          <ReportTable title="Status Pengumpulan Tugas" columns={columns} rows={data.rows} />
         </ReportState>
       </article>
     </section>
   )
 }
-

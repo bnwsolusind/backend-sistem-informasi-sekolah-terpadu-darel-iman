@@ -14,22 +14,22 @@ class LmsMediaRepository implements LmsMediaRepositoryInterface
     {
         $query = LmsMedia::with(['materi', 'materi.modulAjar', 'materi.subject']);
 
-        if (!empty($filters['materi_id'])) {
+        if (! empty($filters['materi_id'])) {
             $query->where('materi_id', $filters['materi_id']);
         }
 
-        if (!empty($filters['tipe_file'])) {
+        if (! empty($filters['tipe_file'])) {
             $query->where('tipe_file', strtolower($filters['tipe_file']));
         }
 
-        if (!empty($filters['search'])) {
-            $search = '%' . $filters['search'] . '%';
+        if (! empty($filters['search'])) {
+            $search = '%'.$filters['search'].'%';
             $query->where(function ($q) use ($search) {
                 $q->where('nama_file', 'like', $search)
-                  ->orWhere('deskripsi', 'like', $search)
-                  ->orWhereHas('materi', function ($mq) use ($search) {
-                      $mq->where('judul', 'like', $search);
-                  });
+                    ->orWhere('deskripsi', 'like', $search)
+                    ->orWhereHas('materi', function ($mq) use ($search) {
+                        $mq->where('judul', 'like', $search);
+                    });
             });
         }
 
@@ -57,19 +57,21 @@ class LmsMediaRepository implements LmsMediaRepositoryInterface
     public function update(string $id, array $data): ?LmsMedia
     {
         $media = $this->findById($id);
-        if (!$media) {
+        if (! $media) {
             return null;
         }
         $media->update($data);
+
         return $media->fresh(['materi', 'materi.modulAjar']);
     }
 
     public function delete(string $id): bool
     {
         $media = $this->findById($id);
-        if (!$media) {
+        if (! $media) {
             return false;
         }
+
         return (bool) $media->delete();
     }
 
@@ -80,6 +82,7 @@ class LmsMediaRepository implements LmsMediaRepositoryInterface
                 LmsMedia::where('id', $item['id'])->update(['urutan' => $item['urutan']]);
             }
         }
+
         return true;
     }
 

@@ -15,24 +15,24 @@ class LmsPenugasanRequest extends FormRequest
     {
         $mergeData = [];
 
-        if ($this->has('judul') && !$this->has('judul_tugas')) {
+        if ($this->has('judul') && ! $this->has('judul_tugas')) {
             $mergeData['judul_tugas'] = $this->input('judul');
         }
-        if ($this->has('tipe') && !$this->has('tipe_tugas')) {
+        if ($this->has('tipe') && ! $this->has('tipe_tugas')) {
             $mergeData['tipe_tugas'] = $this->input('tipe');
         }
-        if ($this->has('tanggal_selesai') && !$this->has('deadline')) {
+        if ($this->has('tanggal_selesai') && ! $this->has('deadline')) {
             $mergeData['deadline'] = $this->input('tanggal_selesai');
         }
-        if ($this->has('lampiran') && !$this->has('file_lampiran')) {
+        if ($this->has('lampiran') && ! $this->has('file_lampiran')) {
             $mergeData['file_lampiran'] = $this->input('lampiran');
         }
-        if ($this->has('status') && !$this->has('is_published')) {
+        if ($this->has('status') && ! $this->has('is_published')) {
             $statusVal = strtolower((string) $this->input('status'));
             $mergeData['is_published'] = in_array($statusVal, ['dipublikasikan', 'published', '1', 'true', 'active'], true);
         }
 
-        if (!empty($mergeData)) {
+        if (! empty($mergeData)) {
             $this->merge($mergeData);
         }
     }

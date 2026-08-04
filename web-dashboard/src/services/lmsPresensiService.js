@@ -103,6 +103,11 @@ export const lmsPresensiService = {
     return response.data
   },
 
+  getPermissions: async (params = {}) => {
+    const response = await api.get('/student-attendance/permissions', { params })
+    return response.data
+  },
+
   submitPermissionRequest: async (data) => {
     const response = await api.post('/student-attendance/permissions', data, {
       headers: data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,

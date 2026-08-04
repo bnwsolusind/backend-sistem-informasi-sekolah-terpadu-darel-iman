@@ -27,7 +27,7 @@ class Division extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
-        'metadata'  => 'array',
+        'metadata' => 'array',
     ];
 
     // --- Relations ---

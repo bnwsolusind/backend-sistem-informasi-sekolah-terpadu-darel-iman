@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\EducationUnit;
-use Illuminate\Database\Seeder;
-
 use App\Models\JenisUnitPendidikan;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class DataDummyUnitPendidikanSeeder extends Seeder
 {
@@ -433,11 +433,11 @@ class DataDummyUnitPendidikanSeeder extends Seeder
                 return strtoupper($item->kode_jenis) === $levelKey
                     || strtoupper($item->singkatan) === $levelKey
                     || strtoupper($item->jenjang) === $levelKey
-                    || \Illuminate\Support\Str::slug($item->kode_jenis) === \Illuminate\Support\Str::slug($unit['level'])
-                    || \Illuminate\Support\Str::slug($item->singkatan) === \Illuminate\Support\Str::slug($unit['level']);
+                    || Str::slug($item->kode_jenis) === Str::slug($unit['level'])
+                    || Str::slug($item->singkatan) === Str::slug($unit['level']);
             });
 
-            if (!$jenisUnit) {
+            if (! $jenisUnit) {
                 $jenisUnit = JenisUnitPendidikan::query()
                     ->whereRaw('LOWER(kode_jenis) = ?', [strtolower($unit['level'])])
                     ->orWhereRaw('LOWER(singkatan) = ?', [strtolower($unit['level'])])

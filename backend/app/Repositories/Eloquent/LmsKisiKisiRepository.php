@@ -22,40 +22,40 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
             'guru',
         ]);
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('judul_kisi', 'like', "%{$search}%")
-                  ->orWhere('kompetensi_dasar', 'like', "%{$search}%")
-                  ->orWhere('level_kognitif', 'like', "%{$search}%");
+                    ->orWhere('kompetensi_dasar', 'like', "%{$search}%")
+                    ->orWhere('level_kognitif', 'like', "%{$search}%");
             });
         }
 
-        if (!empty($filters['mata_pelajaran_id'])) {
+        if (! empty($filters['mata_pelajaran_id'])) {
             $query->where('mata_pelajaran_id', $filters['mata_pelajaran_id']);
         }
 
-        if (!empty($filters['jenis_ujian'])) {
+        if (! empty($filters['jenis_ujian'])) {
             $query->where('jenis_ujian', $filters['jenis_ujian']);
         }
 
-        if (!empty($filters['kurikulum_id'])) {
+        if (! empty($filters['kurikulum_id'])) {
             $query->where('kurikulum_id', $filters['kurikulum_id']);
         }
 
-        if (!empty($filters['cp_id'])) {
+        if (! empty($filters['cp_id'])) {
             $query->where('cp_id', $filters['cp_id']);
         }
 
-        if (!empty($filters['tp_id'])) {
+        if (! empty($filters['tp_id'])) {
             $query->where('tp_id', $filters['tp_id']);
         }
 
-        if (!empty($filters['kelas_id'])) {
+        if (! empty($filters['kelas_id'])) {
             $query->where('kelas_id', $filters['kelas_id']);
         }
 
-        if (!empty($filters['semester_id'])) {
+        if (! empty($filters['semester_id'])) {
             $query->where('semester_id', $filters['semester_id']);
         }
 
@@ -63,7 +63,7 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
             $query->where('status', (bool) $filters['status']);
         }
 
-        if (!empty($filters['with_trashed']) && $filters['with_trashed'] === 'true') {
+        if (! empty($filters['with_trashed']) && $filters['with_trashed'] === 'true') {
             $query->withTrashed();
         }
 
@@ -100,11 +100,12 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
     public function update(string $id, array $data): ?LmsKisiKisi
     {
         $kisi = LmsKisiKisi::find($id);
-        if (!$kisi) {
+        if (! $kisi) {
             return null;
         }
 
         $kisi->update($data);
+
         return $kisi->fresh([
             'subject',
             'cp',
@@ -120,7 +121,7 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
     public function delete(string $id): bool
     {
         $kisi = LmsKisiKisi::find($id);
-        if (!$kisi) {
+        if (! $kisi) {
             return false;
         }
 
@@ -130,7 +131,7 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
     public function restore(string $id): bool
     {
         $kisi = LmsKisiKisi::withTrashed()->find($id);
-        if (!$kisi || !$kisi->trashed()) {
+        if (! $kisi || ! $kisi->trashed()) {
             return false;
         }
 
@@ -140,13 +141,13 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
     public function duplicate(string $id): ?LmsKisiKisi
     {
         $original = LmsKisiKisi::find($id);
-        if (!$original) {
+        if (! $original) {
             return null;
         }
 
         $new = $original->replicate();
         $new->id = (string) Str::uuid();
-        $new->judul_kisi = $original->judul_kisi . ' (Salinan)';
+        $new->judul_kisi = $original->judul_kisi.' (Salinan)';
         $new->created_at = now();
         $new->updated_at = now();
         $new->save();

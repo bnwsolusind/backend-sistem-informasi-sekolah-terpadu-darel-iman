@@ -31,6 +31,8 @@ const MOCK_STUDENTS = [
     jenis_kelamin: 'L',
     unit_pendidikan: 'SDIT',
     tingkat: '5',
+    orang_tua: 'Budi Santoso (Ayah)',
+    no_hp: '0812-3456-7890',
     status: 'Aktif',
     created_at: '2026-01-15',
   },
@@ -41,6 +43,8 @@ const MOCK_STUDENTS = [
     jenis_kelamin: 'P',
     unit_pendidikan: 'SMPIT',
     tingkat: '8',
+    orang_tua: 'Siti Rahmawati (Ibu)',
+    no_hp: '0813-2222-4444',
     status: 'Aktif',
     created_at: '2026-02-10',
   },
@@ -51,6 +55,8 @@ const MOCK_STUDENTS = [
     jenis_kelamin: 'L',
     unit_pendidikan: 'SMAIT',
     tingkat: '11',
+    orang_tua: 'Fadli Hasan (Ayah)',
+    no_hp: '0812-1111-2222',
     status: 'Aktif',
     created_at: '2026-03-01',
   },
@@ -61,6 +67,8 @@ const MOCK_STUDENTS = [
     jenis_kelamin: 'P',
     unit_pendidikan: 'TKIT',
     tingkat: '1',
+    orang_tua: 'Dewi Anggraini (Ibu)',
+    no_hp: '0813-7777-8888',
     status: 'Aktif',
     created_at: '2026-04-12',
   },
@@ -71,6 +79,8 @@ const MOCK_STUDENTS = [
     jenis_kelamin: 'L',
     unit_pendidikan: 'SMPIT',
     tingkat: '9',
+    orang_tua: 'Budi Setiawan (Ayah)',
+    no_hp: '0813-9999-0000',
     status: 'Lulus',
     created_at: '2025-06-20',
   },
@@ -229,6 +239,54 @@ export default function StudentCrudPage() {
         cell: (info) => (
           <span className="text-sm font-medium text-slate-300">Kelas {info.getValue()}</span>
         ),
+      },
+      {
+        id: 'orang_tua',
+        header: 'Orang Tua / Wali',
+        cell: ({ row }) => {
+          const item = row.original
+          const meta = item.metadata || {}
+          let parentName = ''
+          let relationshipLabel = ''
+
+          if (meta.nama_ayah || meta.ayah?.nama || meta.orang_tua?.nama_ayah || item.nama_ayah) {
+            parentName = meta.nama_ayah || meta.ayah?.nama || meta.orang_tua?.nama_ayah || item.nama_ayah
+            relationshipLabel = 'Ayah'
+          } else if (meta.nama_ibu || meta.ibu?.nama || meta.orang_tua?.nama_ibu || item.nama_ibu) {
+            parentName = meta.nama_ibu || meta.ibu?.nama || meta.orang_tua?.nama_ibu || item.nama_ibu
+            relationshipLabel = 'Ibu'
+          } else if (meta.nama_wali || meta.wali?.nama || meta.orang_tua?.nama_wali || item.nama_wali) {
+            parentName = meta.nama_wali || meta.wali?.nama || meta.orang_tua?.nama_wali || item.nama_wali
+            relationshipLabel = 'Wali'
+          } else if (typeof meta.orang_tua === 'string' && meta.orang_tua.trim()) {
+            parentName = meta.orang_tua.trim()
+          } else if (typeof item.orang_tua === 'string' && item.orang_tua.trim()) {
+            parentName = item.orang_tua.trim()
+          } else if (meta.nama_ortu || meta.nama_orang_tua || meta.parent_name) {
+            parentName = meta.nama_ortu || meta.nama_orang_tua || meta.parent_name
+          } else if (item.nama_ortu || item.nama_orang_tua || item.parent_name) {
+            parentName = item.nama_ortu || item.nama_orang_tua || item.parent_name
+          } else if (item.parent?.full_name || item.parent?.name) {
+            parentName = item.parent.full_name || item.parent.name
+          }
+
+          const ortuText = parentName
+            ? (relationshipLabel ? `${parentName} (${relationshipLabel})` : parentName)
+            : '-'
+
+          const hpText =
+            meta.hp_ayah || meta.telfon_ayah || meta.nomor_wa_ayah || meta.ayah?.hp ||
+            meta.hp_ibu || meta.telfon_ibu || meta.nomor_wa_ibu || meta.ibu?.hp ||
+            meta.hp_wali || meta.telfon_wali || meta.nomor_wa_wali || meta.wali?.hp ||
+            meta.no_hp || item.parent?.phone || item.no_hp || '-'
+
+          return (
+            <div>
+              <div className="font-semibold text-slate-200 text-xs">{ortuText}</div>
+              <div className="text-[11px] text-slate-400 font-mono">{hpText}</div>
+            </div>
+          )
+        },
       },
       {
         accessorKey: 'status',

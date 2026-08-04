@@ -44,7 +44,7 @@ class KelasService
     {
         if (empty($data['kode_kelas'])) {
             $jenjangCode = preg_replace('/[^A-Za-z0-9]/', '', $data['jenjang'] ?? 'KLS');
-            $data['kode_kelas'] = 'KLS-' . strtoupper($jenjangCode) . '-' . rand(100, 999);
+            $data['kode_kelas'] = 'KLS-'.strtoupper($jenjangCode).'-'.rand(100, 999);
         }
 
         return $this->kelasRepository->buat($data);
@@ -90,20 +90,21 @@ class KelasService
         $units = EducationUnit::where('is_active', true)->select('id', 'name', 'code', 'level')->orderBy('name', 'asc')->get();
         $academicYears = AcademicYear::orderBy('start_date', 'desc')->select('id', 'name', 'is_active')->get();
         $semesters = Semester::orderBy('sequence', 'asc')->select('id', 'academic_year_id', 'name', 'sequence', 'is_active')->get();
-        
+
         // Ambil data Pegawai / Guru (hanya dari tabel employees, tidak membuat baru)
         $employees = Employee::where('status', 'Aktif')
             ->select('id', 'niy', 'nama_lengkap', 'gelar_depan', 'gelar_belakang', 'unit_id', 'jabatan_id')
             ->orderBy('nama_lengkap', 'asc')
             ->get()
             ->map(function ($emp) {
-                $gelarDepan = $emp->gelar_depan ? $emp->gelar_depan . ' ' : '';
-                $gelarBelakang = $emp->gelar_belakang ? ', ' . $emp->gelar_belakang : '';
+                $gelarDepan = $emp->gelar_depan ? $emp->gelar_depan.' ' : '';
+                $gelarBelakang = $emp->gelar_belakang ? ', '.$emp->gelar_belakang : '';
+
                 return [
                     'id' => $emp->id,
                     'niy' => $emp->niy,
                     'nama_lengkap' => $emp->nama_lengkap,
-                    'nama_tampil' => trim($gelarDepan . $emp->nama_lengkap . $gelarBelakang),
+                    'nama_tampil' => trim($gelarDepan.$emp->nama_lengkap.$gelarBelakang),
                     'unit_id' => $emp->unit_id,
                 ];
             });
@@ -128,7 +129,7 @@ class KelasService
     public function dapatkanSiswaRombel(string $kelasId): array
     {
         $kelas = $this->kelasRepository->cariBerdasarkanId($kelasId);
-        if (!$kelas) {
+        if (! $kelas) {
             return [];
         }
 
@@ -166,7 +167,8 @@ class KelasService
 
                 if (empty($kode) || empty($nama)) {
                     $gagal++;
-                    $errors[] = "Baris " . ($index + 1) . ": Kode dan Nama kelas wajib diisi.";
+                    $errors[] = 'Baris '.($index + 1).': Kode dan Nama kelas wajib diisi.';
+
                     continue;
                 }
 
@@ -187,7 +189,7 @@ class KelasService
                 $berhasil++;
             } catch (\Exception $e) {
                 $gagal++;
-                $errors[] = "Baris " . ($index + 1) . ": " . $e->getMessage();
+                $errors[] = 'Baris '.($index + 1).': '.$e->getMessage();
             }
         }
 
