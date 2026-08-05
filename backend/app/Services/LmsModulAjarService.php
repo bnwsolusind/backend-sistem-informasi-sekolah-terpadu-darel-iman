@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\CapaianPembelajaran;
 use App\Models\LmsModulAjar;
+use App\Models\TujuanPembelajaran;
 use App\Repositories\Contracts\LmsModulAjarRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class LmsModulAjarService
 {
@@ -26,6 +29,8 @@ class LmsModulAjarService
 
     public function simpan(array $data): LmsModulAjar
     {
+        $this->validateLearningContext($data);
+
         if (empty($data['kode_modul'])) {
             $data['kode_modul'] = 'MA-'.strtoupper(Str::random(6));
         }
@@ -49,6 +54,11 @@ class LmsModulAjarService
         if (! $existing) {
             return null;
         }
+
+        $this->validateLearningContext(array_merge(
+            $existing->only(['kurikulum_id', 'mata_pelajaran_id', 'cp_id', 'tp_id']),
+            $data
+        ));
 
         // Handle Auto Version Increment if version parameter increment requested
         if (! empty($data['naikkan_versi']) && $data['naikkan_versi']) {
@@ -83,6 +93,45 @@ class LmsModulAjarService
             'status' => 'Publish',
             'catatan_revisi' => 'Publikasi Modul Ajar',
         ]);
+    }
+
+    private function validateLearningContext(array $data): void
+    {
+        $cp = ! empty($data['cp_id'])
+            ? CapaianPembelajaran::query()->find($data['cp_id'])
+            : null;
+        $tp = ! empty($data['tp_id'])
+            ? TujuanPembelajaran::query()->with('capaianPembelajaran')->find($data['tp_id'])
+            : null;
+
+        if (! empty($data['cp_id']) && (! $cp || ! $cp->status)) {
+            throw ValidationException::withMessages([
+                'cp_id' => ['CP yang dipilih tidak ditemukan atau tidak aktif.'],
+            ]);
+        }
+
+        if (! empty($data['tp_id']) && (! $tp || ! $tp->status)) {
+            throw ValidationException::withMessages([
+                'tp_id' => ['TP yang dipilih tidak ditemukan atau tidak aktif.'],
+            ]);
+        }
+
+        $contextCp = $cp ?? $tp?->capaianPembelajaran;
+        if (! $contextCp) {
+            return;
+        }
+
+        if ($contextCp->kurikulum_id !== $data['kurikulum_id'] || $contextCp->mata_pelajaran_id !== $data['mata_pelajaran_id']) {
+            throw ValidationException::withMessages([
+                'cp_id' => ['CP harus sesuai dengan kurikulum dan mata pelajaran Modul Ajar.'],
+            ]);
+        }
+
+        if ($tp && $tp->cp_id !== $contextCp->id) {
+            throw ValidationException::withMessages([
+                'tp_id' => ['TP harus merupakan turunan dari CP yang dipilih.'],
+            ]);
+        }
     }
 
     public function duplikasi(string $id): ?LmsModulAjar

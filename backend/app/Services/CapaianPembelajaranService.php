@@ -3,10 +3,13 @@
 namespace App\Services;
 
 use App\Models\CapaianPembelajaran;
+use App\Models\MasterKurikulum;
+use App\Models\Subject;
 use App\Repositories\Contracts\CapaianPembelajaranRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class CapaianPembelajaranService
 {
@@ -31,6 +34,8 @@ class CapaianPembelajaranService
 
     public function simpan(array $data): CapaianPembelajaran
     {
+        $data = $this->validatedContext($data);
+
         if (! isset($data['status'])) {
             $data['status'] = true;
         }
@@ -55,6 +60,11 @@ class CapaianPembelajaranService
         if (! $existing) {
             return null;
         }
+
+        $data = $this->validatedContext(array_merge(
+            $existing->only(['unit_pendidikan_id', 'tahun_ajaran_id', 'kurikulum_id', 'mata_pelajaran_id']),
+            $data
+        ));
 
         Log::info('[AUDIT LOG] Memperbarui Capaian Pembelajaran', [
             'id' => $id,
@@ -92,5 +102,46 @@ class CapaianPembelajaranService
             'total_cp_aktif' => CapaianPembelajaran::where('status', true)->count(),
             'total_cp_nonaktif' => CapaianPembelajaran::where('status', false)->count(),
         ];
+    }
+
+    private function validatedContext(array $data): array
+    {
+        $curriculum = MasterKurikulum::query()->find($data['kurikulum_id']);
+        $subject = Subject::query()->find($data['mata_pelajaran_id']);
+
+        if (! $curriculum || ! $subject) {
+            throw ValidationException::withMessages([
+                'kurikulum_id' => ['Kurikulum atau Mata Pelajaran tidak ditemukan.'],
+            ]);
+        }
+
+        if ($subject->kurikulum_id && $subject->kurikulum_id !== $curriculum->id) {
+            throw ValidationException::withMessages([
+                'mata_pelajaran_id' => ['Mata Pelajaran harus menggunakan kurikulum yang sama dengan CP.'],
+            ]);
+        }
+
+        if ($subject->unit_pendidikan_id && $subject->unit_pendidikan_id !== $curriculum->unit_pendidikan_id) {
+            throw ValidationException::withMessages([
+                'mata_pelajaran_id' => ['Mata Pelajaran harus berasal dari unit pendidikan kurikulum yang sama.'],
+            ]);
+        }
+
+        if (! empty($data['unit_pendidikan_id']) && $data['unit_pendidikan_id'] !== $curriculum->unit_pendidikan_id) {
+            throw ValidationException::withMessages([
+                'unit_pendidikan_id' => ['Unit pendidikan CP harus sesuai dengan kurikulum yang dipilih.'],
+            ]);
+        }
+
+        if (! empty($data['tahun_ajaran_id']) && $data['tahun_ajaran_id'] !== $curriculum->tahun_ajaran_id) {
+            throw ValidationException::withMessages([
+                'tahun_ajaran_id' => ['Tahun ajaran CP harus sesuai dengan kurikulum yang dipilih.'],
+            ]);
+        }
+
+        $data['unit_pendidikan_id'] = $curriculum->unit_pendidikan_id;
+        $data['tahun_ajaran_id'] = $curriculum->tahun_ajaran_id;
+
+        return $data;
     }
 }

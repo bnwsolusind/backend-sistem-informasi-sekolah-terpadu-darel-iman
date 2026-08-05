@@ -164,6 +164,39 @@ class TahfizhController extends Controller
     }
 
     /**
+     * Helper untuk menghitung total ayat unik dari susunan range [start, end] (Interval Merging).
+     */
+    private function calculateMergedAyatCount(array $ranges): int
+    {
+        if (empty($ranges)) {
+            return 0;
+        }
+
+        usort($ranges, fn ($a, $b) => $a['start'] <=> $b['start']);
+
+        $merged = [];
+        $current = $ranges[0];
+
+        for ($i = 1; $i < count($ranges); $i++) {
+            $next = $ranges[$i];
+            if ($next['start'] <= $current['end'] + 1) {
+                $current['end'] = max($current['end'], $next['end']);
+            } else {
+                $merged[] = $current;
+                $current = $next;
+            }
+        }
+        $merged[] = $current;
+
+        $totalAyats = 0;
+        foreach ($merged as $r) {
+            $totalAyats += max($r['end'] - $r['start'] + 1, 0);
+        }
+
+        return $totalAyats;
+    }
+
+    /**
      * Ambil rekap kemajuan Tahfizh siswa (dihafal vs sisa target 30 Juz / 6236 Ayat).
      */
     public function getStudentProgress(Request $request, $studentId): JsonResponse
@@ -171,38 +204,49 @@ class TahfizhController extends Controller
         $totalQuranAyats = 6236; // Total ayat dalam 30 Juz Al-Qur'an
         $totalQuranSurahs = 114;
 
-        // Ambil semua setoran hafalan baru siswa yang valid
+        // Ambil semua setoran hafalan baru siswa yang valid (abaikan murajaah murni)
         $logs = TahfizhDailyLog::where('student_id', $studentId)
             ->whereNotNull('hafalan_surah_number')
             ->whereNotNull('hafalan_ayah_start')
             ->whereNotNull('hafalan_ayah_end')
             ->get();
 
+        $surahsRawRanges = [];
+
+        foreach ($logs as $log) {
+            // Jika log ditandai sebagai Murajaah murni di metadata, abaikan dari hafalan baru
+            if (isset($log->metadata['type']) && strtolower($log->metadata['type']) === 'murajaah' && empty($log->hafalan_baris)) {
+                continue;
+            }
+
+            $surahNum = $log->hafalan_surah_number;
+            if (!isset($surahsRawRanges[$surahNum])) {
+                $surahsRawRanges[$surahNum] = [
+                    'surah_number' => $surahNum,
+                    'surah_name' => $log->hafalan_surah_name,
+                    'ranges' => [],
+                ];
+            }
+
+            $surahsRawRanges[$surahNum]['ranges'][] = [
+                'start' => (int) $log->hafalan_ayah_start,
+                'end' => (int) $log->hafalan_ayah_end,
+                'date' => $log->record_date,
+            ];
+        }
+
         $surahsMemorized = [];
         $totalAyatsMemorized = 0;
 
-        foreach ($logs as $log) {
-            $surahNum = $log->hafalan_surah_number;
-            $ayatsCount = max(($log->hafalan_ayah_end - $log->hafalan_ayah_start) + 1, 0);
-
-            if (!isset($surahsMemorized[$surahNum])) {
-                $surahsMemorized[$surahNum] = [
-                    'surah_number' => $surahNum,
-                    'surah_name' => $log->hafalan_surah_name,
-                    'total_ayats' => $ayatsCount,
-                    'ranges' => [],
-                ];
-            } else {
-                $surahsMemorized[$surahNum]['total_ayats'] += $ayatsCount;
-            }
-
-            $surahsMemorized[$surahNum]['ranges'][] = [
-                'start' => $log->hafalan_ayah_start,
-                'end' => $log->hafalan_ayah_end,
-                'date' => $log->record_date,
+        foreach ($surahsRawRanges as $surahNum => $data) {
+            $uniqueAyatCount = $this->calculateMergedAyatCount($data['ranges']);
+            $surahsMemorized[$surahNum] = [
+                'surah_number' => $surahNum,
+                'surah_name' => $data['surah_name'],
+                'total_ayats' => $uniqueAyatCount,
+                'ranges' => $data['ranges'],
             ];
-
-            $totalAyatsMemorized += $ayatsCount;
+            $totalAyatsMemorized += $uniqueAyatCount;
         }
 
         $completedSurahsCount = count($surahsMemorized);

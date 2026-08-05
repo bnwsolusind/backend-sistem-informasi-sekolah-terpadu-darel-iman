@@ -50,7 +50,7 @@ export default function DashboardLayout() {
   const namaSekolah = pengaturan?.school_name || 'YAYASAN DAR EL - IMAN'
   const roles = Array.isArray(user?.roles) ? user.roles : []
   const permissions = Array.isArray(user?.permissions) ? user.permissions : []
-  const hasRole = (...names) => names.some((name) => roles.includes(name))
+  const hasRole = (...names) => names.some((name) => roles.some((role) => String(role).toLowerCase().replace(/[\s_-]+/g, '') === String(name).toLowerCase().replace(/[\s_-]+/g, '')))
   const can = (...names) => hasRole('Super Admin') || names.some((name) => permissions.includes(name))
 
   const [collapsed, setCollapsed] = useState(Boolean(pengaturan?.sidebar_collapsed))
@@ -277,8 +277,8 @@ export default function DashboardLayout() {
     }
     if (to.includes('/mutabaah')) {
       return (
-        hasRole('Guru', 'Wali Kelas', 'Pembimbing', 'Musyrif', 'Musyrifah', 'Tata Usaha', 'TU') ||
-        can('mutabaah.view', 'mutabaah.input', 'mutabaah.agenda.manage', 'sistem.master_data')
+        hasRole('Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan', 'Waka Kesiswaan', 'Waka Kurikulum', 'Tata Usaha', 'TU', 'Operator', 'Wali Kelas', 'Guru', 'Musyrif', 'Musyrifah', 'Pembimbing', 'Pengurus Yayasan') ||
+        can('mutabaah.view', 'mutabaah.input', 'mutabaah.agenda.manage', 'sistem.master_data', 'mutabaah.dashboard.view', 'mutabaah.recap.view', 'mutabaah.daily.view', 'mutabaah.agenda.view', 'mutabaah.template.view', 'mutabaah.supervisor.view', 'mutabaah.parent.monitor')
       )
     }
     if (to.includes('/laporan-absensi')) return can('kehadiran.siswa.monitoring', 'kehadiran.siswa.rekap_keterlambatan', 'kehadiran.siswa.rekap_ketidakhadiran')
@@ -485,10 +485,10 @@ export default function DashboardLayout() {
         // { to: '/dashboard/mutabaah/input-harian', label: 'Input Mutaba’ah Harian' },
         { to: '/dashboard/mutabaah/rekap', label: 'Rekap Mutaba’ah' },
         { to: '/dashboard/mutabaah/target-evaluasi', label: 'Target & Evaluasi' },
-        ...(hasRole('Super Admin') || can('mutabaah.agenda.view') ? [{ to: '/dashboard/mutabaah/rincian-agenda', label: 'Rincian Agenda TU' }] : []),
-        ...(hasRole('Super Admin') || can('mutabaah.template.view') ? [{ to: '/dashboard/mutabaah/template-agenda', label: 'Template Agenda' }] : []),
-        ...(hasRole('Super Admin') || can('mutabaah.template.assign') ? [{ to: '/dashboard/mutabaah/assign-template', label: 'Assign Template' }] : []),
-        ...(hasRole('Super Admin') || can('mutabaah.supervisor.view') ? [{ to: '/dashboard/mutabaah/assign-pembimbing', label: 'Assign Pembimbing' }] : []),
+        ...(hasRole('Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan', 'Tata Usaha', 'TU', 'Operator', 'Wali Kelas', 'Musyrif', 'Pembimbing') || can('mutabaah.agenda.view') ? [{ to: '/dashboard/mutabaah/rincian-agenda', label: 'Rincian Agenda TU' }] : []),
+        ...(hasRole('Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan', 'Tata Usaha', 'TU', 'Operator', 'Wali Kelas', 'Musyrif', 'Pembimbing') || can('mutabaah.template.view') ? [{ to: '/dashboard/mutabaah/template-agenda', label: 'Template Agenda' }] : []),
+        ...(hasRole('Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan', 'Tata Usaha', 'TU', 'Operator', 'Wali Kelas', 'Musyrif', 'Pembimbing') || can('mutabaah.template.assign') ? [{ to: '/dashboard/mutabaah/assign-template', label: 'Assign Template' }] : []),
+        ...(hasRole('Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan', 'Tata Usaha', 'TU', 'Operator', 'Wali Kelas', 'Musyrif', 'Pembimbing') || can('mutabaah.supervisor.view') ? [{ to: '/dashboard/mutabaah/assign-pembimbing', label: 'Assign Pembimbing' }] : []),
         { to: '/dashboard/mutabaah/monitoring-orang-tua', label: 'Monitoring Orang Tua' },
 
       ],
@@ -1092,25 +1092,29 @@ export default function DashboardLayout() {
           <span>Dashboard</span>
         </NavLink>
 
-        <NavLink
-          to={hasRole('Siswa') ? '/portal-siswa' : hasRole('Orang Tua') ? '/portal-orangtua' : '/dashboard/students'}
-          className={({ isActive }) =>
-            `flex flex-col items-center gap-1 text-[10px] font-semibold transition ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
-            }`
-          }
-        >
-          <Database className="h-5 w-5" />
-          <span>{hasRole('Siswa') ? 'Portal Siswa' : hasRole('Orang Tua') ? 'Portal Anak' : 'Data Siswa'}</span>
-        </NavLink>
+        {(hasRole('Siswa', 'Orang Tua') || can('kesiswaan.data_lengkap_siswa')) && (
+          <NavLink
+            to={hasRole('Siswa') ? '/portal-siswa' : hasRole('Orang Tua') ? '/portal-orangtua' : '/dashboard/students'}
+            className={({ isActive }) =>
+              `flex flex-col items-center gap-1 text-[10px] font-semibold transition ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+              }`
+            }
+          >
+            <Database className="h-5 w-5" />
+            <span>{hasRole('Siswa') ? 'Portal Siswa' : hasRole('Orang Tua') ? 'Portal Anak' : 'Data Siswa'}</span>
+          </NavLink>
+        )}
 
         {/* Action Center Trigger */}
-        <button
-          type="button"
-          onClick={() => navigate(hasRole('Siswa') ? '/portal-siswa/tugas' : hasRole('Orang Tua') ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add')}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
+        {(hasRole('Siswa', 'Orang Tua') || can('kesiswaan.data_lengkap_siswa')) && (
+          <button
+            type="button"
+            onClick={() => navigate(hasRole('Siswa') ? '/portal-siswa/tugas' : hasRole('Orang Tua') ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add')}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        )}
 
         <button
           type="button"

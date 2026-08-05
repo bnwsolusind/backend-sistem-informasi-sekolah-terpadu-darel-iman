@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../services/api'
 
 async function getClasses(params = { per_page: 100 }) {
-  const { data } = await api.get('/classes', { params })
+  const { data } = await api.get('/kelas', { params })
   return data
 }
 

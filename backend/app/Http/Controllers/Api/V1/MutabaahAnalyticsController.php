@@ -49,7 +49,14 @@ class MutabaahAnalyticsController extends Controller
 
     private function authorizePermission(Request $request, string $permission): void
     {
-        abort_unless($request->user()->hasRole('Super Admin') || $request->user()->can($permission), 403);
+        $user = $request->user();
+        $hasRoleAccess = $user->hasRole([
+            'Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan',
+            'Waka Kesiswaan', 'Waka Kurikulum', 'Tata Usaha', 'TU', 'Operator',
+            'Wali Kelas', 'Guru', 'Musyrif', 'Musyrifah', 'Pembimbing', 'Pengurus Yayasan',
+        ]);
+
+        abort_unless($hasRoleAccess || $user->can($permission), 403);
     }
 
     private function ok(string $message, mixed $data): JsonResponse

@@ -126,71 +126,35 @@ export default function DashboardPage() {
   const kpiRombel = getKpiData('rombel', 'total_rombel')
 
   // Unit Education Table Data (Dynamic from DB if available)
-  const dataUnitPendidikan = (apiData?.unit_summaries && apiData.unit_summaries.length > 0)
-    ? apiData.unit_summaries.map((u, idx) => ({
+  const dataUnitPendidikan = (apiData?.unit_summaries || []).map((u, idx) => ({
         no: idx + 1,
+        id: u.id,
         name: u.name,
         siswa: Number(u.siswa_aktif_count || 0).toLocaleString('id-ID'),
         guru: String(u.guru_count || 0),
         pegawai: String(u.pegawai_count || 0),
         kelas: String(u.kelas_count || u.rombel_count || 0),
         rombel: String(u.rombel_count || u.kelas_count || 0),
-        presensiSiswa: '96%',
-        presensiGuru: '98%',
-        tahfizh: '92%',
+        presensiSiswa: '-',
+        presensiGuru: '-',
+        tahfizh: '-',
       }))
-    : [
-        { no: 1, name: 'SDIT Dar El-Iman - Padang', siswa: '812', guru: '48', pegawai: '15', kelas: '28', rombel: '32', presensiSiswa: '96%', presensiGuru: '98%', tahfizh: '92%' },
-        { no: 2, name: 'SMPIT Dar El-Iman - Padang', siswa: '642', guru: '36', pegawai: '12', kelas: '20', rombel: '24', presensiSiswa: '95%', presensiGuru: '97%', tahfizh: '95%' },
-        { no: 3, name: 'SMAIT Dar El-Iman - Padang', siswa: '528', guru: '32', pegawai: '10', kelas: '16', rombel: '18', presensiSiswa: '94%', presensiGuru: '96%', tahfizh: '88%' },
-        { no: 4, name: 'PONPES Dar El-Iman - Padang', siswa: '1.256', guru: '64', pegawai: '24', kelas: '24', rombel: '28', presensiSiswa: '97%', presensiGuru: '99%', tahfizh: '98%' },
-        { no: 5, name: 'MA\'HAD Dar El-Iman - Padang', siswa: '520', guru: '28', pegawai: '12', kelas: '12', rombel: '16', presensiSiswa: '95%', presensiGuru: '97%', tahfizh: '90%' },
-      ]
 
   // Dynamic Announcements from DB if available
-  const recentInformationList = (apiData?.recent_information && apiData.recent_information.length > 0)
-    ? apiData.recent_information.map((item) => ({
+  const recentInformationList = (apiData?.recent_information || []).map((item) => ({
         title: item.judul,
         sub: item.isi || 'Pengumuman Resmi Yayasan',
         date: item.tanggal,
       }))
-    : [
-        { title: 'Libur Tahun Baru Islam', sub: '1 Muharram 1448 H', date: '25 Jul 2026' },
-        { title: 'Parent Meeting Kelas 7', sub: 'Sabtu, 2 Agustus 2026', date: '24 Jul 2026' },
-        { title: 'Penerimaan Rapor', sub: 'Akhir Semester Genap', date: '23 Jul 2026' },
-      ]
 
   // Donut chart data for Prestasi Siswa
-  const dataPrestasiDonut = [
-    { name: 'Akademik', value: 72, percent: '29%', color: '#10B981' },
-    { name: 'Tahfiz', value: 46, percent: '25%', color: '#0284C7' },
-    { name: 'Olimpiade', value: 36, percent: '19%', color: '#F59E0B' },
-    { name: 'Seni', value: 18, percent: '10%', color: '#8B5CF6' },
-    { name: 'Olahraga', value: 14, percent: '7%', color: '#EF4444' },
-  ]
+  const dataPrestasiDonut = apiData?.charts?.prestasi_distribution || []
 
   // Grouped Bar chart data for Target vs Realisasi Tahfizh
-  const dataTargetTahfizh = [
-    { unit: 'TKIT', target: 20, realisasi: 35 },
-    { unit: 'PAUD', target: 15, realisasi: 25 },
-    { unit: 'SDIT', target: 60, realisasi: 85 },
-    { unit: 'MIT', target: 50, realisasi: 70 },
-    { unit: 'SMPIT', target: 75, realisasi: 105 },
-    { unit: 'SMAIT', target: 70, realisasi: 95 },
-    { unit: 'PONPES', target: 90, realisasi: 120 },
-    { unit: 'MA\'HAD', target: 80, realisasi: 110 },
-  ]
+  const dataTargetTahfizh = apiData?.charts?.tahfizh_target_progress || []
 
   // Line chart data for Tren Kehadiran Bulanan
-  const dataKehadiranBulanan = [
-    { bulan: 'Jan', guru: 98, siswa: 95 },
-    { bulan: 'Feb', guru: 97, siswa: 94 },
-    { bulan: 'Mar', guru: 99, siswa: 96 },
-    { bulan: 'Apr', guru: 96, siswa: 93 },
-    { bulan: 'Mei', guru: 98, siswa: 95 },
-    { bulan: 'Jun', guru: 97, siswa: 94 },
-    { bulan: 'Jul', guru: 99, siswa: 97 },
-  ]
+  const dataKehadiranBulanan = apiData?.charts?.attendance_trend || []
 
   const handleExportData = () => {
     Swal.fire({
@@ -965,14 +929,8 @@ export default function DashboardPage() {
                     <td className="p-3.5 font-extrabold text-emerald-600 dark:text-emerald-400">{unit.tahfizh}</td>
                     <td className="p-3.5 text-center">
                       <div className="flex items-center justify-center gap-1 text-slate-400">
-                        <button onClick={() => navigate('/dashboard/students/unit-pendidikan')} className="p-1.5 hover:text-emerald-600 dark:hover:text-emerald-400 transition" title="Lihat Detail">
+                        <button onClick={() => navigate(`/dashboard/yayasan/unit-pendidikan/${unit.id}`)} className="p-1.5 hover:text-emerald-600 dark:hover:text-emerald-400 transition" title="Lihat Detail">
                           <Eye className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => navigate('/dashboard/students/unit-pendidikan')} className="p-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition" title="Edit Unit">
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => navigate('/dashboard/pengaturan')} className="p-1.5 hover:text-slate-700 dark:hover:text-slate-200 transition" title="Pengaturan">
-                          <Settings className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

@@ -60,6 +60,7 @@ class MutabaahEnterpriseController extends Controller
 
     public function store(MutabaahCrudRequest $request, string $resource): JsonResponse
     {
+        $this->authorizeAction($request, $resource, 'create');
         $this->assertPayloadScope($request, $resource, $request->validated());
 
         return response()->json(['success' => true, 'message' => 'Data berhasil ditambahkan.', 'data' => new MutabaahResource($this->service->create($resource, $request->validated())), 'meta' => (object) []], 201);
@@ -67,6 +68,7 @@ class MutabaahEnterpriseController extends Controller
 
     public function update(MutabaahCrudRequest $request, string $resource, string $id): JsonResponse
     {
+        $this->authorizeAction($request, $resource, 'update');
         $this->scopedModel($request, $resource, $id);
         $this->assertPayloadScope($request, $resource, $request->validated());
 
@@ -201,10 +203,17 @@ return response()->json(['success' => true, 'message' => $this->service->bulkRes
 
     public function options(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasRole('Super Admin') || collect(['mutabaah.category.view', 'mutabaah.agenda.view', 'mutabaah.template.view', 'mutabaah.supervisor.view', 'mutabaah.daily.input'])->contains(fn ($permission) => $request->user()->can($permission)), 403);
-        $wide = $this->dataScope->isFoundationWide($request->user());
-        $unitId = $wide ? null : $this->dataScope->employeeUnitId($request->user());
-        abort_if(! $wide && ! $unitId, 403, 'Akun belum terhubung dengan unit pendidikan.');
+        $user = $request->user();
+        $hasRoleAccess = $user->hasRole([
+            'Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan',
+            'Waka Kesiswaan', 'Waka Kurikulum', 'Tata Usaha', 'TU', 'Operator',
+            'Wali Kelas', 'Guru', 'Musyrif', 'Musyrifah', 'Pembimbing', 'Pengurus Yayasan',
+        ]);
+        $hasPermission = collect(['mutabaah.category.view', 'mutabaah.agenda.view', 'mutabaah.template.view', 'mutabaah.supervisor.view', 'mutabaah.daily.input'])->contains(fn ($permission) => $user->can($permission));
+
+        abort_unless($hasRoleAccess || $hasPermission, 403);
+        $wide = $this->dataScope->isFoundationWide($user);
+        $unitId = $wide ? null : $this->dataScope->employeeUnitId($user);
 
         return response()->json(['data' => [
             'categories' => MutabaahCategory::where('is_active', true)->orderBy('sort_order')->get(['id', 'code', 'name']),
@@ -227,7 +236,7 @@ return response()->json(['success' => true, 'message' => $this->service->bulkRes
 
     public function audit(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasRole('Super Admin') || $request->user()->can('mutabaah.report.view'), 403);
+        abort_unless($request->user()->hasRole(['Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Tata Usaha']) || $request->user()->can('mutabaah.report.view'), 403);
 
         return response()->json(['data' => MutabaahActivityLog::with('user:id,name')->latest('created_at')->paginate(25)]);
     }
@@ -242,7 +251,15 @@ return response()->json(['success' => true, 'message' => $this->service->bulkRes
             'supervisor-assignments' => 'mutabaah.supervisor.'.($action === 'restore' ? 'update' : $action),
             default => null,
         };
-        abort_unless($permission && ($request->user()->hasRole('Super Admin') || $request->user()->can($permission)), 403);
+
+        $user = $request->user();
+        $hasRoleAccess = $action === 'view' && $user->hasRole([
+            'Super Admin', 'Admin', 'Yayasan', 'Kepala Sekolah', 'Divisi Pendidikan',
+            'Waka Kesiswaan', 'Waka Kurikulum', 'Tata Usaha', 'TU', 'Operator',
+            'Wali Kelas', 'Guru', 'Musyrif', 'Musyrifah', 'Pembimbing', 'Pengurus Yayasan',
+        ]);
+
+        abort_unless($hasRoleAccess || ($permission && ($user->hasRole('Super Admin') || $user->can($permission))), 403);
     }
 
     private function scopedModel(Request $request, string $resource, string $id, bool $trashed = false)

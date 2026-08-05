@@ -2,8 +2,34 @@ import { api } from './api'
 
 export const lmsPresensiService = {
   getDaftar: async (params = {}) => {
-    const response = await api.get('/lms/presensi', { params })
-    return response.data
+    const { tanggal, jadwal_pelajaran_id, status_hadir, ...sessionParams } = params
+    const response = await api.get('/lesson-attendance/sessions', {
+      params: {
+        ...sessionParams,
+        date_from: tanggal || undefined,
+        date_to: tanggal || undefined,
+      },
+    })
+    const payload = response.data?.data || {}
+    const sessions = Array.isArray(payload.data) ? payload.data : []
+    const records = sessions.flatMap((session) => (session.attendances || [])
+      .filter((attendance) => !jadwal_pelajaran_id || attendance.jadwal_pelajaran_id === jadwal_pelajaran_id)
+      .filter((attendance) => !status_hadir || attendance.status_hadir === status_hadir)
+      .map((attendance) => ({
+        ...attendance,
+        tanggal: attendance.tanggal || session.attendance_date,
+        pertemuan_ke: attendance.pertemuan_ke || session.meeting_number,
+        siswa: attendance.siswa,
+        jadwal: session.schedule,
+        session_id: session.id,
+        session_status: session.status,
+      })))
+
+    return {
+      success: response.data?.success === true,
+      data: records,
+      meta: payload,
+    }
   },
 
   getById: async (id) => {
@@ -12,12 +38,30 @@ export const lmsPresensiService = {
   },
 
   create: async (data) => {
-    const response = await api.post('/lms/presensi', data)
+    const response = await api.post('/lesson-attendance/sessions', {
+      schedule_id: data.jadwal_pelajaran_id,
+      attendance_date: data.tanggal,
+      meeting_number: data.pertemuan_ke,
+      items: [{
+        student_id: data.siswa_id,
+        status: data.status_hadir,
+        notes: data.keterangan || null,
+      }],
+    })
     return response.data
   },
 
   createBulk: async (data) => {
-    const response = await api.post('/lms/presensi/bulk', data)
+    const response = await api.post('/lesson-attendance/sessions', {
+      schedule_id: data.jadwal_pelajaran_id,
+      attendance_date: data.tanggal,
+      meeting_number: data.pertemuan_ke,
+      items: data.items.map((item) => ({
+        student_id: item.siswa_id,
+        status: item.status_hadir,
+        notes: item.keterangan || null,
+      })),
+    })
     return response.data
   },
 
@@ -37,13 +81,33 @@ export const lmsPresensiService = {
   },
 
   getStats: async (params = {}) => {
-    const response = await api.get('/lms/presensi/stats', { params })
-    return response.data
+    const response = await lmsPresensiService.getDaftar({ ...params, per_page: 100 })
+    const records = response.data || []
+    const totals = records.reduce((result, record) => {
+      const status = record.status_hadir
+      if (Object.prototype.hasOwnProperty.call(result, status)) result[status] += 1
+      result.total += 1
+      return result
+    }, { total: 0, hadir: 0, izin: 0, sakit: 0, alpa: 0, terlambat: 0 })
+
+    return {
+      success: true,
+      data: {
+        ...totals,
+        persentase_hadir: totals.total ? Math.round(((totals.hadir + totals.terlambat) / totals.total) * 100) : 0,
+      },
+    }
   },
 
   getOptions: async () => {
-    const response = await api.get('/lms/presensi/options')
-    return response.data
+    const response = await api.get('/lesson-attendance/my-schedules')
+    return {
+      success: response.data?.success === true,
+      data: {
+        schedules: response.data?.data || [],
+        students: [],
+      },
+    }
   },
 
   getMySchedules: async (date) => {

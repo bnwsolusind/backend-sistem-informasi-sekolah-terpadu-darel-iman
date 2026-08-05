@@ -151,18 +151,15 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
         $kkm = $weights['nilai_kkm'] ?? 75.0;
 
         $academicYearId = AcademicYear::first()?->id;
-        $students = Student::where('kelas_id', $kelasId)->get();
-        if ($students->isEmpty()) {
-            $students = Student::take(20)->get();
-        }
+        $students = Student::where('kelas_id', $kelasId)->orWhere('class_id', $kelasId)->get();
 
         $results = new Collection;
 
         foreach ($students as $siswa) {
             // 1. Pull Assignment scores
             $avgAssignment = LmsPengumpulanTugas::where('siswa_id', $siswa->id)
-                ->whereNotNull('nilai')
-                ->avg('nilai') ?? 80.0;
+                ->whereNotNull('nilai_guru')
+                ->avg('nilai_guru');
 
             // 2. Pull CBT Exam scores by type (UH, UTS, UAS)
             $cbtUhScores = LmsUjianSesi::whereHas('ujian', function ($q) use ($subjectId, $kelasId, $semesterId) {

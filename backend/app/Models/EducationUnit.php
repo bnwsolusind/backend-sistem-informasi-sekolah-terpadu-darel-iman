@@ -84,8 +84,31 @@ class EducationUnit extends Model
         return $this->hasMany(Employee::class, 'unit_id');
     }
 
+    /** Siswa di unit ini */
+    public function students()
+    {
+        return $this->hasMany(Student::class, 'unit_id');
+    }
+
+    /** Guru di unit ini (melalui relasi Employee) */
+    public function teachers()
+    {
+        return $this->hasMany(Employee::class, 'unit_id')->where(function ($q) {
+            $q->where('status_pegawai', 'like', '%Guru%')
+              ->orWhereHas('position', function ($p) {
+                  $p->where('nama_jabatan', 'like', '%Guru%');
+              });
+        });
+    }
+
     /** Kelas (rombel) di unit ini */
     public function kelas()
+    {
+        return $this->hasMany(Kelas::class, 'unit_pendidikan_id');
+    }
+
+    /** Alias kelas untuk relasi Eloquent withCount(['classes']) */
+    public function classes()
     {
         return $this->hasMany(Kelas::class, 'unit_pendidikan_id');
     }

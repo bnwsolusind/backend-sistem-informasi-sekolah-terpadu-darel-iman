@@ -123,7 +123,8 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
         if (isset($mapped['nilai_guru'])) {
             $mapped['waktu_dinilai'] = now();
             if (Auth::check()) {
-                $mapped['dinilai_oleh'] = Auth::id();
+                $employee = \App\Models\Employee::where('user_id', Auth::id())->first();
+                $mapped['dinilai_oleh'] = $employee?->id;
             }
             if (! isset($mapped['status'])) {
                 $mapped['status'] = 'dinilai';

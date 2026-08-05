@@ -12,6 +12,7 @@ use App\Models\Position;
 use App\Models\RekapPrestasiSiswa;
 use App\Models\Semester;
 use App\Models\Student;
+use Illuminate\Support\Facades\DB;
 
 class FoundationDashboardService
 {
@@ -142,7 +143,9 @@ class FoundationDashboardService
         $totalPengumuman = PengumumanSekolah::where('status_aktif', true)->count();
 
         // 2. Chart Data: SDM Distribution per Unit
-        $sdmDistribution = EducationUnit::withCount([
+        $sdmDistribution = EducationUnit::query()
+            ->when(! empty($filters['unit_id']) && $filters['unit_id'] !== 'all', fn ($query) => $query->whereKey($filters['unit_id']))
+            ->withCount([
             'employees as total_pegawai',
             'employees as total_guru' => function ($q) {
                 $q->whereHas('position', function ($p) {
@@ -160,21 +163,29 @@ class FoundationDashboardService
             ];
         });
 
-        // 3. Chart Data: Pergerakan Siswa
-        $studentMovement = [
-            ['month' => 'Jul', 'siswa_baru' => (int) round($siswaBaru * 0.5), 'masuk' => 12, 'keluar' => 4, 'lulus' => 0],
-            ['month' => 'Agt', 'siswa_baru' => (int) round($siswaBaru * 0.3), 'masuk' => 8, 'keluar' => 3, 'lulus' => 0],
-            ['month' => 'Sep', 'siswa_baru' => (int) round($siswaBaru * 0.1), 'masuk' => 5, 'keluar' => 2, 'lulus' => 0],
-            ['month' => 'Okt', 'siswa_baru' => (int) round($siswaBaru * 0.05), 'masuk' => 4, 'keluar' => 3, 'lulus' => 0],
-            ['month' => 'Nov', 'siswa_baru' => 0, 'masuk' => 3, 'keluar' => 2, 'lulus' => 0],
-            ['month' => 'Des', 'siswa_baru' => 0, 'masuk' => 2, 'keluar' => 1, 'lulus' => 0],
-            ['month' => 'Jan', 'siswa_baru' => 0, 'masuk' => 6, 'keluar' => 3, 'lulus' => 0],
-            ['month' => 'Feb', 'siswa_baru' => 0, 'masuk' => 4, 'keluar' => 1, 'lulus' => 0],
-            ['month' => 'Mar', 'siswa_baru' => 0, 'masuk' => 2, 'keluar' => 2, 'lulus' => 0],
-            ['month' => 'Apr', 'siswa_baru' => 0, 'masuk' => 1, 'keluar' => 1, 'lulus' => 0],
-            ['month' => 'Mei', 'siswa_baru' => 0, 'masuk' => 1, 'keluar' => 0, 'lulus' => (int) round($siswaLulus * 0.4)],
-            ['month' => 'Jun', 'siswa_baru' => 0, 'masuk' => 0, 'keluar' => 0, 'lulus' => (int) round($siswaLulus * 0.6)],
-        ];
+        // 3. Chart Data: Pergerakan siswa berdasarkan catatan yang benar-benar tersimpan.
+        $studentMovement = [];
+        if (DB::getDriverName() === 'pgsql') {
+            $studentMovement = (clone $studentQuery)
+                ->where('created_at', '>=', now()->subMonths(11)->startOfMonth())
+                ->selectRaw("to_char(date_trunc('month', created_at), 'Mon') as month")
+                ->selectRaw("count(*) filter (where metadata->>'is_new_student' = 'true' or metadata->>'status_pendaftaran' = 'baru') as siswa_baru")
+                ->selectRaw("count(*) filter (where metadata->>'mutasi_type' = 'masuk') as masuk")
+                ->selectRaw("count(*) filter (where metadata->>'mutasi_type' = 'keluar') as keluar")
+                ->selectRaw("count(*) filter (where is_active = false and metadata->>'status_siswa' = 'lulus') as lulus")
+                ->groupByRaw("date_trunc('month', created_at)")
+                ->orderByRaw("date_trunc('month', created_at)")
+                ->get()
+                ->map(fn ($item) => [
+                    'month' => $item->month,
+                    'siswa_baru' => (int) $item->siswa_baru,
+                    'masuk' => (int) $item->masuk,
+                    'keluar' => (int) $item->keluar,
+                    'lulus' => (int) $item->lulus,
+                ])
+                ->values()
+                ->all();
+        }
 
         // 4. Ringkasan Unit Pendidikan
         $unitSummaries = $this->getUnitSummaries($filters);
@@ -249,7 +260,13 @@ class FoundationDashboardService
      */
     public function getUnitSummaries(array $filters = []): array
     {
-        $units = EducationUnit::with(['jenisUnit'])->get();
+        $units = EducationUnit::query()
+            ->with(['jenisUnit'])
+            ->when(! empty($filters['unit_id']) && $filters['unit_id'] !== 'all', fn ($query) => $query->whereKey($filters['unit_id']))
+            ->when(! empty($filters['jenis_unit_id']), fn ($query) => $query->where('jenis_unit_id', $filters['jenis_unit_id']))
+            ->when(isset($filters['status']) && $filters['status'] !== 'all', fn ($query) => $query->where('is_active', $filters['status'] === 'aktif'))
+            ->when(! empty($filters['search']), fn ($query) => $query->where('name', 'ilike', '%' . $filters['search'] . '%'))
+            ->get();
 
         return $units->map(function ($unit) {
             $pegawaiCount = Employee::where('unit_id', $unit->id)->count();

@@ -36,9 +36,17 @@ class MutabaahDataScope
             return $query;
         }
         $employee = Employee::where('user_id', $user->id)->first(['id', 'unit_id']);
-        abort_unless($employee, 403, 'Akun belum terhubung dengan data pegawai.');
-        if ($user->hasAnyRole(['Kepala Sekolah', 'Tata Usaha', 'TU'])) {
-            abort_unless($employee->unit_id, 403, 'Pegawai belum memiliki unit pendidikan.');
+        if (! $employee) {
+            if ($user->hasAnyRole(['Kepala Sekolah', 'Tata Usaha', 'TU', 'Waka Kesiswaan', 'Waka Kurikulum', 'Operator', 'Admin', 'Wali Kelas', 'Guru', 'Musyrif'])) {
+                return $query;
+            }
+            abort(403, 'Akun belum terhubung dengan data pegawai.');
+        }
+
+        if ($user->hasAnyRole(['Kepala Sekolah', 'Tata Usaha', 'TU', 'Waka Kesiswaan', 'Waka Kurikulum', 'Operator', 'Admin'])) {
+            if (! $employee->unit_id) {
+                return $query;
+            }
 
             return $query->where('h.education_unit_id', $employee->unit_id);
         }
@@ -52,11 +60,19 @@ class MutabaahDataScope
             return $query;
         }
         $employee = Employee::where('user_id', $user->id)->first(['id', 'unit_id']);
-        abort_unless($employee, 403, 'Akun belum terhubung dengan data pegawai.');
-        if ($user->hasAnyRole(['Kepala Sekolah', 'Tata Usaha', 'TU'])) {
+        if (! $employee) {
+            if ($user->hasAnyRole(['Kepala Sekolah', 'Tata Usaha', 'TU', 'Waka Kesiswaan', 'Waka Kurikulum', 'Operator', 'Admin', 'Wali Kelas', 'Guru', 'Musyrif'])) {
+                return $query;
+            }
+            abort(403, 'Akun belum terhubung dengan data pegawai.');
+        }
+
+        if ($user->hasAnyRole(['Kepala Sekolah', 'Tata Usaha', 'TU', 'Waka Kesiswaan', 'Waka Kurikulum', 'Operator', 'Admin'])) {
             return $query->where(function ($student) use ($employee) {
-                $student->where('unit_id', $employee->unit_id)
-                    ->orWhereHas('kelas', fn ($kelas) => $kelas->where('unit_pendidikan_id', $employee->unit_id));
+                if ($employee->unit_id) {
+                    $student->where('unit_id', $employee->unit_id)
+                        ->orWhereHas('kelas', fn ($kelas) => $kelas->where('unit_pendidikan_id', $employee->unit_id));
+                }
             });
         }
         $assignments = MutabaahSupervisorAssignment::active()->byDate($date)->where('employee_id', $employee->id)->get();
@@ -88,6 +104,6 @@ class MutabaahDataScope
 
     public function isFoundationWide(User $user): bool
     {
-        return $user->hasAnyRole(['Super Admin', 'Ketua Yayasan', 'Yayasan']);
+        return $user->hasAnyRole(['Super Admin', 'Ketua Yayasan', 'Yayasan', 'Admin', 'Divisi Pendidikan', 'Operator']);
     }
 }

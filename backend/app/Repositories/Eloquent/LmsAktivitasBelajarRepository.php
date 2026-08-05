@@ -26,6 +26,10 @@ class LmsAktivitasBelajarRepository implements LmsAktivitasBelajarRepositoryInte
             $query->where('modul_ajar_id', $filters['modul_ajar_id']);
         }
 
+        if (! empty($filters['guru_id'])) {
+            $query->whereHas('modulAjar', fn ($modulQuery) => $modulQuery->where('guru_id', $filters['guru_id']));
+        }
+
         if (! empty($filters['jenis_aktivitas'])) {
             $query->where('jenis_aktivitas', $filters['jenis_aktivitas']);
         }

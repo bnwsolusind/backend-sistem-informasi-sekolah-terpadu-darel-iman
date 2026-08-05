@@ -112,7 +112,15 @@ class TujuanPembelajaranController extends Controller
 
     public function options(Request $request): JsonResponse
     {
+        $filters = $request->only([
+            'unit_pendidikan_id',
+            'tahun_ajaran_id',
+            'kurikulum_id',
+            'mata_pelajaran_id',
+        ]);
+
         $cps = CapaianPembelajaran::with(['subject', 'kurikulum'])
+            ->filter($filters)
             ->where('status', true)
             ->orderBy('kode_cp', 'asc')
             ->get(['id', 'kode_cp', 'nama_cp', 'fase', 'kelas_target', 'mata_pelajaran_id', 'kurikulum_id']);

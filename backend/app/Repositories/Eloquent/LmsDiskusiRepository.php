@@ -27,6 +27,18 @@ class LmsDiskusiRepository implements LmsDiskusiRepositoryInterface
             $query->where('modul_ajar_id', $filters['modul_ajar_id']);
         }
 
+        if (! empty($filters['guru_id'])) {
+            $query->whereHas('modulAjar', fn ($modulQuery) => $modulQuery->where('guru_id', $filters['guru_id']));
+        }
+
+        if (! empty($filters['kelas_ids'])) {
+            $query->whereHas('modulAjar', fn ($modulQuery) => $modulQuery->whereIn('kelas_id', $filters['kelas_ids']));
+        }
+
+        if (! empty($filters['published_only'])) {
+            $query->where('status', 'aktif')->where('is_closed', false);
+        }
+
         if (! empty($filters['kategori'])) {
             $query->where('kategori', $filters['kategori']);
         }

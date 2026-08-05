@@ -9,6 +9,8 @@ use App\Models\Employee;
 use App\Models\Kelas;
 use App\Models\Semester;
 use App\Models\Subject;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,7 +26,8 @@ class ScheduleController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = ClassSchedule::with([
+        $this->authorizeView($request->user());
+        $query = $this->scopedQuery($request->user())->with([
             'kelas',       // tbl_kelas (primer)
             'schoolClass', // classes (legacy)
             'employee',    // employees (primer)
@@ -113,19 +116,26 @@ class ScheduleController extends Controller
 
     public function options(): JsonResponse
     {
+        $user = request()->user();
+        $this->authorizeView($user);
+        $unitIds = $this->accessibleUnitIds($user);
+
         return response()->json([
             'status' => 'success',
             'message' => 'Opsi jadwal pelajaran berhasil diambil.',
             'data' => [
                 'kelas' => Kelas::query()
+                    ->when($unitIds !== null, fn (Builder $query) => $query->whereIn('unit_pendidikan_id', $unitIds))
                     ->with(['unitPendidikan:id,name', 'tahunAjaran:id,name', 'semester:id,name'])
                     ->orderBy('nama_kelas')
                     ->get(['id', 'nama_kelas', 'kode_kelas', 'unit_pendidikan_id', 'tahun_ajaran_id', 'semester_id']),
                 'guru' => Employee::query()
+                    ->when($unitIds !== null, fn (Builder $query) => $query->whereIn('unit_id', $unitIds))
                     ->where('status', 'Aktif')
                     ->orderBy('nama_lengkap')
                     ->get(['id', 'nama_lengkap', 'niy', 'nik', 'unit_id']),
                 'mata_pelajaran' => Subject::query()
+                    ->when($unitIds !== null, fn (Builder $query) => $query->whereIn('unit_pendidikan_id', $unitIds))
                     ->where(fn ($q) => $q->where('status', true)->orWhereNull('status'))
                     ->orderByRaw('COALESCE(nama_mapel, name)')
                     ->get(['id', 'nama_mapel', 'name', 'kode_mapel', 'code', 'unit_pendidikan_id']),
@@ -145,6 +155,7 @@ class ScheduleController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeManage($request->user(), 'create');
         $validated = $request->validate([
             'kelas_id' => 'nullable|uuid|exists:tbl_kelas,id',
             'class_id' => 'nullable|uuid|exists:classes,id',
@@ -177,6 +188,7 @@ class ScheduleController extends Controller
             ], 422);
         }
 
+        $this->ensureScheduleContext($validated, $request->user());
         $this->ensureNoConflict($validated);
         $validated['created_by'] = Auth::id();
 
@@ -191,7 +203,8 @@ class ScheduleController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        $schedule = ClassSchedule::with([
+        $this->authorizeView(request()->user());
+        $schedule = $this->scopedQuery(request()->user())->with([
             'kelas', 'schoolClass', 'employee', 'teacher',
             'subject', 'classroom', 'academicYear', 'semester',
         ])->find($id);
@@ -205,7 +218,8 @@ class ScheduleController extends Controller
 
     public function update(Request $request, string $id): JsonResponse
     {
-        $schedule = ClassSchedule::find($id);
+        $this->authorizeManage($request->user(), 'update');
+        $schedule = $this->scopedQuery($request->user())->find($id);
 
         if (! $schedule) {
             return response()->json(['status' => 'error', 'message' => 'Jadwal tidak ditemukan.'], 404);
@@ -240,6 +254,7 @@ class ScheduleController extends Controller
             ], 422);
         }
 
+        $this->ensureScheduleContext($merged, $request->user());
         $this->ensureNoConflict($merged, $schedule->id);
         $validated['updated_by'] = Auth::id();
         $schedule->update($validated);
@@ -253,7 +268,8 @@ class ScheduleController extends Controller
 
     public function destroy(string $id): JsonResponse
     {
-        $schedule = ClassSchedule::find($id);
+        $this->authorizeManage(request()->user(), 'delete');
+        $schedule = $this->scopedQuery(request()->user())->find($id);
 
         if (! $schedule) {
             return response()->json(['status' => 'error', 'message' => 'Jadwal tidak ditemukan.'], 404);
@@ -293,6 +309,100 @@ class ScheduleController extends Controller
             throw ValidationException::withMessages([
                 'time_start' => 'Jadwal bentrok dengan jadwal aktif guru atau kelas pada hari dan jam yang sama.',
             ]);
+        }
+    }
+
+    private function authorizeView(User $user): void
+    {
+        abort_unless(
+            $this->canAccessAllUnits($user)
+            || $user->hasAnyPermission(['academic.schedule.view', 'pembelajaran.jadwal_pelajaran', 'teacher.schedule.view']),
+            403
+        );
+    }
+
+    private function authorizeManage(User $user, string $action): void
+    {
+        $permission = "academic.schedule.{$action}";
+        abort_unless($user->hasRole('Super Admin') || $user->hasPermissionTo($permission), 403);
+    }
+
+    private function scopedQuery(User $user): Builder
+    {
+        $query = ClassSchedule::query();
+        $unitIds = $this->accessibleUnitIds($user);
+
+        if ($unitIds !== null) {
+            $query->whereHas('kelas', fn (Builder $kelasQuery) => $kelasQuery->whereIn('unit_pendidikan_id', $unitIds));
+        }
+
+        return $query;
+    }
+
+    private function accessibleUnitIds(User $user): ?array
+    {
+        if ($this->canAccessAllUnits($user)) {
+            return null;
+        }
+
+        return Employee::query()
+            ->where('user_id', $user->id)
+            ->whereNotNull('unit_id')
+            ->pluck('unit_id')
+            ->all();
+    }
+
+    private function canAccessAllUnits(User $user): bool
+    {
+        return $user->hasAnyRole([
+            'Super Admin',
+            'Yayasan',
+            'Ketua Yayasan',
+            'ketua_yayasan',
+            'sekretaris_yayasan',
+            'bendahara_yayasan',
+            'pengurus_yayasan',
+        ]);
+    }
+
+    private function ensureScheduleContext(array $data, User $user): void
+    {
+        $semesterMatchesYear = Semester::query()
+            ->whereKey($data['semester_id'])
+            ->where('academic_year_id', $data['academic_year_id'])
+            ->exists();
+        abort_unless($semesterMatchesYear, 422, 'Semester tidak termasuk dalam tahun ajaran yang dipilih.');
+
+        if (! empty($data['kelas_id'])) {
+            $kelas = Kelas::query()->findOrFail($data['kelas_id']);
+            abort_unless(
+                $kelas->tahun_ajaran_id === $data['academic_year_id']
+                    && $kelas->semester_id === $data['semester_id'],
+                422,
+                'Kelas tidak sesuai dengan tahun ajaran atau semester yang dipilih.'
+            );
+
+            if (! $this->canAccessAllUnits($user)) {
+                abort_unless(in_array($kelas->unit_pendidikan_id, $this->accessibleUnitIds($user), true), 403);
+            }
+
+            if (! empty($data['employee_id'])) {
+                abort_unless(
+                    Employee::query()->whereKey($data['employee_id'])->where('unit_id', $kelas->unit_pendidikan_id)->where('status', 'Aktif')->exists(),
+                    422,
+                    'Guru aktif harus berasal dari unit pendidikan kelas yang sama.'
+                );
+            }
+
+            if (! empty($data['subject_id'])) {
+                abort_unless(
+                    Subject::query()->whereKey($data['subject_id'])->where(function (Builder $query) use ($kelas) {
+                        $query->whereNull('unit_pendidikan_id')->orWhere('unit_pendidikan_id', $kelas->unit_pendidikan_id);
+                    })->exists(),
+                    422,
+                    'Mata pelajaran tidak sesuai dengan unit pendidikan kelas.'
+                );
+            }
         }
     }
 }

@@ -196,9 +196,9 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
         ];
     }
 
-    public function getOptions(): array
+    public function getOptions(?string $employeeId = null): array
     {
-        $schedules = ClassSchedule::query()
+        $query = ClassSchedule::query()
             ->with([
                 'subject:id,name,code',
                 'kelas:id,nama_kelas,kode_kelas',
@@ -210,8 +210,13 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
                 $q->where('is_active', true)
                     ->orWhere('is_active', 1)
                     ->orWhereNull('is_active');
-            })
-            ->get()
+            });
+
+        if ($employeeId) {
+            $query->where('employee_id', $employeeId);
+        }
+
+        $schedules = $query->get()
             ->map(function ($s) {
                 $subjectName = $s->subject->name ?? $s->subject->nama ?? 'Mata Pelajaran';
                 $kelasName = $s->kelas->nama_kelas ?? $s->schoolClass->nama_kelas ?? $s->schoolClass->name ?? 'Kelas';
@@ -242,15 +247,24 @@ class LmsPresensiRepository implements LmsPresensiRepositoryInterface
                 ];
             });
 
-        $students = Student::query()
-            ->select('id', 'full_name', 'nis', 'nisn', 'class_id')
+        $studentsQuery = Student::query()
+            ->select('id', 'full_name', 'nis', 'nisn', 'class_id', 'kelas_id')
             ->where(function ($q) {
                 $q->where('is_active', true)
                     ->orWhere('is_active', 1)
                     ->orWhereNull('is_active');
-            })
-            ->orderBy('full_name')
-            ->get();
+            });
+
+        if ($employeeId && $schedules->isNotEmpty()) {
+            $classIds = $schedules->map(fn ($s) => $s['kelas_id'] ?? $s['class_id'])->filter()->unique()->values()->all();
+            if (! empty($classIds)) {
+                $studentsQuery->where(function ($q) use ($classIds) {
+                    $q->whereIn('class_id', $classIds)->orWhereIn('kelas_id', $classIds);
+                });
+            }
+        }
+
+        $students = $studentsQuery->orderBy('full_name')->get();
 
         return [
             'schedules' => $schedules,

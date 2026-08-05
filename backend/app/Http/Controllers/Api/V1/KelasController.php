@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\SimpanKelasRequest;
 use App\Http\Requests\V1\UbahKelasRequest;
 use App\Http\Resources\V1\KelasResource;
+use App\Services\AccessScopeService;
 use App\Services\KelasService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,8 @@ use Illuminate\Http\Response;
 class KelasController extends Controller
 {
     public function __construct(
-        protected KelasService $kelasService
+        protected KelasService $kelasService,
+        protected AccessScopeService $accessScopeService
     ) {}
 
     /**
@@ -36,6 +38,12 @@ class KelasController extends Controller
             'status' => $request->query('status'),
             'dengan_sampah' => $request->query('dengan_sampah'),
         ];
+        $filters['allowed_unit_ids'] = $this->accessScopeService
+            ->accessibleRombels($request->user())
+            ->select('unit_pendidikan_id')
+            ->distinct()
+            ->pluck('unit_pendidikan_id')
+            ->all();
 
         $perPage = (int) $request->query('per_page', 15);
         $orderBy = (string) $request->query('order_by', 'created_at');

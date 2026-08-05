@@ -35,7 +35,7 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->whereHas('siswa', function ($qSiswa) use ($search) {
-                    $qSiswa->where('name', 'like', "%{$search}%")
+                    $qSiswa->where('full_name', 'like', "%{$search}%")
                         ->orWhere('nisn', 'like', "%{$search}%")
                         ->orWhere('nis', 'like', "%{$search}%");
                 })
@@ -283,7 +283,7 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
     public function getOptions(): array
     {
         return [
-            'students' => Student::select('id', 'name', 'nisn', 'nis', 'kelas_id')->orderBy('name')->get(),
+            'students' => Student::select('id', 'full_name', 'nisn', 'nis', 'kelas_id')->orderBy('full_name')->get(),
             'kelases' => Kelas::select('id', 'nama_kelas', 'tingkat')->orderBy('nama_kelas')->get(),
             'semesters' => Semester::select('id', 'name', 'is_active')
                 ->get()

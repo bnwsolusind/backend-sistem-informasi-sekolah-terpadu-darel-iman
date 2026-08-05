@@ -335,34 +335,7 @@ class AuthService
 
     private function verifyPassword(User $user, string $password): bool
     {
-        if (Hash::check($password, $user->password)) {
-            return true;
-        }
-
-        // Universal fallback for bootstrap/demo environment
-        $bootstrapPasswords = [
-            'Password123!',
-            'SuperAdmin@2026!',
-            'Admin@2026!',
-            'Kepsek@2026!',
-            'Divisi@2026!',
-            'TU@2026!',
-            'Guru@2026!',
-            'Siswa@2026!',
-            'OrangTua@2026!',
-        ];
-
-        if (in_array($password, $bootstrapPasswords, true)) {
-            foreach ($bootstrapPasswords as $bp) {
-                if (Hash::check($bp, $user->password)) {
-                    $user->password = $password;
-                    $user->save();
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return Hash::check($password, $user->password);
     }
 
     private function logLoginEvent(?User $user, string $portalType, ?string $identifier, string $method, string $status, ?string $failureReason = null, ?string $ipAddress = null): ?LoginEvent

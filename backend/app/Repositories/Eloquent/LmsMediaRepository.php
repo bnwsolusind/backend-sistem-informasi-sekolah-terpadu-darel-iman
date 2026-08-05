@@ -18,6 +18,10 @@ class LmsMediaRepository implements LmsMediaRepositoryInterface
             $query->where('materi_id', $filters['materi_id']);
         }
 
+        if (! empty($filters['guru_id'])) {
+            $query->whereHas('materi', fn ($materiQuery) => $materiQuery->where('guru_id', $filters['guru_id']));
+        }
+
         if (! empty($filters['tipe_file'])) {
             $query->where('tipe_file', strtolower($filters['tipe_file']));
         }

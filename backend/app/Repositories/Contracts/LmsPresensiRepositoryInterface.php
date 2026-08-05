@@ -24,5 +24,5 @@ interface LmsPresensiRepositoryInterface
 
     public function getStats(array $filters = []): array;
 
-    public function getOptions(): array;
+    public function getOptions(?string $employeeId = null): array;
 }

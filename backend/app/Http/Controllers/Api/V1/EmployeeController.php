@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
+use App\Services\AccessScopeService;
 use App\Services\EmployeeService;
 use Illuminate\Http\Request;
 
@@ -12,8 +13,10 @@ class EmployeeController extends Controller
 {
     protected EmployeeService $employeeService;
 
-    public function __construct(EmployeeService $employeeService)
-    {
+    public function __construct(
+        EmployeeService $employeeService,
+        protected AccessScopeService $accessScopeService
+    ) {
         $this->employeeService = $employeeService;
     }
 
@@ -30,6 +33,12 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'unit_id', 'jabatan_id', 'status_pegawai', 'status', 'jenis_kelamin']);
+        $filters['allowed_unit_ids'] = $this->accessScopeService
+            ->accessibleEmployees($request->user())
+            ->select('unit_id')
+            ->distinct()
+            ->pluck('unit_id')
+            ->all();
         $perPage = (int) $request->get('per_page', 15);
 
         $result = $this->employeeService->list($filters, $perPage);

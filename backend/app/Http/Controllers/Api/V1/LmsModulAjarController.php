@@ -16,6 +16,7 @@ use App\Models\Semester;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TujuanPembelajaran;
+use App\Models\User;
 use App\Services\LmsModulAjarService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,8 @@ class LmsModulAjarController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeView($request->user());
+
         $filters = [
             'search' => $request->query('search'),
             'unit_pendidikan_id' => $request->query('unit_pendidikan_id'),
@@ -42,10 +45,9 @@ class LmsModulAjarController extends Controller
             'dengan_sampah' => $request->query('dengan_sampah'),
         ];
 
-        // Restrict Guru to their own modules if non-admin role
         $user = $request->user();
-        if ($user && $user->role === 'Guru' && ! empty($user->employee_id)) {
-            $filters['guru_id'] = $user->employee_id;
+        if ($this->isTeacher($user)) {
+            $filters['guru_id'] = $this->teacherEmployeeId($user);
         }
 
         $perPage = (int) $request->query('per_page', 15);
@@ -72,6 +74,8 @@ class LmsModulAjarController extends Controller
 
     public function stats(): JsonResponse
     {
+        $this->authorizeView(request()->user());
+
         return response()->json([
             'status' => 'success',
             'message' => 'Statistik Modul Ajar berhasil dimuat.',
@@ -79,18 +83,45 @@ class LmsModulAjarController extends Controller
         ]);
     }
 
-    public function options(): JsonResponse
+    public function options(Request $request): JsonResponse
     {
-        $units = EducationUnit::select('id', 'name', 'code')->get();
-        $kurikulums = MasterKurikulum::select('id', 'nama_kurikulum', 'kode_kurikulum')->get();
-        $subjects = Subject::select('id', 'nama_mapel', 'kode_mapel', 'name', 'code')->get();
+        $this->authorizeView($request->user());
 
-        $teachers = Employee::select('id', 'nama_lengkap', 'niy', 'nik')->get();
+        $learningContext = $request->only([
+            'unit_pendidikan_id',
+            'tahun_ajaran_id',
+            'kurikulum_id',
+            'mata_pelajaran_id',
+        ]);
+
+        $units = EducationUnit::select('id', 'name', 'code')->get();
+        $kurikulums = MasterKurikulum::query()
+            ->select('id', 'nama_kurikulum', 'kode_kurikulum')
+            ->where('status', true)
+            ->when($learningContext['unit_pendidikan_id'] ?? null, fn ($query, $unitId) => $query->where('unit_pendidikan_id', $unitId))
+            ->when($learningContext['tahun_ajaran_id'] ?? null, fn ($query, $yearId) => $query->where('tahun_ajaran_id', $yearId))
+            ->get();
+        $subjects = Subject::query()
+            ->select('id', 'nama_mapel', 'kode_mapel', 'name', 'code')
+            ->where('status', true)
+            ->when($learningContext['unit_pendidikan_id'] ?? null, fn ($query, $unitId) => $query->where('unit_pendidikan_id', $unitId))
+            ->when($learningContext['kurikulum_id'] ?? null, fn ($query, $curriculumId) => $query->where('kurikulum_id', $curriculumId))
+            ->get();
+
+        $teachers = Employee::query()
+            ->select('id', 'nama_lengkap', 'niy', 'nik')
+            ->when($learningContext['unit_pendidikan_id'] ?? null, fn ($query, $unitId) => $query->where('unit_id', $unitId))
+            ->get();
         if ($teachers->isEmpty()) {
             $teachers = Teacher::select('id', 'full_name as nama_lengkap', 'employee_number as niy')->get();
         }
 
-        $classes = Kelas::select('id', 'nama_kelas', 'kode_kelas')->get();
+        $classes = Kelas::query()
+            ->select('id', 'nama_kelas', 'kode_kelas')
+            ->when($learningContext['unit_pendidikan_id'] ?? null, fn ($query, $unitId) => $query->where('unit_pendidikan_id', $unitId))
+            ->when($learningContext['tahun_ajaran_id'] ?? null, fn ($query, $yearId) => $query->where('tahun_ajaran_id', $yearId))
+            ->when($request->query('semester_id'), fn ($query, $semesterId) => $query->where('semester_id', $semesterId))
+            ->get();
 
         $years = AcademicYear::select('id', 'name')->get()->map(function ($item) {
             return [
@@ -100,7 +131,11 @@ class LmsModulAjarController extends Controller
             ];
         });
 
-        $semesters = Semester::select('id', 'name')->get()->map(function ($item) {
+        $semesters = Semester::query()
+            ->select('id', 'name')
+            ->when($learningContext['tahun_ajaran_id'] ?? null, fn ($query, $yearId) => $query->where('academic_year_id', $yearId))
+            ->get()
+            ->map(function ($item) {
             return [
                 'id' => $item->id,
                 'name' => $item->name,
@@ -108,8 +143,18 @@ class LmsModulAjarController extends Controller
             ];
         });
 
-        $cps = CapaianPembelajaran::select('id', 'kode_cp', 'nama_cp', 'fase')->get();
-        $tps = TujuanPembelajaran::select('id', 'kode_tp', 'nama_tp')->get();
+        $cps = CapaianPembelajaran::query()
+            ->select('id', 'kode_cp', 'nama_cp', 'fase')
+            ->filter($learningContext)
+            ->where('status', true)
+            ->get();
+        $tps = TujuanPembelajaran::query()
+            ->select('id', 'kode_tp', 'nama_tp')
+            ->where('status', true)
+            ->whereHas('capaianPembelajaran', function ($query) use ($learningContext) {
+                $query->filter($learningContext)->where('status', true);
+            })
+            ->get();
 
         return response()->json([
             'status' => 'success',
@@ -131,6 +176,8 @@ class LmsModulAjarController extends Controller
 
     public function show(string $id): JsonResponse
     {
+        $this->authorizeView(request()->user());
+
         $modul = $this->modulAjarService->cariBerdasarkanId($id);
         if (! $modul) {
             return response()->json([
@@ -138,6 +185,8 @@ class LmsModulAjarController extends Controller
                 'message' => 'Data Modul Ajar tidak ditemukan.',
             ], 404);
         }
+
+        $this->assertCanViewModule(request()->user(), $modul);
 
         return response()->json([
             'status' => 'success',
@@ -148,6 +197,7 @@ class LmsModulAjarController extends Controller
 
     public function store(SimpanModulAjarRequest $request): JsonResponse
     {
+        $this->authorizeManage($request->user(), 'create');
         $data = $request->validated();
         $modul = $this->modulAjarService->simpan($data);
 
@@ -160,6 +210,7 @@ class LmsModulAjarController extends Controller
 
     public function update(UbahModulAjarRequest $request, string $id): JsonResponse
     {
+        $this->authorizeManage($request->user(), 'edit');
         $data = $request->validated();
         $modul = $this->modulAjarService->ubah($id, $data);
 
@@ -179,6 +230,7 @@ class LmsModulAjarController extends Controller
 
     public function destroy(string $id): JsonResponse
     {
+        $this->authorizeManage(request()->user(), 'delete');
         $deleted = $this->modulAjarService->hapus($id);
         if (! $deleted) {
             return response()->json([
@@ -195,6 +247,7 @@ class LmsModulAjarController extends Controller
 
     public function restore(string $id): JsonResponse
     {
+        $this->authorizeManage(request()->user(), 'restore');
         $restored = $this->modulAjarService->pulihkan($id);
         if (! $restored) {
             return response()->json([
@@ -211,6 +264,7 @@ class LmsModulAjarController extends Controller
 
     public function publish(string $id): JsonResponse
     {
+        $this->authorizeManage(request()->user(), 'edit');
         $modul = $this->modulAjarService->publikasikan($id);
         if (! $modul) {
             return response()->json([
@@ -228,6 +282,7 @@ class LmsModulAjarController extends Controller
 
     public function duplicate(string $id): JsonResponse
     {
+        $this->authorizeManage(request()->user(), 'create');
         $modul = $this->modulAjarService->duplikasi($id);
         if (! $modul) {
             return response()->json([
@@ -245,6 +300,7 @@ class LmsModulAjarController extends Controller
 
     public function revisions(string $id): JsonResponse
     {
+        $this->authorizeView(request()->user());
         $modul = $this->modulAjarService->cariBerdasarkanId($id);
         if (! $modul) {
             return response()->json([
@@ -252,6 +308,8 @@ class LmsModulAjarController extends Controller
                 'message' => 'Data Modul Ajar tidak ditemukan.',
             ], 404);
         }
+
+        $this->assertCanViewModule(request()->user(), $modul);
 
         return response()->json([
             'status' => 'success',
@@ -262,7 +320,11 @@ class LmsModulAjarController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $moduls = $this->modulAjarService->dapatkanDaftar([], 500);
+        $this->authorizeView($request->user());
+        $filters = $this->isTeacher($request->user())
+            ? ['guru_id' => $this->teacherEmployeeId($request->user())]
+            : [];
+        $moduls = $this->modulAjarService->dapatkanDaftar($filters, 500);
         $headers = [
             'Content-type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename=Modul_Ajar_'.date('Y-m-d').'.csv',
@@ -298,10 +360,13 @@ class LmsModulAjarController extends Controller
 
     public function exportPdf(Request $request, string $id)
     {
+        $this->authorizeView($request->user());
         $modul = $this->modulAjarService->cariBerdasarkanId($id);
         if (! $modul) {
             return response()->json(['status' => 'error', 'message' => 'Modul Ajar tidak ditemukan.'], 404);
         }
+
+        $this->assertCanViewModule($request->user(), $modul);
 
         return response()->json([
             'status' => 'success',
@@ -316,10 +381,80 @@ class LmsModulAjarController extends Controller
 
     public function import(Request $request): JsonResponse
     {
+        $this->authorizeManage($request->user(), 'import');
+
         return response()->json([
-            'status' => 'success',
-            'message' => 'Import data Modul Ajar berhasil diproses.',
-            'rows_imported' => 1,
+            'status' => 'error',
+            'message' => 'Import data Modul Ajar belum tersedia.',
+        ], 501);
+    }
+
+    private function authorizeView(User $user): void
+    {
+        abort_unless(
+            $this->canAccessAllUnits($user)
+            || $user->hasAnyPermission([
+                'pembelajaran.kurikulum.view',
+                'pembelajaran.materi',
+                'teacher.material.view',
+            ])
+            || $user->hasAnyRole([
+                'Guru',
+                'guru',
+                'Guru Mata Pelajaran',
+                'guru_mata_pelajaran',
+            ]),
+            403
+        );
+    }
+
+    private function authorizeManage(User $user, string $action): void
+    {
+        abort_unless(
+            $this->canAccessAllUnits($user)
+            || $user->hasAnyPermission(["pembelajaran.kurikulum.{$action}"]),
+            403
+        );
+    }
+
+    private function canAccessAllUnits(User $user): bool
+    {
+        return $user->hasAnyRole([
+            'Super Admin',
+            'Yayasan',
+            'Ketua Yayasan',
+            'ketua_yayasan',
+            'sekretaris_yayasan',
+            'bendahara_yayasan',
+            'pengurus_yayasan',
         ]);
+    }
+
+    private function isTeacher(User $user): bool
+    {
+        return $user->hasAnyRole([
+            'Guru',
+            'guru',
+            'Guru Mata Pelajaran',
+            'guru_mata_pelajaran',
+        ]);
+    }
+
+    private function teacherEmployeeId(User $user): string
+    {
+        $employeeId = Employee::query()
+            ->where('user_id', $user->id)
+            ->value('id');
+
+        abort_unless($employeeId, 403);
+
+        return $employeeId;
+    }
+
+    private function assertCanViewModule(User $user, $modul): void
+    {
+        if ($this->isTeacher($user)) {
+            abort_unless($modul->guru_id === $this->teacherEmployeeId($user), 403);
+        }
     }
 }

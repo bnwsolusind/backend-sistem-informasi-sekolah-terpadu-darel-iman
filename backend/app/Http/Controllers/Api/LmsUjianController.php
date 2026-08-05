@@ -163,10 +163,27 @@ class LmsUjianController extends Controller
     // CBT Student Test Engine API
     public function startSession(Request $request, string $id): JsonResponse
     {
-        $siswaId = $request->input('siswa_id');
-        if (! $siswaId) {
-            $siswa = Student::first();
-            $siswaId = $siswa?->id;
+        $user = $request->user();
+        $siswaId = null;
+
+        if ($user && method_exists($user, 'hasRole') && $user->hasRole('Siswa')) {
+            $siswa = Student::where('user_id', $user->id)->where('is_active', true)->first();
+            if (! $siswa) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data Siswa tidak ditemukan untuk akun ini.',
+                ], 403);
+            }
+            $siswaId = $siswa->id;
+        } else {
+            $siswaId = $request->input('siswa_id');
+            if (! $siswaId && $user) {
+                $siswa = Student::where('user_id', $user->id)->first();
+                $siswaId = $siswa?->id;
+            }
+            if (! $siswaId) {
+                $siswaId = Student::first()?->id;
+            }
         }
 
         if (! $siswaId) {
@@ -194,6 +211,18 @@ class LmsUjianController extends Controller
 
     public function submitAnswers(Request $request, string $sesiId): JsonResponse
     {
+        $user = $request->user();
+        if ($user && method_exists($user, 'hasRole') && $user->hasRole('Siswa')) {
+            $siswa = Student::where('user_id', $user->id)->first();
+            $sesi = \App\Models\LmsUjianSesi::find($sesiId);
+            if (! $sesi || ! $siswa || $sesi->siswa_id !== $siswa->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sesi ujian tidak ditemukan atau bukan milik Anda.',
+                ], 403);
+            }
+        }
+
         $jawaban = $request->input('jawaban', []);
         $success = $this->ujianService->simpanJawaban($sesiId, $jawaban);
 
@@ -212,6 +241,18 @@ class LmsUjianController extends Controller
 
     public function finishSession(Request $request, string $sesiId): JsonResponse
     {
+        $user = $request->user();
+        if ($user && method_exists($user, 'hasRole') && $user->hasRole('Siswa')) {
+            $siswa = Student::where('user_id', $user->id)->first();
+            $sesi = \App\Models\LmsUjianSesi::find($sesiId);
+            if (! $sesi || ! $siswa || $sesi->siswa_id !== $siswa->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sesi ujian tidak ditemukan atau bukan milik Anda.',
+                ], 403);
+            }
+        }
+
         // Optional final save before ending
         if ($request->has('jawaban')) {
             $this->ujianService->simpanJawaban($sesiId, $request->input('jawaban'));

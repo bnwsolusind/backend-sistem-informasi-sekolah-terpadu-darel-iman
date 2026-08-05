@@ -53,8 +53,8 @@ class LmsPresensiService
         return $this->repository->getStats($filters);
     }
 
-    public function dapatkanOpsi(): array
+    public function dapatkanOpsi(?string $employeeId = null): array
     {
-        return $this->repository->getOptions();
+        return $this->repository->getOptions($employeeId);
     }
 }

@@ -19,7 +19,7 @@ class StoreStudentRequest extends FormRequest
         return [
             'parent_id' => ['nullable', 'uuid', 'exists:parents,id'],
             'unit_id' => ['nullable', 'uuid', 'exists:education_units,id'],
-            'class_id' => ['nullable', 'uuid', 'exists:classes,id'],
+            'kelas_id' => ['nullable', 'uuid', 'exists:tbl_kelas,id'],
             'nisn' => ['nullable', 'string', 'max:50'],
             'nis' => [
                 'required',

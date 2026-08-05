@@ -87,9 +87,11 @@ class LmsAktivitasBelajarService
         return $this->aktivitasRepository->getStats();
     }
 
-    public function dapatkanOpsiModulAjar(): array
+    public function dapatkanOpsiModulAjar(?string $guruId = null): array
     {
-        return LmsModulAjar::select('id', 'judul_modul', 'kode_modul', 'fase')
+        return LmsModulAjar::query()
+            ->select('id', 'judul_modul', 'kode_modul', 'fase')
+            ->when($guruId, fn ($query) => $query->where('guru_id', $guruId))
             ->orderBy('judul_modul', 'asc')
             ->get()
             ->toArray();

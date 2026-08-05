@@ -187,7 +187,8 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
         if (isset($data['nilai_guru'])) {
             $pengumpulan->nilai_guru = $data['nilai_guru'];
             $pengumpulan->waktu_dinilai = now();
-            $pengumpulan->dinilai_oleh = Auth::id();
+            $employee = \App\Models\Employee::where('user_id', Auth::id())->first();
+            $pengumpulan->dinilai_oleh = $employee?->id;
             $pengumpulan->status = 'dinilai';
         }
 

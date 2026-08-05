@@ -28,7 +28,17 @@ class SimpanReferensiRequest extends FormRequest
             'penulis' => ['nullable', 'string', 'max:255'],
             'penerbit' => ['nullable', 'string', 'max:255'],
             'tahun' => ['nullable', 'integer', 'min:1900', 'max:2100'],
-            'url' => ['nullable', 'string', 'max:1000', 'url'],
+            'url' => [
+                'nullable',
+                'string',
+                'max:1000',
+                'url',
+                function ($attribute, $value, $fail) {
+                    if ($value && preg_match('/^(javascript|data|vbscript):/i', trim($value))) {
+                        $fail('URL referensi berisi skema protokol yang tidak aman.');
+                    }
+                },
+            ],
             'file' => ['nullable', 'file', 'max:20480'], // max 20MB document
             'status' => ['nullable', 'string', 'in:aktif,non-aktif'],
         ];

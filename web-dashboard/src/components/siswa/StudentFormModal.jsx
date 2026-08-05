@@ -7,7 +7,7 @@ const defaultForm = () => ({
   nik_ayah: '', nama_ayah: '', tempat_lahir_ayah: '', tgl_lahir_ayah: '', telfon_ayah: '', hp_ayah: '', pendidikan_terakhir_ayah: '', pekerjaan_ayah: '', instansi_pekerjaan_ayah: '', jabatan_pekerjaan_ayah: '', alamat_instansi_ayah: '', keahlian_ayah: '', penghasilan_ayah: '', alamat_ayah: '', nomor_wa_ayah: '', medsos_ayah: '',
   nik_ibu: '', nama_ibu: '', tempat_lahir_ibu: '', tgl_lahir_ibu: '', telfon_ibu: '', hp_ibu: '', pendidikan_terakhir_ibu: '', pekerjaan_ibu: '', instansi_pekerjaan_ibu: '', jabatan_pekerjaan_ibu: '', alamat_instansi_ibu: '', keahlian_ibu: '', penghasilan_ibu: '', alamat_ibu: '', nomor_wa_ibu: '', medsos_ibu: '',
   status_pernikahan_wali: '', tanggungan_anak_wali: '', nik_wali: '', nama_wali: '', tempat_lahir_wali: '', tgl_lahir_wali: '', telfon_wali: '', hp_wali: '', pendidikan_terakhir_wali: '', pekerjaan_wali: '', instansi_pekerjaan_wali: '', jabatan_pekerjaan_wali: '', alamat_instansi_wali: '', keahlian_wali: '', penghasilan_wali: '', alamat_wali: '', nomor_wa_wali: '', medsos_wali: '',
-  unit_pendidikan: '', nis_pembayaran: '', tahun_ajaran_masuk: '', class_id: '', tahun_ajaran_berjalan: '', status_siswa: 'aktif', status_orang_tua: 'Umum', niy_ortu_jika_pegawai: '', wali_kelas: '', niy_wali_kelas: '',
+  unit_id: '', unit_pendidikan: '', nis_pembayaran: '', tahun_ajaran_masuk: '', kelas_id: '', tahun_ajaran_berjalan: '', status_siswa: 'aktif', status_orang_tua: 'Umum', niy_ortu_jika_pegawai: '', wali_kelas: '', niy_wali_kelas: '',
 })
 
 const toYesNo = (value) => {
@@ -17,7 +17,7 @@ const toYesNo = (value) => {
 
 const toBoolean = (value) => toYesNo(value) === 'ya'
 
-export default function StudentFormModal({ isOpen, onClose, initialData, onSubmit, classes }) {
+export default function StudentFormModal({ isOpen, onClose, initialData, onSubmit, classes, units }) {
   const [activeStep, setActiveStep] = useState(0)
   const [formData, setFormData] = useState(defaultForm())
   const [isUploading, setIsUploading] = useState(false)
@@ -47,8 +47,10 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
           agama: initialData.agama || meta.agama || 'Islam',
           foto_url: initialData.foto || meta.foto_url || meta.foto || meta.photo_url || meta.photo || meta.avatar || '',
           nisn: initialData.nisn || meta.nisn || '',
+          nis: initialData.nis || '',
           alamat_siswa: initialData.alamat || meta.alamat_siswa || meta.alamat_ortu || '',
-          class_id: initialData.raw?.class_id || '',
+          kelas_id: initialData.raw?.kelas_id || '',
+          unit_id: initialData.raw?.unit_id || '',
           status_siswa: (initialData.status || initialData.status_siswa || 'aktif').toLowerCase(),
           unit_pendidikan: initialData.unit || meta.akademik?.unit_pendidikan || '',
           ...meta,
@@ -72,7 +74,11 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'unit_id' ? { kelas_id: '' } : {}),
+    }))
   }
 
   const handleFileUpload = (e) => {
@@ -95,13 +101,14 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
     if (e) e.preventDefault()
     const payload = {
       id: formData.id,
-      nis: formData.nis || `23${Math.floor(1000 + Math.random() * 9000)}`,
+      nis: formData.nis,
       full_name: formData.full_name,
       gender: formData.gender,
       birth_place: formData.birth_place,
       birth_date: formData.birth_date,
       address: formData.alamat_siswa,
-      class_id: formData.class_id || null,
+      unit_id: formData.unit_id || null,
+      kelas_id: formData.kelas_id || null,
       is_active: formData.status_siswa === 'aktif',
       metadata: { ...formData }
     }
@@ -110,7 +117,8 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
     delete payload.metadata.gender
     delete payload.metadata.birth_place
     delete payload.metadata.birth_date
-    delete payload.metadata.class_id
+    delete payload.metadata.kelas_id
+    delete payload.metadata.unit_id
     delete payload.metadata.is_active
     delete payload.metadata.address
     payload.metadata.penerima_kps_pkh = toBoolean(formData.penerima_kps_pkh)
@@ -287,6 +295,7 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input label="Nama Lengkap Siswa" name="full_name" required placeholder="Contoh: Fathir Ahmad" />
+                    <Input label="NIS" name="nis" required placeholder="Nomor Induk Siswa" />
                     <Input label="NISN" name="nisn" required placeholder="10 Digit NISN" />
                     <Input label="NIK Siswa" name="nik" placeholder="16 Digit NIK" />
                     <Input label="No Pendaftaran" name="no_pendaftaran" placeholder="PDK-2024-001" />
@@ -401,8 +410,8 @@ export default function StudentFormModal({ isOpen, onClose, initialData, onSubmi
                 <div className="space-y-6">
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Penempatan Unit & Kelas</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input label="Unit Pendidikan" name="unit_pendidikan" placeholder="Contoh: SDIT 2 Dar el-Iman" />
-                    <Select label="Pilih Kelas" name="class_id" options={classes?.map(c => ({ value: c.id, label: c.name })) || []} />
+                    <Select label="Unit Pendidikan" name="unit_id" required options={units?.map(unit => ({ value: unit.id, label: unit.name })) || []} />
+                    <Select label="Pilih Kelas" name="kelas_id" options={classes?.filter(kelas => !formData.unit_id || kelas.unit_pendidikan_id === formData.unit_id).map(kelas => ({ value: kelas.id, label: kelas.nama_kelas || kelas.name })) || []} />
                     <Input label="NIS Pembayaran" name="nis_pembayaran" placeholder="NIS Pembayaran" />
                     <Input label="Tahun Ajaran Masuk" name="tahun_ajaran_masuk" placeholder="2024/2025" />
                     <Input label="Tahun Ajaran Berjalan" name="tahun_ajaran_berjalan" placeholder="2024/2025" />

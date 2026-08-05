@@ -22,6 +22,10 @@ class LmsMateriRepository implements LmsMateriRepositoryInterface
             $query->where('modul_ajar_id', $filters['modul_ajar_id']);
         }
 
+        if (! empty($filters['guru_id'])) {
+            $query->where('guru_id', $filters['guru_id']);
+        }
+
         if (! empty($filters['tipe'])) {
             $query->where(function ($q) use ($filters) {
                 $q->where('tipe', $filters['tipe'])

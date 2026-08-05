@@ -75,9 +75,11 @@ class LmsDiskusiService
         return $this->diskusiRepository->getStats();
     }
 
-    public function dapatkanOpsiModulAjar(): array
+    public function dapatkanOpsiModulAjar(?string $guruId = null): array
     {
-        return LmsModulAjar::select('id', 'judul_modul', 'kode_modul')
+        return LmsModulAjar::query()
+            ->select('id', 'judul_modul', 'kode_modul')
+            ->when($guruId, fn ($query) => $query->where('guru_id', $guruId))
             ->orderBy('judul_modul', 'asc')
             ->get()
             ->map(fn ($item) => [

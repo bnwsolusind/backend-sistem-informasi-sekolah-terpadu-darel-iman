@@ -166,14 +166,22 @@ class LmsPresensiController extends Controller
 
     public function stats(Request $request): JsonResponse
     {
-        abort_unless($request->user()->hasAnyRole(['Guru', 'Super Admin']), 403);
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['Guru', 'Super Admin', 'Wali Kelas', 'Waka Kurikulum', 'Kepala Sekolah', 'Ketua Yayasan']) || $user->hasAnyPermission(['lesson_attendance.view', 'lesson_attendance.create']), 403);
         $filters = $request->only(['jadwal_pelajaran_id', 'tanggal']);
-        if ($request->user()->hasRole('Guru') && ! $request->user()->hasRole('Super Admin')) {
-            abort_unless(
-                ! empty($filters['jadwal_pelajaran_id'])
-                && $this->access->teacherSchedules($request->user())->whereKey($filters['jadwal_pelajaran_id'])->exists(),
-                403
-            );
+        if ($user->hasRole('Siswa')) {
+            $filters['siswa_id'] = $this->access->student($user)?->id ?? '__none__';
+        } elseif ($user->hasRole('Wali Kelas') && ! $user->hasRole('Super Admin')) {
+            $filters['class_ids'] = $this->access->homeroomClasses($user)->pluck('id')->all();
+        } elseif ($user->hasRole('Guru') && ! $user->hasRole('Super Admin')) {
+            if (! empty($filters['jadwal_pelajaran_id'])) {
+                abort_unless(
+                    $this->access->teacherSchedules($user)->whereKey($filters['jadwal_pelajaran_id'])->exists(),
+                    403
+                );
+            } else {
+                $filters['employee_id'] = $this->access->employee($user)?->id ?? '__none__';
+            }
         }
         $stats = $this->service->dapatkanStatistik($filters);
 
@@ -183,10 +191,15 @@ class LmsPresensiController extends Controller
         ]);
     }
 
-    public function options(): JsonResponse
+    public function options(Request $request): JsonResponse
     {
-        abort_unless(request()->user()->hasRole('Super Admin'), 403);
-        $options = $this->service->dapatkanOpsi();
+        $user = $request->user();
+        abort_unless($user->hasAnyRole(['Super Admin', 'Guru', 'Wali Kelas', 'Waka Kurikulum', 'Kepala Sekolah', 'Ketua Yayasan']) || $user->hasAnyPermission(['lesson_attendance.view', 'lesson_attendance.create']), 403);
+        $employeeId = null;
+        if ($user->hasRole('Guru') && ! $user->hasRole('Super Admin')) {
+            $employeeId = $this->access->employee($user)?->id;
+        }
+        $options = $this->service->dapatkanOpsi($employeeId);
 
         return response()->json([
             'success' => true,

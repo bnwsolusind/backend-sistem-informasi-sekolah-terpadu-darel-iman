@@ -30,11 +30,9 @@ class EnsureFoundationReadOnly
                 $method = strtoupper($request->method());
 
                 if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
-                    $path = $request->path();
-
                     // Izinkan mutation hanya pada profil pribadi dan notifikasi pribadi yayasan
-                    $isAllowedProfile = str_contains($path, 'foundation/profile') || str_contains($path, 'profile');
-                    $isAllowedNotification = str_contains($path, 'foundation/notifications') || str_contains($path, 'notifications');
+                    $isAllowedProfile = $request->is('api/foundation/profile', 'api/foundation/profile/*', 'api/profile');
+                    $isAllowedNotification = $request->is('api/foundation/notifications', 'api/foundation/notifications/*', 'api/notifications');
 
                     if (! $isAllowedProfile && ! $isAllowedNotification) {
                         return response()->json([

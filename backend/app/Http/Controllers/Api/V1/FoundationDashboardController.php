@@ -244,19 +244,25 @@ class FoundationDashboardController extends Controller
      */
     public function reports(Request $request): JsonResponse
     {
-        $type = $request->query('type', 'sdm');
-        $unitId = $request->query('unit_id', 'all');
+        $filters = [
+            'unit_id' => $request->query('unit_id', 'all'),
+            'academic_year_id' => $request->query('academic_year_id'),
+            'period' => $request->query('period', 'year'),
+        ];
+        $overview = $this->service->getDashboardOverview($filters);
+        $unitSummaries = $overview['unit_summaries'] ?? [];
 
         $reportsData = [
-            'type' => $type,
-            'unit_id' => $unitId,
+            'type' => $request->query('type', 'ringkasan'),
+            'unit_id' => $filters['unit_id'],
             'generated_at' => now()->toIso8601String(),
-            'total_records' => 150,
-            'preview' => [
-                ['column_1' => 'MIT SaQu', 'column_2' => '46 Pegawai', 'column_3' => '38 Guru', 'column_4' => '620 Siswa'],
-                ['column_1' => 'SMPIT 2', 'column_2' => '39 Pegawai', 'column_3' => '31 Guru', 'column_4' => '510 Siswa'],
-                ['column_1' => 'SMAIT', 'column_2' => '34 Pegawai', 'column_3' => '27 Guru', 'column_4' => '385 Siswa'],
-            ],
+            'total_records' => count($unitSummaries),
+            'preview' => array_map(static fn (array $unit) => [
+                'column_1' => $unit['name'] ?? '-',
+                'column_2' => ($unit['pegawai_count'] ?? 0) . ' Pegawai',
+                'column_3' => ($unit['guru_count'] ?? 0) . ' Guru',
+                'column_4' => ($unit['siswa_aktif_count'] ?? 0) . ' Siswa',
+            ], $unitSummaries),
         ];
 
         return response()->json([

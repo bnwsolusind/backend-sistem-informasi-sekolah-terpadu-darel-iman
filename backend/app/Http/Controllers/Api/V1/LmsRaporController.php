@@ -179,4 +179,37 @@ class LmsRaporController extends Controller
             'data' => $options,
         ]);
     }
+
+    public function publish(string $id): JsonResponse
+    {
+        $rapor = $this->raporService->ubah($id, [
+            'status_rapor' => 'published',
+            'tanggal_terbit' => now()->toDateString(),
+        ]);
+
+        if (! $rapor) {
+            return response()->json(['success' => false, 'message' => 'Rapor Digital tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Rapor Digital berhasil dipublikasikan.',
+            'data' => new LmsRaporResource($rapor),
+        ]);
+    }
+
+    public function approve(string $id): JsonResponse
+    {
+        $rapor = $this->raporService->ubah($id, ['status_rapor' => 'final']);
+
+        if (! $rapor) {
+            return response()->json(['success' => false, 'message' => 'Rapor Digital tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Rapor Digital berhasil disetujui (Approved).',
+            'data' => new LmsRaporResource($rapor),
+        ]);
+    }
 }

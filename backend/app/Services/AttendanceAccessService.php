@@ -47,8 +47,9 @@ class AttendanceAccessService
 
     public function homeroomStudentIds(User $user): Collection
     {
+        $kelasIds = $this->homeroomClasses($user)->pluck('id');
         $classIds = collect();
-        foreach ($this->homeroomClasses($user)->get() as $kelas) {
+        foreach ($this->homeroomClasses($user)->get(['id', 'tahun_ajaran_id', 'semester_id', 'nama_kelas', 'kode_kelas']) as $kelas) {
             $classIds = $classIds->merge(SchoolClass::query()
                 ->where('academic_year_id', $kelas->tahun_ajaran_id)
                 ->where('semester_id', $kelas->semester_id)
@@ -56,7 +57,10 @@ class AttendanceAccessService
                 ->pluck('id'));
         }
 
-        return Student::active()->whereIn('class_id', $classIds->unique())->pluck('id');
+        return Student::active()->where(function (Builder $query) use ($kelasIds, $classIds) {
+            $query->whereIn('kelas_id', $kelasIds)
+                ->orWhereIn('class_id', $classIds->unique());
+        })->pluck('id');
     }
 
     /**

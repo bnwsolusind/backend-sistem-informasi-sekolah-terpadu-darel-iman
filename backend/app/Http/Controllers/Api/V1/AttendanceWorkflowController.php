@@ -175,7 +175,7 @@ class AttendanceWorkflowController extends Controller
     {
         $this->permit($request, ['lesson_attendance.view', 'lesson_attendance.view_own'], ['Guru', 'Wali Kelas']);
         $query = LessonAttendanceSession::query()->with([
-            'schedule.subject', 'schedule.kelas', 'schedule.employee',
+            'schedule.subject', 'schedule.kelas', 'schedule.employee', 'attendances.siswa',
         ]);
         if (! $request->user()->hasRole('Super Admin')) {
             if ($request->user()->hasRole('Wali Kelas')) {

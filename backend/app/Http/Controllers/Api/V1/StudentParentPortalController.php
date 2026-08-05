@@ -153,8 +153,8 @@ class StudentParentPortalController extends Controller
 
         // Attendance status today
         $attendanceToday = LmsPresensi::query()
-            ->where('student_id', $student->id)
-            ->whereDate('created_at', now()->toDateString())
+            ->where('siswa_id', $student->id)
+            ->whereDate('tanggal', now()->toDateString())
             ->first();
 
         // Active assignments
@@ -208,7 +208,7 @@ class StudentParentPortalController extends Controller
                     'semester' => $activeSemester?->name ?? 'Ganjil',
                     'date' => now()->translatedFormat('l, d F Y'),
                 ],
-                'attendance_today' => $attendanceToday ? $attendanceToday->status : 'Belum Diinput',
+                'attendance_today' => $attendanceToday?->status_label ?? 'Belum Diinput',
                 'kpi' => [
                     'schedules_today_count' => $schedulesToday->count(),
                     'active_assignments_count' => $activeAssignments->count(),
@@ -264,9 +264,9 @@ class StudentParentPortalController extends Controller
         }
 
         $logs = LmsPresensi::query()
-            ->with(['session.subject'])
-            ->where('student_id', $student->id)
-            ->orderBy('created_at', 'desc')
+            ->with(['jadwalPelajaran.subject', 'jadwalPelajaran.kelas', 'session.schedule'])
+            ->where('siswa_id', $student->id)
+            ->orderByDesc('tanggal')
             ->paginate($request->query('per_page', 20));
 
         return response()->json([
@@ -344,7 +344,7 @@ class StudentParentPortalController extends Controller
         $materials = LmsMateri::query()
             ->with(['subject', 'guru', 'media', 'modulAjar:id,kelas_id,judul_modul,kode_modul'])
             ->whereHas('modulAjar', fn ($query) => $query->whereIn('kelas_id', $classIds))
-            ->where('status', 'published')
+            ->where('is_published', true)
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -750,13 +750,51 @@ class StudentParentPortalController extends Controller
         return response()->json(['success' => true, 'data' => $bills]);
     }
 
+    public function signStudentNote(Request $request, string $noteId): JsonResponse
+    {
+        $user = $request->user();
+        $student = $this->getStudentContext($request);
+        if (! $student) {
+            return response()->json(['success' => false, 'message' => 'Data siswa tidak ditemukan.'], 404);
+        }
+
+        // Parent validation
+        $parent = ParentModel::query()->where('user_id', $user->id)->first();
+        if ($parent) {
+            $isLinkedChild = $this->parentStudentsQuery($parent)->whereKey($student->id)->exists();
+            abort_unless($isLinkedChild, 403, 'Anda tidak memiliki hak akses untuk menandatangani catatan siswa ini.');
+        }
+
+        $note = StudentNote::where('student_id', $student->id)->find($noteId);
+        if (! $note) {
+            return response()->json(['success' => false, 'message' => 'Catatan siswa tidak ditemukan.'], 404);
+        }
+
+        $parentNotes = $request->input('notes_parent') ?? $request->input('follow_up') ?? $note->follow_up;
+
+        $note->update([
+            'follow_up' => $parentNotes,
+            'visible_to_parent' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Catatan & persetujuan orang tua berhasil disimpan.',
+            'data' => array_merge($note->toArray(), [
+                'signed_at' => now()->toIso8601String(),
+                'signed_by_user_id' => $user->id,
+                'signature_status' => 'signed',
+            ]),
+        ]);
+    }
+
     public function reports(Request $request): JsonResponse
     {
         $student = $this->getStudentContext($request);
         if (! $student) return response()->json(['success' => false, 'message' => 'Data siswa tidak ditemukan.'], 404);
 
         $reports = LmsRapor::query()->with(['kelas', 'semester', 'tahunAjaran', 'waliKelas'])
-            ->where('siswa_id', $student->id)->where('status_rapor', 'published')
+            ->where('siswa_id', $student->id)->whereIn('status_rapor', ['published', 'diterbitkan'])
             ->orderBy('tanggal_terbit', 'desc')->get();
 
         return response()->json(['success' => true, 'data' => $reports]);
@@ -766,7 +804,7 @@ class StudentParentPortalController extends Controller
     {
         $student = $this->getStudentContext($request);
         $report = $student ? LmsRapor::with(['siswa', 'kelas', 'semester', 'tahunAjaran', 'waliKelas'])
-            ->where('siswa_id', $student->id)->where('status_rapor', 'published')->find($id) : null;
+            ->where('siswa_id', $student->id)->whereIn('status_rapor', ['published', 'diterbitkan'])->find($id) : null;
         if (! $report) return response()->json(['success' => false, 'message' => 'Rapor tidak tersedia.'], 404);
 
         $grades = StudentGrade::with('subject')->where('student_id', $student->id)->get();

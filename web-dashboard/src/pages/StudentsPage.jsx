@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -26,6 +27,7 @@ import CetakKartuSiswaModal from '../components/siswa/CetakKartuSiswaModal'
 import StudentFormModal from '../components/siswa/StudentFormModal'
 import { useDaftarKelas } from '../hooks/useReferenceData'
 import { useAksiSiswa, useDaftarSiswa } from '../hooks/useStudents'
+import { educationUnitService } from '../services/educationUnitService'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -58,12 +60,12 @@ const initialForm = () => ({
   alamat_ortu: '',
 
   // Step 3: Akademik
-  unit_pendidikan: 'SDIT 2 Dar el-Iman - Padang',
-  class_id: '',
-  kelas_label: '6A',
-  rombel: 'Rombel A',
-  tahun_ajaran: '2024/2025',
-  tanggal_masuk: '2023-07-10',
+  unit_id: '',
+  kelas_id: '',
+  kelas_label: '',
+  rombel: '',
+  tahun_ajaran: '',
+  tanggal_masuk: '',
   no_induk_sebelumnya: '',
   status_siswa: 'aktif',
   kurikulum: 'Kurikulum Merdeka',
@@ -115,10 +117,17 @@ export default function StudentsPage() {
     { per_page: 200 },
     { enabled: showFormModal, staleTime: 5 * 60 * 1000 },
   )
+  const { data: daftarUnitData } = useQuery({
+    queryKey: ['education-units', 'student-form'],
+    queryFn: () => educationUnitService.getDaftar({ per_page: 200 }),
+    enabled: showFormModal,
+    staleTime: 5 * 60 * 1000,
+  })
   const { tambah, ubah, hapus } = useAksiSiswa()
 
   const rawStudents = daftarSiswaData?.data || []
   const rawClasses = daftarKelasData?.data || []
+  const rawUnits = daftarUnitData?.data || []
   const studentPagination = {
     total: daftarSiswaData?.total || 0,
     from: daftarSiswaData?.from || 0,
@@ -206,22 +215,12 @@ export default function StudentsPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setImportFile(file)
-    setImportPreviewData([
-      { nis: '23011', nisn: '0098761122', nama: 'Fatimah Az-Zahra', gender: 'P', tempatLahir: 'Padang', tanggalLahir: '2015-03-10', agama: 'Islam', alamat: 'Jl. Raden Saleh', unit: 'SDIT 2', kelas: '6A', namaAyah: 'Abdullah', hpAyah: '0812-1111-2222', namaIbu: 'Khadijah', hpIbu: '0812-1111-3333', namaWali: '-', hpWali: '-', status: 'Valid', email: 'fatimah@example.com' },
-      { nis: '23012', nisn: '0098761123', nama: 'Abdullah Al-Fatih', gender: 'L', tempatLahir: 'Padang', tanggalLahir: '2015-07-22', agama: 'Islam', alamat: 'Jl. Khatib Sulaiman', unit: 'SDIT 2', kelas: '6A', namaAyah: 'Ahmad', hpAyah: '0812-2222-3333', namaIbu: '-', hpIbu: '-', namaWali: '-', hpWali: '-', status: 'Valid', email: 'abdullah@example.com' },
-    ])
+    setImportPreviewData([])
   }
 
   const handleProcessImport = () => {
     if (!importFile) return
-    setIsImporting(true)
-    setTimeout(() => {
-      setIsImporting(false)
-      setShowImportModal(false)
-      setImportFile(null)
-      setImportPreviewData([])
-      Swal.fire({ title: 'Import Berhasil!', text: 'Data siswa berhasil diimpor.', icon: 'success', confirmColor: '#064e3b' })
-    }, 1200)
+    Swal.fire('Import belum tersedia', 'Endpoint import siswa belum tersedia, sehingga file tidak diproses.', 'info')
   }
 
   // Predefined default mock students
@@ -446,23 +445,23 @@ export default function StudentsPage() {
           nis: item.nis || '-',
           nisn: item.nisn || meta.nisn || '-',
           nama: item.full_name || item.nama || '-',
-          unit: meta.akademik?.unit_pendidikan || meta.unit_pendidikan || item.education_unit?.name || 'SDIT 2 Dar el-Iman - Padang',
-          kelas: meta.akademik?.kelas || item.school_class?.name || item.class?.name || '6A',
+          unit: meta.akademik?.unit_pendidikan || meta.unit_pendidikan || item.education_unit?.name || '-',
+          kelas: item.kelas?.nama_kelas || '-',
           orangTua: ortuObj,
           noHp: hpObj,
           status: statusText,
           gender: item.gender === 'female' ? 'Perempuan' : 'Laki-laki',
-          tempatLahir: item.birth_place || meta.birth_place || 'Padang',
-          tanggalLahir: item.birth_date ? String(item.birth_date).slice(0, 10) : (meta.birth_date ? String(meta.birth_date).slice(0, 10) : '2014-05-12'),
-          agama: meta.agama || 'Islam',
-          alamat: item.address || meta.alamat_siswa || 'Padang - Sumatera Barat',
+          tempatLahir: item.birth_place || meta.birth_place || '-',
+          tanggalLahir: item.birth_date ? String(item.birth_date).slice(0, 10) : (meta.birth_date ? String(meta.birth_date).slice(0, 10) : '-'),
+          agama: meta.agama || '-',
+          alamat: item.address || meta.alamat_siswa || '-',
           foto: fotoObj,
           raw: item,
         }
       })
     }
-    return defaultStudents
-  }, [rawStudents, defaultStudents])
+    return []
+  }, [rawStudents])
 
   // Filtered Students
   const filteredStudents = useMemo(() => {
@@ -514,11 +513,7 @@ export default function StudentsPage() {
       confirmButtonColor: '#dc2626',
     })
     if (res.isConfirmed) {
-      if (student.raw?.id) {
-        await hapus.mutateAsync(student.id)
-      } else {
-        await Swal.fire('Berhasil', 'Data siswa berhasil dihapus.', 'success')
-      }
+      await hapus.mutateAsync(student.id)
       setShowDetailModal(false)
     }
   }
@@ -526,12 +521,8 @@ export default function StudentsPage() {
   const handleFormSubmitCallback = async (payload) => {
     try {
       if (isEdit && payload.id) {
-        if (String(payload.id).startsWith('demo-')) {
-          Swal.fire('Berhasil', 'Data siswa berhasil diperbarui (mode demo).', 'success')
-        } else {
-          await ubah.mutateAsync({ id: payload.id, payload })
-          Swal.fire('Berhasil', 'Data siswa berhasil diperbarui.', 'success')
-        }
+        await ubah.mutateAsync({ id: payload.id, payload })
+        Swal.fire('Berhasil', 'Data siswa berhasil diperbarui.', 'success')
       } else {
         await tambah.mutateAsync(payload)
         Swal.fire('Berhasil', 'Data siswa baru berhasil ditambahkan.', 'success')
@@ -1188,6 +1179,7 @@ export default function StudentsPage() {
         initialData={isEdit ? selectedStudent : null}
         onSubmit={handleFormSubmitCallback}
         classes={rawClasses}
+        units={rawUnits}
       />
 
       {/* POP UP MODAL 3: CETAK KARTU SISWA */}

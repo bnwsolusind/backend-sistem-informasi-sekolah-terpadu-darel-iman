@@ -28,6 +28,10 @@ class EmployeeRepository implements EmployeeRepositoryInterface
             $query->where('unit_id', $filters['unit_id']);
         }
 
+        if (array_key_exists('allowed_unit_ids', $filters)) {
+            $query->whereIn('unit_id', $filters['allowed_unit_ids']);
+        }
+
         if (! empty($filters['jabatan_id'])) {
             $query->where('jabatan_id', $filters['jabatan_id']);
         }

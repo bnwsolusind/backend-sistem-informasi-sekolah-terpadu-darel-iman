@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\EnsureFoundationReadOnly;
 use App\Models\Attendance;
 use App\Models\ClassSchedule;
 use App\Models\DeleteRequest;
@@ -12,8 +13,10 @@ use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Mockery;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -206,5 +209,22 @@ class MultiPortalAuthTest extends TestCase
         // Target user is now soft deleted
         $this->assertDatabaseMissing('users', ['id' => $targetUser->id, 'deleted_at' => null]);
         $this->assertDatabaseHas('delete_requests', ['id' => $deleteRequestId, 'status' => 'approved']);
+    }
+
+    public function test_foundation_read_only_middleware_allows_only_explicit_personal_paths(): void
+    {
+        $foundationUser = Mockery::mock();
+        $foundationUser->shouldReceive('hasRole')->with('Super Admin')->andReturnFalse();
+        $foundationUser->shouldReceive('hasAnyRole')->andReturnTrue();
+        $middleware = app(EnsureFoundationReadOnly::class);
+        $next = fn () => response()->json(['status' => 'ok']);
+
+        $blockedRequest = Request::create('/api/profile-data', 'POST');
+        $blockedRequest->setUserResolver(fn () => $foundationUser);
+        $this->assertSame(403, $middleware->handle($blockedRequest, $next)->getStatusCode());
+
+        $allowedRequest = Request::create('/api/foundation/profile', 'PATCH');
+        $allowedRequest->setUserResolver(fn () => $foundationUser);
+        $this->assertSame(200, $middleware->handle($allowedRequest, $next)->getStatusCode());
     }
 }

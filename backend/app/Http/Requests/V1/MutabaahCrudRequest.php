@@ -20,7 +20,14 @@ class MutabaahCrudRequest extends FormRequest
             default => null,
         };
 
-        return $permission && ($this->user()?->hasRole('Super Admin') || $this->user()?->can($permission));
+        $user = $this->user();
+        $hasRoleWrite = $user?->hasRole([
+            'Super Admin', 'Admin', 'Tata Usaha', 'TU', 'Operator',
+            'Wali Kelas', 'Guru', 'Musyrif', 'Musyrifah', 'Pembimbing',
+            'Kepala Sekolah', 'Divisi Pendidikan', 'Yayasan',
+        ]);
+
+        return $permission && ($hasRoleWrite || $user?->can($permission));
     }
 
     public function rules(): array

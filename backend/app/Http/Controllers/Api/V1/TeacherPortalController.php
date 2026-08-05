@@ -33,6 +33,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TeacherPortalController extends Controller
@@ -359,6 +360,22 @@ class TeacherPortalController extends Controller
             ->where('is_read', false)
             ->count();
 
+        // Teacher attendance log (View Only)
+        $teacherAttendanceLogs = [];
+        if ($employee && Schema::hasTable('employee_attendances')) {
+            $teacherAttendanceLogs = DB::table('employee_attendances')
+                ->where('employee_id', $employee->id)
+                ->orderByDesc('attendance_date')
+                ->limit(10)
+                ->get();
+        } elseif ($user && Schema::hasTable('gate_attendances')) {
+            $teacherAttendanceLogs = DB::table('gate_attendances')
+                ->where('user_id', $user->id)
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get();
+        }
+
         // Announcements
         $announcements = PengumumanSekolah::query()
             ->where('is_active', true)
@@ -391,6 +408,7 @@ class TeacherPortalController extends Controller
                 ],
                 'schedules_today' => $schedulesToday,
                 'announcements' => $announcements,
+                'teacher_attendance_logs' => $teacherAttendanceLogs,
             ],
         ]);
     }

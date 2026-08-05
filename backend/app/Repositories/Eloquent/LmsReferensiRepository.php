@@ -22,6 +22,10 @@ class LmsReferensiRepository implements LmsReferensiRepositoryInterface
             }
         }
 
+        if (! empty($filters['guru_id'])) {
+            $query->whereHas('modulAjar', fn ($modulQuery) => $modulQuery->where('guru_id', $filters['guru_id']));
+        }
+
         if (! empty($filters['status'])) {
             $query->where('status', strtolower($filters['status']));
         }

@@ -6,8 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\IndexRequest;
 use App\Http\Requests\V1\StoreStudentRequest;
 use App\Models\Employee;
-use App\Models\SchoolClass;
+use App\Models\Kelas;
 use App\Models\Student;
+use App\Models\User;
 use App\Repositories\Contracts\StudentRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,9 +20,13 @@ class StudentController extends Controller
 
     public function index(IndexRequest $request): JsonResponse
     {
+        [$canAccessAllUnits, $unitId] = $this->scopeForUser($request->user());
+
         $data = $this->studentRepository->paginate(
             search: (string) $request->validated('search', ''),
-            perPage: (int) $request->validated('per_page', 15)
+            perPage: (int) $request->validated('per_page', 15),
+            unitId: $unitId,
+            canAccessAllUnits: $canAccessAllUnits
         );
 
         return response()->json($data);
@@ -29,7 +34,10 @@ class StudentController extends Controller
 
     public function store(StoreStudentRequest $request): JsonResponse
     {
-        $student = Student::query()->create($this->mappedPayload($request->validated()));
+        $payload = $this->mappedPayload($request->validated());
+        $payload['unit_id'] = $this->authorizedUnitId($request->user(), $payload['unit_id']);
+        $payload['kelas_id'] = $this->authorizedKelasId($payload['kelas_id'], $payload['unit_id']);
+        $student = Student::query()->create($payload);
 
         return response()->json([
             'message' => 'Data siswa berhasil disimpan.',
@@ -37,15 +45,30 @@ class StudentController extends Controller
         ], 201);
     }
 
-    public function show(string $student): JsonResponse
+    public function show(Request $request, string $student): JsonResponse
     {
-        return response()->json(Student::query()->findOrFail($student));
+        return response()->json($this->scopedStudentQuery($request->user())->findOrFail($student));
     }
 
     public function update(StoreStudentRequest $request, string $student): JsonResponse
     {
-        $model = Student::query()->findOrFail($student);
-        $model->update($this->mappedPayload($request->validated()));
+        $model = $this->scopedStudentQuery($request->user())->findOrFail($student);
+        $validated = $request->validated();
+        $payload = $this->mappedPayload($validated);
+
+        if (array_key_exists('unit_id', $validated)) {
+            $payload['unit_id'] = $this->authorizedUnitId($request->user(), $payload['unit_id']);
+        } else {
+            unset($payload['unit_id']);
+        }
+
+        if (array_key_exists('kelas_id', $validated)) {
+            $payload['kelas_id'] = $this->authorizedKelasId($payload['kelas_id'], $payload['unit_id'] ?? $model->unit_id);
+        } else {
+            unset($payload['kelas_id']);
+        }
+
+        $model->update($payload);
 
         return response()->json([
             'message' => 'Data siswa berhasil diperbarui.',
@@ -53,9 +76,9 @@ class StudentController extends Controller
         ]);
     }
 
-    public function destroy(string $student): JsonResponse
+    public function destroy(Request $request, string $student): JsonResponse
     {
-        Student::query()->findOrFail($student)->delete();
+        $this->scopedStudentQuery($request->user())->findOrFail($student)->delete();
 
         return response()->json([
             'message' => 'Data siswa berhasil dihapus.',
@@ -64,37 +87,15 @@ class StudentController extends Controller
 
     public function dashboard(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $employee = $user ? Employee::query()
-            ->with([
-                'position:id,name,scope_akses',
-                'unit:id,name',
-            ])
-            ->where('user_id', $user->id)
-            ->first() : null;
-        $bolehSemuaUnit = $user?->hasAnyRole(['Super Admin', 'Yayasan']) === true
-            || $employee?->position?->scope_akses === 'semua_unit'
-            || str_contains(strtolower((string) $employee?->position?->name), 'yayasan');
-        $unitPengguna = $employee?->unit_id
-            ?? data_get($user?->metadata, 'unit_id')
-            ?? data_get($user?->metadata, 'unit_pendidikan_id');
+        [$bolehSemuaUnit, $unitPengguna, $employee] = $this->scopeForUser($request->user());
 
         $studentQuery = Student::query()
             ->with([
                 'educationUnit:id,name,level',
-                'schoolClass:id,name,level',
+                'kelas:id,nama_kelas,tingkat',
             ]);
 
-        if (! $bolehSemuaUnit) {
-            // Role unit hanya boleh membaca siswa pada unit kerjanya sendiri.
-            // Jika akun belum dipetakan ke unit, hasil sengaja dikosongkan agar
-            // data lintas unit tidak bocor.
-            $studentQuery->when(
-                $unitPengguna,
-                fn ($query, $unitId) => $query->where('unit_id', $unitId),
-                fn ($query) => $query->whereRaw('1 = 0')
-            );
-        }
+        $this->applyUnitScope($studentQuery, $bolehSemuaUnit, $unitPengguna);
 
         $students = $studentQuery
             ->orderBy('full_name')
@@ -102,7 +103,7 @@ class StudentController extends Controller
                 'id',
                 'nis',
                 'full_name',
-                'class_id',
+                'kelas_id',
                 'unit_id',
                 'gender',
                 'birth_place',
@@ -113,11 +114,11 @@ class StudentController extends Controller
                 'created_at',
             ]);
 
-        $classIds = $students->pluck('class_id')->filter()->unique()->values();
-        $classes = SchoolClass::query()
-            ->when(! $bolehSemuaUnit, fn ($query) => $query->whereIn('id', $classIds))
-            ->orderBy('name')
-            ->get(['id', 'name', 'level', 'metadata']);
+        $classIds = $students->pluck('kelas_id')->filter()->unique()->values();
+        $classes = Kelas::query()
+            ->whereIn('id', $classIds)
+            ->orderBy('nama_kelas')
+            ->get(['id', 'nama_kelas', 'tingkat', 'wali_kelas_id', 'kapasitas']);
 
         $totalSiswa = $students->count();
         $totalKelas = $classes->count();
@@ -149,35 +150,36 @@ class StudentController extends Controller
                 'nis' => $student->nis,
                 'nama' => $student->full_name,
                 'unit' => $student->educationUnit?->name ?? ($student->metadata['unit_pendidikan'] ?? '-'),
-                'jenjang' => $student->educationUnit?->level ?? $student->schoolClass?->level ?? '-',
-                'kelas' => $student->metadata['kelas_label'] ?? $student->schoolClass?->name ?? '-',
+                'jenjang' => $student->educationUnit?->level ?? $student->kelas?->tingkat ?? '-',
+                'kelas' => $student->kelas?->nama_kelas ?? '-',
                 'jenis_kelamin' => $student->gender,
                 'aktif' => (bool) $student->is_active,
             ];
         })->values();
 
-        $daftarKelas = $classes->map(function (SchoolClass $class) use ($students) {
+        $daftarKelas = $classes->map(function (Kelas $class) use ($students) {
             return [
                 'id' => $class->id,
-                'nama' => $class->name,
-                'level' => $class->level,
-                'wali_kelas' => $class->metadata['wali_kelas'] ?? '-',
-                'kapasitas' => (int) ($class->metadata['kapasitas'] ?? 35),
-                'jumlah_siswa' => $students->where('class_id', $class->id)->count(),
+            'nama' => $class->nama_kelas,
+            'level' => $class->tingkat,
+            'wali_kelas_id' => $class->wali_kelas_id,
+            'kapasitas' => (int) $class->kapasitas,
+            'jumlah_siswa' => $students->where('kelas_id', $class->id)->count(),
             ];
         })->values();
 
         $tahunSekarang = (int) now()->format('Y');
-        $grafik = [];
-        $basis = max($totalSiswa - 240, 200);
-
-        for ($i = 3; $i >= 0; $i--) {
-            $tahun = (string) ($tahunSekarang - $i);
-            $grafik[] = [
-                'tahun' => $tahun,
-                'jumlah' => $basis + ((3 - $i) * 80),
-            ];
-        }
+        $grafik = collect(range($tahunSekarang - 3, $tahunSekarang))
+            ->map(fn (int $tahun) => [
+                'tahun' => (string) $tahun,
+                'jumlah' => $students->filter(
+                    fn (Student $student) => $student->created_at?->year === $tahun
+                )->count(),
+            ])
+            ->values();
+        $mutasiMasuk = $students->filter(
+            fn (Student $student) => data_get($student->metadata, 'mutasi_type') === 'masuk'
+        )->count();
 
         return response()->json([
             'akses' => [
@@ -208,7 +210,7 @@ class StudentController extends Controller
                 'tanggal_lahir' => optional($selected->birth_date)->toDateString(),
                 'alamat' => $selected->address,
                 'status' => $selected->is_active ? 'Aktif' : 'Nonaktif',
-                'kelas' => $selected->metadata['kelas_label'] ?? '-',
+                'kelas' => $selected->kelas?->nama_kelas ?? '-',
                 'tahun_masuk' => $selected->metadata['tahun_masuk'] ?? '-',
                 'orang_tua' => [
                     'nama_ayah' => $selected->metadata['nama_ayah'] ?? '-',
@@ -221,7 +223,7 @@ class StudentController extends Controller
             'kelas_rombel' => $daftarKelas,
             'laporan_siswa' => [
                 'siswa_baru' => $siswaBaru,
-                'mutasi_masuk' => max((int) floor($siswaBaru * 0.6), 0),
+                'mutasi_masuk' => $mutasiMasuk,
                 'mutasi_keluar' => $mutasiKeluar,
                 'siswa_lulus' => $alumni,
                 'grafik_tahunan' => $grafik,
@@ -234,7 +236,7 @@ class StudentController extends Controller
         return [
             'parent_id' => $validated['parent_id'] ?? null,
             'unit_id' => $validated['unit_id'] ?? null,
-            'class_id' => $validated['class_id'] ?? null,
+            'kelas_id' => $validated['kelas_id'] ?? null,
             'nis' => $validated['nis'],
             'nisn' => $validated['nisn'] ?? Arr::get($validated, 'metadata.nisn'),
             'full_name' => $validated['full_name'],
@@ -245,5 +247,86 @@ class StudentController extends Controller
             'is_active' => Arr::get($validated, 'is_active', true),
             'metadata' => $validated['metadata'] ?? [],
         ];
+    }
+
+    private function scopedStudentQuery(User $user)
+    {
+        [$canAccessAllUnits, $unitId] = $this->scopeForUser($user);
+        $query = Student::query();
+
+        $this->applyUnitScope($query, $canAccessAllUnits, $unitId);
+
+        return $query;
+    }
+
+    private function applyUnitScope($query, bool $canAccessAllUnits, ?string $unitId): void
+    {
+        if ($canAccessAllUnits) {
+            return;
+        }
+
+        $query->when(
+            $unitId,
+            fn ($studentQuery) => $studentQuery->where('unit_id', $unitId),
+            fn ($studentQuery) => $studentQuery->whereRaw('1 = 0')
+        );
+    }
+
+    private function authorizedUnitId(User $user, ?string $requestedUnitId): ?string
+    {
+        [$canAccessAllUnits, $unitId] = $this->scopeForUser($user);
+
+        if ($canAccessAllUnits) {
+            return $requestedUnitId;
+        }
+
+        abort_unless($unitId, 403, 'Akun tidak memiliki cakupan unit pendidikan.');
+        abort_if($requestedUnitId && $requestedUnitId !== $unitId, 403, 'Unit pendidikan tidak sesuai dengan cakupan akun.');
+
+        return $unitId;
+    }
+
+    private function authorizedKelasId(?string $kelasId, ?string $unitId): ?string
+    {
+        if (! $kelasId) {
+            return null;
+        }
+
+        abort_unless($unitId, 422, 'Unit pendidikan wajib ditetapkan sebelum memilih kelas.');
+        abort_unless(
+            Kelas::query()->whereKey($kelasId)->where('unit_pendidikan_id', $unitId)->exists(),
+            403,
+            'Kelas tidak sesuai dengan unit pendidikan siswa.'
+        );
+
+        return $kelasId;
+    }
+
+    private function scopeForUser(User $user): array
+    {
+        $employee = Employee::query()
+            ->with([
+                'position:id,name,scope_akses',
+                'unit:id,name',
+            ])
+            ->where('user_id', $user->id)
+            ->first();
+        $canAccessAllUnits = $user->hasAnyRole([
+            'Super Admin',
+            'Yayasan',
+            'Ketua Yayasan',
+            'ketua_yayasan',
+            'sekretaris_yayasan',
+            'bendahara_yayasan',
+            'pengurus_yayasan',
+        ])
+            || $user->can('foundation.student.view')
+            || $employee?->position?->scope_akses === 'semua_unit'
+            || str_contains(strtolower((string) $employee?->position?->name), 'yayasan');
+        $unitId = $employee?->unit_id
+            ?? data_get($user->metadata, 'unit_id')
+            ?? data_get($user->metadata, 'unit_pendidikan_id');
+
+        return [$canAccessAllUnits, $unitId, $employee];
     }
 }

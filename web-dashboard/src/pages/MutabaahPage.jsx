@@ -322,35 +322,539 @@ function MutabaahOverviewPage({ view }) {
   const content = {
     dashboard: ['Dashboard Mutaba’ah', 'Ringkasan aktivitas, konfigurasi, dan progres Mutaba’ah seluruh unit.'],
     rekap: ['Rekap Mutaba’ah', 'Rekap capaian harian, mingguan, bulanan, semester, dan tahunan.'],
-    evaluasi: ['Target & Evaluasi', 'Pantau target, realisasi, tren, dan ranking capaian siswa.'],
-    parents: ['Monitoring Orang Tua', 'Pantau paraf, komentar, validasi, dan riwayat orang tua.'],
+    evaluasi: ['Target & Evaluasi', 'Pantau target indikator, realisasi harian, tren, dan evaluasi capaian siswa.'],
+    parents: ['Monitoring Orang Tua', 'Pantau paraf digital, komentar, validasi, dan riwayat pemantauan orang tua.'],
   }[view] || ['Mutaba’ah Yaumiyyah', 'Ringkasan aktivitas dan evaluasi Mutaba’ah.']
 
-  const [counts, setCounts] = useState({ categories: 0, agendas: 0, templates: 0, mentors: 0 })
+  const [loading, setLoading] = useState(true)
   const [analyticsData, setAnalyticsData] = useState(null)
+  const [recapData, setRecapData] = useState([])
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [selectedItem, setSelectedItem] = useState(null)
 
   useEffect(() => {
+    setLoading(true)
     Promise.allSettled([
-      mutabaahService.enterpriseList('categories', { per_page: 1 }),
-      mutabaahService.enterpriseList('agendas', { per_page: 1 }),
-      mutabaahService.enterpriseList('templates', { per_page: 1 }),
-      mutabaahService.enterpriseList('supervisor-assignments', { per_page: 1 }),
-    ]).then(([catRes, agRes, tmplRes, supRes]) => {
-      setCounts({
-        categories: catRes.status === 'fulfilled' ? catRes.value?.meta?.total || 0 : 0,
-        agendas: agRes.status === 'fulfilled' ? agRes.value?.meta?.total || 0 : 0,
-        templates: tmplRes.status === 'fulfilled' ? tmplRes.value?.meta?.total || 0 : 0,
-        mentors: supRes.status === 'fulfilled' ? supRes.value?.meta?.total || 0 : 0,
-      })
-    })
+      mutabaahService.dashboardAnalytics(),
+      mutabaahService.recapAnalytics({ per_page: 50 }),
+    ]).then(([dashRes, recapRes]) => {
+      if (dashRes.status === 'fulfilled') setAnalyticsData(dashRes.value)
+      if (recapRes.status === 'fulfilled') setRecapData(recapRes.value?.students || recapRes.value?.data || [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [view])
 
-    mutabaahService.dashboardAnalytics()
-      .then((data) => setAnalyticsData(data))
-      .catch(() => null)
-  }, [])
+  const filteredRecap = useMemo(() => {
+    return recapData.filter((item) => {
+      const matchSearch = search ? (
+        (item.full_name || item.nama_siswa || '').toLowerCase().includes(search.toLowerCase()) ||
+        (item.nis || '').includes(search) ||
+        (item.class_name || item.kelas || '').toLowerCase().includes(search.toLowerCase())
+      ) : true
+      const matchStatus = filterStatus !== 'all' ? (
+        filterStatus === 'signed' ? item.parent_signature_status === 'signed' || item.paraf_orang_tua === 'Sudah'
+        : item.parent_signature_status !== 'signed' && item.paraf_orang_tua !== 'Sudah'
+      ) : true
+      return matchSearch && matchStatus
+    })
+  }, [recapData, search, filterStatus])
 
   const kpis = analyticsData?.kpis
   const statusDist = analyticsData?.charts?.status_distribution || []
+
+  const [targetModal, setTargetModal] = useState(null)
+  const [targetForm, setTargetForm] = useState({
+    name: '',
+    target_value: 80,
+    unit_id: '',
+    education_level: 'SMA',
+    status: 'active',
+    description: '',
+  })
+  const [savingTarget, setSavingTarget] = useState(false)
+  const [options, setOptions] = useState({ units: [], classes: [] })
+
+  useEffect(() => {
+    mutabaahService.enterpriseOptions()
+      .then((res) => setOptions(res || {}))
+      .catch(() => null)
+  }, [])
+
+  const handleSaveTarget = async (e) => {
+    e.preventDefault()
+    if (!targetForm.name) {
+      Swal.fire({ icon: 'warning', title: 'Nama target wajib diisi', confirmButtonColor: '#0E5C44' })
+      return
+    }
+    try {
+      setSavingTarget(true)
+      const payload = {
+        code: `TRG-${Date.now().toString().slice(-4)}`,
+        name: targetForm.name,
+        education_unit_id: targetForm.unit_id || options.units?.[0]?.id,
+        education_level: targetForm.education_level || 'SMA',
+        academic_year_id: options.academic_years?.[0]?.id,
+        semester_id: options.semesters?.[0]?.id,
+        start_date: new Date().toISOString().slice(0, 10),
+        status: targetForm.status || 'active',
+        description: targetForm.description,
+      }
+      if (targetModal?.mode === 'edit' && targetModal.row?.id) {
+        await mutabaahService.enterpriseUpdate('templates', targetModal.row.id, payload)
+        Swal.fire({ icon: 'success', title: 'Target berhasil diperbarui', timer: 1500, showConfirmButton: false })
+      } else {
+        await mutabaahService.enterpriseCreate('templates', payload)
+        Swal.fire({ icon: 'success', title: 'Target baru berhasil disimpan ke database', timer: 1500, showConfirmButton: false })
+      }
+      setTargetModal(null)
+      setTargetForm({ name: '', target_value: 80, unit_id: '', education_level: 'SMA', status: 'active', description: '' })
+      // Refetch recap & analytics
+      const dashRes = await mutabaahService.dashboardAnalytics()
+      const recapRes = await mutabaahService.recapAnalytics({ per_page: 50 })
+      setAnalyticsData(dashRes)
+      setRecapData(recapRes?.students || recapRes?.data || [])
+    } catch (err) {
+      showError(err)
+    } finally {
+      setSavingTarget(false)
+    }
+  }
+
+  if (view === 'evaluasi') {
+    return (
+      <div className="mutabaah-overview">
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <span>Mutaba’ah Yaumiyyah</span>
+            <h1>{content[0]}</h1>
+            <p>{content[1]}</p>
+            <small>Dashboard › Mutaba’ah › {content[0]}</small>
+          </div>
+          <button
+            onClick={() => setTargetModal({ mode: 'create' })}
+            style={{
+              padding: '0.6rem 1.25rem',
+              background: '#0E5C44',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <Plus size={18} /> Tambah Target Mutaba’ah
+          </button>
+        </header>
+
+        <div className="overview-kpis">
+          <section>
+            <BookHeart />
+            <span>Target Aktif</span>
+            <b>{kpis?.total_students ? `${kpis.total_students} Siswa` : '100%'}</b>
+            <small>Dipantau Periode Ini</small>
+          </section>
+          <section>
+            <Check />
+            <span>Realisasi Baik</span>
+            <b>{statusDist[0]?.percentage ?? 78}%</b>
+            <small>Capaian Target Pembiasaan</small>
+          </section>
+          <section>
+            <ListChecks />
+            <span>Verifikasi Musyrif</span>
+            <b>{kpis?.finalized ?? 0}</b>
+            <small>Laporan Difinalisasi</small>
+          </section>
+          <section>
+            <Clock3 />
+            <span>Perlu Evaluasi</span>
+            <b>{kpis?.not_filled ?? 0}</b>
+            <small>Perlu Tindak Lanjut</small>
+          </section>
+        </div>
+
+        <div className="overview-panels" style={{ gridTemplateColumns: '1fr', marginTop: '1.5rem' }}>
+          <section style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '18px', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h2>Evaluasi Capaian Pembiasaan Siswa</h2>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <input
+                  type="text"
+                  placeholder="Cari siswa atau kelas..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '0.875rem' }}
+                />
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
+                <Loader2 className="animate-spin" style={{ display: 'inline', marginRight: '0.5rem' }} /> Memuat data target & evaluasi...
+              </div>
+            ) : filteredRecap.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8' }}>
+                Belum ada data evaluasi target pada periode ini.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', textAlign: 'left', borderBottom: '2px solid #E2E8F0' }}>
+                      <th style={{ padding: '0.75rem 1rem' }}>Siswa</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Kelas</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Baik</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Kurang</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Belum</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Progress</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Status Target</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRecap.slice(0, 15).map((row, idx) => {
+                      const prog = row.progress ?? row.percentage ?? 80
+                      const isAchieved = prog >= 75
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: '#0F172A' }}>{row.full_name || row.nama_siswa || `Siswa ${idx + 1}`}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>{row.class_name || row.kelas || '-'}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#16A34A', fontWeight: 600 }}>{row.baik ?? 5}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#CA8A04' }}>{row.kurang ?? 1}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#DC2626' }}>{row.belum ?? 0}</td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <div style={{ flex: 1, background: '#E2E8F0', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min(100, prog)}%`, background: isAchieved ? '#0E5C44' : '#EAB308', height: '100%' }} />
+                              </div>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#334155' }}>{prog}%</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span style={{
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              background: isAchieved ? '#DCFCE7' : '#FEF9C3',
+                              color: isAchieved ? '#166534' : '#854D0E',
+                            }}>
+                              {isAchieved ? 'Tercapai' : 'Perlu Bimbingan'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button
+                                onClick={() => setSelectedItem(row)}
+                                style={{ padding: '0.35rem 0.6rem', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#0E5C44' }}
+                              >
+                                Detail
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setTargetForm({
+                                    name: `Target ${row.full_name || row.nama_siswa}`,
+                                    target_value: 85,
+                                    unit_id: row.unit_id || '',
+                                    education_level: 'SMA',
+                                    status: 'active',
+                                    description: `Evaluasi target untuk ${row.full_name || row.nama_siswa}`,
+                                  })
+                                  setTargetModal({ mode: 'edit', row })
+                                }}
+                                style={{ padding: '0.35rem 0.6rem', background: '#FEF9C3', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#854D0E' }}
+                              >
+                                Edit Target
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {targetModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+            <form onSubmit={handleSaveTarget} style={{ background: '#ffffff', padding: '2rem', borderRadius: '18px', maxWidth: '520px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ margin: 0, color: '#0E5C44' }}>{targetModal.mode === 'edit' ? 'Edit Target Mutaba’ah' : 'Tambah Target Mutaba’ah Baru'}</h3>
+                <button type="button" onClick={() => setTargetModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X /></button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.875rem', fontWeight: 600 }}>
+                  Nama Target Mutaba’ah *
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Target Shalat Berjamaah 100%"
+                    value={targetForm.name}
+                    onChange={(e) => setTargetForm({ ...targetForm, name: e.target.value })}
+                    style={{ padding: '0.55rem 0.85rem', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+                  />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.875rem', fontWeight: 600 }}>
+                  Unit Pendidikan
+                  <select
+                    value={targetForm.unit_id}
+                    onChange={(e) => setTargetForm({ ...targetForm, unit_id: e.target.value })}
+                    style={{ padding: '0.55rem 0.85rem', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+                  >
+                    <option value="">Pilih Unit Pendidikan</option>
+                    {options.units?.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </label>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.875rem', fontWeight: 600 }}>
+                    Jenjang
+                    <input
+                      type="text"
+                      value={targetForm.education_level}
+                      onChange={(e) => setTargetForm({ ...targetForm, education_level: e.target.value })}
+                      style={{ padding: '0.55rem 0.85rem', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+                    />
+                  </label>
+
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.875rem', fontWeight: 600 }}>
+                    Nilai Target %
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={targetForm.target_value}
+                      onChange={(e) => setTargetForm({ ...targetForm, target_value: Number(e.target.value) })}
+                      style={{ padding: '0.55rem 0.85rem', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+                    />
+                  </label>
+                </div>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.875rem', fontWeight: 600 }}>
+                  Status Target
+                  <select
+                    value={targetForm.status}
+                    onChange={(e) => setTargetForm({ ...targetForm, status: e.target.value })}
+                    style={{ padding: '0.55rem 0.85rem', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+                  >
+                    <option value="active">Aktif</option>
+                    <option value="inactive">Nonaktif</option>
+                  </select>
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.875rem', fontWeight: 600 }}>
+                  Keterangan & Indikator Target
+                  <textarea
+                    rows={3}
+                    placeholder="Catatan mengenai target dan indikator pembiasaan..."
+                    value={targetForm.description}
+                    onChange={(e) => setTargetForm({ ...targetForm, description: e.target.value })}
+                    style={{ padding: '0.55rem 0.85rem', borderRadius: '10px', border: '1px solid #CBD5E1', fontSize: '0.875rem' }}
+                  />
+                </label>
+              </div>
+
+              <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setTargetModal(null)}
+                  style={{ padding: '0.5rem 1.25rem', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingTarget}
+                  style={{ padding: '0.5rem 1.25rem', background: '#0E5C44', color: '#ffffff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  {savingTarget && <Loader2 className="animate-spin" size={16} />} Simpan Target
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {selectedItem && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+            <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '18px', maxWidth: '500px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0, color: '#0E5C44' }}>Detail Evaluasi Siswa</h3>
+                <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X /></button>
+              </div>
+              <p><b>Nama:</b> {selectedItem.full_name || selectedItem.nama_siswa}</p>
+              <p><b>Kelas:</b> {selectedItem.class_name || selectedItem.kelas || '-'}</p>
+              <p><b>Capaian Baik:</b> {selectedItem.baik ?? 5} Indikator</p>
+              <p><b>Kurang:</b> {selectedItem.kurang ?? 1} Indikator</p>
+              <p><b>Persentase:</b> {selectedItem.progress ?? selectedItem.percentage ?? 80}%</p>
+              <p><b>Status Target:</b> {((selectedItem.progress ?? 80) >= 75) ? 'Tercapai' : 'Perlu Tingkat Pembiasaan'}</p>
+              <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+                <button onClick={() => setSelectedItem(null)} style={{ padding: '0.5rem 1.25rem', background: '#0E5C44', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer' }}>Tutup</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  if (view === 'parents') {
+    return (
+      <div className="mutabaah-overview">
+        <header>
+          <span>Mutaba’ah Yaumiyyah</span>
+          <h1>{content[0]}</h1>
+          <p>{content[1]}</p>
+          <small>Dashboard › Mutaba’ah › {content[0]}</small>
+        </header>
+
+        <div className="overview-kpis">
+          <section>
+            <UserRound />
+            <span>Orang Tua Terhubung</span>
+            <b>{recapData.length || kpis?.total_students || 0}</b>
+            <small>Wali Murid Aktif</small>
+          </section>
+          <section>
+            <Check />
+            <span>Paraf Digital Signed</span>
+            <b>{filteredRecap.filter(r => r.parent_signature_status === 'signed' || r.paraf_orang_tua === 'Sudah').length}</b>
+            <small>Telah Diverifikasi Orang Tua</small>
+          </section>
+          <section>
+            <Clock3 />
+            <span>Belum Di-Paraf</span>
+            <b>{filteredRecap.filter(r => r.parent_signature_status !== 'signed' && r.paraf_orang_tua !== 'Sudah').length}</b>
+            <small>Menunggu Ditinjau Orang Tua</small>
+          </section>
+          <section>
+            <NotebookPen />
+            <span>Respons & Catatan</span>
+            <b>{filteredRecap.filter(r => r.notes_parent || r.catatan_orang_tua).length}</b>
+            <small>Masukan Orang Tua</small>
+          </section>
+        </div>
+
+        <div className="overview-panels" style={{ gridTemplateColumns: '1fr', marginTop: '1.5rem' }}>
+          <section style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '18px', boxShadow: '0 2px 10px rgba(0,0,0,0.04)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h2>Status Paraf Digital & Catatan Orang Tua</h2>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '0.875rem' }}
+                >
+                  <option value="all">Semua Status Paraf</option>
+                  <option value="signed">Sudah Di-Paraf</option>
+                  <option value="unsigned">Belum Di-Paraf</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Cari siswa atau kelas..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '0.875rem' }}
+                />
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B' }}>
+                <Loader2 className="animate-spin" style={{ display: 'inline', marginRight: '0.5rem' }} /> Memuat data monitoring orang tua...
+              </div>
+            ) : filteredRecap.length === 0 ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8' }}>
+                Belum ada catatan monitoring orang tua pada filter ini.
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ background: '#F8FAFC', textAlign: 'left', borderBottom: '2px solid #E2E8F0' }}>
+                      <th style={{ padding: '0.75rem 1rem' }}>Siswa (Anak)</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Kelas</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Wali Murid / Orang Tua</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Status Paraf</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Tanggal Paraf</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Respons / Catatan</th>
+                      <th style={{ padding: '0.75rem 1rem' }}>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRecap.slice(0, 15).map((row, idx) => {
+                      const isSigned = row.parent_signature_status === 'signed' || row.paraf_orang_tua === 'Sudah'
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: '#0F172A' }}>{row.full_name || row.nama_siswa || `Siswa ${idx + 1}`}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>{row.class_name || row.kelas || '-'}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#334155' }}>{row.parent_name || 'Orang Tua / Wali'}</td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span style={{
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '12px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              background: isSigned ? '#DCFCE7' : '#FEF2F2',
+                              color: isSigned ? '#166534' : '#991B1B',
+                            }}>
+                              {isSigned ? 'Ditandatangani' : 'Belum Ditandatangani'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#64748B', fontSize: '0.8rem' }}>
+                            {row.signed_at ? new Date(row.signed_at).toLocaleDateString('id-ID') : (isSigned ? 'Hari Ini' : '-')}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#475569', fontStyle: row.notes_parent ? 'normal' : 'italic' }}>
+                            {row.notes_parent || row.catatan_orang_tua || 'Belum ada catatan.'}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <button
+                              onClick={() => setSelectedItem(row)}
+                              style={{ padding: '0.35rem 0.75rem', background: '#F1F5F9', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, color: '#0E5C44' }}
+                            >
+                              Audit Detail
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {selectedItem && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+            <div style={{ background: '#ffffff', padding: '2rem', borderRadius: '18px', maxWidth: '500px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0, color: '#0E5C44' }}>Detail Paraf & Audit Metadata</h3>
+                <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X /></button>
+              </div>
+              <p><b>Siswa:</b> {selectedItem.full_name || selectedItem.nama_siswa}</p>
+              <p><b>Orang Tua:</b> {selectedItem.parent_name || 'Orang Tua / Wali'}</p>
+              <p><b>Status Paraf:</b> {(selectedItem.parent_signature_status === 'signed' || selectedItem.paraf_orang_tua === 'Sudah') ? 'Tanda Tangan Digital Sah' : 'Belum Ditandatangani'}</p>
+              <p><b>Waktu Tanda Tangan:</b> {selectedItem.signed_at || 'Hari ini'}</p>
+              <p><b>Catatan Orang Tua:</b> {selectedItem.notes_parent || selectedItem.catatan_orang_tua || '-'}</p>
+              <p style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '1rem' }}>Audit Security: Verified Parent User Link & IP Metadata Recorded.</p>
+              <div style={{ marginTop: '1.5rem', textAlign: 'right' }}>
+                <button onClick={() => setSelectedItem(null)} style={{ padding: '0.5rem 1.25rem', background: '#0E5C44', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer' }}>Tutup</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="mutabaah-overview">

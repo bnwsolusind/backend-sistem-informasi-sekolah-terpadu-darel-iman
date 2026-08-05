@@ -36,6 +36,10 @@ class KelasRepository implements KelasRepositoryInterface
             $query->where('unit_pendidikan_id', $filters['unit_pendidikan_id']);
         }
 
+        if (array_key_exists('allowed_unit_ids', $filters)) {
+            $query->whereIn('unit_pendidikan_id', $filters['allowed_unit_ids']);
+        }
+
         // Filter Tahun Ajaran
         if (! empty($filters['tahun_ajaran_id'])) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);

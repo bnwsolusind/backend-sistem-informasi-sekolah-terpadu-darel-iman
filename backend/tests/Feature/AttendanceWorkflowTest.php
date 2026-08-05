@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AcademicYear;
 use App\Models\ClassSchedule;
+use App\Models\LmsPresensi;
 use App\Models\SchoolClass;
 use App\Models\Semester;
 use App\Models\Student;
@@ -117,6 +118,25 @@ class AttendanceWorkflowTest extends TestCase
             'start_date' => '2026-07-29', 'end_date' => '2026-07-30',
             'type' => 'sakit', 'reason' => 'Demam', 'status' => 'submitted',
         ])->assertCreated()->assertJsonPath('data.student_id', $ctx['student']->id);
+    }
+
+    public function test_student_portal_reads_only_its_own_lesson_attendance(): void
+    {
+        $ctx = $this->context();
+        LmsPresensi::create([
+            'jadwal_pelajaran_id' => $ctx['schedule']->id,
+            'siswa_id' => $ctx['student']->id,
+            'tanggal' => '2026-07-29',
+            'status_hadir' => 'hadir',
+        ]);
+
+        Sanctum::actingAs($ctx['studentUser']);
+
+        $this->getJson('/api/portal/attendance')
+            ->assertOk()
+            ->assertJsonCount(1, 'data.data')
+            ->assertJsonPath('data.data.0.siswa_id', $ctx['student']->id)
+            ->assertJsonPath('data.data.0.status_hadir', 'hadir');
     }
 
     public function test_teacher_cannot_use_another_teachers_schedule(): void
