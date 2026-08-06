@@ -79,40 +79,6 @@ const now = new Date()
 const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA')
 const today = now.toLocaleDateString('en-CA')
 
-const mockWeeklyData = [
-  { date: '21 Jul', filled: 45, finalized: 30, not_filled: 25 },
-  { date: '22 Jul', filled: 55, finalized: 40, not_filled: 20 },
-  { date: '23 Jul', filled: 65, finalized: 50, not_filled: 18 },
-  { date: '24 Jul', filled: 70, finalized: 55, not_filled: 15 },
-  { date: '25 Jul', filled: 68, finalized: 52, not_filled: 19 },
-  { date: '26 Jul', filled: 72, finalized: 58, not_filled: 14 },
-  { date: '27 Jul', filled: 76.6, finalized: 66.4, not_filled: 23.4 },
-]
-
-const mockTargetRealisasi = [
-  { name: 'Minggu 1', target: 90, realization: 62 },
-  { name: 'Minggu 2', target: 90, realization: 68 },
-  { name: 'Minggu 3', target: 90, realization: 71 },
-  { name: 'Minggu 4', target: 90, realization: 75 },
-  { name: 'Minggu 5', target: 90, realization: 78 },
-]
-
-const mockDonutData = [
-  { name: 'Sudah Diisi', value: 98, color: '#10B981', percentage: '76.6%' },
-  { name: 'Sudah Final', value: 85, color: '#059669', percentage: '66.4%' },
-  { name: 'Sudah Diparaf', value: 70, color: '#0D9488', percentage: '54.7%' },
-  { name: 'Belum Diisi', value: 30, color: '#EF4444', percentage: '23.4%' },
-  { name: 'Belum Diparaf', value: 28, color: '#F59E0B', percentage: '21.9%' },
-]
-
-const mockJenisIbadahSummary = [
-  { id: 1, name: 'Shalat Subuh Berjamaah', category: 'Wajib', freq: 31, filled: '128 (100%)', final: '110 (85.9%)', notFilled: '0 (0%)', notFinal: '18 (14.1%)', progress: 85.9 },
-  { id: 2, name: 'Shalat Dhuha', category: 'Sunnah', freq: 26, filled: '110 (86.0%)', final: '92 (71.9%)', notFilled: '18 (14.0%)', notFinal: '36 (28.1%)', progress: 71.9 },
-  { id: 3, name: 'Tilawah Al-Qur’an', category: 'Pembiasaan', freq: 26, filled: '100 (78.1%)', final: '80 (62.5%)', notFilled: '28 (21.9%)', notFinal: '48 (37.5%)', progress: 62.5 },
-  { id: 4, name: 'Tahajud & Qiyamul Lail', category: 'Sunnah', freq: 15, filled: '90 (70.3%)', final: '70 (54.7%)', notFilled: '38 (29.7%)', notFinal: '58 (45.3%)', progress: 54.7 },
-  { id: 5, name: 'Dzikir Pagi & Petang', category: 'Pembiasaan', freq: 30, filled: '115 (89.8%)', final: '95 (74.2%)', notFilled: '13 (10.2%)', notFinal: '33 (25.8%)', progress: 74.2 },
-]
-
 type StudentRow = { id: string; name: string; nis: string; class: string; dorm: string; group: string; supervisor: string; progressToday: number; progressWeek: number; status: string; photo?: string }
 const initialStudents: StudentRow[] = []
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Traits\HasPersonPhoto;
 use App\Traits\HasUuidPrimaryKey;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,7 +16,9 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasRoles, HasUuidPrimaryKey, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, HasPersonPhoto, HasRoles, HasUuidPrimaryKey, Notifiable, SoftDeletes;
+
+    protected $appends = ['photo_url', 'avatar_url'];
 
     /**
      * The attributes that are mass assignable.

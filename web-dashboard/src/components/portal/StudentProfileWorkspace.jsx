@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { Modal } from '../ui/modal'
 import { EmptyState } from '../ui/empty-state'
+import PersonAvatar from '../../components/ui/PersonAvatar'
 
 const card = 'rounded-[18px] border border-slate-200/80 bg-white shadow-[0_16px_40px_-28px_rgba(15,23,42,.45)] dark:border-slate-800 dark:bg-slate-900'
 const valueOf = (source, keys, fallback = '-') => {
@@ -101,7 +102,12 @@ export default function StudentProfileWorkspace({ student = {}, dashboard = {}, 
       <div aria-hidden="true" className="absolute inset-0 opacity-[.06] [background-image:radial-gradient(circle_at_2px_2px,#0E5C44_1.5px,transparent_0)] [background-size:24px_24px]" />
       <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center">
         <div className="flex flex-1 flex-col items-center gap-5 sm:flex-row sm:items-center">
-          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-[24px] border-4 border-white bg-emerald-100 shadow-xl dark:border-slate-800">{photo ? <img src={photo} alt={`Foto ${name}`} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><GraduationCap className="h-12 w-12 text-emerald-700" /></div>}</div>
+          <PersonAvatar
+            src={student.photo_url || student.avatar_url || photo}
+            name={name}
+            size="detail"
+            className="h-28 w-28 rounded-[24px] border-4 border-white shadow-xl dark:border-slate-800"
+          />
           <div className="text-center sm:text-left"><div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start"><h1 className="text-2xl font-black text-slate-950 dark:text-white">{name}</h1><span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">{status}</span></div><p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">NIS {student.nis || '-'} · NISN {student.nisn || '-'}</p><div className="mt-3 flex flex-wrap justify-center gap-2 text-[11px] font-semibold text-slate-600 sm:justify-start dark:text-slate-300"><span className="rounded-full bg-white/80 px-3 py-1.5 shadow-sm dark:bg-slate-800">{unitName}</span><span className="rounded-full bg-white/80 px-3 py-1.5 shadow-sm dark:bg-slate-800">{className}</span><span className="rounded-full bg-white/80 px-3 py-1.5 shadow-sm dark:bg-slate-800">{dashboard.academic_context?.academic_year || '-'}</span><span className="rounded-full bg-white/80 px-3 py-1.5 shadow-sm dark:bg-slate-800">{dashboard.academic_context?.semester || '-'}</span></div></div>
         </div>
         <button type="button" onClick={() => setQrOpen(true)} className="mx-auto flex min-h-11 items-center gap-3 rounded-2xl border border-emerald-200 bg-white/90 px-4 py-3 text-left shadow-lg transition hover:-translate-y-0.5 dark:border-emerald-900 dark:bg-slate-800 lg:mx-0"><QrCode className="h-8 w-8 text-emerald-700 dark:text-emerald-300" /><span><b className="block text-xs">QR Kartu Siswa</b><small className="text-[10px] text-slate-500">Klik untuk melihat</small></span></button>

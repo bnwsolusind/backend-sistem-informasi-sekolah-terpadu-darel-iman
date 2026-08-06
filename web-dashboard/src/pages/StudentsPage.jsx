@@ -28,6 +28,7 @@ import StudentFormModal from '../components/siswa/StudentFormModal'
 import { useDaftarKelas } from '../hooks/useReferenceData'
 import { useAksiSiswa, useDaftarSiswa } from '../hooks/useStudents'
 import { educationUnitService } from '../services/educationUnitService'
+import PersonAvatar from '../components/ui/PersonAvatar'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -223,138 +224,6 @@ export default function StudentsPage() {
     Swal.fire('Import belum tersedia', 'Endpoint import siswa belum tersedia, sehingga file tidak diproses.', 'info')
   }
 
-  // Predefined default mock students
-  const defaultStudents = useMemo(() => [
-    {
-      id: 'demo-1',
-      nis: '23001',
-      nisn: '0098765446',
-      nama: 'Ahmad Zaky',
-      unit: 'SDIT 2 Dar el-Iman - Padang',
-      kelas: '6A',
-      orangTua: 'Ahmad Fauzi (Ayah)',
-      noHp: '0812-3456-7890',
-      status: 'Aktif',
-      gender: 'Laki-laki',
-      tempatLahir: 'Padang',
-      tanggalLahir: '2014-05-12',
-      agama: 'Islam',
-      alamat: 'Jl. Khatib Sulaiman No. 10 Kel. Lolong Belanti Kec. Padang Utara Padang',
-    },
-    {
-      id: 'demo-2',
-      nis: '23002',
-      nisn: '0098765447',
-      nama: 'Aisyah Humaira',
-      unit: 'SDIT 2 Dar el-Iman - Padang',
-      kelas: '6A',
-      orangTua: 'Siti Rahmawati (Ibu)',
-      noHp: '0813-2222-4444',
-      status: 'Aktif',
-      gender: 'Perempuan',
-      tempatLahir: 'Padang',
-      tanggalLahir: '2014-08-20',
-      agama: 'Islam',
-      alamat: 'Jl. Raden Saleh Padang',
-    },
-    {
-      id: 'demo-3',
-      nis: '23003',
-      nisn: '0098765448',
-      nama: 'Muhammad Fadli',
-      unit: 'SDIT 3 Dar el-Iman - Padang',
-      kelas: '5B',
-      orangTua: 'Fadli Hasan (Ayah)',
-      noHp: '0812-1111-2222',
-      status: 'Aktif',
-      gender: 'Laki-laki',
-      tempatLahir: 'Padang',
-      tanggalLahir: '2015-02-14',
-      agama: 'Islam',
-      alamat: 'Kuranji Padang',
-    },
-    {
-      id: 'demo-4',
-      nis: '23004',
-      nisn: '0098765449',
-      nama: 'Nabila Putri',
-      unit: 'SDIT 1 Dar el-Iman - 50 Kota',
-      kelas: '5A',
-      orangTua: 'Rudi Santoso (Ayah)',
-      noHp: '0812-3333-4444',
-      status: 'Aktif',
-      gender: 'Perempuan',
-      tempatLahir: 'Payakumbuh',
-      tanggalLahir: '2015-11-03',
-      agama: 'Islam',
-      alamat: '50 Kota',
-    },
-    {
-      id: 'demo-5',
-      nis: '23005',
-      nisn: '0098765450',
-      nama: 'Raihan Abiyyu',
-      unit: 'MIT SaQu Dar el-Iman - Padang',
-      kelas: '4A',
-      orangTua: 'Andi Wijaya (Ayah)',
-      noHp: '0812-5555-6666',
-      status: 'Mutasi',
-      gender: 'Laki-laki',
-      tempatLahir: 'Padang',
-      tanggalLahir: '2016-01-15',
-      agama: 'Islam',
-      alamat: 'Nanggalo Padang',
-    },
-    {
-      id: 'demo-6',
-      nis: '23006',
-      nisn: '0098765451',
-      nama: 'Salsabila Zahra',
-      unit: 'TKIT 1 Dar el-Iman - Padang',
-      kelas: 'TK B',
-      orangTua: 'Dewi Anggraini (Ibu)',
-      noHp: '0813-7777-8888',
-      status: 'Aktif',
-      gender: 'Perempuan',
-      tempatLahir: 'Padang',
-      tanggalLahir: '2018-09-09',
-      agama: 'Islam',
-      alamat: 'Marapalam Padang',
-    },
-    {
-      id: 'demo-7',
-      nis: '23007',
-      nisn: '0098765452',
-      nama: 'Fahrian Ibrahim',
-      unit: 'SDIT 4 Dar el-Iman - Padang',
-      kelas: '3A',
-      orangTua: 'Budi Setiawan (Ayah)',
-      noHp: '0813-9999-0000',
-      status: 'Lulus',
-      gender: 'Laki-laki',
-      tempatLahir: 'Padang',
-      tanggalLahir: '2014-04-10',
-      agama: 'Islam',
-      alamat: 'Ulak Karang Padang',
-    },
-    {
-      id: 'demo-8',
-      nis: '23008',
-      nisn: '0098765453',
-      nama: 'Kayla Azka',
-      unit: 'SDIT 2 Dar el-Iman - Padang',
-      kelas: '3B',
-      orangTua: 'Maya Sari (Ibu)',
-      noHp: '0812-1212-3434',
-      status: 'Aktif',
-      gender: 'Perempuan',
-      tempatLahir: 'Padang',
-      tanggalLahir: '2017-03-25',
-      agama: 'Islam',
-      alamat: 'Lapai Padang',
-    },
-  ], [])
-
   // Map API students to display list
   // Map API students to display list
   const formattedStudents = useMemo(() => {
@@ -413,21 +282,23 @@ export default function StudentsPage() {
           item.phone || item.no_hp || item.hp_ortu || '-'
 
         const fotoObj =
-          meta.foto_url ||
-          meta.foto ||
-          meta.photo_url ||
-          meta.photo ||
-          meta.avatar ||
-          meta.avatar_url ||
-          meta.url_foto ||
-          item.foto_url ||
-          item.foto ||
           item.photo_url ||
           item.photo ||
+          item.foto_url ||
+          item.foto ||
+          item.avatar_url ||
           item.avatar ||
-          item.user?.avatar ||
+          item.user?.photo_url ||
           item.user?.avatar_url ||
           item.user?.photo ||
+          item.user?.avatar ||
+          meta.photo_url ||
+          meta.photo ||
+          meta.foto_url ||
+          meta.foto ||
+          meta.avatar_url ||
+          meta.avatar ||
+          meta.url_foto ||
           ''
 
         const stRaw = String(meta.akademik?.status_siswa || (item.is_active ? 'aktif' : 'nonaktif')).toLowerCase()
@@ -753,13 +624,7 @@ export default function StudentsPage() {
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      {item.foto ? (
-                        <img src={item.foto} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-full border border-slate-200 object-cover shadow-sm" />
-                      ) : (
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-[10px] font-black text-white shadow-sm">
-                          {(item.nama || 'S').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
-                        </span>
-                      )}
+                      <PersonAvatar src={item.foto} name={item.nama} size="table" />
                       <span className="min-w-0">
                         <strong className="block truncate text-xs font-extrabold leading-5 text-slate-900 dark:text-white" title={item.nama}>{item.nama}</strong>
                         <small className="block truncate text-[9px] font-medium text-slate-400">NIS {item.nis} · NISN {item.nisn || '-'}</small>
@@ -947,15 +812,7 @@ export default function StudentsPage() {
                 <div className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4 text-xs">
                   {/* Photo + Name + Status */}
                   <div className="flex items-start gap-3">
-                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl border-2 border-emerald-600 bg-slate-100 shadow">
-                      {selectedStudent.foto ? (
-                        <img src={selectedStudent.foto} alt={selectedStudent.nama} className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="flex h-full w-full items-center justify-center bg-emerald-800 text-lg font-black text-white">
-                          {(selectedStudent.nama || 'S').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
-                        </span>
-                      )}
-                    </div>
+                    <PersonAvatar src={selectedStudent.foto} name={selectedStudent.nama} size="detail" className="border-2 border-emerald-600 shadow" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-sm font-extrabold text-slate-900 leading-tight">{selectedStudent.nama}</h3>

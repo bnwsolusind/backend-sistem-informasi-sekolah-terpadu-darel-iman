@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasPersonPhoto;
 use App\Traits\HasUuidPrimaryKey;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +10,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
 {
-    use HasFactory, HasUuidPrimaryKey, SoftDeletes;
+    use HasFactory, HasPersonPhoto, HasUuidPrimaryKey, SoftDeletes;
+
+    protected $appends = ['photo_url', 'avatar_url'];
 
     protected $fillable = [
         'user_id',
@@ -188,4 +191,5 @@ class Student extends Model
 
         return $meta['photo'] ?? null;
     }
+
 }

@@ -36,6 +36,7 @@ import { Drawer } from '../components/ui/drawer'
 import { FAB } from '../components/ui/fab'
 import ActiveScheduleNotice from '../components/attendance/ActiveScheduleNotice'
 import FloatingChatWidget from '../components/portal/FloatingChatWidget'
+import PersonAvatar from '../components/ui/PersonAvatar'
 
 export default function DashboardLayout() {
   const location = useLocation()
@@ -704,13 +705,12 @@ export default function DashboardLayout() {
           <div className="p-3.5 border-t border-white/10 bg-black/10 space-y-2.5">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-tr from-[#0E5C44] to-[#3FBF75] text-white flex items-center justify-center font-bold text-xs shadow-md border border-white/20">
-                  {user?.avatar ? (
-                    <img src={user.avatar} alt="Avatar" className="h-full w-full rounded-full object-cover" />
-                  ) : (
-                    namaTampil.charAt(0)
-                  )}
-                </div>
+                <PersonAvatar
+                  src={user?.photo_url || user?.avatar_url || user?.avatar || user?.photo || user?.profile_photo_url}
+                  name={namaTampil}
+                  size="sm"
+                  className="border border-white/20 shadow-md"
+                />
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-[#083a2b]" />
               </div>
               {!collapsed && (

@@ -15,6 +15,7 @@ import { toPng } from 'html-to-image'
 import { BookOpen, CalendarDays, Droplets, IdCard, LoaderCircle, RotateCcw, School, Search, ShieldCheck, UserRound } from 'lucide-react'
 import { studentService } from '../../services/studentService'
 import { usePengaturanStore } from '../../stores/pengaturanStore'
+import PersonAvatar from '../ui/PersonAvatar'
 
 const THEMES = [
   { id: 'green', name: 'Hijau Islami', primary: '#0E5C44', dark: '#064e3b', secondary: '#1E8E5A', soft: '#ecfdf5', accent: '#F6C143' },
@@ -287,11 +288,14 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
     </div>
   )
 
-  const StudentPhoto = ({ vertical = false, className = '' }) => (
-    <div className={`${className || (vertical ? 'h-[126px] w-[108px]' : 'h-[118px] w-[104px]')} ${vertical ? 'rounded-2xl border-4 border-white shadow-lg' : 'rounded-xl'} flex items-center justify-center overflow-hidden bg-slate-100 text-xl font-black text-white shadow-sm`} style={{ backgroundColor: data.foto ? undefined : theme.primary }}>
-      {data.foto ? <img src={data.foto} alt={data.nama} className="h-full w-full object-cover" /> : initials}
-    </div>
-  )
+  const StudentPhoto = ({ vertical = false, className = '' }) => {
+    const sizeClass = className || (vertical ? 'h-[126px] w-[108px]' : 'h-[118px] w-[104px]')
+    return (
+      <div className={`${sizeClass} ${vertical ? 'rounded-2xl border-4 border-white shadow-lg' : 'rounded-xl'} flex items-center justify-center overflow-hidden bg-slate-100 shadow-sm`} style={{ backgroundColor: data.foto ? undefined : theme.primary }}>
+        <PersonAvatar src={data.foto} name={data.nama} size={vertical ? 'profile' : 'card'} className={`${vertical ? 'h-[118px] w-[100px] rounded-[16px]' : 'h-full w-full rounded-[12px]'} border-0 shadow-none`} />
+      </div>
+    )
+  }
 
   const AttendanceQr = ({ size }) => (
     <div className="rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-slate-300">
@@ -357,9 +361,7 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
                 </select>
                 {selectedStudent && (
                   <div className="mt-2 flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-emerald-800 text-xs font-black text-white">
-                      {data.foto ? <img src={data.foto} alt="" className="h-full w-full object-cover" /> : initials}
-                    </span>
+                    <PersonAvatar src={data.foto} name={data.nama} size="table" className="border-emerald-200" />
                     <span className="min-w-0">
                       <strong className="block truncate text-xs text-slate-800">{data.nama}</strong>
                       <small className="block truncate text-[9px] text-slate-500">NIS {data.nis} · NISN {data.nisn}</small>

@@ -14,6 +14,8 @@ class UserProfileResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
+            'photo_url' => $this->photo_url,
+            'avatar_url' => $this->avatar_url,
             'roles' => $this->getRoleNames(),
             'permissions' => $this->getAllPermissions()->pluck('name')->values(),
             'metadata' => $this->metadata,

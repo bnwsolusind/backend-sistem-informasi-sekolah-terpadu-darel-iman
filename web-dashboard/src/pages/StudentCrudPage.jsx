@@ -22,75 +22,11 @@ import {
   LuRefreshCw,
 } from 'react-icons/lu'
 
-// Dummy fallback data if API backend mock is empty
-const MOCK_STUDENTS = [
-  {
-    id: '1',
-    nisn: '0051234567',
-    nama_lengkap: 'Ahmad Zaki Al-Faruq',
-    jenis_kelamin: 'L',
-    unit_pendidikan: 'SDIT',
-    tingkat: '5',
-    orang_tua: 'Budi Santoso (Ayah)',
-    no_hp: '0812-3456-7890',
-    status: 'Aktif',
-    created_at: '2026-01-15',
-  },
-  {
-    id: '2',
-    nisn: '0062345678',
-    nama_lengkap: 'Fatimah Az-Zahra',
-    jenis_kelamin: 'P',
-    unit_pendidikan: 'SMPIT',
-    tingkat: '8',
-    orang_tua: 'Siti Rahmawati (Ibu)',
-    no_hp: '0813-2222-4444',
-    status: 'Aktif',
-    created_at: '2026-02-10',
-  },
-  {
-    id: '3',
-    nisn: '0043456789',
-    nama_lengkap: 'Muhammad Raihan',
-    jenis_kelamin: 'L',
-    unit_pendidikan: 'SMAIT',
-    tingkat: '11',
-    orang_tua: 'Fadli Hasan (Ayah)',
-    no_hp: '0812-1111-2222',
-    status: 'Aktif',
-    created_at: '2026-03-01',
-  },
-  {
-    id: '4',
-    nisn: '0074567890',
-    nama_lengkap: 'Aisyah Humaira',
-    jenis_kelamin: 'P',
-    unit_pendidikan: 'TKIT',
-    tingkat: '1',
-    orang_tua: 'Dewi Anggraini (Ibu)',
-    no_hp: '0813-7777-8888',
-    status: 'Aktif',
-    created_at: '2026-04-12',
-  },
-  {
-    id: '5',
-    nisn: '0035678901',
-    nama_lengkap: 'Umar Abdullah',
-    jenis_kelamin: 'L',
-    unit_pendidikan: 'SMPIT',
-    tingkat: '9',
-    orang_tua: 'Budi Setiawan (Ayah)',
-    no_hp: '0813-9999-0000',
-    status: 'Lulus',
-    created_at: '2025-06-20',
-  },
-]
-
 export default function StudentCrudPage() {
   const [search, setSearch] = useState('')
   const [unitFilter, setUnitFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [localList, setLocalList] = useState(MOCK_STUDENTS)
+  const [localList, setLocalList] = useState([])
 
   // React Query Hooks
   const queryParams = useMemo(() => ({ search, unit: unitFilter, status: statusFilter }), [search, unitFilter, statusFilter])
@@ -103,18 +39,18 @@ export default function StudentCrudPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState(null)
 
-  // Combine API data with fallback mock list
+  // Combine API data with local optimistic updates.
   const displayData = useMemo(() => {
-    const rawList = apiData?.data || localList
+    const rawList = Array.isArray(apiData?.data) ? apiData.data : localList
     return rawList.filter((item) => {
-      const matchSearch = search === '' || 
+      const matchSearch = search === '' ||
         item.nama_lengkap.toLowerCase().includes(search.toLowerCase()) ||
         item.nisn.includes(search)
       const matchUnit = unitFilter === '' || item.unit_pendidikan === unitFilter
       const matchStatus = statusFilter === '' || item.status === statusFilter
       return matchSearch && matchUnit && matchStatus
     })
-  }, [apiData, localList, search, unitFilter, statusFilter])
+  }, [apiData?.data, localList, search, unitFilter, statusFilter])
 
   // Handlers
   const handleOpenCreateModal = () => {

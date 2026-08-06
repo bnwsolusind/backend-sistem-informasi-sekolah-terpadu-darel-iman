@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { FiCamera, FiCheck, FiUser } from 'react-icons/fi'
 import Swal from 'sweetalert2'
+import PersonAvatar from '../ui/PersonAvatar'
 import { useAuthStore } from '../../stores/authStore'
 
 export default function UserProfileCard() {
@@ -110,13 +111,7 @@ export default function UserProfileCard() {
           {/* Left Avatar Card */}
           <div className="lg:col-span-4 bg-slate-50/70 p-6 rounded-2xl border border-slate-200/80 flex flex-col items-center text-center">
             <div className="relative mb-4">
-              <div className="w-28 h-28 rounded-full ring-4 ring-emerald-600/20 shadow-md overflow-hidden bg-emerald-800 flex items-center justify-center text-white">
-                {profile.avatar ? (
-                  <img src={profile.avatar} alt={profile.fullName} className="h-full w-full object-cover" />
-                ) : (
-                  <FiUser className="w-14 h-14" />
-                )}
-              </div>
+              <PersonAvatar src={profile.avatar} name={profile.fullName} size="profile" className="ring-4 ring-emerald-600/20" />
               <button
                 type="button"
                 onClick={handlePhotoClick}

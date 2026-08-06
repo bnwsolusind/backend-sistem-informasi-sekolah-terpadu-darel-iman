@@ -152,27 +152,11 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
       if (onLoginSuccess) onLoginSuccess()
       else if (onNavigate) onNavigate(6)
     } catch (err) {
-      if (!err?.response) {
-        // Mock fallback for local dev when backend offline
-        const fallbackUser = {
-          id: 'fallback-id',
-          name: form.identifier || 'User SIMSIT',
-          username: form.identifier,
-          is_active: true,
-        }
-        setSession({
-          token: 'demo-session-token',
-          user: fallbackUser,
-        })
-        if (onLoginSuccess) onLoginSuccess()
-        else if (onNavigate) onNavigate(6)
-      } else {
-        const msg =
-          err?.response?.data?.message ||
-          err?.response?.data?.errors?.email?.[0] ||
-          'Username, NIP, NIS, NIK, atau password tidak valid.'
-        setError(msg)
-      }
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.errors?.email?.[0] ||
+        'Username, NIP, NIS, NIK, atau password tidak valid.'
+      setError(msg)
     } finally {
       setLoading(false)
     }

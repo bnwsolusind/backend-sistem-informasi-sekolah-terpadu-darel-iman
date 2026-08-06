@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasPersonPhoto;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,9 +10,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, HasPersonPhoto, HasUuids, SoftDeletes;
 
     protected $table = 'employees';
+
+    protected $appends = ['photo_url', 'avatar_url'];
 
     protected $fillable = [
         'niy',
