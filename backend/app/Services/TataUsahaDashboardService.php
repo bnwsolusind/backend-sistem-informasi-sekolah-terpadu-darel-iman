@@ -43,7 +43,11 @@ class TataUsahaDashboardService
         $today = now()->toDateString();
         $absensiHariIni = 0;
         if (Schema::hasTable('attendances')) {
-            $absensiHariIni = DB::table('attendances')->whereDate('attendance_date', $today)->count();
+            $attQuery = DB::table('attendances')->whereDate('attendance_date', $today);
+            if ($unitId) {
+                $attQuery->whereIn('student_id', (clone $studentQuery)->pluck('id'));
+            }
+            $absensiHariIni = $attQuery->count();
         }
 
         $kpis = [

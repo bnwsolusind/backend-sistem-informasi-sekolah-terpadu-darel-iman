@@ -14,6 +14,8 @@ use App\Models\LmsPresensi;
 use App\Models\LmsUjian;
 use App\Models\LmsUjianSesi;
 use App\Models\MutabaahDailyHeader;
+use App\Models\MutabaahSupervisorAssignment;
+use App\Models\MutabaahTemplate;
 use App\Models\Notification;
 use App\Models\ParentModel;
 use App\Models\PortalMessage;
@@ -25,6 +27,7 @@ use App\Models\StudentAttendancePermission;
 use App\Models\StudentBill;
 use App\Models\StudentGrade;
 use App\Models\StudentNote;
+use Carbon\Carbon;
 use App\Models\Employee;
 use App\Models\Kelas;
 use App\Models\LmsRapor;
@@ -34,6 +37,7 @@ use App\Models\TahfizhDailyLog;
 use App\Services\LmsUjianService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -118,6 +122,7 @@ class StudentParentPortalController extends Controller
         $children = $this->parentStudentsQuery($parent)
             ->with(['kelas', 'educationUnit'])
             ->where('is_active', true)
+            ->orderBy('created_at', 'asc')
             ->get();
 
         return response()->json([
@@ -135,7 +140,7 @@ class StudentParentPortalController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Data siswa tidak ditemukan.',
-            ], 440);
+            ], 404);
         }
 
         $activeAcademicYear = AcademicYear::query()->where('is_active', true)->first();
@@ -390,6 +395,18 @@ class StudentParentPortalController extends Controller
 
         $penugasan = LmsPenugasan::findOrFail($assignmentId);
 
+        // Hanya penugasan yang sudah dipublikasikan untuk kelas siswa sendiri.
+        $isPublished = (bool) $penugasan->is_published || $penugasan->status === 'published';
+        if (! $isPublished) {
+            return response()->json(['success' => false, 'message' => 'Penugasan belum dipublikasikan.'], 403);
+        }
+
+        $assignmentClasses = array_values(array_filter([$penugasan->kelas_id, $penugasan->class_id]));
+        $studentClasses = array_values(array_filter([$student->kelas_id, $student->class_id]));
+        if (! empty($assignmentClasses) && empty(array_intersect($assignmentClasses, $studentClasses))) {
+            return response()->json(['success' => false, 'message' => 'Penugasan ini bukan untuk kelas Anda.'], 403);
+        }
+
         $filePath = null;
         if ($request->hasFile('file_lampiran')) {
             $filePath = $request->file('file_lampiran')->store('submissions', 'public');
@@ -467,7 +484,7 @@ class StudentParentPortalController extends Controller
         $header = MutabaahDailyHeader::query()
             ->with('details')
             ->where('student_id', $student->id)
-            ->whereDate('entry_date', $date)
+            ->whereDate('activity_date', $date)
             ->first();
 
         return response()->json([
@@ -483,20 +500,54 @@ class StudentParentPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Data siswa tidak ditemukan.'], 404);
         }
 
+        $date = $request->query('date', now()->toDateString());
+
+        // Header mutabaah memerlukan assignment supervisor & template aktif
+        // (kolom wajib di mutabaah_daily_headers). Tanpa assignment aktif,
+        // siswa tidak dapat membuat checklist secara langsung.
+        $assignment = MutabaahSupervisorAssignment::query()
+            ->active()
+            ->byDate($date)
+            ->where('education_unit_id', $student->unit_id ?? $student->education_unit_id)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (! $assignment) {
+            return response()->json(['success' => false, 'message' => 'Belum ada agenda mutaba' . 'ah aktif untuk siswa ini.'], 422);
+        }
+
+        $template = $assignment->template_id
+            ? MutabaahTemplate::query()->find($assignment->template_id)
+            : null;
+
+        if (! $template) {
+            return response()->json(['success' => false, 'message' => 'Template agenda mutaba' . 'ah belum ditetapkan.'], 422);
+        }
+
         $header = MutabaahDailyHeader::firstOrCreate(
             [
                 'student_id' => $student->id,
-                'entry_date' => now()->toDateString(),
+                'activity_date' => Carbon::parse($date)->startOfDay(),
+                'template_id' => $template->id,
             ],
             [
+                'supervisor_assignment_id' => $assignment->id,
+                'education_unit_id' => $assignment->education_unit_id,
+                'kelas_id' => $assignment->kelas_id,
+                'rombel_id' => $assignment->rombel_id,
+                'academic_year_id' => $assignment->academic_year_id,
+                'semester_id' => $assignment->semester_id,
                 'status' => 'draft',
+                'total_items' => $template->items()->count(),
+                'created_by' => $request->user()->id,
+                'updated_by' => $request->user()->id,
             ]
         );
 
         return response()->json([
             'success' => true,
             'message' => 'Checklist mutabaah siswa berhasil diperbarui.',
-            'data' => $header,
+            'data' => $header->load('details'),
         ]);
     }
 
@@ -516,6 +567,17 @@ class StudentParentPortalController extends Controller
             ->when(! $isParent, fn ($q) => $q->where('visible_to_student', true))
             ->orderBy('date', 'desc')
             ->paginate(15);
+
+        // Sertakan status tanda tangan (signed / signed_updated / unsigned).
+        $notes->getCollection()->transform(function (StudentNote $note) {
+            $hash = $note->signature_content_hash;
+            $signed = $note->signed_by_user_id !== null && $note->signed_at !== null;
+            $stale = $signed && $hash !== null && $hash !== StudentNote::contentHash($note->content);
+            $note->setAttribute('signature_status', $signed ? ($stale ? 'signed_updated' : 'signed') : 'unsigned');
+            $note->setAttribute('signature_stale', $stale);
+
+            return $note;
+        });
 
         return response()->json([
             'success' => true,
@@ -728,10 +790,34 @@ class StudentParentPortalController extends Controller
 
     public function notifications(Request $request): JsonResponse
     {
-        $notifications = Notification::query()
-            ->where('user_id', $request->user()->id)
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $user = $request->user();
+        $student = $this->getStudentContext($request);
+
+        // Skema notifikasi berbeda antar engine (legacy `user_id` vs
+        // partitioned `notifiable_id/notifiable_type`). Query dibuat
+        // toleran terhadap kedua skema dengan guard Schema::hasColumn.
+        $query = Notification::query();
+
+        if (Schema::hasColumn('notifications', 'user_id')) {
+            $query->where('user_id', $user->id);
+        } else {
+            $query->where(fn ($q) => $q
+                ->where('notifiable_type', User::class)
+                ->orWhere('notifiable_type', 'user')
+                ->orWhere('notifiable_type', 'App\Models\User'));
+            $query->where('notifiable_id', $user->id);
+        }
+
+        // Child scope: notifikasi bertipe Student hanya tampil bila siswa
+        // termasuk anak yang terhubung resmi dengan orang tua.
+        if ($student) {
+            $query->where(function ($q) use ($student) {
+                $q->where('notifiable_type', '!=', Student::class)
+                    ->orWhere('notifiable_id', $student->id);
+            });
+        }
+
+        $notifications = $query->orderByDesc('created_at')->paginate(20);
 
         return response()->json([
             'success' => true,
@@ -758,11 +844,23 @@ class StudentParentPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Data siswa tidak ditemukan.'], 404);
         }
 
-        // Parent validation
+        // Tanda tangan hanya boleh dilakukan oleh Orang Tua yang terhubung
+        // dengan siswa tersebut. Siswa tidak memberi tanda tangan sebagai
+        // Orang Tua.
         $parent = ParentModel::query()->where('user_id', $user->id)->first();
-        if ($parent) {
-            $isLinkedChild = $this->parentStudentsQuery($parent)->whereKey($student->id)->exists();
-            abort_unless($isLinkedChild, 403, 'Anda tidak memiliki hak akses untuk menandatangani catatan siswa ini.');
+        if (! $parent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya Orang Tua yang dapat menandatangani catatan siswa.',
+            ], 403);
+        }
+
+        $isLinkedChild = $this->parentStudentsQuery($parent)->whereKey($student->id)->exists();
+        if (! $isLinkedChild) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki hak akses untuk menandatangani catatan siswa ini.',
+            ], 403);
         }
 
         $note = StudentNote::where('student_id', $student->id)->find($noteId);
@@ -770,20 +868,36 @@ class StudentParentPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Catatan siswa tidak ditemukan.'], 404);
         }
 
+        abort_unless($note->visible_to_parent, 403, 'Catatan belum dipublikasikan untuk orang tua.');
+
         $parentNotes = $request->input('notes_parent') ?? $request->input('follow_up') ?? $note->follow_up;
+
+        // Tanda tangan idempotent: hash isi saat ini dicocokkan untuk mendeteksi
+        // perubahan versi dokumen. Isi yang berubah setelah tanda tangan
+        // memerlukan tanda tangan ulang (signature_status = 'stale').
+        $currentHash = StudentNote::contentHash($note->content);
+        $signedVersion = $note->signature_content_hash;
 
         $note->update([
             'follow_up' => $parentNotes,
-            'visible_to_parent' => true,
+            'signed_by_user_id' => $user->id,
+            'signed_at' => now(),
+            'signature_content_hash' => $currentHash,
         ]);
+
+        $stale = $signedVersion !== null && $signedVersion !== $currentHash;
 
         return response()->json([
             'success' => true,
             'message' => 'Catatan & persetujuan orang tua berhasil disimpan.',
             'data' => array_merge($note->toArray(), [
-                'signed_at' => now()->toIso8601String(),
+                'signed_at' => $note->signed_at?->toIso8601String(),
                 'signed_by_user_id' => $user->id,
+                // Status mengikuti state SETELAH penandatanganan: hash kini
+                // cocok dengan isi versi terkini → selalu 'signed'. Bila tanda
+                // tangan sebelumnya sudah basi, ditandai via signature_was_stale.
                 'signature_status' => 'signed',
+                'signature_was_stale' => $stale,
             ]),
         ]);
     }
@@ -815,11 +929,16 @@ class StudentParentPortalController extends Controller
 
 
 
+    /**
+     * CBT MONITORING (read-only) — berlaku untuk Orang Tua maupun Siswa.
+     * Hanya menampilkan jadwal/status/keikutsertaan; tidak ada soal maupun
+     * tombol mulai (endpoint start/save/finish tetap role:Siswa).
+     */
     public function examOverview(Request $request): JsonResponse
     {
-        $student = $this->getAuthenticatedStudent($request);
+        $student = $this->getStudentContext($request);
         if (! $student) {
-            return response()->json(['success' => false, 'message' => 'Akun ini tidak terhubung dengan data siswa aktif.'], 403);
+            return response()->json(['success' => false, 'message' => 'Data siswa tidak ditemukan.'], 404);
         }
 
         $classIds = array_values(array_filter([$student->kelas_id, $student->class_id]));
@@ -1077,6 +1196,9 @@ class StudentParentPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Ujian gagal dikumpulkan.'], 422);
         }
 
+        // Nilai hanya ditampilkan bila ujian diatur tampilkan_nilai_langsung.
+        $showScore = (bool) $session->ujian->tampilkan_nilai_langsung;
+
         return response()->json([
             'success' => true,
             'message' => 'Ujian berhasil dikumpulkan.',
@@ -1265,19 +1387,17 @@ class StudentParentPortalController extends Controller
         ]);
 
         try {
-            Notification::query()->create([
-                'id' => (string) Str::uuid(),
-                'user_id' => $teacherUserId,
-                'title' => 'Pesan Baru Orang Tua (' . $student->full_name . ')',
-                'body' => Str::limit($message->message, 100),
-                'type' => 'chat',
-                'data' => [
+            Notification::deliver(
+                userId: $teacherUserId,
+                title: 'Pesan Baru Orang Tua (' . $student->full_name . ')',
+                body: Str::limit($message->message, 100),
+                channel: 'chat',
+                metadata: [
                     'student_id' => $student->id,
                     'parent_user_id' => $user->id,
                     'message_id' => $message->id,
                 ],
-                'is_read' => false,
-            ]);
+            );
         } catch (\Throwable $e) {
             // Silence notification schema fallback
         }

@@ -55,6 +55,7 @@ function Status({ value }) { const good = ['PAID', 'Hadir', 'hadir', 'verified',
 export default function ParentPortalPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
+  const requestedChild = searchParams.get('child') || ''
   const [children, setChildren] = useState([])
   const [childId, setChildId] = useState('')
   const [dashboard, setDashboard] = useState(null)
@@ -80,7 +81,10 @@ export default function ParentPortalPage() {
       const list = r.data || []
       setChildren(list)
       if (list.length > 0) {
-        setChildId(list[0]?.id || '')
+        // Pulihkan anak aktif dari URL bila masih terhubung (aman: backend
+        // selalu memvalidasi ownership), fallback ke anak pertama.
+        const persisted = list.find((c) => c.id === requestedChild)
+        setChildId(persisted?.id || list[0]?.id || '')
       } else {
         setLoading(false)
       }
@@ -88,7 +92,26 @@ export default function ParentPortalPage() {
       setError('Data anak belum dapat dimuat.')
       setLoading(false)
     })
-  }, [])
+  }, [requestedChild])
+
+  const selectChild = (id) => {
+    // Bersihkan data anak sebelumnya agar tidak sempat tampil (anti flash / anti leak).
+    setChildId(id)
+    setRecords([])
+    setDashboard(null)
+    setResultsData(null)
+    setCbtOverview(null)
+    setExamGridsRecords([])
+    setReportsRecords([])
+    setPermissionsRecords([])
+    setContacts([])
+    setMessages([])
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.set('child', id)
+      return next
+    }, { replace: true })
+  }
 
   const load = useCallback(async () => {
     if (!childId) {
@@ -154,7 +177,12 @@ export default function ParentPortalPage() {
 
   const selectTab = (id) => {
     setActive(id)
-    setSearchParams({ tab: id }, { replace: true })
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.set('tab', id)
+      if (childId) next.set('child', childId)
+      return next
+    }, { replace: true })
   }
 
   useEffect(() => {
@@ -214,7 +242,7 @@ export default function ParentPortalPage() {
               <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-200 mb-1">Pilih Anak Aktif</label>
               <select
                 value={childId}
-                onChange={(e) => setChildId(e.target.value)}
+                onChange={(e) => selectChild(e.target.value)}
                 className="h-11 appearance-none rounded-xl border border-white/30 bg-white/15 pl-4 pr-10 text-xs font-bold text-white outline-none backdrop-blur [&>option]:text-slate-900"
               >
                 {children.map((c) => (

@@ -41,11 +41,16 @@ class WakaKesiswaanDashboardService
             $tidakHadir = (clone $attQuery)->whereIn('status', ['absent', 'alpha', 'sick', 'permission'])->count();
         }
 
-        // Student notes / BK cases
-        $totalCatatan = StudentNote::count();
+        // Student notes / BK cases (scope ke siswa di unit)
+        $studentIds = (clone $studentQuery)->pluck('id');
+        $totalCatatan = StudentNote::when($unitId, fn ($q) => $q->whereIn('student_id', $studentIds))->count();
         $totalPrestasi = 0;
         if (Schema::hasTable('rekap_prestasi_siswas')) {
-            $totalPrestasi = DB::table('rekap_prestasi_siswas')->count();
+            $prestasiQuery = DB::table('rekap_prestasi_siswas');
+            if ($unitId) {
+                $prestasiQuery->whereIn('student_id', $studentIds);
+            }
+            $totalPrestasi = $prestasiQuery->count();
         }
 
         $kpis = [

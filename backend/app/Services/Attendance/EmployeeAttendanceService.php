@@ -2,11 +2,13 @@
 
 namespace App\Services\Attendance;
 
+use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\ClassSchedule;
 use App\Models\Employee;
 use App\Models\LessonAttendanceSession;
 use App\Models\LmsPresensi;
+use App\Models\Semester;
 use App\Models\Teacher;
 use App\Models\User;
 use Carbon\Carbon;
@@ -60,11 +62,26 @@ class EmployeeAttendanceService
         $workStartTime = Carbon::parse($today . ' 07:30:00');
         $status = $now->greaterThan($workStartTime->copy()->addMinutes(15)) ? 'TERLAMBAT' : 'HADIR';
 
-        // 3. Create single daily attendance record
+        // 3. Resolve active academic context. Tabel `attendances` di PostgreSQL
+        // bersifat partitioned: academic_year_id / semester_id / month adalah
+        // bagian dari primary key, sehingga wajib terisi. Bila belum ada
+        // konteks akademik aktif, kolom dibiarkan null (kompatibel SQLite).
+        $activeAy = AcademicYear::query()->where('is_active', true)->first();
+        $activeSem = $activeAy
+            ? Semester::query()
+                ->where('academic_year_id', $activeAy->id)
+                ->where('is_active', true)
+                ->orderBy('sequence', 'desc')
+                ->first()
+            : null;
+
+        // 4. Create single daily attendance record
         $attendance = Attendance::create([
             'tipe_presensi' => 'Pegawai',
             'employee_id' => $employee->id,
             'unit_pendidikan_id' => $employee->unit_id,
+            'academic_year_id' => $activeAy?->id,
+            'semester_id' => $activeSem?->id,
             'month' => $now->month,
             'attendance_date' => $today,
             'check_in_time' => $now->toDateTimeString(),
@@ -74,7 +91,7 @@ class EmployeeAttendanceService
             'created_by' => (string) $user->id,
         ]);
 
-        // 4. Evaluate teacher lesson attendance if applicable
+        // 5. Evaluate teacher lesson attendance if applicable
         $lessonInfo = $this->evaluateTeacherLessonAttendance($user, $employee, $now);
 
         return [

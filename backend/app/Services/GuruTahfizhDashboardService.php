@@ -43,10 +43,8 @@ class GuruTahfizhDashboardService
                 ->toArray();
         }
 
-        if (empty($assignedStudentIds)) {
-            $assignedStudentIds = Student::where('is_active', true)->pluck('id')->toArray();
-        }
-
+        // Jangan fallback ke seluruh siswa sekolah: siswa binaan = siswa yang pernah
+        // menerima setoran dari guru ini. Guru tanpa data setoran menampilkan 0.
         $totalSiswaBinaan = count($assignedStudentIds);
 
         // Today's deposits

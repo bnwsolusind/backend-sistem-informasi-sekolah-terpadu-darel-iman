@@ -25,8 +25,10 @@ class NotificationController extends Controller
             $operator = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
             $query->where(function ($q) use ($search, $operator) {
                 $q->where('title', $operator, "%{$search}%")
-                  ->orWhere('message', $operator, "%{$search}%")
                   ->orWhere('body', $operator, "%{$search}%");
+                if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'message')) {
+                    $q->orWhere('message', $operator, "%{$search}%");
+                }
             });
         }
 
@@ -38,9 +40,7 @@ class NotificationController extends Controller
             $isReadBool = filter_var($isReadParam, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             if ($isReadBool !== null) {
                 if ($isReadBool) {
-                    $query->where(function ($q) {
-                        $q->where('is_read', true)->orWhereNotNull('read_at');
-                    });
+                    $query->whereNotNull('read_at');
                 } else {
                     $query->unread();
                 }
@@ -77,12 +77,7 @@ class NotificationController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
-        $updateData = ['read_at' => now()];
-        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
-            $updateData['is_read'] = true;
-        }
-
-        $notification->update($updateData);
+        $notification->update(['read_at' => now()]);
 
         return response()->json([
             'status' => 'success',
@@ -96,14 +91,9 @@ class NotificationController extends Controller
      */
     public function markAllRead(Request $request): JsonResponse
     {
-        $updateData = ['read_at' => now()];
-        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
-            $updateData['is_read'] = true;
-        }
-
         Notification::byUser($request->user()->id)
             ->unread()
-            ->update($updateData);
+            ->update(['read_at' => now()]);
 
         return response()->json([
             'status' => 'success',

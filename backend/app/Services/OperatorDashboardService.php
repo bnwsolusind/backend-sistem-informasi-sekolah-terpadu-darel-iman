@@ -14,8 +14,19 @@ class OperatorDashboardService
         $activeAcademicYear = AcademicYear::where('is_active', true)->first() ?? AcademicYear::latest()->first();
         $activeSemester = Semester::where('is_active', true)->first() ?? Semester::latest()->first();
 
-        $totalSiswa = Student::count();
-        $totalPegawai = Employee::count();
+        // Operator melekat pada unit via data Employee; bila ada unit, scope data ke unit tsb.
+        $employee = Employee::where('user_id', $user->id)->first();
+        $unitId = $employee ? $employee->unit_id : null;
+
+        $studentQuery = Student::query();
+        $employeeQuery = Employee::query();
+        if ($unitId) {
+            $studentQuery->where('unit_id', $unitId);
+            $employeeQuery->where('unit_id', $unitId);
+        }
+
+        $totalSiswa = $studentQuery->count();
+        $totalPegawai = $employeeQuery->count();
 
         $kpis = [
             'data_siswa' => ['total' => $totalSiswa, 'growth' => 0],

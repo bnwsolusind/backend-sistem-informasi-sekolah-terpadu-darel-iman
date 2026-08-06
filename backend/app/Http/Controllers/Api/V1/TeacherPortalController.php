@@ -349,10 +349,18 @@ class TeacherPortalController extends Controller
             }))
             ->count();
 
-        // Mutabaah unverified count
-        $unverifiedMutabaah = MutabaahDailyHeader::query()
-            ->where('status', 'draft')
-            ->count();
+        // Mutabaah unverified count - scoped to the teacher's own supervisor assignments
+        $unverifiedMutabaah = 0;
+        $assignmentIds = MutabaahSupervisorAssignment::query()
+            ->active()
+            ->when($employee, fn ($q) => $q->where('employee_id', $employee->id))
+            ->pluck('id');
+        if ($assignmentIds->isNotEmpty()) {
+            $unverifiedMutabaah = MutabaahDailyHeader::query()
+                ->where('status', 'draft')
+                ->whereIn('supervisor_assignment_id', $assignmentIds)
+                ->count();
+        }
 
         // Notifications
         $unreadNotifications = Notification::query()
@@ -1351,19 +1359,17 @@ class TeacherPortalController extends Controller
         ]);
 
         try {
-            Notification::query()->create([
-                'id' => (string) Str::uuid(),
-                'user_id' => $parentUserId,
-                'title' => 'Pesan Baru Guru (' . $user->name . ')',
-                'body' => Str::limit($message->message, 100),
-                'type' => 'chat',
-                'data' => [
+            Notification::deliver(
+                userId: $parentUserId,
+                title: 'Pesan Baru Guru (' . $user->name . ')',
+                body: Str::limit($message->message, 100),
+                channel: 'chat',
+                metadata: [
                     'student_id' => $studentId,
                     'teacher_user_id' => $user->id,
                     'message_id' => $message->id,
                 ],
-                'is_read' => false,
-            ]);
+            );
         } catch (\Throwable $e) {
             // Silence notification schema fallback
         }

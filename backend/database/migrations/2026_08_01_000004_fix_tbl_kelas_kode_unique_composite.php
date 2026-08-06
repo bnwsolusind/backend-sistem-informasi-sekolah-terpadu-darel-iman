@@ -34,7 +34,7 @@ return new class extends Migration
             ->whereNull('deleted_at')
             ->select('unit_pendidikan_id', 'tahun_ajaran_id', 'kode_kelas', DB::raw('count(*) as cnt'))
             ->groupBy('unit_pendidikan_id', 'tahun_ajaran_id', 'kode_kelas')
-            ->having('cnt', '>', 1)
+            ->havingRaw('count(*) > 1')
             ->count();
 
         if ($duplicates > 0) {
@@ -50,8 +50,9 @@ return new class extends Migration
         }
 
         if (DB::getDriverName() === 'pgsql') {
-            // Drop unique index lama
-            DB::statement('DROP INDEX IF EXISTS tbl_kelas_kode_kelas_unique');
+            // Drop unique constraint lama (di PG index dibungkus constraint,
+            // sehingga harus drop CONSTRAINT bukan index)
+            DB::statement('ALTER TABLE tbl_kelas DROP CONSTRAINT IF EXISTS tbl_kelas_kode_kelas_unique');
 
             // Tambah composite unique index baru
             $exists = DB::selectOne("

@@ -19,12 +19,7 @@ class AlumniPortalController extends Controller
 
         return Student::query()
             ->with(['educationUnit', 'kelas'])
-            ->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->orWhere('metadata->is_alumni', true)
-                  ->orWhere('metadata->status_siswa', 'alumni')
-                  ->orWhere('is_active', false);
-            })
+            ->where('user_id', $user->id)
             ->first();
     }
 
@@ -48,6 +43,8 @@ class AlumniPortalController extends Controller
             'nis' => $student->nis,
             'nisn' => $student->nisn,
             'gender' => $student->gender,
+            'photo_url' => $student->photo_url,
+            'avatar_url' => $student->avatar_url,
             'education_unit' => $student->educationUnit?->name ?? 'Unit Sekolah',
             'tahun_masuk' => $student->tahun_masuk,
             'tahun_lulus' => $meta['tahun_lulus'] ?? date('Y', strtotime($student->updated_at ?? now())),

@@ -204,18 +204,16 @@ class EmployeeChatController extends Controller
         ]);
 
         try {
-            Notification::query()->create([
-                'id' => (string) Str::uuid(),
-                'user_id' => $recipientUserId,
-                'title' => 'Pesan Pegawai Baru (' . $user->name . ')',
-                'body' => Str::limit($message->message, 100),
-                'type' => 'chat_employee',
-                'data' => [
+            Notification::deliver(
+                userId: $recipientUserId,
+                title: 'Pesan Pegawai Baru (' . $user->name . ')',
+                body: Str::limit($message->message, 100),
+                channel: 'chat_employee',
+                metadata: [
                     'sender_user_id' => $user->id,
                     'message_id' => $message->id,
                 ],
-                'is_read' => false,
-            ]);
+            );
         } catch (\Throwable $e) {
             // Silence notification error
         }

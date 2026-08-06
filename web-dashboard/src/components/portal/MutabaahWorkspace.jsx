@@ -4,21 +4,6 @@ import { HeartHandshake, CheckCircle2, Circle, Clock, Save, Loader2, Calendar, A
 
 const cardStyle = 'rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900'
 
-const DEFAULT_ACTIVITIES = [
-  { id: 'shalat_subuh', name: 'Shalat Subuh Berjamaah', category: 'Shalat Wajib' },
-  { id: 'shalat_zhuhur', name: 'Shalat Zhuhur Berjamaah', category: 'Shalat Wajib' },
-  { id: 'shalat_ashar', name: 'Shalat Ashar Berjamaah', category: 'Shalat Wajib' },
-  { id: 'shalat_maghrib', name: 'Shalat Maghrib Berjamaah', category: 'Shalat Wajib' },
-  { id: 'shalat_isya', name: 'Shalat Isya Berjamaah', category: 'Shalat Wajib' },
-  { id: 'shalat_dhuha', name: 'Shalat Dhuha', category: 'Shalat Sunnah' },
-  { id: 'shalat_tahajud', name: 'Shalat Tahajud / Qiyamul Lail', category: 'Shalat Sunnah' },
-  { id: 'tilawah_quran', name: 'Tilawah Al-Qur\'an', category: 'Ibadah Harian' },
-  { id: 'dzikir_pagi', name: 'Dzikir Pagi', category: 'Dzikir' },
-  { id: 'dzikir_petang', name: 'Dzikir Petang', category: 'Dzikir' },
-  { id: 'sedekah_harian', name: 'Sedekah Harian', category: 'Amal Yaumi' },
-  { id: 'adab_harian', name: 'Membantu Orang Tua / Adab Harian', category: 'Karakter' },
-]
-
 export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isParent = false, loading = false }) {
   const [checkedIds, setCheckedIds] = useState(() => {
     const existing = mutabaah?.details || []
@@ -27,10 +12,7 @@ export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isP
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
-  const detailsList = useMemo(() => {
-    if (mutabaah?.details?.length) return mutabaah.details
-    return DEFAULT_ACTIVITIES
-  }, [mutabaah])
+  const detailsList = useMemo(() => mutabaah?.details || [], [mutabaah])
 
   const stats = useMemo(() => {
     const total = detailsList.length

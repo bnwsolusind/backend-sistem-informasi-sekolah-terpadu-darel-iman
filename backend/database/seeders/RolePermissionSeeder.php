@@ -49,6 +49,7 @@ class RolePermissionSeeder extends Seeder
             'Guru PAI',
             'Operator',
             'operator',
+            'Admin',
             'Musyrif',
             'musyrif',
             'Musyrifah',
@@ -600,6 +601,31 @@ class RolePermissionSeeder extends Seeder
         }
         foreach (['Super Admin', 'super_admin'] as $roleName) {
             $rolePermissionMap[$roleName] = $permissions;
+        }
+
+        // Dashboard role-based access: setiap role hanya menerima permission dashboard
+        // sesuai kewenangannya (sesuai DASHBOARD_ROLE_ROUTE_MATRIX).
+        $dashboardAccessMap = [
+            'dashboard.kepala-sekolah.view' => ['Kepala Sekolah', 'kepala_sekolah', 'kepsek'],
+            'dashboard.divisi-pendidikan.view' => ['Divisi Pendidikan', 'divisi_pendidikan'],
+            'dashboard.waka-kurikulum.view' => ['Waka Kurikulum', 'waka_kurikulum', 'Wakil Kepala Sekolah'],
+            'dashboard.waka-kesiswaan.view' => ['Waka Kesiswaan', 'waka_kesiswaan'],
+            'dashboard.tata-usaha.view' => ['Tata Usaha', 'TU', 'tu', 'tata_usaha'],
+            'dashboard.operator.view' => ['Operator', 'operator', 'Tata Usaha', 'TU', 'tu', 'tata_usaha'],
+            'dashboard.pemantauan.lihat' => ['Admin'],
+            'dashboard.guru.view' => ['Guru', 'guru', 'Guru Mata Pelajaran', 'guru_mata_pelajaran', 'Wali Kelas', 'walas', 'wali_kelas', 'Guru PAI', 'Pembimbing', 'Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'Musyrif / Musyrifah', 'Guru BK', 'guru_bk'],
+            'dashboard.guru-tahfizh.view' => ['Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'Musyrif / Musyrifah'],
+            'dashboard.guru-bk.view' => ['Guru BK', 'guru_bk'],
+            'teacher.dashboard.view' => ['Guru', 'guru', 'Guru Mata Pelajaran', 'guru_mata_pelajaran', 'Wali Kelas', 'walas', 'wali_kelas', 'Guru PAI', 'Pembimbing', 'Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'Musyrif / Musyrifah', 'Guru BK', 'guru_bk'],
+        ];
+
+        foreach ($dashboardAccessMap as $dashboardPermission => $dashboardRoles) {
+            foreach ($dashboardRoles as $dashboardRole) {
+                $rolePermissionMap[$dashboardRole] = array_values(array_unique(array_merge(
+                    $rolePermissionMap[$dashboardRole] ?? ['dashboard.view'],
+                    [$dashboardPermission],
+                )));
+            }
         }
 
         foreach ($roles as $roleName) {

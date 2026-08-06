@@ -53,6 +53,7 @@ export default function DashboardLayout() {
   const permissions = Array.isArray(user?.permissions) ? user.permissions : []
   const hasRole = (...names) => names.some((name) => roles.some((role) => String(role).toLowerCase().replace(/[\s_-]+/g, '') === String(name).toLowerCase().replace(/[\s_-]+/g, '')))
   const can = (...names) => hasRole('Super Admin') || names.some((name) => permissions.includes(name))
+  const isPortalUser = hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid')
 
   const [collapsed, setCollapsed] = useState(Boolean(pengaturan?.sidebar_collapsed))
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -875,17 +876,19 @@ export default function DashboardLayout() {
               )}
 
               {/* Notification Drawer Trigger */}
-              <button
-                type="button"
-                onClick={() => setNotificationsOpen(true)}
-                className="relative rounded-xl border border-slate-200/80 bg-slate-50/80 p-2 text-slate-600 hover:bg-slate-100 hover:text-[#0E5C44] transition-all dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 btn-master"
-                title="Notifikasi Sistem"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs">
-                  {notifikasiItems.filter((n) => n.unread).length}
-                </span>
-              </button>
+              {!isPortalUser && (
+                <button
+                  type="button"
+                  onClick={() => setNotificationsOpen(true)}
+                  className="relative rounded-xl border border-slate-200/80 bg-slate-50/80 p-2 text-slate-600 hover:bg-slate-100 hover:text-[#0E5C44] transition-all dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 btn-master"
+                  title="Notifikasi Sistem"
+                >
+                  <Bell className="h-4 w-4" />
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs">
+                    {notifikasiItems.filter((n) => n.unread).length}
+                  </span>
+                </button>
+              )}
 
               {/* Mode Tampilan Switcher (Light / Dark Mode) */}
               <div className="relative" ref={themeDropdownRef}>
@@ -990,7 +993,11 @@ export default function DashboardLayout() {
                       </button>
                       <button
                         onClick={() => {
-                          navigate(isFoundationUser ? '/dashboard/yayasan/notifikasi' : '/notifications')
+                          if (hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid')) {
+                            navigate('/portal-siswa/informasi-sekolah')
+                          } else {
+                            navigate(isFoundationUser ? '/dashboard/yayasan/notifikasi' : '/notifications')
+                          }
                           setProfileDropdownOpen(false)
                         }}
                         className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition dark:text-slate-300 dark:hover:bg-slate-800"
@@ -1053,31 +1060,33 @@ export default function DashboardLayout() {
       </div>
 
       {/* Notifications Drawer */}
-      <Drawer
-        isOpen={notificationsOpen}
-        onClose={() => setNotificationsOpen(false)}
-        title="Pemberitahuan & Activity Log"
-        position="right"
-      >
-        <div className="space-y-3">
-          {notifikasiItems.map((item) => (
-            <div
-              key={item.id}
-              className={`p-4 rounded-2xl border transition ${item.unread
-                ? 'bg-emerald-50/50 border-emerald-200/80 dark:bg-emerald-950/30 dark:border-emerald-800/80'
-                : 'bg-white border-slate-200/80 dark:bg-slate-900 dark:border-slate-800/80'
-                }`}
-            >
-              <div className="flex items-center justify-between">
-                <h5 className="text-xs font-bold text-slate-900 dark:text-white">{item.title}</h5>
-                {item.unread && <span className="h-2 w-2 rounded-full bg-emerald-600" />}
+      {!isPortalUser && (
+        <Drawer
+          isOpen={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          title="Pemberitahuan & Activity Log"
+          position="right"
+        >
+          <div className="space-y-3">
+            {notifikasiItems.map((item) => (
+              <div
+                key={item.id}
+                className={`p-4 rounded-2xl border transition ${item.unread
+                  ? 'bg-emerald-50/50 border-emerald-200/80 dark:bg-emerald-950/30 dark:border-emerald-800/80'
+                  : 'bg-white border-slate-200/80 dark:bg-slate-900 dark:border-slate-800/80'
+                  }`}
+              >
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-bold text-slate-900 dark:text-white">{item.title}</h5>
+                  {item.unread && <span className="h-2 w-2 rounded-full bg-emerald-600" />}
+                </div>
+                <p className="text-xs text-slate-600 mt-1 dark:text-slate-300">{item.desc}</p>
+                <p className="text-[10px] text-slate-400 mt-2 font-medium">{item.time}</p>
               </div>
-              <p className="text-xs text-slate-600 mt-1 dark:text-slate-300">{item.desc}</p>
-              <p className="text-[10px] text-slate-400 mt-2 font-medium">{item.time}</p>
-            </div>
-          ))}
-        </div>
-      </Drawer>
+            ))}
+          </div>
+        </Drawer>
+      )}
 
       {/* Mobile Bottom Navigation (Responsive Mobile View <= 768px) */}
       <nav className="fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-slate-200/80 bg-white/95 px-2 py-2 backdrop-blur-md md:hidden shadow-lg dark:border-slate-800 dark:bg-slate-900/95">

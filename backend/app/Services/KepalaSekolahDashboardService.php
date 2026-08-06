@@ -42,7 +42,7 @@ class KepalaSekolahDashboardService
         if ($targetUnitId) {
             $studentQuery->where('unit_id', $targetUnitId);
             $employeeQuery->where('unit_id', $targetUnitId);
-            $classQuery->where('unit_id', $targetUnitId);
+            $classQuery->where('unit_pendidikan_id', $targetUnitId);
         }
 
         $totalSiswa = (clone $studentQuery)->where('is_active', true)->count();
@@ -105,13 +105,17 @@ class KepalaSekolahDashboardService
         ];
 
         // 2. Charts Data
-        // Attendance Trend (Last 7 Days)
+        // Attendance Trend (Last 7 Days) - scoped to principal's unit
         $sub7Days = now()->subDays(6)->toDateString();
         $attendanceTrend = [];
         if (Schema::hasTable('attendances')) {
-            $attendanceTrend = DB::table('attendances')
+            $trendQuery = DB::table('attendances')
                 ->selectRaw('attendance_date as date, sum(case when status in (\'present\',\'hadir\') then 1 else 0 end) as hadir, sum(case when status = \'late\' then 1 else 0 end) as terlambat, sum(case when status in (\'absent\',\'alpha\') then 1 else 0 end) as alpha')
-                ->whereBetween('attendance_date', [$sub7Days, $today])
+                ->whereBetween('attendance_date', [$sub7Days, $today]);
+            if ($targetUnitId) {
+                $trendQuery->whereIn('student_id', (clone $studentQuery)->pluck('id'));
+            }
+            $attendanceTrend = $trendQuery
                 ->groupBy('attendance_date')
                 ->orderBy('attendance_date')
                 ->get();

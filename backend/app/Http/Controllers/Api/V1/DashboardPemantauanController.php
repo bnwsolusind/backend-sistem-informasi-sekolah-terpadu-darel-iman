@@ -31,6 +31,9 @@ class DashboardPemantauanController extends Controller
         'Guru',
     ];
 
+    private const PERMISSION_AKSES = 'dashboard.pemantauan.lihat';
+    private const PERMISSION_KELOLA = 'dashboard.pemantauan.kelola';
+
     public function ringkasan(Request $request): RingkasanDashboardPemantauanResource
     {
         $this->pastikanHakAkses($request);
@@ -408,17 +411,10 @@ class DashboardPemantauanController extends Controller
     private function pastikanHakAkses(Request $request, bool $butuhKelola = false): void
     {
         $user = $request->user();
+        $izin = $butuhKelola ? self::PERMISSION_KELOLA : self::PERMISSION_AKSES;
 
-        if (! $user || ! $user->hasAnyRole(self::ROLE_AKSES)) {
-            abort(403, 'Anda tidak memiliki hak akses modul dashboard pemantauan.');
-        }
-
-        if ($butuhKelola && ! $user->can('dashboard.pemantauan.kelola')) {
-            abort(403, 'Anda tidak memiliki izin kelola modul dashboard pemantauan.');
-        }
-
-        if (! $butuhKelola && ! $user->can('dashboard.pemantauan.lihat')) {
-            abort(403, 'Anda tidak memiliki izin lihat modul dashboard pemantauan.');
+        if (! $user || ! $user->can($izin)) {
+            abort(403, 'Anda tidak memiliki izin modul dashboard pemantauan.');
         }
     }
 }

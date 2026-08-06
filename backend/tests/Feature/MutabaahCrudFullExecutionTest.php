@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\AcademicYear;
 use App\Models\EducationUnit;
 use App\Models\Employee;
-use App\Models\Kelas;
 use App\Models\MutabaahAgendaItem;
 use App\Models\MutabaahCategory;
 use App\Models\MutabaahDailyDetail;
@@ -15,6 +14,7 @@ use App\Models\MutabaahSupervisorAssignment;
 use App\Models\MutabaahTemplate;
 use App\Models\MutabaahTemplateAssignment;
 use App\Models\ParentModel;
+use App\Models\SchoolClass;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\User;
@@ -137,23 +137,45 @@ class MutabaahCrudFullExecutionTest extends TestCase
             'status' => 'active',
         ]);
 
+        $employee = Employee::create([
+            'id' => (string) Str::uuid(),
+            'unit_id' => $unit->id,
+            'niy' => '19900102',
+            'nama_lengkap' => 'Ustadz Pembimbing',
+            'status' => 'Aktif',
+        ]);
+
+        $assignment = MutabaahSupervisorAssignment::create([
+            'id' => (string) Str::uuid(),
+            'employee_id' => $employee->id,
+            'supervisor_type' => 'musyrif',
+            'education_unit_id' => $unit->id,
+            'template_id' => $template->id,
+            'academic_year_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-31',
+            'status' => 'active',
+        ]);
+
         $student = Student::create([
             'id' => (string) Str::uuid(),
             'education_unit_id' => $unit->id,
             'nis' => '889900',
             'full_name' => 'Santri Test',
-            'gender' => 'L',
+            'gender' => 'male',
             'is_active' => true,
         ]);
 
         MutabaahDailyHeader::create([
             'id' => (string) Str::uuid(),
-            'date' => '2026-08-01',
             'student_id' => $student->id,
             'template_id' => $template->id,
+            'supervisor_assignment_id' => $assignment->id,
             'education_unit_id' => $unit->id,
             'academic_year_id' => $ay->id,
             'semester_id' => $sem->id,
+            'activity_date' => '2026-08-01',
             'status' => 'draft',
         ]);
 
@@ -203,11 +225,14 @@ class MutabaahCrudFullExecutionTest extends TestCase
             'status' => 'active',
         ]);
 
-        $kelas = Kelas::create([
+        // Konvensi skema mutabaah: `kelas_id` mengacu tabel `classes`
+        // (SchoolClass/LMS), `rombel_id` mengacu `tbl_kelas`.
+        $schoolClass = SchoolClass::create([
             'id' => (string) Str::uuid(),
-            'education_unit_id' => $unit->id,
-            'nama_kelas' => '10-IPA-1',
-            'kode_kelas' => '10IPA1',
+            'academic_year_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'name' => '10-IPA-1',
+            'level' => 'SMA',
         ]);
 
         $user = User::factory()->create();
@@ -217,7 +242,7 @@ class MutabaahCrudFullExecutionTest extends TestCase
             'template_id' => $template->id,
             'education_unit_id' => $unit->id,
             'education_level' => 'SMA',
-            'kelas_id' => $kelas->id,
+            'kelas_id' => $schoolClass->id,
             'academic_year_id' => $ay->id,
             'semester_id' => $sem->id,
             'start_date' => '2026-08-01',
@@ -231,7 +256,7 @@ class MutabaahCrudFullExecutionTest extends TestCase
         $response->assertStatus(201);
         $this->assertDatabaseHas('mutabaah_template_assignments', [
             'template_id' => $template->id,
-            'kelas_id' => $kelas->id,
+            'kelas_id' => $schoolClass->id,
         ]);
 
         // 2. Duplicate / Overlapping Assignment Rejected (HTTP 422)
@@ -361,12 +386,60 @@ class MutabaahCrudFullExecutionTest extends TestCase
             'level' => 'MA',
         ]);
 
+        $ay = AcademicYear::create([
+            'id' => (string) Str::uuid(),
+            'name' => '2026/2027',
+            'start_date' => '2026-07-01',
+            'end_date' => '2027-06-30',
+            'is_active' => true,
+        ]);
+
+        $sem = Semester::create([
+            'id' => (string) Str::uuid(),
+            'academic_year_id' => $ay->id,
+            'name' => 'Ganjil',
+            'is_active' => true,
+        ]);
+
+        $template = MutabaahTemplate::create([
+            'id' => (string) Str::uuid(),
+            'code' => 'TMPL-PARENT',
+            'name' => 'Template Parent',
+            'education_unit_id' => $unit->id,
+            'education_level' => 'MA',
+            'academic_year_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'start_date' => '2026-08-01',
+            'status' => 'active',
+        ]);
+
+        $employee = Employee::create([
+            'id' => (string) Str::uuid(),
+            'unit_id' => $unit->id,
+            'niy' => '19900103',
+            'nama_lengkap' => 'Ustadzah Pembina',
+            'status' => 'Aktif',
+        ]);
+
+        $assignment = MutabaahSupervisorAssignment::create([
+            'id' => (string) Str::uuid(),
+            'employee_id' => $employee->id,
+            'supervisor_type' => 'musyrifah',
+            'education_unit_id' => $unit->id,
+            'template_id' => $template->id,
+            'academic_year_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-31',
+            'status' => 'active',
+        ]);
+
         $student = Student::create([
             'id' => (string) Str::uuid(),
             'education_unit_id' => $unit->id,
             'nis' => '112233',
             'full_name' => 'Siswa Anak',
-            'gender' => 'L',
+            'gender' => 'male',
             'is_active' => true,
         ]);
 
@@ -381,20 +454,23 @@ class MutabaahCrudFullExecutionTest extends TestCase
 
         $header = MutabaahDailyHeader::create([
             'id' => (string) Str::uuid(),
-            'date' => '2026-08-01',
             'student_id' => $student->id,
+            'template_id' => $template->id,
+            'supervisor_assignment_id' => $assignment->id,
             'education_unit_id' => $unit->id,
+            'academic_year_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'activity_date' => '2026-08-01',
             'status' => 'finalized',
         ]);
 
         MutabaahParentSignature::create([
             'id' => (string) Str::uuid(),
             'daily_header_id' => $header->id,
-            'student_id' => $student->id,
             'parent_user_id' => $parentUser->id,
+            'signature_status' => 'approved',
+            'comment' => 'Semoga istiqamah.',
             'signed_at' => now(),
-            'status' => 'signed',
-            'notes_parent' => 'Semoga istiqamah.',
         ]);
 
         $adminUser = User::factory()->create();
@@ -406,7 +482,7 @@ class MutabaahCrudFullExecutionTest extends TestCase
         $response->assertStatus(200);
         $this->assertDatabaseHas('mutabaah_parent_signatures', [
             'daily_header_id' => $header->id,
-            'status' => 'signed',
+            'signature_status' => 'approved',
         ]);
     }
 

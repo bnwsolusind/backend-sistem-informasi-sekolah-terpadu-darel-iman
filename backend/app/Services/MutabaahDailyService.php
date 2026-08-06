@@ -242,7 +242,7 @@ class MutabaahDailyService
     private function header(Student $student, MutabaahSupervisorAssignment $assignment, MutabaahTemplate $template, string $date, string $userId): MutabaahDailyHeader
     {
         return MutabaahDailyHeader::firstOrCreate(
-            ['student_id' => $student->id, 'activity_date' => $date, 'template_id' => $template->id],
+            ['student_id' => $student->id, 'activity_date' => Carbon::parse($date)->startOfDay(), 'template_id' => $template->id],
             ['supervisor_assignment_id' => $assignment->id, 'education_unit_id' => $assignment->education_unit_id,
                 'kelas_id' => $assignment->kelas_id, 'rombel_id' => $assignment->rombel_id,
                 'academic_year_id' => $assignment->academic_year_id, 'semester_id' => $assignment->semester_id,

@@ -7,10 +7,27 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class LmsBankSoalResource extends JsonResource
 {
+    /**
+     * Kunci jawaban & pembahasan hanya boleh dilihat pengguna internal
+     * (guru/operator/admin). Siswa, Orang Tua, dan Alumni tidak boleh
+     * menerima kunci/pembahasan lewat endpoint mana pun.
+     */
+    private function canSeeAnswerKey(Request $request): bool
+    {
+        $user = $request->user();
+        if (! $user || ! method_exists($user, 'hasAnyRole')) {
+            return false;
+        }
+
+        return ! $user->hasAnyRole(['Siswa', 'Orang Tua', 'Alumni']);
+    }
+
     public function toArray(Request $request): array
     {
+        $showKey = $this->canSeeAnswerKey($request);
+
         $pasanganMenjodohkan = null;
-        if ($this->tipe_soal === 'menjodohkan' && ! empty($this->kunci_jawaban)) {
+        if ($showKey && $this->tipe_soal === 'menjodohkan' && ! empty($this->kunci_jawaban)) {
             $decoded = json_decode($this->kunci_jawaban, true);
             if (is_array($decoded)) {
                 $pasanganMenjodohkan = $decoded;
@@ -36,9 +53,9 @@ class LmsBankSoalResource extends JsonResource
             'opsi_c' => $this->opsi_c,
             'opsi_d' => $this->opsi_d,
             'opsi_e' => $this->opsi_e,
-            'kunci_jawaban' => $this->kunci_jawaban,
+            'kunci_jawaban' => $showKey ? $this->kunci_jawaban : null,
             'pasangan_menjodohkan' => $pasanganMenjodohkan,
-            'pembahasan' => $this->pembahasan,
+            'pembahasan' => $showKey ? $this->pembahasan : null,
             'poin' => (float) $this->poin,
             'tingkat_kesulitan' => $this->tingkat_kesulitan,
             'tingkat_kesulitan_label' => ucfirst($this->tingkat_kesulitan),

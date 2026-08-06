@@ -101,12 +101,17 @@ class FoundationDashboardService
             $q->where('created_at', '>=', $startOfMonth)->orWhere('updated_at', '>=', $startOfMonth);
         })->count();
 
-        // Orang Tua & Growth
+        // Orang Tua & Growth (scope ke unit terpilih bila filter aktif)
         $totalOrtu = \App\Models\ParentModel::count();
         $growthOrtu = \App\Models\ParentModel::where('created_at', '>=', $startOfMonth)->count();
         if ($totalOrtu === 0) {
             $totalOrtu = \App\Models\User::whereHas('roles', fn ($r) => $r->whereIn('name', ['Orang Tua', 'Orangtua', 'Wali Murid']))->count();
             $growthOrtu = \App\Models\User::whereHas('roles', fn ($r) => $r->whereIn('name', ['Orang Tua', 'Orangtua', 'Wali Murid']))
+                ->where('created_at', '>=', $startOfMonth)->count();
+        }
+        if (! empty($unitIds)) {
+            $totalOrtu = \App\Models\ParentModel::whereHas('students', fn ($q) => $q->whereIn('unit_id', $unitIds))->count();
+            $growthOrtu = \App\Models\ParentModel::whereHas('students', fn ($q) => $q->whereIn('unit_id', $unitIds))
                 ->where('created_at', '>=', $startOfMonth)->count();
         }
 
@@ -276,7 +281,7 @@ class FoundationDashboardService
                 })->count();
 
             $siswaAktifCount = Student::where('unit_id', $unit->id)->where('is_active', true)->count();
-            $kelasCount = Kelas::where('unit_id', $unit->id)->count();
+            $kelasCount = Kelas::where('unit_pendidikan_id', $unit->id)->count();
             $rombelCount = $kelasCount > 0 ? $kelasCount : 1;
             $siswaBaruCount = Student::where('unit_id', $unit->id)
                 ->where(function ($q) {
@@ -334,7 +339,7 @@ class FoundationDashboardService
         })->count();
         $pegawaiCount = $pegawaiList->count();
         $siswaCount = Student::where('unit_id', $id)->where('is_active', true)->count();
-        $kelasCount = Kelas::where('unit_pendidikan_id', $id)->orWhere('unit_id', $id)->count();
+        $kelasCount = Kelas::where('unit_pendidikan_id', $id)->count();
         $rombelCount = $kelasCount > 0 ? $kelasCount : 1;
 
         $kepalaSekolah = Employee::where('unit_id', $id)

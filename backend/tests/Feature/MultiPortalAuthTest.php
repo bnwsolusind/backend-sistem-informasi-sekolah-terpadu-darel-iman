@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\EnsureFoundationReadOnly;
+use App\Models\AcademicYear;
 use App\Models\Attendance;
 use App\Models\ClassSchedule;
 use App\Models\DeleteRequest;
 use App\Models\Employee;
 use App\Models\ParentModel;
 use App\Models\QrCredential;
+use App\Models\Semester;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
@@ -32,6 +34,23 @@ class MultiPortalAuthTest extends TestCase
         Role::firstOrCreate(['name' => 'Guru', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'Siswa', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'Orang Tua', 'guard_name' => 'web']);
+
+        // Konteks akademik aktif dibutuhkan oleh tabel `attendances` yang
+        // partitioned pada PostgreSQL (academic_year_id/semester_id/month).
+        $ay = AcademicYear::create([
+            'name' => 'Tahun Ajaran Test ' . Str::random(4),
+            'start_date' => now()->startOfYear()->toDateString(),
+            'end_date' => now()->endOfYear()->toDateString(),
+            'is_active' => true,
+        ]);
+        Semester::create([
+            'academic_year_id' => $ay->id,
+            'name' => 'Semester Ganjil',
+            'sequence' => 1,
+            'start_date' => now()->startOfYear()->toDateString(),
+            'end_date' => now()->endOfYear()->toDateString(),
+            'is_active' => true,
+        ]);
     }
 
     public function test_superadmin_can_login_with_username_and_password_only(): void

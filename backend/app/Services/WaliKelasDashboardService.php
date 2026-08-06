@@ -37,8 +37,15 @@ class WaliKelasDashboardService
             })
             ->get();
 
-        $selectedClassId = $filters['class_id'] ?? $homeroomClasses->first()?->id;
-        $selectedClass = $selectedClassId ? Kelas::find($selectedClassId) : $homeroomClasses->first();
+        // class_id filter wajib milik wali kelas (cegah IDOR antar-rombel)
+        $allowedClassIds = $homeroomClasses->pluck('id')->toArray();
+        $requestedClassId = $filters['class_id'] ?? null;
+        if ($requestedClassId && in_array($requestedClassId, $allowedClassIds, true)) {
+            $selectedClassId = $requestedClassId;
+        } else {
+            $selectedClassId = $homeroomClasses->first()?->id;
+        }
+        $selectedClass = $selectedClassId ? $homeroomClasses->firstWhere('id', $selectedClassId) : $homeroomClasses->first();
         $targetClassId = $selectedClass?->id;
 
         $activeAcademicYear = AcademicYear::where('is_active', true)->first() ?? AcademicYear::latest()->first();

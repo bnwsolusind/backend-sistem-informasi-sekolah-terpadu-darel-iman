@@ -242,7 +242,7 @@ export const router = createBrowserRouter([
           </BungkusLazy>
         ),
         children: [{ element: <RouteRole allow={['Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid']} />, children: [
-          { index: true, element: <BungkusLazy><TeacherStudentPortalDashboardPage /></BungkusLazy> },
+          { index: true, element: <BungkusLazy><StudentPortalPage section="ringkasan" /></BungkusLazy> },
           { path: 'profil', element: <BungkusLazy><StudentPortalPage section="profile" /></BungkusLazy> },
           { path: 'informasi-sekolah', element: <BungkusLazy><StudentPortalPage section="announcements" /></BungkusLazy> },
           { path: 'jadwal', element: <BungkusLazy><StudentPortalPage section="schedules" /></BungkusLazy> },
@@ -398,9 +398,11 @@ export const router = createBrowserRouter([
           {
             path: 'pemantauan',
             element: (
-              <BungkusLazy>
-                <MonitoringDashboardPage />
-              </BungkusLazy>
+              <PermissionElement any={['dashboard.pemantauan.lihat']}>
+                <BungkusLazy>
+                  <MonitoringDashboardPage />
+                </BungkusLazy>
+              </PermissionElement>
             ),
           },
           {

@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\ClassSchedule;
 use App\Models\EducationUnit;
 use App\Models\Employee;
 use App\Models\Kelas;
-use App\Models\LmsJadwalPelajaran;
 use App\Models\ParentModel;
 use App\Models\Student;
 use App\Models\User;
@@ -29,15 +29,16 @@ class AccessScopeService
         }
 
         $student = Student::query()->where('user_id', $user->id)->first();
-        if ($student && $student->education_unit_id) {
-            return EducationUnit::query()->whereKey($student->education_unit_id);
+        if ($student && ($student->unit_id || $student->education_unit_id)) {
+            $unitId = $student->unit_id ?? $student->education_unit_id;
+            return EducationUnit::query()->whereKey($unitId);
         }
 
         $parent = ParentModel::query()->where('user_id', $user->id)->first();
         if ($parent) {
             $unitIds = Student::query()
                 ->where(fn ($q) => $q->where('parent_id', $parent->id)->orWhereHas('parentsPivot', fn ($p) => $p->whereKey($parent->id)))
-                ->pluck('education_unit_id')
+                ->pluck('unit_id')
                 ->filter()
                 ->unique();
 
@@ -54,14 +55,17 @@ class AccessScopeService
     {
         if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah', 'Waka Kurikulum', 'waka_kurikulum', 'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'TU', 'tata_usaha', 'Guru BK', 'guru_bk'])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
-            return Kelas::query()->whereIn('education_unit_id', $unitIds);
+            return Kelas::query()->whereIn('unit_pendidikan_id', $unitIds);
         }
 
         $employee = Employee::query()->where('user_id', $user->id)->first();
         if ($employee) {
             // Rombel yang diajar atau di-walikelasi
-            $teachingRombelIds = LmsJadwalPelajaran::query()->where('teacher_id', $employee->id)->pluck('rombel_id');
-            $homeroomRombelIds = Kelas::query()->where('walikelas_id', $employee->id)->pluck('id');
+            $teachingRombelIds = ClassSchedule::query()
+                ->where(fn ($q) => $q->where('employee_id', $employee->id)->orWhere('teacher_id', $employee->id))
+                ->pluck('kelas_id')
+                ->filter();
+            $homeroomRombelIds = Kelas::query()->where('wali_kelas_id', $employee->id)->pluck('id');
             $allIds = $teachingRombelIds->merge($homeroomRombelIds)->unique();
 
             return Kelas::query()->whereIn('id', $allIds);
@@ -93,7 +97,7 @@ class AccessScopeService
     {
         if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah', 'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'TU', 'tata_usaha', 'Guru BK', 'guru_bk'])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
-            return Student::query()->whereIn('education_unit_id', $unitIds);
+            return Student::query()->whereIn('unit_id', $unitIds);
         }
 
         $employee = Employee::query()->where('user_id', $user->id)->first();
@@ -133,16 +137,17 @@ class AccessScopeService
     {
         if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah', 'Waka Kurikulum', 'waka_kurikulum', 'Tata Usaha', 'TU', 'tata_usaha'])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
-            return LmsJadwalPelajaran::query()->whereIn('education_unit_id', $unitIds);
+            $rombelIds = Kelas::query()->whereIn('unit_pendidikan_id', $unitIds)->pluck('id');
+            return ClassSchedule::query()->whereIn('kelas_id', $rombelIds);
         }
 
         $employee = Employee::query()->where('user_id', $user->id)->first();
         if ($employee) {
-            return LmsJadwalPelajaran::query()->where('teacher_id', $employee->id);
+            return ClassSchedule::query()->where(fn ($q) => $q->where('employee_id', $employee->id)->orWhere('teacher_id', $employee->id));
         }
 
         $rombelIds = $this->accessibleRombels($user)->pluck('id');
-        return LmsJadwalPelajaran::query()->whereIn('rombel_id', $rombelIds);
+        return ClassSchedule::query()->whereIn('kelas_id', $rombelIds);
     }
 
     /**

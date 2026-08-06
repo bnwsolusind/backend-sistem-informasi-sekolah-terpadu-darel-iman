@@ -28,13 +28,23 @@ class StudentNote extends Model
         'visible_to_parent',
         'visible_to_student',
         'attachment_path',
+        'signed_by_user_id',
+        'signed_at',
+        'signature_content_hash',
     ];
 
     protected $casts = [
         'date' => 'date:Y-m-d',
         'visible_to_parent' => 'boolean',
         'visible_to_student' => 'boolean',
+        'signed_at' => 'datetime',
     ];
+
+    /** Hash isi catatan saat ditandatangani, untuk deteksi perubahan versi. */
+    public static function contentHash(?string $content): ?string
+    {
+        return $content !== null ? hash('sha256', trim($content)) : null;
+    }
 
     public function student()
     {

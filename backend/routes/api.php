@@ -122,7 +122,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/login/admin', [AuthController::class, 'loginAdmin']);
     Route::post('/login/employee', [AuthController::class, 'loginEmployee']);
     Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr']);
-    Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent']);
+    Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent'])->middleware('throttle:10,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -141,7 +141,7 @@ Route::prefix('v2/auth')->group(function () {
     Route::post('/login/admin', [AuthController::class, 'loginAdmin']);
     Route::post('/login/employee', [AuthController::class, 'loginEmployee']);
     Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr']);
-    Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent']);
+    Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent'])->middleware('throttle:10,1');
 });
 
 Route::middleware('auth:sanctum')->prefix('v2/approval')->group(function () {
@@ -228,6 +228,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/enterprise/{resource}/import', [MutabaahEnterpriseController::class, 'import']);
         Route::delete('/enterprise/{resource}/bulk', [MutabaahEnterpriseController::class, 'bulkDelete']);
         Route::post('/enterprise/{resource}/{id}/restore', [MutabaahEnterpriseController::class, 'restore']);
+        Route::delete('/enterprise/{resource}/{id}/force', [MutabaahEnterpriseController::class, 'forceDelete']);
         Route::get('/enterprise/{resource}', [MutabaahEnterpriseController::class, 'index']);
         Route::post('/enterprise/{resource}', [MutabaahEnterpriseController::class, 'store']);
         Route::get('/enterprise/{resource}/{id}', [MutabaahEnterpriseController::class, 'show']);
@@ -253,20 +254,32 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::post('/site-settings', [SiteSettingController::class, 'update'])
         ->middleware('can:sistem.pengaturan');
-    Route::get('/dashboard', [DashboardPemantauanController::class, 'ringkasan']);
-    Route::get('/dashboard/super-admin', [SuperAdminDashboardController::class, 'index']);
-    Route::get('/dashboard/kepala-sekolah', [KepalaSekolahDashboardController::class, 'index']);
-    Route::get('/dashboard/divisi-pendidikan', [DivisiPendidikanDashboardController::class, 'index']);
-    Route::get('/dashboard/waka-kurikulum', [WakaKurikulumDashboardController::class, 'index']);
-    Route::get('/dashboard/waka-kesiswaan', [WakaKesiswaanDashboardController::class, 'index']);
-    Route::get('/dashboard/tata-usaha', [TataUsahaDashboardController::class, 'index']);
-    Route::get('/dashboard/wali-kelas', [WaliKelasDashboardController::class, 'index']);
-    Route::get('/dashboard/guru-tahfizh', [GuruTahfizhDashboardController::class, 'index']);
-    Route::get('/dashboard/guru-bk', [GuruBkDashboardController::class, 'index']);
-    Route::get('/dashboard/operator', [OperatorDashboardController::class, 'index']);
-    Route::get('/dashboard-v1', DashboardController::class);
+    Route::get('/dashboard', [DashboardPemantauanController::class, 'ringkasan'])
+        ->middleware('can:dashboard.pemantauan.lihat');
+    Route::get('/dashboard/super-admin', [SuperAdminDashboardController::class, 'index'])
+        ->middleware('can:dashboard.super-admin.view');
+    Route::get('/dashboard/kepala-sekolah', [KepalaSekolahDashboardController::class, 'index'])
+        ->middleware('can:dashboard.kepala-sekolah.view');
+    Route::get('/dashboard/divisi-pendidikan', [DivisiPendidikanDashboardController::class, 'index'])
+        ->middleware('can:dashboard.divisi-pendidikan.view');
+    Route::get('/dashboard/waka-kurikulum', [WakaKurikulumDashboardController::class, 'index'])
+        ->middleware('can:dashboard.waka-kurikulum.view');
+    Route::get('/dashboard/waka-kesiswaan', [WakaKesiswaanDashboardController::class, 'index'])
+        ->middleware('can:dashboard.waka-kesiswaan.view');
+    Route::get('/dashboard/tata-usaha', [TataUsahaDashboardController::class, 'index'])
+        ->middleware('can:dashboard.tata-usaha.view');
+    Route::get('/dashboard/wali-kelas', [WaliKelasDashboardController::class, 'index'])
+        ->middleware('can:dashboard.guru.view');
+    Route::get('/dashboard/guru-tahfizh', [GuruTahfizhDashboardController::class, 'index'])
+        ->middleware('can:dashboard.guru-tahfizh.view');
+    Route::get('/dashboard/guru-bk', [GuruBkDashboardController::class, 'index'])
+        ->middleware('can:dashboard.guru-bk.view');
+    Route::get('/dashboard/operator', [OperatorDashboardController::class, 'index'])
+        ->middleware('can:dashboard.operator.view');
+    Route::get('/dashboard-v1', DashboardController::class)
+        ->middleware('can:dashboard.view');
 
-    Route::prefix('dashboard-pemantauan')->group(function () {
+    Route::prefix('dashboard-pemantauan')->middleware('can:dashboard.pemantauan.lihat')->group(function () {
         Route::get('/ringkasan', [DashboardPemantauanController::class, 'ringkasan']);
 
         Route::get('/pemantauan-divisi', [DashboardPemantauanController::class, 'daftarPemantauanDivisi']);
@@ -706,7 +719,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Teacher Portal Routes (/api/teacher/*)
-    Route::prefix('teacher')->group(function () {
+    Route::prefix('teacher')->middleware('role:Guru|Guru Mata Pelajaran|Guru PAI|Pembimbing|Wali Kelas|Guru Tahfizh|Musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|Kepala Sekolah|Tata Usaha|TU|Operator|Divisi Pendidikan|Waka Kurikulum|Waka Kesiswaan|Wakil Kepala Sekolah|Admin|Super Admin')->group(function () {
             Route::get('/dashboard', [TeacherPortalController::class, 'dashboard']);
             Route::get('/schedules', [TeacherPortalController::class, 'schedules']);
             Route::get('/classes', [TeacherPortalController::class, 'classes']);
@@ -785,7 +798,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // Alumni Portal Routes (/api/portal/alumni/*)
-        Route::prefix('portal/alumni')->group(function () {
+        Route::prefix('portal/alumni')->middleware('role:Alumni|Super Admin|super_admin')->group(function () {
             Route::get('/dashboard', [AlumniPortalController::class, 'dashboard']);
             Route::put('/profile', [AlumniPortalController::class, 'updateProfile']);
         });

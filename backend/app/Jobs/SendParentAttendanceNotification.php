@@ -50,17 +50,17 @@ class SendParentAttendanceNotification implements ShouldQueue
         // Optionally dispatch to Notification model if exists
         try {
             if (class_exists(\App\Models\Notification::class)) {
-                // If parents exist, notify parents
+                // Jika parents exist, notify parents
                 $parents = $student->parents ?? [];
                 foreach ($parents as $parent) {
                     if (isset($parent->user_id)) {
-                        \App\Models\Notification::create([
-                            'user_id' => $parent->user_id,
-                            'title' => $title,
-                            'message' => $message,
-                            'type' => 'attendance',
-                            'is_read' => false,
-                        ]);
+                        \App\Models\Notification::deliver(
+                            userId: $parent->user_id,
+                            title: $title,
+                            body: $message,
+                            channel: 'attendance',
+                            metadata: ['student_id' => $this->studentId],
+                        );
                     }
                 }
             }

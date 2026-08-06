@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -10,9 +11,24 @@ class TeacherPortalApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_authenticated_user_can_access_teacher_dashboard()
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(RolePermissionSeeder::class);
+    }
+
+    private function teacherUser(): User
     {
         $user = User::factory()->create();
+        $user->assignRole('Guru');
+
+        return $user;
+    }
+
+    public function test_authenticated_user_can_access_teacher_dashboard()
+    {
+        $user = $this->teacherUser();
 
         $response = $this->actingAs($user, 'sanctum')
             ->getJson('/api/teacher/dashboard');
@@ -35,7 +51,7 @@ class TeacherPortalApiTest extends TestCase
 
     public function test_authenticated_user_can_access_teacher_schedules()
     {
-        $user = User::factory()->create();
+        $user = $this->teacherUser();
 
         $response = $this->actingAs($user, 'sanctum')
             ->getJson('/api/teacher/schedules');
@@ -48,7 +64,7 @@ class TeacherPortalApiTest extends TestCase
 
     public function test_authenticated_user_can_access_teacher_classes()
     {
-        $user = User::factory()->create();
+        $user = $this->teacherUser();
 
         $response = $this->actingAs($user, 'sanctum')
             ->getJson('/api/teacher/classes');
@@ -61,7 +77,7 @@ class TeacherPortalApiTest extends TestCase
 
     public function test_authenticated_user_can_create_material_with_teacher_payload()
     {
-        $user = User::factory()->create();
+        $user = $this->teacherUser();
 
         $response = $this->actingAs($user, 'sanctum')
             ->postJson('/api/teacher/materials', [
@@ -86,7 +102,7 @@ class TeacherPortalApiTest extends TestCase
 
     public function test_authenticated_user_can_update_and_delete_own_material(): void
     {
-        $user = User::factory()->create();
+        $user = $this->teacherUser();
         $created = $this->actingAs($user, 'sanctum')->postJson('/api/teacher/materials', [
             'judul' => 'Materi Awal',
             'subject_id' => '00000000-0000-0000-0000-000000000001',
@@ -119,7 +135,7 @@ class TeacherPortalApiTest extends TestCase
 
     public function test_authenticated_user_can_create_assignment_with_teacher_payload()
     {
-        $user = User::factory()->create();
+        $user = $this->teacherUser();
 
         $response = $this->actingAs($user, 'sanctum')
             ->postJson('/api/teacher/assignments', [

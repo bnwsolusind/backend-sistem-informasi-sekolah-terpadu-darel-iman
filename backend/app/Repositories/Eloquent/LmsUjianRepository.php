@@ -194,22 +194,42 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
             return $existing->load(['ujian.kisiKisi', 'jawaban']);
         }
 
-        $sesi = LmsUjianSesi::create([
-            'ujian_id' => $ujianId,
-            'siswa_id' => $siswaId,
-            'waktu_mulai' => now(),
-            'status' => 'proses',
-            'ip_address' => $ipAddress ?? request()->ip(),
-        ]);
+        try {
+            $sesi = LmsUjianSesi::create([
+                'ujian_id' => $ujianId,
+                'siswa_id' => $siswaId,
+                'waktu_mulai' => now(),
+                'status' => 'proses',
+                'ip_address' => $ipAddress ?? request()->ip(),
+            ]);
 
-        return $sesi->fresh(['ujian.kisiKisi', 'siswa']);
+            return $sesi->fresh(['ujian.kisiKisi', 'siswa']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Unique violation pada (ujian_id, siswa_id, status='proses') —
+            // sesi paralel sudah dibuat duluan; lanjutkan sesi yang ada.
+            $concurrent = $this->getSesiBySiswa($ujianId, $siswaId);
+            if ($concurrent && $concurrent->status === 'proses') {
+                return $concurrent->load(['ujian.kisiKisi', 'jawaban']);
+            }
+
+            throw $e;
+        }
     }
 
     public function saveJawabanSesi(string $sesiId, array $jawabanData): bool
     {
-        $sesi = LmsUjianSesi::find($sesiId);
+        $sesi = LmsUjianSesi::with('ujian')->find($sesiId);
         if (! $sesi || $sesi->status !== 'proses') {
             return false;
+        }
+
+        // Enforcement timer: simpan jawaban ditolak setelah batas waktu habis.
+        if ($sesi->ujian && $sesi->waktu_mulai) {
+            $durasiDetik = (int) $sesi->ujian->durasi_menit * 60;
+            $deadline = $sesi->waktu_mulai->copy()->addSeconds($durasiDetik);
+            if (now()->gt($deadline)) {
+                return false;
+            }
         }
 
         foreach ($jawabanData as $item) {

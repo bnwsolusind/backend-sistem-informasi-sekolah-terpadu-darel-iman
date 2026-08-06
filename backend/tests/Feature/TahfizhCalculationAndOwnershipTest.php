@@ -10,6 +10,7 @@ use App\Models\Semester;
 use App\Models\Student;
 use App\Models\StudentNote;
 use App\Models\TahfizhDailyLog;
+use App\Models\Teacher;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,9 +36,28 @@ class TahfizhCalculationAndOwnershipTest extends TestCase
             'level' => 'SMA',
         ]);
 
+        $ay = AcademicYear::create([
+            'id' => (string) Str::uuid(),
+            'name' => '2026/2027',
+            'start_date' => '2026-07-01',
+            'end_date' => '2027-06-30',
+            'is_active' => true,
+        ]);
+
+        $sem = Semester::create([
+            'id' => (string) Str::uuid(),
+            'academic_year_id' => $ay->id,
+            'name' => 'Ganjil',
+            'is_active' => true,
+        ]);
+
         $kelas = Kelas::create([
             'id' => (string) Str::uuid(),
-            'education_unit_id' => $unit->id,
+            'unit_pendidikan_id' => $unit->id,
+            'tahun_ajaran_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'jenjang' => 'SMA',
+            'tingkat' => '10',
             'nama_kelas' => '10-A',
             'kode_kelas' => '10A',
         ]);
@@ -48,7 +68,7 @@ class TahfizhCalculationAndOwnershipTest extends TestCase
             'kelas_id' => $kelas->id,
             'nis' => '998877',
             'full_name' => 'Siswa Hafiz',
-            'gender' => 'L',
+            'gender' => 'male',
             'is_active' => true,
         ]);
 
@@ -98,7 +118,7 @@ class TahfizhCalculationAndOwnershipTest extends TestCase
             'id' => (string) Str::uuid(),
             'nis' => '998878',
             'full_name' => 'Siswa Murajaah',
-            'gender' => 'L',
+            'gender' => 'male',
             'is_active' => true,
         ]);
 
@@ -156,25 +176,36 @@ class TahfizhCalculationAndOwnershipTest extends TestCase
             'id' => (string) Str::uuid(),
             'nis' => '776655',
             'full_name' => 'Siswa Bukan Anak',
-            'gender' => 'P',
+            'gender' => 'female',
             'is_active' => true,
+        ]);
+
+        $teacher = Teacher::create([
+            'id' => (string) Str::uuid(),
+            'full_name' => 'Guru BK',
+            'employee_number' => 'EMP-BK-01',
         ]);
 
         $note = StudentNote::create([
             'id' => (string) Str::uuid(),
             'student_id' => $unlinkedStudent->id,
+            'teacher_id' => $teacher->id,
             'title' => 'Catatan Kedisiplinan',
             'content' => 'Tingkatkan kerapihan pakaian.',
             'category' => 'Kedisiplinan',
             'visible_to_parent' => true,
         ]);
 
+        // Konvensi Portal (fail-closed, tanpa kebocoran eksistensi):
+        // anak yang tidak terhubung → 404 di semua endpoint child-scoped,
+        // termasuk tanda tangan catatan. Status 403 hanya untuk kasus anak
+        // terhubung tetapi catatan belum dipublikasikan ke orang tua.
         $response = $this->actingAs($parentUser, 'sanctum')
             ->postJson("/api/portal/student-notes/{$note->id}/sign", [
                 'child_id' => $unlinkedStudent->id,
                 'notes_parent' => 'Sudah saya ingatkan.',
             ]);
 
-        $response->assertStatus(403);
+        $response->assertStatus(404);
     }
 }

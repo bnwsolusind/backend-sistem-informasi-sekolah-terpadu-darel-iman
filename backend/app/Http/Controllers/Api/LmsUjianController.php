@@ -6,7 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Lms\StoreLmsUjianRequest;
 use App\Http\Requests\Lms\UpdateLmsUjianRequest;
 use App\Http\Resources\LmsUjianResource;
-use App\Http\Resources\LmsUjianSesiResource;
+use App\Models\LmsUjian;
+use App\Models\LmsUjianSesi;
 use App\Models\Student;
 use App\Services\LmsUjianService;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,41 @@ class LmsUjianController extends Controller
     public function __construct(
         protected LmsUjianService $ujianService
     ) {}
+
+    /** Pengguna internal (guru/operator/admin); bukan Siswa/Orang Tua/Alumni. */
+    private function isStaffUser(?object $user): bool
+    {
+        if (! $user || ! method_exists($user, 'hasAnyRole')) {
+            return false;
+        }
+
+        return ! $user->hasAnyRole(['Siswa', 'Orang Tua', 'Alumni']);
+    }
+
+    /**
+     * Sesi CBT hanya boleh diakses pemiliknya (Siswa yang login) atau staf
+     * (untuk kepentingan proktor). Pengguna lain (Orang Tua, Alumni, akun
+     * tanpa relasi) ditolak.
+     */
+    private function canAccessSession(Request $request, ?LmsUjianSesi $sesi): bool
+    {
+        if (! $sesi) {
+            return false;
+        }
+
+        $user = $request->user();
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasRole') && $user->hasRole('Siswa')) {
+            $siswa = Student::where('user_id', $user->id)->first();
+
+            return $siswa !== null && $sesi->siswa_id === $siswa->id;
+        }
+
+        return $this->isStaffUser($user);
+    }
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -164,7 +200,6 @@ class LmsUjianController extends Controller
     public function startSession(Request $request, string $id): JsonResponse
     {
         $user = $request->user();
-        $siswaId = null;
 
         if ($user && method_exists($user, 'hasRole') && $user->hasRole('Siswa')) {
             $siswa = Student::where('user_id', $user->id)->where('is_active', true)->first();
@@ -176,21 +211,65 @@ class LmsUjianController extends Controller
             }
             $siswaId = $siswa->id;
         } else {
-            $siswaId = $request->input('siswa_id');
-            if (! $siswaId && $user) {
-                $siswa = Student::where('user_id', $user->id)->first();
-                $siswaId = $siswa?->id;
+            // Non-Siswa (guru/operator/admin) wajib menyebutkan siswa_id secara
+            // eksplisit. Tidak ada fallback otomatis ke siswa mana pun — ini
+            // mencegah pengguna membuat sesi ujian atas nama siswa sewenang-wenang.
+            if (! $this->isStaffUser($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak memulai sesi ujian.',
+                ], 403);
             }
+
+            $siswaId = $request->input('siswa_id');
             if (! $siswaId) {
-                $siswaId = Student::first()?->id;
+                return response()->json([
+                    'success' => false,
+                    'message' => 'siswa_id wajib diisi saat memulai sesi atas nama siswa.',
+                ], 422);
             }
         }
 
-        if (! $siswaId) {
+        $ujian = LmsUjian::query()->find($id);
+        if (! $ujian) {
             return response()->json([
                 'success' => false,
-                'message' => 'Data Siswa tidak ditemukan untuk pengerjaan ujian.',
-            ], 400);
+                'message' => 'Ujian tidak ditemukan.',
+            ], 404);
+        }
+
+        // Sesi 'proses' yang sudah ada dilanjutkan; selain itu berlaku gate
+        // jadwal & batas percobaan agar tidak ada pengerjaan ganda/tanpa batas.
+        $active = LmsUjianSesi::query()
+            ->where('ujian_id', $id)
+            ->where('siswa_id', $siswaId)
+            ->where('status', 'proses')
+            ->first();
+
+        if (! $active) {
+            if (! in_array($ujian->status, ['published', 'berlangsung'], true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ujian belum dapat dimulai.',
+                ], 422);
+            }
+            if (($ujian->waktu_mulai && now()->lt($ujian->waktu_mulai)) || ($ujian->waktu_selesai && now()->gt($ujian->waktu_selesai))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ujian berada di luar jadwal pengerjaan.',
+                ], 422);
+            }
+            $attempts = LmsUjianSesi::query()
+                ->where('ujian_id', $id)
+                ->where('siswa_id', $siswaId)
+                ->whereIn('status', ['selesai', 'timeout'])
+                ->count();
+            if ($attempts >= (int) $ujian->max_attempt) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Batas percobaan ujian telah tercapai.',
+                ], 422);
+            }
         }
 
         try {
@@ -211,16 +290,12 @@ class LmsUjianController extends Controller
 
     public function submitAnswers(Request $request, string $sesiId): JsonResponse
     {
-        $user = $request->user();
-        if ($user && method_exists($user, 'hasRole') && $user->hasRole('Siswa')) {
-            $siswa = Student::where('user_id', $user->id)->first();
-            $sesi = \App\Models\LmsUjianSesi::find($sesiId);
-            if (! $sesi || ! $siswa || $sesi->siswa_id !== $siswa->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sesi ujian tidak ditemukan atau bukan milik Anda.',
-                ], 403);
-            }
+        $sesi = LmsUjianSesi::find($sesiId);
+        if (! $this->canAccessSession($request, $sesi)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi ujian tidak ditemukan atau bukan milik Anda.',
+            ], 403);
         }
 
         $jawaban = $request->input('jawaban', []);
@@ -241,16 +316,12 @@ class LmsUjianController extends Controller
 
     public function finishSession(Request $request, string $sesiId): JsonResponse
     {
-        $user = $request->user();
-        if ($user && method_exists($user, 'hasRole') && $user->hasRole('Siswa')) {
-            $siswa = Student::where('user_id', $user->id)->first();
-            $sesi = \App\Models\LmsUjianSesi::find($sesiId);
-            if (! $sesi || ! $siswa || $sesi->siswa_id !== $siswa->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sesi ujian tidak ditemukan atau bukan milik Anda.',
-                ], 403);
-            }
+        $sesi = LmsUjianSesi::find($sesiId);
+        if (! $this->canAccessSession($request, $sesi)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi ujian tidak ditemukan atau bukan milik Anda.',
+            ], 403);
         }
 
         // Optional final save before ending
@@ -267,15 +338,37 @@ class LmsUjianController extends Controller
             ], 400);
         }
 
+        // Nilai hanya ditampilkan bila ujian diatur tampilkan_nilai_langsung.
+        $showScore = (bool) ($finalSesi->ujian?->tampilkan_nilai_langsung ?? false);
+
         return response()->json([
             'success' => true,
             'message' => 'Sesi CBT Ujian berhasil diselesaikan dan dinilai otomatis!',
-            'data' => new LmsUjianSesiResource($finalSesi),
+            'data' => [
+                'id' => $finalSesi->id,
+                'ujian_id' => $finalSesi->ujian_id,
+                'status' => $finalSesi->status,
+                'waktu_mulai' => $finalSesi->waktu_mulai?->toIso8601String(),
+                'waktu_selesai' => $finalSesi->waktu_selesai?->toIso8601String(),
+                'nilai_tersedia' => $showScore,
+                'nilai_final' => $showScore ? (float) $finalSesi->nilai_final : null,
+                'nilai_kkm' => $showScore ? (float) ($finalSesi->ujian?->nilai_kkm ?? 0) : null,
+                'jumlah_benar' => $showScore ? (int) $finalSesi->jumlah_benar : null,
+                'jumlah_salah' => $showScore ? (int) $finalSesi->jumlah_salah : null,
+                'jumlah_kosong' => $showScore ? (int) $finalSesi->jumlah_kosong : null,
+            ],
         ]);
     }
 
-    public function results(string $id): JsonResponse
+    public function results(Request $request, string $id): JsonResponse
     {
+        if (! $this->isStaffUser($request->user())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak berhak melihat hasil ujian.',
+            ], 403);
+        }
+
         $hasil = $this->ujianService->hasilUjian($id);
 
         return response()->json([
@@ -286,6 +379,13 @@ class LmsUjianController extends Controller
 
     public function gradeEssay(Request $request, string $jawabanId): JsonResponse
     {
+        if (! $this->isStaffUser($request->user())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak berhak menilai jawaban ujian.',
+            ], 403);
+        }
+
         $request->validate([
             'poin_didapat' => ['required', 'numeric', 'min:0', 'max:100'],
             'catatan_guru' => ['nullable', 'string'],
