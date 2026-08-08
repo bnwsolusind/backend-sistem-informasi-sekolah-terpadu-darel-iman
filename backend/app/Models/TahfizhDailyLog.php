@@ -58,6 +58,11 @@ class TahfizhDailyLog extends Model
         return $this->belongsTo(Kelas::class, 'class_id');
     }
 
+    public function schoolClass()
+    {
+        return $this->belongsTo(Kelas::class, 'class_id');
+    }
+
     public function teacher()
     {
         return $this->belongsTo(Teacher::class, 'teacher_id');

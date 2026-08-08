@@ -22,8 +22,8 @@ class PortalStudentContextService
         }
 
         // Pilihan anak aktif melalui header atau query parameter
-        $selectedChildId = $request->header('X-Child-Id') 
-            ?? $request->query('child_id') 
+        $selectedChildId = $request->header('X-Child-Id')
+            ?? $request->query('child_id')
             ?? $request->input('child_id');
 
         if ($selectedChildId) {
@@ -54,7 +54,7 @@ class PortalStudentContextService
         }
 
         // Fallback untuk akun Super Admin / Admin agar dapat mengecek data portal
-        if ($user->hasRole('Super Admin') || $user->hasRole('Admin') || $user->username === 'superadmin') {
+        if ($user->hasRole('Super Admin') || $user->hasRole('Admin')) {
             return Student::query()
                 ->with(['kelas', 'educationUnit'])
                 ->where('is_active', true)
@@ -81,8 +81,9 @@ class PortalStudentContextService
                 return collect([$student]);
             }
 
-            if ($user->hasRole('Super Admin') || $user->hasRole('Admin') || $user->username === 'superadmin') {
+            if ($user->hasRole('Super Admin') || $user->hasRole('Admin')) {
                 $fallback = Student::query()->with(['kelas', 'educationUnit'])->where('is_active', true)->get();
+
                 return $fallback;
             }
 

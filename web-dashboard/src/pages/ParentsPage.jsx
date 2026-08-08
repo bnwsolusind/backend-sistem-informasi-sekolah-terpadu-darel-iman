@@ -18,6 +18,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react'
 import { studentService } from '../services/studentService'
+import PersonAvatar from '../components/ui/PersonAvatar'
 import {
   MasterDataPage,
   MasterPageHeader,
@@ -272,9 +273,11 @@ export default function ParentsPage() {
                 <tr key={parent.id} className="transition hover:bg-slate-50/80">
                   <td className="p-4 font-bold text-slate-900">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 font-bold">
-                        {parent.nama.charAt(0).toUpperCase()}
-                      </div>
+                      <PersonAvatar
+                        src={parent.photo_url || parent.avatar_url || parent.foto}
+                        name={parent.nama}
+                        size="table"
+                      />
                       <div>
                         <div>{parent.nama}</div>
                         <div className="text-xs text-slate-400 font-normal">{parent.email}</div>
@@ -357,9 +360,11 @@ export default function ParentsPage() {
           <div className="space-y-4 p-6 text-sm">
             <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-800 text-white text-lg font-bold">
-                  {selectedParent.nama.charAt(0).toUpperCase()}
-                </div>
+                <PersonAvatar
+                  src={selectedParent.photo_url || selectedParent.avatar_url || selectedParent.foto}
+                  name={selectedParent.nama}
+                  size="card"
+                />
                 <div>
                   <h3 className="text-base font-bold text-slate-900">{selectedParent.nama}</h3>
                   <div className="flex items-center gap-2 mt-0.5">

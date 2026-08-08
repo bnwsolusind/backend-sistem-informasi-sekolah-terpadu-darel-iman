@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,6 +13,7 @@ import {
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { LuSave, LuX } from 'react-icons/lu'
+import { educationUnitService } from '../../services/educationUnitService'
 
 // Schema Validasi Zod
 const studentSchema = z.object({
@@ -30,8 +31,23 @@ export function StudentFormModal({
   onSubmit,
   initialData = null,
   isSubmitting = false,
+  units = [],
 }) {
   const isEditMode = Boolean(initialData?.id)
+  const [unitList, setUnitList] = useState(units)
+
+  useEffect(() => {
+    if (units && units.length > 0) {
+      setUnitList(units)
+    } else {
+      educationUnitService.getDaftar().then((res) => {
+        const data = res?.data?.data || res?.data || []
+        if (Array.isArray(data) && data.length > 0) {
+          setUnitList(data)
+        }
+      }).catch(() => {})
+    }
+  }, [units])
 
   const {
     register,
@@ -141,10 +157,12 @@ export function StudentFormModal({
               {...register('unit_pendidikan')}
               className="flex h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             >
-              <option value="TKIT">TKIT</option>
-              <option value="SDIT">SDIT</option>
-              <option value="SMPIT">SMPIT</option>
-              <option value="SMAIT">SMAIT</option>
+              <option value="">Pilih Unit Pendidikan</option>
+              {unitList.map((u) => (
+                <option key={u.id || u.nama_unit} value={u.nama_unit || u.code || u.name || u.id}>
+                  {u.nama_unit || u.name || u.code}
+                </option>
+              ))}
             </select>
           </div>
 

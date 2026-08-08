@@ -540,12 +540,9 @@ export default function StudentsPage() {
             className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
           >
             <option value="">Semua Unit Pendidikan</option>
-            <option value="SDIT 1">SDIT 1 Dar el-Iman - 50 Kota</option>
-            <option value="SDIT 2">SDIT 2 Dar el-Iman - Padang</option>
-            <option value="SDIT 3">SDIT 3 Dar el-Iman - Padang</option>
-            <option value="SDIT 4">SDIT 4 Dar el-Iman - Padang</option>
-            <option value="TKIT 1">TKIT 1 Dar el-Iman - Padang</option>
-            <option value="MIT SaQu">MIT SaQu Dar el-Iman - Padang</option>
+            {rawUnits.map((u) => (
+              <option key={u.id || u.nama_unit} value={u.nama_unit || u.name || u.id}>{u.nama_unit || u.name}</option>
+            ))}
           </select>
 
           <select
@@ -554,14 +551,11 @@ export default function StudentsPage() {
             className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
           >
             <option value="">Semua Kelas</option>
-            <option value="6A">6A</option>
-            <option value="5B">5B</option>
-            <option value="5A">5A</option>
-            <option value="4A">4A</option>
-            <option value="3A">3A</option>
-            <option value="3B">3B</option>
-            <option value="TK B">TK B</option>
+            {rawClasses.map((c) => (
+              <option key={c.id || c.nama_kelas} value={c.nama_kelas || c.name || c.id}>{c.nama_kelas || c.name}</option>
+            ))}
           </select>
+
 
           <select
             value={statusFilter}

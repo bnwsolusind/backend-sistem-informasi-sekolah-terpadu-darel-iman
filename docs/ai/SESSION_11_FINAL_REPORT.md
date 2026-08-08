@@ -1,7 +1,7 @@
 # SESI 11 — FINAL REPORT: STUDENT PORTAL (SECURITY & CORRECTNESS HARDENING)
 
-Tanggal: 2026-08-06  
-Scope: Portal Siswa + hardening engine CBT legacy + verifikasi baseline.
+Tanggal: 2026-08-07  
+Scope: Portal Siswa + hardening engine CBT legacy + verifikasi baseline + perbaikan divergence query SQLite/PG.
 
 ---
 
@@ -19,23 +19,26 @@ SESSION 11 PASSED WITH ENVIRONMENT NOTE — PG17 RUNTIME VERIFICATION PENDING
 
 | METRIK | BASELINE S10 | AKHIR S11 | DELTA |
 |---|---|---|---|
-| Tests | 227 | **237** | +10 (StudentCbtSecurityHardeningTest) |
-| Assertions | 878 | **906** | +28 |
+| Tests | 227 | **246** | +19 (hardening CBT + fixtures portal) |
+| Assertions | 878 | **947** | +69 |
 | Failures | 0 | **0** | — |
 | Errors | 0 | **0** | — |
 
 ```text
 Guard 6 filter critical : 25 passed / 100 assertions  (BASELINE INTACT)
-Full suite             : 237 passed / 906 assertions / 0 failed / 0 error
+Full suite (SQLite)     : 246 passed / 947 assertions / 0 failed / 0 error
+Portal group            : 34 passed / 161 assertions
+  (StudentPortal|StudentCbt|StudentParentPortal|StudentUnitScope)
 ```
 
 Verifikasi PostgreSQL 14 (DB `sms_closure_testing`):
 ```text
-StudentCbtSecurityHardeningTest : 10 passed / 28 assertions  (migrasi + index partial tervalidasi PG)
-Guard 6 filter critical (PG)    : 23 passed / 2 failed (93 assertions)
+StudentCbtSecurityHardeningTest : 11 passed / 38 assertions  (migrasi + index partial tervalidasi PG)
+Portal group (PG)               : 34 passed / 161 assertions  (semua endpoint portal HIJAU di PG)
+MultiPortalAuthTest (PG)        : 4 passed / 2 failed (15 assertions)
   → 2 kegagalan = limitasi PRA-EKSISTING absensi pegawai pada skema partitioned
-    `attendances` (student_id/class_id NOT NULL, tanpa kolom employee_id) —
-    IDENTIK dengan catatan Sesi 10 §6c; BUKAN regresi Sesi 11.
+    `attendances` (`attendances_m08`): student_id/class_id NOT NULL, tanpa kolom
+    employee_id — IDENTIK dengan catatan Sesi 10 §6c; BUKAN regresi Sesi 11.
   → Baseline PG 14 juga 23/2 (tidak berubah oleh Sesi 11).
 ```
 
@@ -58,6 +61,14 @@ Guard 6 filter critical (PG)    : 23 passed / 2 failed (93 assertions)
 8. **Tanda tangan catatan**: hanya Orang Tua terhubung (siswa → 403).
 9. **Bug `$showScore`** di portal `finishExam` diperbaiki.
 10. **Frontend**: mock `DEFAULT_ACTIVITIES` dihapus; tautan notifikasi siswa diperbaiki.
+11. **Perbaikan divergence query SQLite/PG (bug nyata yang selama ini tertutup keleluasaan SQLite)**, semua tervalidasi HIJAU di PG:
+    - `dashboard()` & `assignments()` query `where('class_id')` pada `lms_penugasan` → diganti `where('kelas_id', $student->kelas_id ?? $student->class_id)` (tabel hanya punya `kelas_id`; PG → 500 `42703`, SQLite → diam-diam 0 baris).
+    - `where('status', 'published')` pada `lms_penugasan` → `where('is_published', true)` (kolom `status` tidak ada; status hanya accessor/mutator).
+    - `LmsPenugasan::teacher()` relation ditambahkan (alias `guru_id`) — sebelumnya eager-load `with('teacher')` memicu `RelationNotFoundException` begitu baris ada.
+    - `orderBy('date')` pada `tahfizh_daily_logs` → `orderBy('record_date')` (kolom sebenarnya `record_date`).
+    - `sum('jumlah_ayat')` pada `tahfizh_daily_logs` dihapus (kolom tidak pernah ada) → dihitung per baris: `hafalan_ayah_end - hafalan_ayah_start + 1`, fallback `hafalan_baris`.
+    - `whereDate('entry_date')` pada `mutabaah_daily_headers` → `whereDate('activity_date')` (kolom sebenarnya `activity_date`).
+12. **Fix keamanan CBT**: `LmsUjianService::mulaiSesi()` tidak lagi mengembalikan `$sesi->jawaban` penuh (bocor `is_correct`/`poin_didapat`/`catatan_guru`/`dinilai_oleh`); payload resume hanya berisi `soal_id`, `jawaban_dipilih`, `jawaban_esai` + test baru `test_resumed_session_payload_has_no_scoring_or_answer_key_fields`.
 
 ## 5. FILE YANG DIUBAH/DITAMBAH
 
@@ -65,9 +76,12 @@ Backend:
 - `app/Http/Resources/LmsBankSoalResource.php` — redaksi kunci utk non-staf.
 - `app/Http/Controllers/Api/LmsUjianController.php` — ownership fail-closed, staff-gate, gate jadwal/attempt, redaksi nilai, hapus fallback `Student::first()`.
 - `app/Repositories/Eloquent/LmsUjianRepository.php` — timer enforcement + `startSesiUjian` race-safe.
-- `app/Http/Controllers/Api/V1/StudentParentPortalController.php` — fix `$showScore`, signStudentNote parent-only, submitAssignment class guard.
+- `app/Http/Controllers/Api/V1/StudentParentPortalController.php` — fix `$showScore`, signStudentNote parent-only, submitAssignment class guard, query `lms_penugasan` (`kelas_id`/`is_published`), `tahfizh` (`record_date`, total ayat via PHP), mutabaah header (`activity_date`).
+- `app/Services/LmsUjianService.php` — sanitasi payload resume sesi (tanpa skor/kunci).
+- `app/Models/LmsPenugasan.php` — tambah relation `teacher()`.
 - `database/migrations/2026_08_06_120000_add_unique_proses_attempt_to_lms_ujian_sesi.php` — partial unique index + de-duplikasi.
-- `tests/Feature/StudentCbtSecurityHardeningTest.php` — 10 test baru.
+- `tests/Feature/StudentCbtSecurityHardeningTest.php` — 11 test (termasuk resume payload no scoring/key).
+- `tests/Feature/StudentPortalCacheIsolationTest.php` — fixtures diselaraskan dgn skema nyata (kelas_id/class_id, semester_id/tahun_ajaran_id, final_score/is_passed, logout fail-closed).
 
 Frontend:
 - `src/components/portal/MutabaahWorkspace.jsx` — hapus mock `DEFAULT_ACTIVITIES`.

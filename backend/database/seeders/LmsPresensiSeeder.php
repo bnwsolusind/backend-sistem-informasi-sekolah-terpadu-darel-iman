@@ -17,11 +17,11 @@ class LmsPresensiSeeder extends Seeder
 {
     public function run(): void
     {
-        $kelas = Kelas::query()->first();
-        $employee = Employee::query()->first();
-        $subject = Subject::query()->first();
-        $academicYear = AcademicYear::query()->first();
-        $semester = Semester::query()->first();
+        $kelas = Kelas::query()->orderBy('id')->first();
+        $employee = Employee::query()->orderBy('id')->first();
+        $subject = Subject::query()->orderBy('id')->first();
+        $academicYear = AcademicYear::query()->orderBy('id')->first();
+        $semester = Semester::query()->orderBy('id')->first();
 
         if (! $subject || ! $academicYear || ! $semester) {
             $this->command->warn('Skipping LmsPresensiSeeder: Missing subject, academic year, or semester dependency.');
@@ -47,7 +47,7 @@ class LmsPresensiSeeder extends Seeder
             ]);
         }
 
-        $students = Student::query()->limit(10)->get();
+        $students = Student::query()->orderBy('id')->limit(10)->get();
         if ($students->isEmpty()) {
             $this->command->warn('Skipping LmsPresensiSeeder: No students found.');
 

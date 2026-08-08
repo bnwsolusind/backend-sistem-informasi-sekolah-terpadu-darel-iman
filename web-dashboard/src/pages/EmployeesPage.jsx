@@ -551,7 +551,7 @@ export default function EmployeesPage() {
     updateMutation.mutate({ id: emp.id, payload })
   }
 
-  // Export Excel Dummy Handler
+  // Export Excel Modal Handler
   const handleExportExcel = () => {
     setExportFormat('xlsx')
     setShowExportModal(true)

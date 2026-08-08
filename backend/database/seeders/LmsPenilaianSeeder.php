@@ -14,11 +14,11 @@ class LmsPenilaianSeeder extends Seeder
 {
     public function run(): void
     {
-        $siswa = Student::first();
-        $kelas = Kelas::first();
-        $subject = Subject::first();
-        $semester = Semester::first();
-        $academicYear = AcademicYear::first();
+        $siswa = Student::orderBy('id')->first();
+        $kelas = Kelas::orderBy('id')->first();
+        $subject = Subject::orderBy('id')->first();
+        $semester = Semester::orderBy('id')->first();
+        $academicYear = AcademicYear::orderBy('id')->first();
 
         if (! $siswa || ! $subject || ! $semester) {
             return;

@@ -1,20 +1,37 @@
 import React, { useState, useEffect } from 'react'
 import { Filter, RotateCcw, Check, ChevronDown, Calendar, Building2, MapPin, Tag } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+import { educationUnitService } from '../../services/educationUnitService'
+import { tahunAjaranService } from '../../services/tahunAjaranService'
 
 export function FoundationGlobalFilterBar({ onFilterChange }) {
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [academicYear, setAcademicYear] = useState(searchParams.get('academic_year_id') || '2026/2027')
+  const [academicYear, setAcademicYear] = useState(searchParams.get('academic_year_id') || 'all')
   const [semester, setSemester] = useState(searchParams.get('semester') || 'Ganjil')
   const [unit, setUnit] = useState(searchParams.get('unit_id') || 'all')
   const [jenisUnit, setJenisUnit] = useState(searchParams.get('jenis_unit') || 'all')
   const [lokasi, setLokasi] = useState(searchParams.get('lokasi') || 'all')
   const [period, setPeriod] = useState(searchParams.get('period') || 'year')
 
+  const [unitOptions, setUnitOptions] = useState([])
+  const [academicYearOptions, setAcademicYearOptions] = useState([])
+
+  useEffect(() => {
+    educationUnitService.getDaftar().then((res) => {
+      const data = res?.data?.data || res?.data || []
+      setUnitOptions(Array.isArray(data) ? data : [])
+    }).catch(() => {})
+
+    tahunAjaranService.getDaftar().then((res) => {
+      const data = res?.data?.data || res?.data || []
+      setAcademicYearOptions(Array.isArray(data) ? data : [])
+    }).catch(() => {})
+  }, [])
+
   const handleApply = () => {
     const params = new URLSearchParams()
-    if (academicYear !== '2026/2027') params.set('academic_year_id', academicYear)
+    if (academicYear !== 'all') params.set('academic_year_id', academicYear)
     if (semester !== 'Ganjil') params.set('semester', semester)
     if (unit !== 'all') params.set('unit_id', unit)
     if (jenisUnit !== 'all') params.set('jenis_unit', jenisUnit)
@@ -28,7 +45,7 @@ export function FoundationGlobalFilterBar({ onFilterChange }) {
   }
 
   const handleReset = () => {
-    setAcademicYear('2026/2027')
+    setAcademicYear('all')
     setSemester('Ganjil')
     setUnit('all')
     setJenisUnit('all')
@@ -37,7 +54,7 @@ export function FoundationGlobalFilterBar({ onFilterChange }) {
     setSearchParams(new URLSearchParams())
     if (onFilterChange) {
       onFilterChange({
-        academicYear: '2026/2027',
+        academicYear: 'all',
         semester: 'Ganjil',
         unit: 'all',
         jenisUnit: 'all',
@@ -58,15 +75,15 @@ export function FoundationGlobalFilterBar({ onFilterChange }) {
           <button
             type="button"
             onClick={handleApply}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0E5C44] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0B4936] transition"
+            className="flex items-center gap-1 rounded-xl bg-[#0E5C44] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0a4533]"
           >
             <Check className="h-3.5 w-3.5" />
-            Terapkan Filter
+            Terapkan
           </button>
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition"
+            className="flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Reset
@@ -82,9 +99,10 @@ export function FoundationGlobalFilterBar({ onFilterChange }) {
             onChange={(e) => setAcademicYear(e.target.value)}
             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-emerald-600 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
-            <option value="2026/2027">2026/2027</option>
-            <option value="2025/2026">2025/2026</option>
-            <option value="2024/2025">2024/2025</option>
+            <option value="all">Semua Tahun</option>
+            {academicYearOptions.map((ay) => (
+              <option key={ay.id} value={ay.id}>{ay.nama || ay.tahun_ajaran}</option>
+            ))}
           </select>
         </div>
 
@@ -108,12 +126,9 @@ export function FoundationGlobalFilterBar({ onFilterChange }) {
             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-emerald-600 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
             <option value="all">Semua Unit</option>
-            <option value="MIT SaQu">MIT SaQu Padang</option>
-            <option value="SMPIT 2">SMPIT 2 50 Kota</option>
-            <option value="SMAIT">SMAIT Padang</option>
-            <option value="SDIT 2">SDIT 2 Padang</option>
-            <option value="PONPES">PONPES Putra/Putri</option>
-            <option value="TKIT">TKIT Padang</option>
+            {unitOptions.map((u) => (
+              <option key={u.id} value={u.id}>{u.nama || u.nama_unit}</option>
+            ))}
           </select>
         </div>
 
@@ -125,11 +140,6 @@ export function FoundationGlobalFilterBar({ onFilterChange }) {
             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-emerald-600 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
             <option value="all">Semua Jenjang</option>
-            <option value="TK">TK / PAUD</option>
-            <option value="SD/MIT">SD / MIT</option>
-            <option value="SMP">SMP</option>
-            <option value="SMA">SMA</option>
-            <option value="PONPES">Ponpes / Dormitory</option>
           </select>
         </div>
 
@@ -141,9 +151,6 @@ export function FoundationGlobalFilterBar({ onFilterChange }) {
             className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-emerald-600 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
             <option value="all">Semua Lokasi</option>
-            <option value="Padang">Kota Padang</option>
-            <option value="50 Kota">Kab. 50 Kota</option>
-            <option value="Bukittinggi">Kota Bukittinggi</option>
           </select>
         </div>
 

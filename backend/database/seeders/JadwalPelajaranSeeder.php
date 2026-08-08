@@ -50,11 +50,13 @@ class JadwalPelajaranSeeder extends Seeder
         $guru = Employee::query()
             ->where('status', 'Aktif')
             ->orderBy('nama_lengkap')
+            ->orderBy('id')
             ->limit(8)
             ->get();
         $mataPelajaran = Subject::query()
             ->where(fn ($query) => $query->where('status', true)->orWhereNull('status'))
             ->orderByRaw('COALESCE(nama_mapel, name)')
+            ->orderBy('id')
             ->limit(8)
             ->get();
         $kelasGanjil = Kelas::query()
@@ -62,6 +64,7 @@ class JadwalPelajaranSeeder extends Seeder
             ->where('semester_id', $semesterGanjil->id)
             ->where('status', 'Aktif')
             ->orderBy('kode_kelas')
+            ->orderBy('id')
             ->limit(8)
             ->get();
 

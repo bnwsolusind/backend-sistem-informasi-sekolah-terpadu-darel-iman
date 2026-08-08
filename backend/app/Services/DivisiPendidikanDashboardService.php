@@ -31,7 +31,7 @@ class DivisiPendidikanDashboardService
         $totalGuru = Employee::whereIn('unit_id', $unitIds)->where(function ($q) {
             $q->where('status_pegawai', 'like', '%Guru%')
               ->orWhereHas('position', function ($p) {
-                  $p->where('nama_jabatan', 'like', '%Guru%');
+                  $p->where('name', 'like', '%Guru%');
               });
         })->count();
 
@@ -46,7 +46,11 @@ class DivisiPendidikanDashboardService
         // Student achievement records
         $totalPrestasi = 0;
         if (Schema::hasTable('rekap_prestasi_siswas')) {
-            $totalPrestasi = DB::table('rekap_prestasi_siswas')->whereIn('unit_id', $unitIds)->count();
+            // `rekap_prestasi_siswas` tidak punya `unit_id`; unit didapat via siswa.
+            $totalPrestasi = DB::table('rekap_prestasi_siswas as r')
+                ->join('students as s', 's.id', '=', 'r.id_siswa')
+                ->whereIn('s.unit_id', $unitIds)
+                ->count();
         }
 
         $kpis = [

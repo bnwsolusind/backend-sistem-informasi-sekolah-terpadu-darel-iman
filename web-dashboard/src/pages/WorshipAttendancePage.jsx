@@ -61,65 +61,7 @@ import {
   MasterStatsGrid,
 } from '../components/master-data'
 
-// ─── Default sample data ──────────────────────────────────────────────────
-const defaultSampleSessions = [
-  {
-    id: 'sample-subuh',
-    session_date: new Date().toISOString().slice(0, 10),
-    template: { nama: 'Shalat Subuh Berjamaah', code: 'SUBUH_BERJAMAAH', category: 'shalat_wajib' },
-    location_name: 'Masjid Utama Pesantren',
-    status: 'opened',
-    scheduled_start_at: '04:45',
-    scheduled_end_at: '05:30',
-    details: [
-      { id: 'd1', student_id: 'st1', student: { nama_lengkap: 'Ahmad Fauzi', nisn: '0054321001' }, room: 'Kamar 01', group: 'Kelompok A', attendance_status: 'hadir_berjamaah', check_in_time: '04:50 WIB' },
-      { id: 'd2', student_id: 'st2', student: { nama_lengkap: 'Muhammad Rizky', nisn: '0054321002' }, room: 'Kamar 01', group: 'Kelompok A', attendance_status: 'hadir_sendiri', check_in_time: '05:05 WIB' },
-      { id: 'd3', student_id: 'st3', student: { nama_lengkap: 'Siti Nurhaliza', nisn: '0054321003' }, room: 'Kamar 02', group: 'Kelompok B', attendance_status: 'terlambat', check_in_time: '05:20 WIB' },
-      { id: 'd4', student_id: 'st4', student: { nama_lengkap: 'Fahmi Alfarizi', nisn: '0054321004' }, room: 'Kamar 02', group: 'Kelompok B', attendance_status: 'tidak_hadir', check_in_time: '-' },
-      { id: 'd5', student_id: 'st5', student: { nama_lengkap: 'Aisyah Humaira', nisn: '0054321005' }, room: 'Kamar 03', group: 'Kelompok C', attendance_status: 'haid', check_in_time: '-' },
-    ],
-  },
-  {
-    id: 'sample-dzuhur',
-    session_date: new Date().toISOString().slice(0, 10),
-    template: { nama: 'Shalat Dzuhur Berjamaah', code: 'DZUHUR_BERJAMAAH', category: 'shalat_wajib' },
-    location_name: 'Masjid Utama Pesantren',
-    status: 'upcoming',
-    scheduled_start_at: '12:00',
-    scheduled_end_at: '12:45',
-    details: [],
-  },
-  {
-    id: 'sample-ashar',
-    session_date: new Date().toISOString().slice(0, 10),
-    template: { nama: 'Shalat Ashar Berjamaah', code: 'ASHAR_BERJAMAAH', category: 'shalat_wajib' },
-    location_name: 'Masjid Utama Pesantren',
-    status: 'upcoming',
-    scheduled_start_at: '15:30',
-    scheduled_end_at: '16:15',
-    details: [],
-  },
-  {
-    id: 'sample-magrib',
-    session_date: new Date().toISOString().slice(0, 10),
-    template: { nama: 'Shalat Magrib Berjamaah', code: 'MAGRIB_BERJAMAAH', category: 'shalat_wajib' },
-    location_name: 'Masjid Utama Pesantren',
-    status: 'upcoming',
-    scheduled_start_at: '18:05',
-    scheduled_end_at: '18:35',
-    details: [],
-  },
-  {
-    id: 'sample-isya',
-    session_date: new Date().toISOString().slice(0, 10),
-    template: { nama: 'Shalat Isya Berjamaah', code: 'ISYA_BERJAMAAH', category: 'shalat_wajib' },
-    location_name: 'Masjid Utama Pesantren',
-    status: 'upcoming',
-    scheduled_start_at: '19:30',
-    scheduled_end_at: '20:00',
-    details: [],
-  },
-]
+
 
 // ─── Status Pill Helper ───────────────────────────────────────────────────
 function getAttendancePill(status) {
@@ -279,19 +221,15 @@ export default function WorshipAttendancePage() {
           setSessionDetail(data[0])
         }
       } else {
-        setSessions(defaultSampleSessions)
-        if (!selectedSession) {
-          setSelectedSession(defaultSampleSessions[0])
-          setSessionDetail(defaultSampleSessions[0])
-        }
+        setSessions([])
+        setSelectedSession(null)
+        setSessionDetail(null)
       }
     } catch (e) {
       console.error('Failed fetching sessions:', e)
-      setSessions(defaultSampleSessions)
-      if (!selectedSession) {
-        setSelectedSession(defaultSampleSessions[0])
-        setSessionDetail(defaultSampleSessions[0])
-      }
+      setSessions([])
+      setSelectedSession(null)
+      setSessionDetail(null)
     } finally {
       setLoading(false)
     }
@@ -300,10 +238,7 @@ export default function WorshipAttendancePage() {
   const handleOpenSession = async (session) => {
     setSelectedSession(session)
     setCenterTab('presensi')
-    if (session.id?.startsWith('sample-')) {
-      setSessionDetail(session)
-      return
-    }
+    if (!session?.id) return
     try {
       const res = await worshipAttendanceService.getSessionDetail(session.id)
       setSessionDetail(res?.data?.data || session)
@@ -356,29 +291,13 @@ export default function WorshipAttendancePage() {
     if (!cleanCode || !selectedSession) return
     setProcessingScan(true)
     try {
-      if (selectedSession.id?.startsWith('sample-')) {
-        const details = sessionDetail?.details || []
-        const found = details.find(
-          (d) => d.student?.nisn === cleanCode || d.student?.nama_lengkap?.toLowerCase().includes(cleanCode.toLowerCase()) || d.student_id === cleanCode
-        )
-        if (found) {
-          found.attendance_status = 'hadir_berjamaah'
-          found.check_in_time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' WIB'
-          setScanResult({ success: true, message: `Santri ${found.student?.nama_lengkap} berhasil diabsen HADIR BERJAMAAH.` })
-          toastSuccess('Presensi Berhasil', `${found.student?.nama_lengkap} tercatat Hadir Berjamaah`)
-        } else {
-          setScanResult({ success: false, message: `Santri dengan kode "${cleanCode}" tidak ditemukan.` })
-          toastError('Santri Tidak Ditemukan', `Kode "${cleanCode}" tidak ada di daftar sesi.`)
-        }
-      } else {
-        const res = await worshipAttendanceService.scanWorship(selectedSession.id, {
-          card_number: cleanCode,
-          scan_method: worshipMethod.toLowerCase(),
-        })
-        setScanResult({ success: true, message: res?.data?.message || 'Presensi ibadah santri berhasil.' })
-        toastSuccess('Presensi Berhasil', res?.data?.message || 'Santri tercatat hadir berjamaah.')
-        handleOpenSession(selectedSession)
-      }
+      const res = await worshipAttendanceService.scanWorship(selectedSession.id, {
+        card_number: cleanCode,
+        scan_method: worshipMethod.toLowerCase(),
+      })
+      setScanResult({ success: true, message: res?.data?.message || 'Presensi ibadah santri berhasil.' })
+      toastSuccess('Presensi Berhasil', res?.data?.message || 'Santri tercatat hadir berjamaah.')
+      handleOpenSession(selectedSession)
       setScanInput('')
       setModalInput('')
     } catch (e) {
@@ -403,12 +322,10 @@ export default function WorshipAttendancePage() {
       })
     }
     toastSuccess('Status Diperbarui', `Status santri berhasil diperbarui.`)
-    if (!selectedSession.id?.startsWith('sample-')) {
-      try {
-        await worshipAttendanceService.verifyStudent(selectedSession.id, { student_id: studentId, attendance_status: statusVal })
-      } catch (e) {
-        console.error('Failed verifying student worship status:', e)
-      }
+    try {
+      await worshipAttendanceService.verifyStudent(selectedSession.id, { student_id: studentId, attendance_status: statusVal })
+    } catch (e) {
+      console.error('Failed verifying student worship status:', e)
     }
   }
 

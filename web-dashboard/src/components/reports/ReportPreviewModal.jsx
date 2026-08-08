@@ -110,7 +110,7 @@ export function ReportPreviewModal({ isOpen, onClose, reportData, onPrint, onExp
           {details && details.length > 0 && (
             <div>
               <h4 className="font-bold text-xs uppercase text-[#0E5C44] dark:text-emerald-400 mb-2 border-l-2 border-[#0E5C44] pl-2">
-                Sample Data Rinci
+                Pratinjau Data Rinci
               </h4>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">

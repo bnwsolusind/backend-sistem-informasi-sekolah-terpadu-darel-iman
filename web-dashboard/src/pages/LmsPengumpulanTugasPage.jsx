@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PersonAvatar from '../components/ui/PersonAvatar'
 import {
   UploadCloud,
   FileText,
@@ -588,9 +589,11 @@ export default function LmsPengumpulanTugasPage() {
                   <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-emerald-100 text-[#0E5C44] flex items-center justify-center font-bold text-sm">
-                          {(item.siswa?.nama || 'S').charAt(0).toUpperCase()}
-                        </div>
+                        <PersonAvatar
+                          src={item.siswa?.foto || item.siswa?.photo_url || item.siswa?.avatar_url}
+                          name={item.siswa?.nama || 'Siswa'}
+                          size="table"
+                        />
                         <div>
                           <div className="font-semibold text-slate-800">
                             {item.siswa?.nama || 'Siswa'}

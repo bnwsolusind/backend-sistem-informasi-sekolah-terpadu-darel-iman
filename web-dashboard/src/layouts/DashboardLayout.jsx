@@ -29,6 +29,8 @@ import {
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { authService } from '../services/authService'
+import { reportService } from '../services/reportService'
+import { educationUnitService } from '../services/educationUnitService'
 import { useAuthStore } from '../stores/authStore'
 import { usePengaturanStore } from '../stores/pengaturanStore'
 import { useUnitStore } from '../stores/unitStore'
@@ -62,6 +64,10 @@ export default function DashboardLayout() {
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifikasiItems, setNotifikasiItems] = useState([])
+  const [notifikasiUnread, setNotifikasiUnread] = useState(0)
+  const [notifikasiLoading, setNotifikasiLoading] = useState(false)
+  const [notifikasiError, setNotifikasiError] = useState(false)
   const [roleAccessOpen, setRoleAccessOpen] = useState(false)
   const [roleAccessLoading, setRoleAccessLoading] = useState('')
   const [impersonating] = useState(() => Boolean(localStorage.getItem('school_erp_superadmin_session')))
@@ -73,9 +79,55 @@ export default function DashboardLayout() {
     return false // Default to Light Mode
   })
 
+  const [dbUnits, setDbUnits] = useState([])
+
   useEffect(() => {
     muatPengaturan()
+    educationUnitService.getAll().then((res) => {
+      const list = res?.data || res || []
+      if (Array.isArray(list) && list.length > 0) {
+        setDbUnits(list.map((u) => ({ id: u.code || u.level || u.id, name: u.name || u.nama })))
+      }
+    }).catch(() => {})
   }, [muatPengaturan])
+
+  const muatNotifikasi = async () => {
+    setNotifikasiLoading(true)
+    setNotifikasiError(false)
+    try {
+      const data = await reportService.notifications({ per_page: 50 })
+      setNotifikasiItems(Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [])
+    } catch {
+      setNotifikasiError(true)
+      setNotifikasiItems([])
+    } finally {
+      setNotifikasiLoading(false)
+    }
+
+    try {
+      const count = await reportService.notificationUnreadCount()
+      setNotifikasiUnread(Number(count.unread_count) || 0)
+    } catch {
+      setNotifikasiUnread(0)
+    }
+  }
+
+  useEffect(() => {
+    if (!isPortalUser) {
+      muatNotifikasi()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPortalUser])
+
+  const tandaiSemuaDibaca = async () => {
+    try {
+      await reportService.markAllNotificationsRead()
+      setNotifikasiUnread(0)
+      setNotifikasiItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })))
+    } catch {
+      Swal.fire('Gagal', 'Tidak dapat menandai notifikasi telah dibaca.', 'error')
+    }
+  }
 
   useEffect(() => {
     document.title = pengaturan.application_name || 'Sistem Manajemen Sekolah'
@@ -210,11 +262,13 @@ export default function DashboardLayout() {
 
   const daftarUnitOptions = [
     { id: 'SEMUA', name: 'Semua Unit Pendidikan' },
-    { id: 'TK', name: 'TK Islam Terpadu' },
-    { id: 'SD', name: 'SD Islam Terpadu' },
-    { id: 'SMP', name: 'SMP Islam Terpadu' },
-    { id: 'SMA', name: 'SMA Islam Terpadu' },
-    { id: 'PONPES', name: 'Pondok Pesantren' },
+    ...(dbUnits.length > 0 ? dbUnits : [
+      { id: 'TK', name: 'TK Islam Terpadu' },
+      { id: 'SD', name: 'SD Islam Terpadu' },
+      { id: 'SMP', name: 'SMP Islam Terpadu' },
+      { id: 'SMA', name: 'SMA Islam Terpadu' },
+      { id: 'PONPES', name: 'Pondok Pesantren' },
+    ]),
   ]
 
   const attendanceSubmenus = [
@@ -550,11 +604,13 @@ export default function DashboardLayout() {
     return location.pathname.startsWith(targetPath) && targetPath !== '/dashboard'
   }
 
-  const notifikasiItems = [
-    { id: 1, title: 'Setoran Tahfizh Baru', desc: 'Siswa Ahmad Faiq menyelesaikan Surah Al-Mulk', time: '10 min yang lalu', unread: true },
-    { id: 2, title: 'Laporan Kehadiran Guru', desc: 'Rekap kehadiran bulan Juli telah difinalisasi', time: '1 jam yang lalu', unread: true },
-    { id: 3, title: 'Jadwal Rapat Kurikulum', desc: 'Undangan rapat evaluasi Semester Ganjil 2026/2027', time: '3 jam yang lalu', unread: false },
-  ]
+  const notifikasiDataTampil = notifikasiItems.map((item) => ({
+    id: item.id,
+    title: item.title ?? 'Notifikasi',
+    desc: item.body ?? item.message ?? '-',
+    time: item.created_at ? new Date(item.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '',
+    unread: !item.read_at,
+  }))
 
   return (
     <div
@@ -884,9 +940,11 @@ export default function DashboardLayout() {
                   title="Notifikasi Sistem"
                 >
                   <Bell className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs">
-                    {notifikasiItems.filter((n) => n.unread).length}
-                  </span>
+                  {notifikasiUnread > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs">
+                      {notifikasiUnread > 9 ? '9+' : notifikasiUnread}
+                    </span>
+                  )}
                 </button>
               )}
 
@@ -1068,10 +1126,51 @@ export default function DashboardLayout() {
           position="right"
         >
           <div className="space-y-3">
-            {notifikasiItems.map((item) => (
-              <div
+            <div className="flex items-center justify-between">
+              {notifikasiUnread > 0 && (
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                  {notifikasiUnread} belum dibaca
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={tandaiSemuaDibaca}
+                className="ml-auto text-[11px] font-bold text-emerald-700 hover:underline dark:text-emerald-300"
+              >
+                Tandai semua dibaca
+              </button>
+            </div>
+
+            {notifikasiLoading && (
+              <p className="text-center text-xs text-slate-400 py-6">Memuat notifikasi...</p>
+            )}
+
+            {!notifikasiLoading && notifikasiError && (
+              <p className="text-center text-xs text-rose-500 py-6">
+                Gagal memuat notifikasi. Silakan muat ulang halaman.
+              </p>
+            )}
+
+            {!notifikasiLoading && !notifikasiError && notifikasiDataTampil.length === 0 && (
+              <p className="text-center text-xs text-slate-400 py-6">Tidak ada notifikasi.</p>
+            )}
+
+            {!notifikasiLoading && notifikasiDataTampil.map((item) => (
+              <button
+                type="button"
                 key={item.id}
-                className={`p-4 rounded-2xl border transition ${item.unread
+                onClick={async () => {
+                  if (item.unread) {
+                    try {
+                      await reportService.markNotificationRead(item.id)
+                      setNotifikasiUnread((prev) => Math.max(0, prev - 1))
+                      setNotifikasiItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read_at: new Date().toISOString() } : n)))
+                    } catch {
+                      // Abaikan; status lokal tetap konsisten
+                    }
+                  }
+                }}
+                className={`w-full text-left p-4 rounded-2xl border transition ${item.unread
                   ? 'bg-emerald-50/50 border-emerald-200/80 dark:bg-emerald-950/30 dark:border-emerald-800/80'
                   : 'bg-white border-slate-200/80 dark:bg-slate-900 dark:border-slate-800/80'
                   }`}
@@ -1082,7 +1181,7 @@ export default function DashboardLayout() {
                 </div>
                 <p className="text-xs text-slate-600 mt-1 dark:text-slate-300">{item.desc}</p>
                 <p className="text-[10px] text-slate-400 mt-2 font-medium">{item.time}</p>
-              </div>
+              </button>
             ))}
           </div>
         </Drawer>

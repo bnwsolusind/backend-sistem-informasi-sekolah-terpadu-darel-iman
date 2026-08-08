@@ -45,12 +45,14 @@ STATUS:                  BASELINE INTACT — SESSION 11 MAY START
 ## STATUS AKHIR SESI 11 (setelah seluruh perubahan Portal Siswa)
 
 ```text
-CURRENT TEST COUNT:      237  (baseline 227 + 10 test hardening baru)
-CURRENT ASSERTIONS:      906  (baseline 878 + 28)
+CURRENT TEST COUNT:      246  (baseline 227 + 19: hardening CBT + fixtures portal + test resume payload)
+CURRENT ASSERTIONS:      947  (baseline 878 + 69)
 CURRENT FAILURES:        0
 CURRENT ERRORS:          0
 REGRESSION FOUND:        NO
 REGRESSION FIXED:        —
+PORTAL GROUP (PG 14):    34 passed / 161 assertions (seluruh endpoint portal HIJAU di PostgreSQL)
+PG KNOWN LIMITATION:     2 failure pra-eksisting absensi pegawai (attendances partition) — bukan regresi
 STATUS:                  BASELINE INTACT — SESSION 11 PASSED WITH ENVIRONMENT NOTE (PG17 runtime pending)
 ```
 

@@ -1,6 +1,8 @@
 {
   "dependencies": {
+    "@playwright/test": "^1.62.1",
     "cd": "^0.3.3",
+    "playwright": "^1.62.1",
     "web-dashboard": "file:web-dashboard"
   }
 }

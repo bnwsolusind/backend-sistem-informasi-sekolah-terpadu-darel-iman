@@ -195,7 +195,7 @@ class StudentMutationSeeder extends Seeder
                     'unit_id' => $unitAsalId ?? $unitTujuanId ?? $units->first()->id,
                     'kelas_id' => $kelas?->id,
                     'is_active' => $status !== 'Ditolak',
-                    'tahun_masuk' => '2023/2024',
+                    'tahun_masuk' => 2023,
                     'metadata' => $metadata,
                 ]);
             }

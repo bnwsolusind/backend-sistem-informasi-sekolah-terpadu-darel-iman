@@ -6,6 +6,8 @@ use App\Models\EducationUnit;
 use App\Models\Employee;
 use App\Models\EmployeeTeaching;
 use App\Models\Position;
+use App\Models\User;
+use App\Support\PhoneNormalizer;
 use Illuminate\Database\Seeder;
 
 class DataDummyPegawaiSeeder extends Seeder
@@ -459,15 +461,62 @@ class DataDummyPegawaiSeeder extends Seeder
                 $data
             );
 
+            // === Link akun login pegawai (idempotent; role dari positions.role_sistem_id) ===
+            $role = $emp->position?->roleSistem;
+            $isActive = in_array(strtolower((string) ($data['status'] ?? 'Aktif')), ['aktif', 'tetap'], true);
+
+            $loginUser = $emp->user_id
+                ? User::query()->find($emp->user_id)
+                : User::query()->where('email', strtolower((string) $data['email']))->first();
+
+            if (! $loginUser) {
+                $loginUser = User::query()->create([
+                    'name' => $emp->nama_lengkap,
+                    'email' => strtolower((string) $data['email']),
+                    'password' => 'Password123!',
+                    'phone' => PhoneNormalizer::normalize((string) ($data['no_hp'] ?? '')),
+                    'is_active' => $isActive,
+                ]);
+            } else {
+                $loginUser->forceFill([
+                    'name' => $emp->nama_lengkap,
+                    'phone' => PhoneNormalizer::normalize((string) ($data['no_hp'] ?? '')),
+                    'is_active' => $isActive,
+                ])->save();
+            }
+
+            $emp->update(['user_id' => $loginUser->id]);
+
+            if ($role) {
+                $emp->forceFill(['role_id' => $role->id])->save();
+                $loginUser->syncRoles([$role->name]);
+            } else {
+                $emp->forceFill(['role_id' => null])->save();
+                $loginUser->syncRoles(['Guru']);
+            }
+
             // Seed teachings relation table
             if (! empty($teachings)) {
-                EmployeeTeaching::where('employee_id', $emp->id)->delete();
                 foreach ($teachings as $t) {
-                    EmployeeTeaching::create([
-                        'employee_id' => $emp->id,
-                        'aktif' => true,
-                        'metadata' => $t,
-                    ]);
+                    $mapel = is_array($t) ? ($t['mapel'] ?? null) : null;
+
+                    if ($mapel === null) {
+                        continue;
+                    }
+
+                    $existing = EmployeeTeaching::where('employee_id', $emp->id)
+                        ->where('metadata->mapel', $mapel)
+                        ->first();
+
+                    if ($existing) {
+                        $existing->update(['aktif' => true]);
+                    } else {
+                        EmployeeTeaching::create([
+                            'employee_id' => $emp->id,
+                            'metadata' => $t,
+                            'aktif' => true,
+                        ]);
+                    }
                 }
             }
         }

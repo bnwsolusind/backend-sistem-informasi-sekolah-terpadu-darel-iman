@@ -6,6 +6,7 @@ use App\Models\EducationUnit;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\Division;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class SdmReportService
@@ -50,17 +51,22 @@ class SdmReportService
         if (!empty($filters['jenis_kelamin']) && $filters['jenis_kelamin'] !== 'all') {
             $employeeQuery->where('jenis_kelamin', $filters['jenis_kelamin']);
         }
+        $like = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+        $teacherScope = function ($q) use ($like) {
+            $q->whereHas('teacher')
+              ->orWhereHas('teachings')
+              ->orWhereHas('position', function ($p) use ($like) {
+                  $p->where('name', $like, '%Guru%')
+                    ->orWhere('name', $like, '%Pendidik%')
+                    ->orWhereIn('level_jabatan', [9, 10, 11]);
+              });
+        };
+
         if (!empty($filters['jenis_sdm']) && $filters['jenis_sdm'] !== 'all') {
             if ($filters['jenis_sdm'] === 'guru') {
-                $employeeQuery->where(function ($q) {
-                    $q->whereHas('position', function ($p) {
-                        $p->where('nama_jabatan', 'like', '%Guru%')->orWhere('is_teacher', true);
-                    })->orWhere('status_pegawai', 'like', '%Guru%');
-                });
+                $employeeQuery->where($teacherScope);
             } elseif ($filters['jenis_sdm'] === 'non-guru') {
-                $employeeQuery->whereDoesntHave('position', function ($p) {
-                    $p->where('nama_jabatan', 'like', '%Guru%')->orWhere('is_teacher', true);
-                })->where('status_pegawai', 'not like', '%Guru%');
+                $employeeQuery->whereNot($teacherScope);
             }
         }
         if (!empty($filters['search'])) {
@@ -76,11 +82,7 @@ class SdmReportService
         $totalSdm = (clone $employeeQuery)->count();
 
         // Guru vs Pegawai Non-Guru
-        $guruQuery = (clone $employeeQuery)->where(function ($q) {
-            $q->whereHas('position', function ($p) {
-                $p->where('nama_jabatan', 'like', '%Guru%')->orWhere('is_teacher', true);
-            })->orWhere('status_pegawai', 'like', '%Guru%');
-        });
+        $guruQuery = (clone $employeeQuery)->where($teacherScope);
         $totalGuru = $guruQuery->count();
         $totalNonGuru = max(0, $totalSdm - $totalGuru);
 
@@ -95,9 +97,7 @@ class SdmReportService
         $guruTetap = (clone $guruQuery)->whereIn('status_pegawai', ['Tetap', 'Guru Tetap', 'PNS', 'PNS DPK'])->count();
         $guruTidakTetap = max(0, $totalGuru - $guruTetap);
 
-        $nonGuruQuery = (clone $employeeQuery)->whereDoesntHave('position', function ($p) {
-            $p->where('nama_jabatan', 'like', '%Guru%')->orWhere('is_teacher', true);
-        });
+        $nonGuruQuery = (clone $employeeQuery)->whereNot($teacherScope);
         $pegawaiTetap = (clone $nonGuruQuery)->whereIn('status_pegawai', ['Tetap', 'Pegawai Tetap', 'PNS'])->count();
         $pegawaiTidakTetap = max(0, $totalNonGuru - $pegawaiTetap);
 
@@ -136,8 +136,12 @@ class SdmReportService
         $chartUnitDist = $units->map(function ($u) use ($employeeQuery) {
             $unitEmployees = (clone $employeeQuery)->where('unit_id', $u->id)->get();
             $guru = $unitEmployees->filter(function ($e) {
-                $posName = $e->position->nama_jabatan ?? '';
-                return str_contains(strtolower($posName), 'guru') || ($e->position->is_teacher ?? false);
+                $posName = $e->position->name ?? '';
+                return $e->teacherBridge !== null
+                    || $e->teachings->isNotEmpty()
+                    || str_contains(strtolower($posName), 'guru')
+                    || str_contains(strtolower($posName), 'pendidik')
+                    || in_array($e->position?->level_jabatan, [9, 10, 11]);
             })->count();
 
             return [
@@ -166,7 +170,7 @@ class SdmReportService
         // Position distribution chart
         $chartPositions = Position::withCount('employees')->orderBy('employees_count', 'desc')->take(6)->get()->map(function ($pos) {
             return [
-                'name' => $pos->nama_jabatan,
+                'name' => $pos->name,
                 'value' => $pos->employees_count,
             ];
         });
@@ -184,8 +188,12 @@ class SdmReportService
             $totalSub = $subEmployees->count();
 
             $gCount = $subEmployees->filter(function ($e) {
-                $pName = $e->position->nama_jabatan ?? '';
-                return str_contains(strtolower($pName), 'guru') || ($e->position->is_teacher ?? false);
+                $pName = $e->position->name ?? '';
+                return $e->teacherBridge !== null
+                    || $e->teachings->isNotEmpty()
+                    || str_contains(strtolower($pName), 'guru')
+                    || str_contains(strtolower($pName), 'pendidik')
+                    || in_array($e->position?->level_jabatan, [9, 10, 11]);
             })->count();
 
             $aCount = $subEmployees->filter(function ($e) {
@@ -240,7 +248,12 @@ class SdmReportService
             ->paginate($perPage, ['*'], 'page', $page);
 
         $formattedDetails = collect($paginated->items())->map(function ($emp) {
-            $isGuru = str_contains(strtolower($emp->position->nama_jabatan ?? ''), 'guru') || ($emp->position->is_teacher ?? false);
+            $posName = $emp->position->name ?? '';
+            $isGuru = $emp->teacherBridge !== null
+                || $emp->teachings->isNotEmpty()
+                || str_contains(strtolower($posName), 'guru')
+                || str_contains(strtolower($posName), 'pendidik')
+                || in_array($emp->position?->level_jabatan, [9, 10, 11]);
             return [
                 'id' => $emp->id,
                 'niy' => $emp->niy ?? $emp->nik ?? '-',
@@ -248,7 +261,7 @@ class SdmReportService
                 'jenis_sdm' => $isGuru ? 'Guru' : 'Pegawai Non-Guru',
                 'unit' => $emp->unit->name ?? '-',
                 'unit_code' => $emp->unit->code ?? '-',
-                'jabatan' => $emp->position->nama_jabatan ?? '-',
+                'jabatan' => $emp->position->name ?? '-',
                 'divisi_mapel' => $isGuru ? ($emp->teachings->pluck('subject.name')->implode(', ') ?: ($emp->division->name ?? '-')) : ($emp->division->name ?? '-'),
                 'status_kepegawaian' => $emp->status_pegawai ?? 'Tetap',
                 'tanggal_masuk' => $emp->tanggal_masuk ? $emp->tanggal_masuk->format('d M Y') : '-',
@@ -290,8 +303,13 @@ class SdmReportService
 
     public function getDetail(string $id): array
     {
-        $emp = Employee::with(['unit', 'position', 'division', 'teachings.subject', 'schedules.kelas'])->findOrFail($id);
-        $isGuru = str_contains(strtolower($emp->position->nama_jabatan ?? ''), 'guru') || ($emp->position->is_teacher ?? false);
+        $emp = Employee::with(['unit', 'position', 'division', 'teacherBridge', 'teachings.subject', 'schedules.kelas'])->findOrFail($id);
+        $posName = $emp->position->name ?? '';
+        $isGuru = $emp->teacherBridge !== null
+            || $emp->teachings->isNotEmpty()
+            || str_contains(strtolower($posName), 'guru')
+            || str_contains(strtolower($posName), 'pendidik')
+            || in_array($emp->position?->level_jabatan, [9, 10, 11]);
 
         $masaKerja = '-';
         if ($emp->tanggal_masuk) {
@@ -311,7 +329,7 @@ class SdmReportService
             'nama' => $emp->nama_lengkap,
             'jenis_kelamin' => in_array(strtolower($emp->jenis_kelamin ?? 'l'), ['l', 'laki-laki', 'male']) ? 'Laki-Laki' : 'Perempuan',
             'unit' => $emp->unit->name ?? '-',
-            'jabatan' => $emp->position->nama_jabatan ?? '-',
+            'jabatan' => $emp->position->name ?? '-',
             'divisi' => $emp->division->name ?? '-',
             'status_kepegawaian' => $emp->status_pegawai ?? 'Tetap',
             'tanggal_masuk' => $emp->tanggal_masuk ? $emp->tanggal_masuk->format('d F Y') : '-',

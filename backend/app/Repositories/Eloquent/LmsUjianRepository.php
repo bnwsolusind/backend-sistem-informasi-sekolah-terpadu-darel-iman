@@ -253,13 +253,97 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
         return true;
     }
 
-    public function finalizeSesiUjian(string $sesiId): ?LmsUjianSesi
+    /**
+     * Finalisasi sesi ujian (pengumpulan manual atau auto-timeout).
+     *
+     * Idempoten: sesi yang sudah berstatus final ('selesai'/'timeout') tidak
+     * diproses ulang agar hasil tidak digandakan/ditimpa. Panggilan manual
+     * dari siswa/guru tetap memakai status default 'selesai'.
+     */
+    public function finalizeSesiUjian(string $sesiId, string $status = 'selesai'): ?LmsUjianSesi
     {
         $sesi = LmsUjianSesi::with(['ujian', 'jawaban'])->find($sesiId);
         if (! $sesi) {
             return null;
         }
 
+        if (in_array($sesi->status, ['selesai', 'timeout'], true)) {
+            return $sesi;
+        }
+
+        if ($status !== 'selesai' && $status !== 'timeout') {
+            $status = 'selesai';
+        }
+
+        return $this->gradeAndFinalize($sesi, $status);
+    }
+
+    /**
+     * Auto-timeout seluruh sesi CBT yang masih berstatus 'proses' tetapi batas
+     * waktunya sudah lewat (waktu_mulai + durasi_menit*60 < sekarang).
+     *
+     * Setiap sesi dikunci lewat update atomik (status 'proses' -> 'timeout')
+     * agar dua runner scheduler tidak memproses sesi yang sama dua kali.
+     * Jawaban objektif dinilai, esai dibiarkan pending review manual, dan
+     * kunci jawaban tidak pernah dibocorkan ke output.
+     *
+     * @return array{expired:int, submitted:int, skipped:int}
+     */
+    public function autoSubmitExpiredSessions(int $limit = 100): array
+    {
+        $expiredIds = LmsUjianSesi::query()
+            ->with('ujian:id,durasi_menit')
+            ->where('status', 'proses')
+            ->whereNotNull('waktu_mulai')
+            ->get()
+            ->filter(function (LmsUjianSesi $sesi) {
+                if (! $sesi->ujian || (int) $sesi->ujian->durasi_menit <= 0) {
+                    return false;
+                }
+                $deadline = $sesi->waktu_mulai->copy()->addSeconds((int) $sesi->ujian->durasi_menit * 60);
+
+                return now()->gt($deadline);
+            })
+            ->take($limit)
+            ->pluck('id');
+
+        $submitted = 0;
+        $skipped = 0;
+
+        foreach ($expiredIds as $sesiId) {
+            // Kunci (claim) atomik: hanya sesi yang masih 'proses' yang diambil.
+            $claimed = LmsUjianSesi::query()
+                ->whereKey($sesiId)
+                ->where('status', 'proses')
+                ->update([
+                    'status' => 'timeout',
+                    'waktu_selesai' => now(),
+                ]);
+
+            if ($claimed === 0) {
+                $skipped++;
+                continue;
+            }
+
+            $sesi = LmsUjianSesi::with(['ujian', 'jawaban'])->find($sesiId);
+            if (! $sesi || ! $this->gradeAndFinalize($sesi, 'timeout')) {
+                $skipped++;
+                continue;
+            }
+
+            $submitted++;
+        }
+
+        return [
+            'expired' => $expiredIds->count(),
+            'submitted' => $submitted,
+            'skipped' => $skipped,
+        ];
+    }
+
+    private function gradeAndFinalize(LmsUjianSesi $sesi, string $status): ?LmsUjianSesi
+    {
+        $sesiId = $sesi->id;
         $ujian = $sesi->ujian;
         $soalList = LmsBankSoal::where('kisi_kisi_id', $ujian->kisi_kisi_id)
             ->where('status', true)
@@ -367,7 +451,11 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
         }
 
         $waktuSelesai = now();
-        $durasiAktualDetik = $sesi->waktu_mulai ? $waktuSelesai->diffInSeconds($sesi->waktu_mulai) : 0;
+        // Carbon 3 diffInSeconds() bertanda negatif saat waktu_mulai di masa
+        // lalu (kasus normal). Kolom durasi_aktual_detik bertipe unsignedInteger
+        // sehingga nilai negatif memicu error di PostgreSQL. Selalu jadikan
+        // non-negatif.
+        $durasiAktualDetik = $sesi->waktu_mulai ? (int) abs($waktuSelesai->diffInSeconds($sesi->waktu_mulai)) : 0;
 
         $nilaiRaw = $totalPoinDidapat;
         $nilaiFinal = $maxPossiblePoints > 0 ? round(($nilaiRaw / $maxPossiblePoints) * 100, 2) : 0;
@@ -380,7 +468,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
             'jumlah_kosong' => $jumlahKosong,
             'nilai_raw' => $nilaiRaw,
             'nilai_final' => $nilaiFinal,
-            'status' => 'selesai',
+            'status' => $status,
         ]);
 
         return $sesi->fresh(['ujian', 'siswa', 'jawaban']);
@@ -395,7 +483,7 @@ class LmsUjianRepository implements LmsUjianRepositoryInterface
 
         $sesiList = LmsUjianSesi::with(['siswa', 'jawaban'])
             ->where('ujian_id', $ujianId)
-            ->where('status', 'selesai')
+            ->whereIn('status', ['selesai', 'timeout'])
             ->get();
 
         $totalSiswa = $sesiList->count();

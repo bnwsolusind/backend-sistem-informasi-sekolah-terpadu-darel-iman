@@ -126,6 +126,32 @@ class AuthController extends Controller
             'token_type' => 'Bearer',
             'user' => new UserProfileResource($result['user']),
             'portal' => $result['portal'],
+            'parent' => isset($result['parent'])
+                ? [
+                    'id' => $result['parent']->id,
+                    'name' => $result['parent']->full_name,
+                    'nik' => $result['parent']->nik,
+                    'phone' => $result['parent']->phone,
+                ]
+                : null,
+            'student' => isset($result['student'])
+                ? [
+                    'id' => $result['student']->id,
+                    'nis' => $result['student']->nis,
+                    'name' => $result['student']->full_name,
+                    'is_active' => $result['student']->is_active,
+                ]
+                : null,
+            'children' => isset($result['children'])
+                ? $result['children']->map(fn ($child) => [
+                    'id' => $child->id,
+                    'nis' => $child->nis,
+                    'name' => $child->full_name,
+                    'gender' => $child->gender,
+                    'is_active' => $child->is_active,
+                    'kelas' => $child->kelas?->nama_kelas ?? $child->kelas?->name ?? $child->kelas?->nama ?? null,
+                ])->values()
+                : null,
         ]);
     }
 

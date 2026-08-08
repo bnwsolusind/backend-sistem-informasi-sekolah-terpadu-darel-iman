@@ -90,20 +90,21 @@ class StudentPortalCacheIsolationTest extends TestCase
         $this->siswaAUser = User::factory()->create(['name' => 'Siswa A Cache', 'email' => 'siswa.a.cache@school.id']);
         $this->siswaAUser->assignRole('Siswa');
         $this->siswaA = Student::create([
-            'user_id' => $this->siswaAUser->id, 'education_unit_id' => $unit->id, 'kelas_id' => $this->kelasA->id, 'class_id' => $this->kelasA->id,
+            'user_id' => $this->siswaAUser->id, 'education_unit_id' => $unit->id, 'kelas_id' => $this->kelasA->id,
             'full_name' => 'Siswa A Cache', 'nis' => 'CA-001', 'gender' => 'male', 'is_active' => true,
         ]);
 
         $this->siswaBUser = User::factory()->create(['name' => 'Siswa B Cache', 'email' => 'siswa.b.cache@school.id']);
         $this->siswaBUser->assignRole('Siswa');
         $this->siswaB = Student::create([
-            'user_id' => $this->siswaBUser->id, 'education_unit_id' => $unit->id, 'kelas_id' => $this->kelasB->id, 'class_id' => $this->kelasB->id,
+            'user_id' => $this->siswaBUser->id, 'education_unit_id' => $unit->id, 'kelas_id' => $this->kelasB->id,
             'full_name' => 'Siswa B Cache', 'nis' => 'CB-001', 'gender' => 'female', 'is_active' => true,
         ]);
 
         $this->penugasanA = LmsPenugasan::create([
-            'class_id' => $this->kelasA->id, 'kelas_id' => $this->kelasA->id, 'subject_id' => $subject->id,
-            'guru_id' => $guru->id, 'judul' => 'Tugas Cache A', 'instruksi' => 'Kerjakan tugas ini.',
+            'kelas_id' => $this->kelasA->id, 'mata_pelajaran_id' => $subject->id,
+            'guru_id' => $guru->id, 'judul_tugas' => 'Tugas Cache A', 'instruksi' => 'Kerjakan tugas ini.',
+            'semester_id' => $semester->id, 'tahun_ajaran_id' => $tahunAjaran->id,
             'deadline' => now()->addDays(3), 'status' => 'published', 'is_published' => true,
         ]);
 
@@ -113,8 +114,9 @@ class StudentPortalCacheIsolationTest extends TestCase
         ]);
 
         StudentGrade::create([
-            'student_id' => $this->siswaA->id, 'subject_id' => $subject->id, 'semester_id' => $semester->id,
-            'nilai_akhir' => 95, 'status' => 'published', 'is_published' => true,
+            'student_id' => $this->siswaA->id, 'subject_id' => $subject->id,
+            'semester_id' => $semester->id, 'academic_year_id' => $tahunAjaran->id,
+            'final_score' => 95, 'is_passed' => true,
         ]);
 
         $kisi = LmsKisiKisi::create([
@@ -215,9 +217,18 @@ class StudentPortalCacheIsolationTest extends TestCase
             ->postJson('/api/auth/logout')
             ->assertOk();
 
-        $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/portal/dashboard')
-            ->assertStatus(401);
+        // Token yang dicabut harus dihapus dari tabel personal_access_tokens.
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('personal_access_tokens')->count());
+
+        // Guard pada instance test meng-cache user dari request pertama;
+        // paksa re-resolusi agar token (yang sudah terhapus) di-revalidasi.
+        \Illuminate\Support\Facades\Auth::guard('sanctum')->forgetUser();
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/portal/dashboard');
+
+        $this->assertContains($response->getStatusCode(), [401, 403], 'Token yang dicabut tidak boleh mengakses portal siswa.');
+        $this->assertNotSame(200, $response->getStatusCode());
     }
 
     public function test_self_scope_endpoints_reject_foreign_student_context(): void

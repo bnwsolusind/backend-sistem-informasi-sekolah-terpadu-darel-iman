@@ -20,13 +20,13 @@ class LmsPenugasanSeeder extends Seeder
     public function run(): void
     {
         $modulAjarList = LmsModulAjar::all();
-        $subjects = Subject::all();
-        $kelases = Kelas::all();
-        $gurus = Employee::all();
-        $students = Student::all();
-        $semesters = Semester::all();
-        $academicYears = AcademicYear::all();
-        $adminUser = User::first();
+        $subjects = Subject::orderBy('id')->get();
+        $kelases = Kelas::orderBy('id')->get();
+        $gurus = Employee::orderBy('id')->get();
+        $students = Student::orderBy('id')->get();
+        $semesters = Semester::orderBy('id')->get();
+        $academicYears = AcademicYear::orderBy('id')->get();
+        $adminUser = User::orderBy('id')->first();
 
         if ($modulAjarList->isEmpty()) {
             return;

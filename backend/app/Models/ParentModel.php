@@ -19,6 +19,8 @@ class ParentModel extends Model
     protected $fillable = [
         'user_id',
         'nik',
+        'father_nik',
+        'mother_nik',
         'full_name',
         'phone',
         'email',
@@ -58,6 +60,8 @@ class ParentModel extends Model
     {
         return $query->where('full_name', 'ILIKE', "%{$keyword}%")
             ->orWhere('nik', 'ILIKE', "%{$keyword}%")
+            ->orWhere('father_nik', 'ILIKE', "%{$keyword}%")
+            ->orWhere('mother_nik', 'ILIKE', "%{$keyword}%")
             ->orWhere('phone', 'ILIKE', "%{$keyword}%")
             ->orWhere('email', 'ILIKE', "%{$keyword}%");
     }

@@ -48,9 +48,9 @@ class SummarySheet implements FromArray, WithTitle, WithHeadings
 {
     protected array $summary;
 
-    public function __construct(array $summary)
+    public function __construct(array|\Illuminate\Support\Collection $summary)
     {
-        $this->summary = $summary;
+        $this->summary = $summary instanceof \Illuminate\Support\Collection ? $summary->toArray() : $summary;
     }
 
     public function title(): string
@@ -79,9 +79,9 @@ class UnitRecapSheet implements FromArray, WithTitle, WithHeadings
     protected array $recaps;
     protected ?array $total;
 
-    public function __construct(array $recaps, ?array $total = null)
+    public function __construct(array|\Illuminate\Support\Collection $recaps, ?array $total = null)
     {
-        $this->recaps = $recaps;
+        $this->recaps = $recaps instanceof \Illuminate\Support\Collection ? $recaps->toArray() : (array) $recaps;
         $this->total = $total;
     }
 
@@ -111,9 +111,9 @@ class DetailsSheet implements FromArray, WithTitle, WithHeadings
 {
     protected array $details;
 
-    public function __construct(array $details)
+    public function __construct(array|\Illuminate\Support\Collection $details)
     {
-        $this->details = $details;
+        $this->details = $details instanceof \Illuminate\Support\Collection ? $details->toArray() : (array) $details;
     }
 
     public function title(): string

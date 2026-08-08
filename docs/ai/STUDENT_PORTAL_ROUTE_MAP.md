@@ -90,6 +90,7 @@ Route `/portal-orangtua` → `ParentPortalPage`; alias `/portal/siswa` & `/porta
 
 ## 5. VERIFIKASI
 
-- Full suite: `237 passed / 906 assertions / 0 failure / 0 error` (baseline 227/878).
+- Full suite: `246 passed / 947 assertions / 0 failure / 0 error` (baseline 227/878).
 - Guard 6 filter critical: `25 passed / 100 assertions`.
-- `StudentCbtSecurityHardeningTest` (baru): `10 passed / 28 assertions`.
+- `StudentCbtSecurityHardeningTest` (baru): `11 passed / 38 assertions` (SQLite & PG 14).
+- Portal group di PostgreSQL 14: `34 passed / 161 assertions` (seluruh endpoint portal HIJAU di PG).

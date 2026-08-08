@@ -76,6 +76,7 @@ export default function TeacherTeachingWorkspacePage() {
 
   // Primary data states
   const [classes, setClasses] = useState([])
+  const [academicYears, setAcademicYears] = useState([])
   const [schedules, setSchedules] = useState([])
   const [students, setStudents] = useState([])
   const [materials, setMaterials] = useState([])
@@ -92,13 +93,7 @@ export default function TeacherTeachingWorkspacePage() {
   const [loading, setLoading] = useState(false)
 
   // Teacher Log Absensi Read-Only State
-  const [teacherLogAbsensi, setTeacherLogAbsensi] = useState([
-    { id: '1', date: '2026-07-31', day: 'Jumat', check_in: '06:58', check_out: '15:30', duration: '8 Jam 32 Min', status: 'Hadir Tepat Waktu', method: 'Face Recognition AI', device: 'Tab Presensi Lobi Main', location: 'Gedung Utama Lt. 1' },
-    { id: '2', date: '2026-07-30', day: 'Kamis', check_in: '07:05', check_out: '15:45', duration: '8 Jam 40 Min', status: 'Hadir Tepat Waktu', method: 'RFID Card Tap', device: 'RFID Gate Musyarrif', location: 'Pintu Gerbang Utama' },
-    { id: '3', date: '2026-07-29', day: 'Rabu', check_in: '07:12', check_out: '15:20', duration: '8 Jam 08 Min', status: 'Terlambat 12 Min', method: 'Mobile GPS App', device: 'iPhone 15 Pro', location: 'Area Kampus Sekolah' },
-    { id: '4', date: '2026-07-28', day: 'Selasa', check_in: '06:55', check_out: '15:35', duration: '8 Jam 40 Min', status: 'Hadir Tepat Waktu', method: 'Face Recognition AI', device: 'Tab Presensi Lobi Main', location: 'Gedung Utama Lt. 1' },
-    { id: '5', date: '2026-07-27', day: 'Senin', check_in: '06:50', check_out: '16:00', duration: '9 Jam 10 Min', status: 'Hadir Tepat Waktu', method: 'RFID Card Tap', device: 'RFID Gate Musyarrif', location: 'Pintu Gerbang Utama' },
-  ])
+  const [teacherLogAbsensi, setTeacherLogAbsensi] = useState([])
 
   // Selection & UI states
   const [selectedClass, setSelectedClass] = useState('')
@@ -284,8 +279,8 @@ export default function TeacherTeachingWorkspacePage() {
         if (resProf?.data?.data?.user) {
           setTeacherProfile({
             id: resProf.data.data.teacher?.id,
-            name: resProf.data.data.user?.name || resProf.data.data.user?.username || 'Guru Logged In',
-            nip_niy: resProf.data.data.user?.username || 'NIP. 19850412 201001 1 008',
+            name: resProf.data.data.user?.name || resProf.data.data.user?.email || 'Guru Logged In',
+            nip_niy: resProf.data.data.user?.email || 'NIP. 19850412 201001 1 008',
             education_unit: resProf.data.data.teacher?.education_unit?.name || 'SMA Terpadu SIMSIT',
           })
         }
@@ -1261,7 +1256,13 @@ export default function TeacherTeachingWorkspacePage() {
             <label className="shrink-0">
               <span className="sr-only">Tahun ajaran</span>
               <select value={selectedAcademicYear} onChange={(event) => setSelectedAcademicYear(event.target.value)} className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200">
-                <option value="2026/2027">TA 2026/2027</option><option value="2025/2026">TA 2025/2026</option>
+                {academicYears.length > 0 ? (
+                  academicYears.map((ay) => (
+                    <option key={ay.id} value={ay.name || ay.id}>{ay.name}</option>
+                  ))
+                ) : (
+                  <option value={selectedAcademicYear}>{selectedAcademicYear}</option>
+                )}
               </select>
             </label>
             <label className="shrink-0">

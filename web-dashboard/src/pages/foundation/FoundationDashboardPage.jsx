@@ -299,7 +299,7 @@ export function FoundationDashboardPage() {
       >
         <div className="p-6 text-center">
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Ringkasan data agregat untuk <span className="font-bold text-[#0E5C44] dark:text-emerald-400">{activeModal}</span> dapat dipantau tanpa mengubah data transaksi operasional.
+            Ringkasan data <span className="font-bold text-[#0E5C44] dark:text-emerald-400">{activeModal}</span>.
           </p>
         </div>
       </DetailModal>

@@ -173,7 +173,7 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
     let active = true
     setQrToken('')
     setQrError('')
-    if (!data.id || String(data.id).startsWith('demo-')) {
+    if (!data.id) {
       setQrError('Simpan siswa ke database untuk mengaktifkan QR absensi.')
       return () => { active = false }
     }

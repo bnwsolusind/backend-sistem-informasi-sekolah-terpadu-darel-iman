@@ -22,7 +22,7 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
 
   // Single Unified Form inputs
   const [form, setForm] = useState({
-    identifier: 'superadmin',
+    identifier: 'superadmin@school-erp.local',
     password: 'Password123!',
     rememberMe: true,
   })

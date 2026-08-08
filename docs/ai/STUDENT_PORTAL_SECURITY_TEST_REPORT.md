@@ -29,7 +29,7 @@ Cakupan: Self-scope siswa/ortua, kebocoran kunci jawaban, ownership sesi CBT, pu
 - Draft/`status` bukan published tidak pernah tampil di portal.
 - `max_attempt` di-enforce di portal (`startExam`) & legacy (`startSession`) dengan hitung sesi `selesai`/`timeout`.
 
-## 3. TEST BARU — `tests/Feature/StudentCbtSecurityHardeningTest.php` (10 test / 28 assertion)
+## 3. TEST BARU — `tests/Feature/StudentCbtSecurityHardeningTest.php` (11 test / 38 assertion)
 
 | TEST | MEMVERIFIKASI |
 |---|---|
@@ -43,15 +43,17 @@ Cakupan: Self-scope siswa/ortua, kebocoran kunci jawaban, ownership sesi CBT, pu
 | `test_portal_finish_hides_score_until_published` | start portal OK (regresi) |
 | `test_sign_student_note_rejected_for_student` | siswa sign → 403 |
 | `test_portal_submit_assignment_rejects_other_class` | tugas kelas lain → 403 |
+| `test_resumed_session_payload_has_no_scoring_or_answer_key_fields` | resume `mulaiSesi` hanya `soal_id`/`jawaban_dipilih`/`jawaban_esai` (tanpa skor/kunci) |
 
 ## 4. HASIL
 
 ```text
-StudentCbtSecurityHardeningTest : 10 passed (28 assertions)
+StudentCbtSecurityHardeningTest : 11 passed (38 assertions)  (SQLite & PG 14)
 LmsSesi5AssignmentsAndCbtTest  :  4 passed (baseline CBT tetap hijau)
 StudentParentPortalSignatureVersioningTest : 4 passed
 Guard 6 filter critical        : 25 passed (100 assertions)
-FULL SUITE                     : 237 passed / 906 assertions / 0 failed / 0 error
+FULL SUITE                     : 246 passed / 947 assertions / 0 failed / 0 error
+Portal group (PG 14)           : 34 passed / 161 assertions (semua endpoint portal HIJAU di PostgreSQL)
 ```
 
 ## 5. VERDICT SEKTOR KEAMANAN

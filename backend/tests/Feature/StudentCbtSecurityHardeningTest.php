@@ -287,4 +287,34 @@ class StudentCbtSecurityHardeningTest extends TestCase
             ->postJson("/api/portal/assignments/{$penugasan->id}/submit", ['jawaban_teks' => 'Isi jawaban.'])
             ->assertStatus(403);
     }
+
+    public function test_resumed_session_payload_has_no_scoring_or_answer_key_fields(): void
+    {
+        $ujian = $this->buatUjian();
+
+        $start = $this->actingAs($this->siswaUser)
+            ->postJson("/api/portal/lms/exams/{$ujian->id}/start");
+        $start->assertOk();
+        $sesiId = $start->json('data.sesi_id');
+
+        // Simpan satu jawaban PG, lalu lanjutkan sesi (resume) untuk memeriksa
+        // payload yang dikirim kembali ke siswa.
+        $this->actingAs($this->siswaUser)
+            ->postJson("/api/portal/lms/exam-sessions/{$sesiId}/answers", [
+                'jawaban' => [['soal_id' => $this->soalPg->id, 'jawaban_dipilih' => 'B']],
+            ])
+            ->assertOk();
+
+        $resume = $this->actingAs($this->siswaUser)
+            ->postJson("/api/portal/lms/exams/{$ujian->id}/start");
+        $resume->assertOk();
+
+        $resume->assertJsonMissingPath('data.jawaban_tersimpan.0.is_correct');
+        $resume->assertJsonMissingPath('data.jawaban_tersimpan.0.poin_didapat');
+        $resume->assertJsonMissingPath('data.jawaban_tersimpan.0.jawaban_guru');
+        $resume->assertJsonMissingPath('data.soal.0.kunci_jawaban');
+        $resume->assertJsonMissingPath('data.soal.0.pembahasan');
+        $resume->assertJsonMissingPath('data.soal.0.is_correct');
+        $resume->assertJsonPath('data.jawaban_tersimpan.0.jawaban_dipilih', 'B');
+    }
 }

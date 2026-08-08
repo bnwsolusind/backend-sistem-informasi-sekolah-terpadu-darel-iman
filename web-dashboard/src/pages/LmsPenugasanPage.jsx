@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import PersonAvatar from '../components/ui/PersonAvatar'
 import {
   ClipboardList,
   BookOpen,
@@ -1127,9 +1128,11 @@ export default function LmsPenugasanPage() {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-[#0E5C44] dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
-                            {sub.siswa?.nama ? sub.siswa.nama.charAt(0) : 'S'}
-                          </div>
+                          <PersonAvatar
+                            src={sub.siswa?.foto || sub.siswa?.photo_url || sub.siswa?.avatar_url}
+                            name={sub.siswa?.nama || 'Siswa'}
+                            size="sm"
+                          />
                           <div>
                             <h5 className="text-sm font-bold text-slate-800 dark:text-white">
                               {sub.siswa?.nama || 'Siswa'}

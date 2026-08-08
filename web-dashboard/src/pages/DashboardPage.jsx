@@ -124,6 +124,12 @@ export default function DashboardPage() {
   const kpiAlumni = getKpiData('alumni', 'total_alumni')
   const kpiKelas = getKpiData('kelas', 'total_kelas')
   const kpiRombel = getKpiData('rombel', 'total_rombel')
+  const kpiSiswaBaru = getKpiData('siswa_baru')
+  const kpiMutasiMasuk = getKpiData('mutasi_masuk')
+  const kpiMutasiKeluar = getKpiData('mutasi_keluar')
+  const kpiSiswaBerhenti = getKpiData('siswa_berhenti')
+  const kpiSiswaLulus = getKpiData('siswa_lulus')
+  const kpiMenungguAlumni = getKpiData('menunggu_alumni')
 
   // Unit Education Table Data (Dynamic from DB if available)
   const dataUnitPendidikan = (apiData?.unit_summaries || []).map((u, idx) => ({
@@ -233,8 +239,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 text-xs">
           <select className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b302c] border border-slate-200 dark:border-slate-700 font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500">
             <option value="all">Tahun Ajaran: Semua</option>
-            <option value="2026/2027">2026/2027</option>
-            <option value="2025/2026">2025/2026</option>
+            {(apiData?.academic_years || []).map((ay) => (
+              <option key={ay.id || ay.name} value={ay.name || ay.id}>{ay.name}</option>
+            ))}
           </select>
           <select className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b302c] border border-slate-200 dark:border-slate-700 font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500">
             <option value="all">Semester: Semua</option>
@@ -243,21 +250,18 @@ export default function DashboardPage() {
           </select>
           <select className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b302c] border border-slate-200 dark:border-slate-700 font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500">
             <option value="all">Unit: Semua Unit</option>
-            <option value="sdit">SDIT Dar El-Iman</option>
-            <option value="smpit">SMPIT Dar El-Iman</option>
-            <option value="smait">SMAIT Dar El-Iman</option>
-            <option value="ponpes">PONPES Dar El-Iman</option>
+            {(apiData?.unit_summaries || []).map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
           </select>
           <select className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b302c] border border-slate-200 dark:border-slate-700 font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500">
             <option value="all">Jenis Unit: Semua</option>
-            <option value="sd">Sekolah Dasar</option>
-            <option value="smp">Sekolah Menengah</option>
-            <option value="sma">Sekolah Menengah Atas</option>
-            <option value="pesantren">Pesantren</option>
+            {(apiData?.jenis_units || []).map((ju) => (
+              <option key={ju.id || ju.name} value={ju.id || ju.name}>{ju.name}</option>
+            ))}
           </select>
           <select className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b302c] border border-slate-200 dark:border-slate-700 font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500">
             <option value="all">Kota/Kab: Semua</option>
-            <option value="padang">Kota Padang</option>
           </select>
           <select className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b302c] border border-slate-200 dark:border-slate-700 font-medium text-slate-800 dark:text-slate-200 outline-none focus:border-emerald-500">
             <option value="all">Status: Semua</option>
@@ -279,12 +283,12 @@ export default function DashboardPage() {
         <StatCard title="Total Guru" value={kpiGuru.value} trend={kpiGuru.trend} trendType={kpiGuru.trendType} trendText="guru pengajar" onClick={() => navigate('/dashboard/yayasan/pegawai-guru')} />
         <StatCard title="Tenaga Kependidikan" value={String(Math.max(0, Number(kpiPegawai.value || 0) - Number(kpiGuru.value || 0)))} trend="0" trendType="up" trendText="staf & TU" onClick={() => navigate('/dashboard/yayasan/pegawai-guru')} />
         <StatCard title="Total Siswa Aktif" value={kpiSiswa.value} trend={kpiSiswa.trend} trendType={kpiSiswa.trendType} trendText="terdaftar" onClick={() => navigate('/dashboard/yayasan/siswa')} />
-        <StatCard title="Siswa Baru" value="384" trend="12" trendType="up" trendText="tahun ajaran ini" onClick={() => navigate('/dashboard/yayasan/siswa-baru')} />
-        <StatCard title="Mutasi Masuk" value="24" trend="3" trendType="up" trendText="siswa pindahan" onClick={() => navigate('/dashboard/yayasan/mutasi-siswa')} />
-        <StatCard title="Mutasi Keluar" value="12" trend="1" trendType="down" trendText="pindah sekolah" onClick={() => navigate('/dashboard/yayasan/mutasi-siswa')} />
-        <StatCard title="Siswa Berhenti" value="5" trend="0" trendType="up" trendText="berhenti studi" onClick={() => navigate('/dashboard/yayasan/mutasi-siswa')} />
-        <StatCard title="Siswa Lulus" value="462" trend="18" trendType="up" trendText="lulus tahun ini" onClick={() => navigate('/dashboard/yayasan/kelulusan-alumni')} />
-        <StatCard title="Menunggu Alumni" value="48" trend="0" trendType="up" trendText="proses verifikasi" onClick={() => navigate('/dashboard/yayasan/kelulusan-alumni')} />
+        <StatCard title="Siswa Baru" value={kpiSiswaBaru.value} trend={kpiSiswaBaru.trend} trendType={kpiSiswaBaru.trendType} trendText="tahun ajaran ini" onClick={() => navigate('/dashboard/yayasan/siswa-baru')} />
+        <StatCard title="Mutasi Masuk" value={kpiMutasiMasuk.value} trend={kpiMutasiMasuk.trend} trendType={kpiMutasiMasuk.trendType} trendText="siswa pindahan" onClick={() => navigate('/dashboard/yayasan/mutasi-siswa')} />
+        <StatCard title="Mutasi Keluar" value={kpiMutasiKeluar.value} trend={kpiMutasiKeluar.trend} trendType={kpiMutasiKeluar.trendType} trendText="pindah sekolah" onClick={() => navigate('/dashboard/yayasan/mutasi-siswa')} />
+        <StatCard title="Siswa Berhenti" value={kpiSiswaBerhenti.value} trend={kpiSiswaBerhenti.trend} trendType={kpiSiswaBerhenti.trendType} trendText="berhenti studi" onClick={() => navigate('/dashboard/yayasan/mutasi-siswa')} />
+        <StatCard title="Siswa Lulus" value={kpiSiswaLulus.value} trend={kpiSiswaLulus.trend} trendType={kpiSiswaLulus.trendType} trendText="lulus tahun ini" onClick={() => navigate('/dashboard/yayasan/kelulusan-alumni')} />
+        <StatCard title="Menunggu Alumni" value={kpiMenungguAlumni.value} trend={kpiMenungguAlumni.trend} trendType={kpiMenungguAlumni.trendType} trendText="proses verifikasi" onClick={() => navigate('/dashboard/yayasan/kelulusan-alumni')} />
         <StatCard title="Total Alumni" value={kpiAlumni.value} trend={kpiAlumni.trend} trendType={kpiAlumni.trendType} trendText="terdata" onClick={() => navigate('/dashboard/yayasan/kelulusan-alumni')} />
       </div>
 
@@ -305,11 +309,10 @@ export default function DashboardPage() {
                   Kehadiran Guru
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-slate-900 dark:text-white">98%</span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">▲ 2%</span>
+                  <span className="text-xl font-black text-slate-900 dark:text-white">{apiData?.monitoring_akademik?.kehadiran_guru ?? 0}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '98%' }} />
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${apiData?.monitoring_akademik?.kehadiran_guru ?? 0}%` }} />
                 </div>
               </div>
 
@@ -318,11 +321,10 @@ export default function DashboardPage() {
                   Kehadiran Siswa
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-slate-900 dark:text-white">96%</span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">▲ 1%</span>
+                  <span className="text-xl font-black text-slate-900 dark:text-white">{apiData?.monitoring_akademik?.kehadiran_siswa ?? 0}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '96%' }} />
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${apiData?.monitoring_akademik?.kehadiran_siswa ?? 0}%` }} />
                 </div>
               </div>
 
@@ -331,13 +333,12 @@ export default function DashboardPage() {
                   Input Nilai
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-slate-900 dark:text-white">95%</span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">▲ 2%</span>
+                  <span className="text-xl font-black text-slate-900 dark:text-white">{apiData?.monitoring_akademik?.input_nilai ?? 0}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '95%' }} />
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${apiData?.monitoring_akademik?.input_nilai ?? 0}%` }} />
                 </div>
-                <p className="text-[10px] text-slate-400">Guru sudah input</p>
+                <p className="text-[10px] text-slate-400">Status input</p>
               </div>
 
               <div className="space-y-1.5 p-3 rounded-2xl bg-slate-50 dark:bg-[#1b302c]/50 border border-slate-100 dark:border-slate-800">
@@ -345,13 +346,12 @@ export default function DashboardPage() {
                   Input Tahfiz
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-slate-900 dark:text-white">91%</span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">▲ 3%</span>
+                  <span className="text-xl font-black text-slate-900 dark:text-white">{apiData?.monitoring_akademik?.input_tahfiz ?? 0}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '91%' }} />
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${apiData?.monitoring_akademik?.input_tahfiz ?? 0}%` }} />
                 </div>
-                <p className="text-[10px] text-slate-400">Guru sudah input</p>
+                <p className="text-[10px] text-slate-400">Status input</p>
               </div>
 
               <div className="space-y-1.5 p-3 rounded-2xl bg-slate-50 dark:bg-[#1b302c]/50 border border-slate-100 dark:border-slate-800">
@@ -359,13 +359,12 @@ export default function DashboardPage() {
                   Input Mutabaah
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-black text-slate-900 dark:text-white">90%</span>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">▲ 2%</span>
+                  <span className="text-xl font-black text-slate-900 dark:text-white">{apiData?.monitoring_akademik?.input_mutabaah ?? 0}%</span>
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '90%' }} />
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${apiData?.monitoring_akademik?.input_mutabaah ?? 0}%` }} />
                 </div>
-                <p className="text-[10px] text-slate-400">Data mutabaah</p>
+                <p className="text-[10px] text-slate-400">Status input</p>
               </div>
             </div>
 
@@ -373,14 +372,12 @@ export default function DashboardPage() {
             <div className="flex items-center gap-6 pt-2">
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <span className="text-slate-600 dark:text-slate-300">Terlambat Hari Ini</span>
-                <span className="text-lg font-black text-slate-900 dark:text-white">28</span>
-                <span className="text-rose-500 font-bold text-xs flex items-center">▼ 8% <span className="text-slate-400 font-normal ml-1">dari kemarin</span></span>
+                <span className="text-lg font-black text-slate-900 dark:text-white">{apiData?.monitoring_akademik?.terlambat_hari_ini ?? 0}</span>
               </div>
               <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700" />
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <span className="text-slate-600 dark:text-slate-300">Tidak Hadir</span>
-                <span className="text-lg font-black text-slate-900 dark:text-white">16</span>
-                <span className="text-rose-500 font-bold text-xs flex items-center">▼ 12% <span className="text-slate-400 font-normal ml-1">dari kemarin</span></span>
+                <span className="text-lg font-black text-slate-900 dark:text-white">{apiData?.monitoring_akademik?.tidak_hadir_hari_ini ?? 0}</span>
               </div>
             </div>
           </CardContent>
@@ -420,7 +417,7 @@ export default function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">186</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">{apiData?.kpis?.total_prestasi ?? 0}</span>
                 <span className="text-[10px] font-bold text-slate-400">Total Prestasi</span>
               </div>
             </div>
@@ -459,9 +456,9 @@ export default function DashboardPage() {
                   className="appearance-none text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 pr-5 outline-none border border-slate-200 dark:border-slate-700 cursor-pointer"
                 >
                   <option value="Semua Unit">Semua Unit</option>
-                  <option value="SDIT">SDIT</option>
-                  <option value="SMPIT">SMPIT</option>
-                  <option value="SMAIT">SMAIT</option>
+                  {(apiData?.unit_summaries || []).map((u) => (
+                    <option key={u.id} value={u.name}>{u.name}</option>
+                  ))}
                 </select>
                 <ChevronDown className="h-3 w-3 text-slate-400 absolute right-1.5 top-1.5 pointer-events-none" />
               </div>
@@ -530,12 +527,12 @@ export default function DashboardPage() {
                 <div className="relative h-16 w-16 mx-auto flex items-center justify-center">
                   <svg className="h-full w-full transform -rotate-90" viewBox="0 0 36 36">
                     <path className="text-slate-200 dark:text-slate-700" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path className="text-emerald-500" strokeDasharray="96, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="text-emerald-500" strokeDasharray={`${apiData?.monitoring_ibadah?.shalat ?? 0}, 100`} strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                   </svg>
-                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">96%</span>
+                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">{apiData?.monitoring_ibadah?.shalat ?? 0}%</span>
                 </div>
                 <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Shalat</p>
-                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Baik</span>
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Pencapaian</span>
               </div>
 
               {/* Tilawah */}
@@ -543,12 +540,12 @@ export default function DashboardPage() {
                 <div className="relative h-16 w-16 mx-auto flex items-center justify-center">
                   <svg className="h-full w-full transform -rotate-90" viewBox="0 0 36 36">
                     <path className="text-slate-200 dark:text-slate-700" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path className="text-blue-500" strokeDasharray="88, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="text-blue-500" strokeDasharray={`${apiData?.monitoring_ibadah?.tilawah ?? 0}, 100`} strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                   </svg>
-                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">88%</span>
+                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">{apiData?.monitoring_ibadah?.tilawah ?? 0}%</span>
                 </div>
                 <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Tilawah</p>
-                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Baik</span>
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Pencapaian</span>
               </div>
 
               {/* Murajaah */}
@@ -556,12 +553,12 @@ export default function DashboardPage() {
                 <div className="relative h-16 w-16 mx-auto flex items-center justify-center">
                   <svg className="h-full w-full transform -rotate-90" viewBox="0 0 36 36">
                     <path className="text-slate-200 dark:text-slate-700" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path className="text-teal-500" strokeDasharray="91, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="text-teal-500" strokeDasharray={`${apiData?.monitoring_ibadah?.murajaah ?? 0}, 100`} strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                   </svg>
-                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">91%</span>
+                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">{apiData?.monitoring_ibadah?.murajaah ?? 0}%</span>
                 </div>
                 <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Murajaah</p>
-                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Baik</span>
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Pencapaian</span>
               </div>
 
               {/* Mutabaah */}
@@ -569,12 +566,12 @@ export default function DashboardPage() {
                 <div className="relative h-16 w-16 mx-auto flex items-center justify-center">
                   <svg className="h-full w-full transform -rotate-90" viewBox="0 0 36 36">
                     <path className="text-slate-200 dark:text-slate-700" strokeWidth="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path className="text-amber-500" strokeDasharray="84, 100" strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <path className="text-amber-500" strokeDasharray={`${apiData?.monitoring_ibadah?.mutabaah ?? 0}, 100`} strokeWidth="3.5" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                   </svg>
-                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">84%</span>
+                  <span className="absolute text-xs font-bold text-slate-900 dark:text-white">{apiData?.monitoring_ibadah?.mutabaah ?? 0}%</span>
                 </div>
                 <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Mutabaah</p>
-                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Cukup</span>
+                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Pencapaian</span>
               </div>
             </div>
           </CardContent>
@@ -591,55 +588,23 @@ export default function DashboardPage() {
             </button>
           </CardHeader>
           <CardContent className="space-y-3 pt-1 text-xs">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 dark:text-slate-200"><strong className="text-emerald-700 mr-1.5">1</strong> SDIT Dar El-Iman</span>
-                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">98%</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '98%' }} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 dark:text-slate-200"><strong className="text-emerald-700 mr-1.5">2</strong> SMPIT Dar El-Iman</span>
-                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">97%</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '97%' }} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 dark:text-slate-200"><strong className="text-emerald-700 mr-1.5">3</strong> PONPES Dar El-Iman</span>
-                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">96%</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '96%' }} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 dark:text-slate-200"><strong className="text-emerald-700 mr-1.5">4</strong> SMAIT Dar El-Iman</span>
-                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">95%</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '95%' }} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-800 dark:text-slate-200"><strong className="text-emerald-700 mr-1.5">5</strong> MA'HAD Dar El-Iman</span>
-                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">94%</span>
-              </div>
-              <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '94%' }} />
-              </div>
-            </div>
+            {(apiData?.unit_rankings || []).length > 0 ? (
+              (apiData?.unit_rankings || []).map((rank) => (
+                <div key={rank.rank} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      <strong className="text-emerald-700 mr-1.5">{rank.rank}</strong> {rank.name}
+                    </span>
+                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{rank.score}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${rank.score}%` }} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-400 text-[11px]">Belum ada data unit pendidikan</p>
+            )}
           </CardContent>
         </Card>
 
@@ -654,45 +619,21 @@ export default function DashboardPage() {
             </button>
           </CardHeader>
           <CardContent className="space-y-3 pt-1 text-xs">
-            <div className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-[#1b302c]/50 border border-slate-100 dark:border-slate-800">
-              <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">
-                08:00
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-900 dark:text-white truncate">Rapat Pengurus Bulanan</p>
-                <p className="text-[10px] text-slate-400 truncate">Aula Utama Yayasan</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-[#1b302c]/50 border border-slate-100 dark:border-slate-800">
-              <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 font-extrabold text-[11px]">
-                10:00
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-900 dark:text-white truncate">Evaluasi Tengah Semester</p>
-                <p className="text-[10px] text-slate-400 truncate">Seluruh Unit</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-[#1b302c]/50 border border-slate-100 dark:border-slate-800">
-              <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[11px]">
-                13:00
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-900 dark:text-white truncate">Monitoring Tahfiz</p>
-                <p className="text-[10px] text-slate-400 truncate">Seluruh Unit</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-[#1b302c]/50 border border-slate-100 dark:border-slate-800">
-              <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-extrabold text-[11px]">
-                15:00
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-900 dark:text-white truncate">Laporan Bulanan Unit</p>
-                <p className="text-[10px] text-slate-400 truncate">Kantor Yayasan</p>
-              </div>
-            </div>
+            {(apiData?.agenda_yayasan || []).length > 0 ? (
+              (apiData?.agenda_yayasan || []).map((agenda) => (
+                <div key={agenda.id} className="flex items-start gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-[#1b302c]/50 border border-slate-100 dark:border-slate-800">
+                  <div className="flex h-8 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">
+                    {agenda.jam || '08:00'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-900 dark:text-white truncate">{agenda.judul}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{agenda.isi}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-400 text-[11px]">Belum ada agenda resmi</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -743,37 +684,19 @@ export default function DashboardPage() {
             </button>
           </CardHeader>
           <CardContent className="space-y-3 pt-1 text-xs">
-            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white">Ahmad Zaky (6A) hadir</p>
-                <p className="text-[10px] text-slate-400">Presensi Tepat Waktu</p>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 shrink-0">07:15 WIB</span>
-            </div>
-
-            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white">Guru mengunggah nilai baru</p>
-                <p className="text-[10px] text-slate-400">Matematika - Kelas 6A</p>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 shrink-0">09:30 WIB</span>
-            </div>
-
-            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white">Orang tua mengajukan izin</p>
-                <p className="text-[10px] text-slate-400">Aisyah Humaira - Kelas 6A</p>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 shrink-0">10:15 WIB</span>
-            </div>
-
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white">Laporan bulanan tersedia</p>
-                <p className="text-[10px] text-slate-400">Laporan Kehadiran - Juli 2026</p>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 shrink-0">16:45 WIB</span>
-            </div>
+            {(apiData?.recent_activities || []).length > 0 ? (
+              (apiData?.recent_activities || []).map((act) => (
+                <div key={act.id} className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white">{act.title}</p>
+                    <p className="text-[10px] text-slate-400">{act.subtitle}</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 shrink-0">{act.time}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-400 text-[11px]">Belum ada aktivitas terbaru</p>
+            )}
           </CardContent>
         </Card>
 

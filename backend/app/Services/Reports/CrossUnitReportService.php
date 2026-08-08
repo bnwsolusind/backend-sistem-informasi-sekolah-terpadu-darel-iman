@@ -29,11 +29,15 @@ class CrossUnitReportService
         $units = $unitQuery->get();
 
         $mainComparison = $units->map(function ($u) {
-            $allEmployees = Employee::where('unit_id', $u->id)->get();
+            $allEmployees = Employee::with(['position', 'teacherBridge', 'teachings'])->where('unit_id', $u->id)->get();
             $totalPegawai = $allEmployees->count();
             $guru = $allEmployees->filter(function ($e) {
-                $posName = $e->position->nama_jabatan ?? '';
-                return str_contains(strtolower($posName), 'guru') || ($e->position->is_teacher ?? false);
+                $posName = $e->position->name ?? '';
+                return $e->teacherBridge !== null
+                    || $e->teachings->isNotEmpty()
+                    || str_contains(strtolower($posName), 'guru')
+                    || str_contains(strtolower($posName), 'pendidik')
+                    || in_array($e->position?->level_jabatan, [9, 10, 11]);
             })->count();
             $nonGuru = max(0, $totalPegawai - $guru);
 

@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\Notification;
 use App\Models\PortalMessage;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -14,13 +13,24 @@ use Illuminate\Support\Str;
 class EmployeeChatController extends Controller
 {
     /**
-     * Get list of employee contacts for chatting
+     * Get list of employee contacts for chatting.
+     *
+     * Directory dibatasi (scoped) ke unit kerja peminta agar tidak bocor
+     * ke seluruh direktori pengguna. Pengguna tanpa data Employee
+     * (mis. akun portal) tidak boleh melihat direktori sama sekali.
      */
     public function employeeContacts(Request $request): JsonResponse
     {
         $user = $request->user();
         $search = $request->query('search');
-        $unitId = $request->query('unit_id');
+
+        $requesterEmployee = Employee::query()->where('user_id', $user->id)->first();
+        if (! $requesterEmployee) {
+            return response()->json([
+                'success' => true,
+                'data' => [],
+            ]);
+        }
 
         $query = Employee::query()
             ->with([
@@ -30,7 +40,13 @@ class EmployeeChatController extends Controller
                 'division:id,name',
             ])
             ->whereNotNull('user_id')
-            ->where('user_id', '!=', $user->id);
+            ->where('user_id', '!=', $user->id)
+            ->whereHas('user', fn ($q) => $q->where('is_active', true))
+            ->where(fn ($q) => $q
+                ->where('unit_id', $requesterEmployee->unit_id)
+                ->orWhere(fn ($q2) => $q2
+                    ->whereNull('unit_id')
+                    ->where('division_id', $requesterEmployee->division_id)));
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -39,10 +55,6 @@ class EmployeeChatController extends Controller
                   ->orWhere('niy', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%");
             });
-        }
-
-        if ($unitId) {
-            $query->where('unit_id', $unitId);
         }
 
         $employees = $query->orderBy('nama_lengkap', 'asc')->get();
@@ -190,9 +202,13 @@ class EmployeeChatController extends Controller
 
         $user = $request->user();
 
-        $recipientUser = User::query()->find($recipientUserId);
-        if (! $recipientUser) {
-            return response()->json(['success' => false, 'message' => 'Penerima tidak ditemukan.'], 404);
+        $recipientEmployee = Employee::query()
+            ->where('user_id', $recipientUserId)
+            ->whereHas('user', fn ($q) => $q->where('is_active', true))
+            ->first();
+
+        if (! $recipientEmployee) {
+            return response()->json(['success' => false, 'message' => 'Penerima bukan pegawai yang aktif.'], 403);
         }
 
         $message = PortalMessage::query()->create([

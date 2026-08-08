@@ -79,7 +79,6 @@ class AccessControlHardeningTest extends TestCase
     {
         $superAdmin = User::create([
             'name' => 'Super Admin Teruji',
-            'username' => 'superadmin_teruji',
             'email' => 'superadmin.teruji@school-erp.local',
             'password' => Hash::make('Admin@2026!'),
             'is_active' => true,
@@ -87,7 +86,7 @@ class AccessControlHardeningTest extends TestCase
         $superAdmin->assignRole('Super Admin');
 
         $this->postJson('/api/auth/login/admin', [
-            'username' => 'superadmin_teruji',
+            'username' => 'superadmin.teruji@school-erp.local',
             'password' => 'Password123!',
         ])->assertUnauthorized();
     }

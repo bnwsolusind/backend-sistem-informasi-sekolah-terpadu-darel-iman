@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\AcademicYear;
 use App\Models\Notification;
+use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,14 +15,17 @@ class NotificationApiTest extends TestCase
 
     public function test_user_can_fetch_and_mark_notifications(): void
     {
+        $ay = AcademicYear::create(['name' => '2026/2027', 'is_active' => true]);
+        $sem = Semester::create(['academic_year_id' => $ay->id, 'name' => 'Ganjil', 'sequence' => 1, 'is_active' => true]);
+
         $user = User::factory()->create();
 
         $notif = Notification::create([
-            'academic_year_id' => '00000000-0000-0000-0000-000000000000',
-            'semester_id' => '00000000-0000-0000-0000-000000000000',
-            'month' => 7,
+            'academic_year_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'month' => now()->month,
             'notifiable_id' => $user->id,
-            'notifiable_type' => 'User',
+            'notifiable_type' => User::class,
             'title' => 'Ujian Dimulai',
             'body' => 'Jadwal ujian matematika telah dibuka',
             'channel' => 'web',

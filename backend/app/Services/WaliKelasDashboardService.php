@@ -104,7 +104,8 @@ class WaliKelasDashboardService
         $unsignedParentNotesCount = 0;
         if (Schema::hasTable('mutabaah_daily_headers') && ! empty($studentIds)) {
             $unsignedParentNotesCount = MutabaahDailyHeader::whereIn('student_id', $studentIds)
-                ->whereNull('parent_signature_at')
+                ->whereIn('status', ['finalized', 'parent_reviewed'])
+                ->whereDoesntHave('parentSignatures')
                 ->count();
         }
 

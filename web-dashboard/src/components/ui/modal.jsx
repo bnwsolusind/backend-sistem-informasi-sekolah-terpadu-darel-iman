@@ -17,7 +17,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-xl',
       {/* Modal Dialog */}
       <div
         className={cn(
-          'relative w-full rounded-[18px] bg-white text-slate-800 shadow-2xl border border-slate-200/80 overflow-hidden z-10 animate-[masterModalFadeScale_0.25s_ease-out] dark:bg-[#1B2433] dark:border-slate-800 dark:text-slate-100',
+          'relative w-full rounded-[20px] bg-white text-slate-800 shadow-2xl border border-slate-200/80 overflow-hidden z-10 animate-[masterModalFadeScale_0.25s_ease-out] dark:bg-[#1B2433] dark:border-slate-800 dark:text-slate-100',
           maxWidth
         )}
       >

@@ -25,7 +25,7 @@ class SuperAdminDashboardService
 
         // 2. KPI Metrics (Strict DB aggregates)
         $totalUnits = EducationUnit::count();
-        $activeUnits = EducationUnit::where('status', 'Aktif')->count();
+        $activeUnits = EducationUnit::where('is_active', true)->count();
         $totalEmployees = Employee::count();
         $totalTeachers = Teacher::count();
         $totalStudents = Student::count();
@@ -36,7 +36,11 @@ class SuperAdminDashboardService
             ? DB::table('rombels')->count() 
             : $totalClasses;
 
-        $totalAlumni = Student::where('status', 'Alumni')->count();
+        // Alumni = siswa non-aktif / ditandai alumni (tidak ada kolom `status`).
+        $totalAlumni = Student::where(fn ($q) => $q
+            ->where('is_active', false)
+            ->orWhere('metadata->is_alumni', true)
+            ->orWhere('metadata->status_siswa', 'alumni'))->count();
         $activeUsers = User::count();
         $activeRoles = Role::count();
 
@@ -114,7 +118,7 @@ class SuperAdminDashboardService
                     'pegawai_count' => $unit->employees_count,
                     'guru_count' => $unit->teachers_count,
                     'kelas_count' => $unit->classes_count,
-                    'status' => $unit->status ?? 'Aktif',
+                    'status' => $unit->is_active ? 'Aktif' : 'Nonaktif',
                 ];
             });
 

@@ -127,6 +127,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'profile']);
+        Route::get('/me', [AuthController::class, 'profile']);
         Route::post('/impersonate', [AuthController::class, 'impersonate']);
 
         Route::middleware('can:sistem.master_data')->group(function () {
@@ -804,7 +805,8 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // Unified Chat Alias Routes (/api/chat/*)
-        Route::prefix('chat')->group(function () {
+        // Role-scoped: portal (Orang Tua/Siswa) + seluruh role staf sekolah.
+        Route::prefix('chat')->middleware('role:Orang Tua|Siswa|Guru|Guru Mata Pelajaran|Guru PAI|Pembimbing|Wali Kelas|Guru Tahfizh|Musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|Kepala Sekolah|Tata Usaha|TU|Operator|Divisi Pendidikan|Waka Kurikulum|Waka Kesiswaan|Wakil Kepala Sekolah|Admin|Super Admin|Pengurus Yayasan|Ketua Yayasan|Sekretaris Yayasan|Bendahara Yayasan')->group(function () {
             Route::get('/contacts', [StudentParentPortalController::class, 'chatContacts']);
             Route::get('/available-teachers', [StudentParentPortalController::class, 'chatContacts']);
             Route::get('/conversations', [TeacherPortalController::class, 'chatConversations']);
@@ -819,7 +821,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // Employee Chat Dedicated Routes (/api/employee/chat/*)
-        Route::prefix('employee/chat')->group(function () {
+        Route::prefix('employee/chat')->middleware('role:Guru|Guru Mata Pelajaran|Guru PAI|Pembimbing|Wali Kelas|Guru Tahfizh|Musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|Kepala Sekolah|Tata Usaha|TU|Operator|Divisi Pendidikan|Waka Kurikulum|Waka Kesiswaan|Wakil Kepala Sekolah|Admin|Super Admin|Pengurus Yayasan|Ketua Yayasan|Sekretaris Yayasan|Bendahara Yayasan')->group(function () {
             Route::get('/contacts', [EmployeeChatController::class, 'employeeContacts']);
             Route::get('/conversations', [EmployeeChatController::class, 'employeeConversations']);
             Route::get('/messages/{recipientUserId}', [EmployeeChatController::class, 'employeeMessages']);

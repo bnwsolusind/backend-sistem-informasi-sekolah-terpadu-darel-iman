@@ -97,6 +97,11 @@ class LmsPenugasan extends Model
         return $this->belongsTo(Employee::class, 'guru_id');
     }
 
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'guru_id');
+    }
+
     public function semester(): BelongsTo
     {
         return $this->belongsTo(Semester::class, 'semester_id');

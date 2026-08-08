@@ -15,10 +15,18 @@ class AttendanceSeeder extends Seeder
      */
     public function run(): void
     {
-        $students = Student::limit(15)->get();
-        $employees = Employee::limit(5)->get();
+        $students = Student::orderBy('id')->limit(15)->get();
+        $employees = Employee::orderBy('id')->limit(5)->get();
         $today = now()->toDateString();
         $yesterday = now()->subDay()->toDateString();
+
+        $academicYear = \App\Models\AcademicYear::query()->where('is_active', true)->first()
+            ?? \App\Models\AcademicYear::query()->orderBy('id')->first();
+        $semester = $academicYear
+            ? \App\Models\Semester::query()->where('academic_year_id', $academicYear->id)->orderBy('sequence')->first()
+            : null;
+        $academicYearId = $academicYear?->id;
+        $semesterId = $semester?->id;
 
         // 1. Seed Presensi Siswa
         if ($students->isNotEmpty()) {
@@ -41,6 +49,8 @@ class AttendanceSeeder extends Seeder
                         'id' => (string) Str::uuid(),
                         'tipe_presensi' => 'Siswa',
                         'student_id' => $student->id,
+                        'academic_year_id' => $academicYearId,
+                        'semester_id' => $semesterId,
                         'class_id' => $student->class_id ?? null,
                         'unit_pendidikan_id' => $student->unit_pendidikan_id ?? null,
                         'attendance_date' => $today,
@@ -88,6 +98,8 @@ class AttendanceSeeder extends Seeder
                         'id' => (string) Str::uuid(),
                         'tipe_presensi' => 'Pegawai',
                         'employee_id' => $employee->id,
+                        'academic_year_id' => $academicYearId,
+                        'semester_id' => $semesterId,
                         'attendance_date' => $today,
                         'check_in_time' => now()->setHour(6)->setMinute(45),
                         'check_out_time' => now()->setHour(16)->setMinute(00),

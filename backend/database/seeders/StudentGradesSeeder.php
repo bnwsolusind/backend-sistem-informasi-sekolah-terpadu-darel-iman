@@ -74,7 +74,6 @@ class StudentGradesSeeder extends Seeder
                     [
                         'id' => (string) Str::uuid(),
                         'kelas_id' => $studentClass?->id,
-                        'class_id' => $studentClass?->id,
                         'score_assignment' => $assignment,
                         'score_quiz' => $quiz,
                         'score_project' => $project,

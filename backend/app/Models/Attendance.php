@@ -49,6 +49,17 @@ class Attendance extends Model
 
     protected $appends = ['status_label', 'status_badge_color'];
 
+    protected static function booted(): void
+    {
+        // PostgreSQL partitioned table: month (partition key) wajib terisi.
+        // Derive otomatis dari attendance_date bila caller tidak mengisinya.
+        static::creating(function (Attendance $model) {
+            if (empty($model->month) && $model->attendance_date) {
+                $model->month = (int) $model->attendance_date->format('n');
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [

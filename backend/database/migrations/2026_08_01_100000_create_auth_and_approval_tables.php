@@ -9,21 +9,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Add username to users if not present
-        if (! Schema::hasColumn('users', 'username')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->string('username', 60)->nullable()->unique()->index()->after('name');
-            });
-        }
+        // NOTE: Tidak menambahkan kolom `username` ke tabel `users`.
+        // Kolom `username` TIDAK ADA pada skema PostgreSQL yang berjalan;
+        // autentikasi memakai `email`/`phone` pada tabel users (lihat AuthService).
 
-        // 2. Add nik to parents if not present
+        // 1. Add nik to parents if not present
         if (Schema::hasTable('parents') && ! Schema::hasColumn('parents', 'nik')) {
             Schema::table('parents', function (Blueprint $table) {
                 $table->string('nik', 32)->nullable()->unique()->index()->after('user_id');
             });
         }
 
-        // 3. Create qr_credentials table for Employee ID Cards & Student Cards
+        // 2. Create qr_credentials table for Employee ID Cards & Student Cards
         if (! Schema::hasTable('qr_credentials')) {
             Schema::create('qr_credentials', function (Blueprint $table) {
                 if (DB::getDriverName() === 'pgsql') {
@@ -51,7 +48,7 @@ return new class extends Migration
             });
         }
 
-        // 4. Create login_events table for login history & security audit
+        // 3. Create login_events table for login history & security audit
         if (! Schema::hasTable('login_events')) {
             Schema::create('login_events', function (Blueprint $table) {
                 if (DB::getDriverName() === 'pgsql') {
@@ -76,7 +73,7 @@ return new class extends Migration
             });
         }
 
-        // 5. Create user_devices table
+        // 4. Create user_devices table
         if (! Schema::hasTable('user_devices')) {
             Schema::create('user_devices', function (Blueprint $table) {
                 if (DB::getDriverName() === 'pgsql') {
@@ -99,7 +96,7 @@ return new class extends Migration
             });
         }
 
-        // 6. Create delete_requests table for Admin deletion approval
+        // 5. Create delete_requests table for Admin deletion approval
         if (! Schema::hasTable('delete_requests')) {
             Schema::create('delete_requests', function (Blueprint $table) {
                 if (DB::getDriverName() === 'pgsql') {
@@ -138,12 +135,6 @@ return new class extends Migration
         if (Schema::hasTable('parents') && Schema::hasColumn('parents', 'nik')) {
             Schema::table('parents', function (Blueprint $table) {
                 $table->dropColumn('nik');
-            });
-        }
-
-        if (Schema::hasColumn('users', 'username')) {
-            Schema::table('users', function (Blueprint $table) {
-                $table->dropColumn('username');
             });
         }
     }

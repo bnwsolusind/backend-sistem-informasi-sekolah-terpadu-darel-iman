@@ -37,6 +37,25 @@ class Notification extends Model
         ];
     }
 
+    protected static bool $canonicalResolved = false;
+
+    protected static bool $canonicalSchema = true;
+
+    /**
+     * Deteksi skema `notifications` (kanonik partitioned vs legacy user-scoped)
+     * di-cache dalam static agar tidak memanggil Schema::hasColumn berulang
+     * per request. Sumber kebenaran utama = skema kanonik (partitioned).
+     */
+    public static function usesCanonicalSchema(): bool
+    {
+        if (! static::$canonicalResolved) {
+            static::$canonicalSchema = ! \Illuminate\Support\Facades\Schema::hasColumn('notifications', 'user_id');
+            static::$canonicalResolved = true;
+        }
+
+        return static::$canonicalSchema;
+    }
+
     // Relationships
     public function user()
     {
@@ -89,6 +108,52 @@ class Notification extends Model
         ]);
     }
 
+    /**
+     * Bangun query notifikasi milik satu pengguna dengan filter umum
+     * (search / type / is_read). Sumber kebenaran tunggal agar perilaku
+     * identik di semua kanal API (dashboard, portal guru, portal wali/siswa).
+     */
+    public static function userQuery(string $userId, array $filters = []): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = static::byUser($userId);
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $operator = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $canonical = static::usesCanonicalSchema();
+            $query->where(function ($q) use ($search, $operator, $canonical) {
+                $q->where('title', $operator, "%{$search}%")
+                  ->orWhere('body', $operator, "%{$search}%");
+                if (! $canonical) {
+                    $q->orWhere('message', $operator, "%{$search}%");
+                }
+            });
+        }
+
+        $type = $filters['type'] ?? null;
+        if ($type && $type !== 'all') {
+            if (static::usesCanonicalSchema()) {
+                $query->where('channel', $type);
+            } else {
+                $query->where('type', $type);
+            }
+        }
+
+        $isReadParam = $filters['is_read'] ?? null;
+        if ($isReadParam !== null && $isReadParam !== '' && $isReadParam !== 'all') {
+            $isReadBool = filter_var($isReadParam, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($isReadBool !== null) {
+                if ($isReadBool) {
+                    $query->whereNotNull('read_at');
+                } else {
+                    $query->unread();
+                }
+            }
+        }
+
+        return $query;
+    }
+
     // Scopes
     public function scopeUnread($query)
     {
@@ -97,9 +162,14 @@ class Notification extends Model
 
     public function scopeByUser($query, string $userId)
     {
-        return $query->where(function ($q) use ($userId) {
-            $q->where('user_id', $userId)->orWhere('notifiable_id', $userId);
-        });
+        // Skema kanonik (partitioned) memakai notifiable_id; kolom user_id
+        // hanya ada di skema legacy. Mengambil kolom yang salah di PostgreSQL
+        // menghasilkan error "column user_id does not exist".
+        if (static::usesCanonicalSchema()) {
+            return $query->where('notifiable_id', $userId);
+        }
+
+        return $query->where('user_id', $userId);
     }
 }
 

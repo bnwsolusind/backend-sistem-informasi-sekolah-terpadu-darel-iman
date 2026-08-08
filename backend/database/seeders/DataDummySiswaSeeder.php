@@ -5,6 +5,9 @@ namespace Database\Seeders;
 use App\Models\Kelas;
 use App\Models\ParentModel;
 use App\Models\Student;
+use App\Models\StudentParent;
+use App\Models\User;
+use App\Support\PhoneNormalizer;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -14,22 +17,29 @@ class DataDummySiswaSeeder extends Seeder
 {
     public function run(): void
     {
-        $tahunAjaranAktif = DB::table('academic_years')->first();
+        // Ensure academic year exists (idempotent)
+        $tahunAjaranAktif = DB::table('academic_years')->where('name', '2024/2025')->first();
+        if (! $tahunAjaranAktif) {
+            $tahunAjaranAktif = DB::table('academic_years')->first();
+        }
         if (! $tahunAjaranAktif) {
             $tahunAjaranId = (string) Str::uuid();
-            DB::table('academic_years')->insert([
-                'id' => $tahunAjaranId,
-                'name' => '2024/2025',
-                'start_date' => '2024-07-01',
-                'end_date' => '2025-06-30',
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('academic_years')->updateOrInsert(
+                ['name' => '2024/2025'],
+                [
+                    'id' => $tahunAjaranId,
+                    'start_date' => '2024-07-01',
+                    'end_date' => '2025-06-30',
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
         } else {
             $tahunAjaranId = $tahunAjaranAktif->id;
         }
 
+        // Ensure semester exists (idempotent)
         $semesterAktif = DB::table('semesters')
             ->where('academic_year_id', $tahunAjaranId)
             ->orderBy('sequence')
@@ -37,17 +47,18 @@ class DataDummySiswaSeeder extends Seeder
 
         if (! $semesterAktif) {
             $semesterId = (string) Str::uuid();
-            DB::table('semesters')->insert([
-                'id' => $semesterId,
-                'academic_year_id' => $tahunAjaranId,
-                'name' => 'Semester Ganjil',
-                'sequence' => 1,
-                'start_date' => '2024-07-01',
-                'end_date' => '2024-12-31',
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            DB::table('semesters')->updateOrInsert(
+                ['academic_year_id' => $tahunAjaranId, 'sequence' => 1],
+                [
+                    'id' => $semesterId,
+                    'name' => 'Semester Ganjil',
+                    'start_date' => '2024-07-01',
+                    'end_date' => '2024-12-31',
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
         } else {
             $semesterId = $semesterAktif->id;
         }
@@ -234,16 +245,50 @@ class DataDummySiswaSeeder extends Seeder
             ],
         ];
 
-        $parents = ParentModel::all();
+        // Hanya 3 parent fixture dari ParentSeeder (deterministic, terlepas
+        // dari akun parent lain yang dibuat seeder lain).
+        $parents = ParentModel::query()
+            ->where('email', 'like', '%@parent.local')
+            ->orderBy('email')
+            ->get();
+
+        // Mapping eksplisit NIS -> nama ayah agar fixture multi-anak stabil.
+        $explicitParentByNis = [
+            '23001' => 'Ahmad Fauzi',
+            '23005' => 'Ahmad Fauzi',
+        ];
 
         foreach ($daftarSiswa as $index => $siswa) {
-            $parent = $parents->firstWhere('full_name', $siswa['metadata']['orang_tua']['nama_ayah'] ?? '')
-                ?? ($parents->isNotEmpty() ? $parents->get($index % $parents->count()) : null);
+            $explicitParent = $explicitParentByNis[$siswa['nis']] ?? null;
 
-            Student::query()->updateOrCreate(
+            $parent = $explicitParent
+                ? $parents->firstWhere('full_name', $explicitParent)
+                : $parents->firstWhere('full_name', $siswa['metadata']['orang_tua']['nama_ayah'] ?? '')
+                    ?? ($parents->isNotEmpty() ? $parents->get($index % $parents->count()) : null);
+
+            // === Akun login siswa (idempotent, email deterministic dari NIS) ===
+            $studentEmail = strtolower(trim($siswa['nis'])).'@student.dareliman.sch.id';
+
+            $studentUser = User::query()->firstOrCreate(
+                ['email' => $studentEmail],
+                [
+                    'name' => $siswa['full_name'],
+                    'password' => 'Password123!',
+                    'is_active' => $siswa['is_active'],
+                ]
+            );
+
+            $studentUser->syncRoles(['Siswa']);
+
+            $studentUser->forceFill([
+                'name' => $siswa['full_name'],
+                'is_active' => $siswa['is_active'],
+            ])->save();
+
+            $student = Student::query()->updateOrCreate(
                 ['nis' => $siswa['nis']],
                 [
-                    'user_id' => null,
+                    'user_id' => $studentUser->id,
                     'parent_id' => $parent?->id,
                     'class_id' => $kelasMap[$siswa['class_name']] ?? null,
                     'full_name' => $siswa['full_name'],
@@ -255,6 +300,23 @@ class DataDummySiswaSeeder extends Seeder
                     'metadata' => $siswa['metadata'],
                 ]
             );
+
+            // === Tautan pivot keluarga (idempotent; authoritative per siswa) ===
+            // Pivot siswa fixture sepenuhnya dikelola seeder ini; baris stale
+            // dari versi seeder lama di-reconcile agar mapping deterministik.
+            StudentParent::query()->where('student_id', $student->id)->delete();
+
+            if ($parent) {
+                StudentParent::query()->create([
+                    'student_id' => $student->id,
+                    'parent_id' => $parent->id,
+                    'relationship_type' => 'father',
+                    'is_primary' => true,
+                    'metadata' => [
+                        'phone_normalized' => PhoneNormalizer::normalize((string) ($siswa['metadata']['orang_tua']['no_hp'] ?? '')),
+                    ],
+                ]);
+            }
         }
     }
 }

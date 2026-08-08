@@ -161,9 +161,13 @@ class LmsRaporRepository implements LmsRaporRepositoryInterface
         $mapelLulus = $grades->where('is_passed', true)->count();
         $mapelTidakLulus = $totalMapel - $mapelLulus;
 
-        // Query Presensi Kehadiran
+        // Query Presensi Kehadiran.
+        // Catatan: lms_presensi tidak memiliki kolom semester_id; semester
+        // diturunkan lewat jadwal_pelajaran_id -> class_schedules.semester_id.
         $presensiQuery = LmsPresensi::where('siswa_id', $siswaId)
-            ->where('semester_id', $semesterId);
+            ->whereHas('jadwalPelajaran', function ($q) use ($semesterId) {
+                $q->where('semester_id', $semesterId);
+            });
 
         $totalHadir = (clone $presensiQuery)->where('status_hadir', 'hadir')->count();
         $totalIzin = (clone $presensiQuery)->where('status_hadir', 'izin')->count();

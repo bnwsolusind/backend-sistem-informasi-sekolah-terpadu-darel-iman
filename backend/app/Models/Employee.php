@@ -99,6 +99,12 @@ class Employee extends Model
         return $this->hasOne(Teacher::class, 'employee_id');
     }
 
+    /** Relasi entitas Guru resmi (teachers table) */
+    public function teacher()
+    {
+        return $this->hasOne(Teacher::class, 'employee_id');
+    }
+
     /** Nilai yang diinput oleh pegawai/guru (sebagai pembuat) */
     public function grades()
     {

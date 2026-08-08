@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Mutabaah\DailyStatus;
 use App\Models\AcademicYear;
 use App\Models\ClassSchedule;
+use App\Models\Employee;
 use App\Models\LmsKisiKisi;
 use App\Models\LmsMateri;
 use App\Models\LmsModulAjar;
@@ -13,7 +15,9 @@ use App\Models\LmsPresensi;
 use App\Models\LmsRapor;
 use App\Models\LmsUjian;
 use App\Models\LmsUjianSesi;
+use App\Models\MasterKurikulum;
 use App\Models\MutabaahDailyHeader;
+use App\Models\MutabaahTemplate;
 use App\Models\ParentModel;
 use App\Models\PengumumanSekolah;
 use App\Models\Role;
@@ -24,6 +28,7 @@ use App\Models\StudentGrade;
 use App\Models\StudentNote;
 use App\Models\Subject;
 use App\Models\TahfizhDailyLog;
+use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -35,14 +40,13 @@ class SuperadminStudentLinkSeeder extends Seeder
     public function run(): void
     {
         // 1. Dapatkan atau buat akun superadmin
-        $superadmin = User::query()->where('username', 'superadmin')
-            ->orWhere('email', 'superadmin@school-erp.local')
+        $superadmin = User::query()
+            ->where('email', 'superadmin@school-erp.local')
             ->first();
 
         if (! $superadmin) {
             $superadmin = User::create([
                 'name' => 'Super Admin',
-                'username' => 'superadmin',
                 'email' => 'superadmin@school-erp.local',
                 'password' => Hash::make('Password123!'),
                 'is_active' => true,
@@ -79,12 +83,30 @@ class SuperadminStudentLinkSeeder extends Seeder
         // 3. Dapatkan atau buat Kelas
         $kelasId = DB::table('tbl_kelas')->value('id') ?? DB::table('classes')->value('id');
         if (! $kelasId) {
+            $unitId = DB::table('education_units')->value('id');
+            if (! $unitId) {
+                $unitId = (string) Str::uuid();
+                DB::table('education_units')->insert([
+                    'id' => $unitId,
+                    'name' => 'SDIT Dar el-Iman',
+                    'code' => 'SDIT-01',
+                    'level' => 'SDIT',
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
             $kelasId = (string) Str::uuid();
             DB::table('tbl_kelas')->insert([
                 'id' => $kelasId,
-                'nama_kelas' => 'Kelas 6A (Testing Superadmin)',
+                'unit_pendidikan_id' => $unitId,
+                'tahun_ajaran_id' => $academicYear->id,
+                'semester_id' => $semester->id,
+                'jenjang' => 'SD',
                 'tingkat' => '6',
-                'is_active' => true,
+                'kode_kelas' => 'SA-TEST-'.Str::upper(Str::random(5)),
+                'nama_kelas' => 'Kelas 6A (Testing Superadmin)',
+                'status' => 'Aktif',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -108,12 +130,14 @@ class SuperadminStudentLinkSeeder extends Seeder
         );
 
         // 6. Buat atau hubungkan Data Siswa untuk Superadmin
+        //    `kelas_id` → tbl_kelas (primer); `class_id` → classes (legacy, JANGAN
+        //    diisi dengan id tbl_kelas agar FK students_class_id_foreign tetap valid).
         $student = Student::updateOrCreate(
             ['user_id' => $superadmin->id],
             [
                 'parent_id' => $parent->id,
                 'kelas_id' => $kelasId,
-                'class_id' => $kelasId,
+                'class_id' => null,
                 'nis' => '999999',
                 'nisn' => '9999999999',
                 'full_name' => 'Super Admin (Siswa Test)',
@@ -141,12 +165,13 @@ class SuperadminStudentLinkSeeder extends Seeder
         );
 
         // 7. Seed Dummy Jadwal Pelajaran
+        //    `kelas_id` → tbl_kelas (primer); `class_id` → classes (legacy, read-only).
         $schedule = ClassSchedule::updateOrCreate(
-            ['class_id' => $kelasId, 'day_of_week' => now()->dayOfWeekIso],
+            ['kelas_id' => $kelasId, 'day_of_week' => now()->dayOfWeekIso],
             [
                 'academic_year_id' => $academicYear->id,
                 'semester_id' => $semester->id,
-                'kelas_id' => $kelasId,
+                'class_id' => null,
                 'subject_id' => $subject->id,
                 'time_start' => '07:30:00',
                 'time_end' => '09:00:00',
@@ -172,14 +197,14 @@ class SuperadminStudentLinkSeeder extends Seeder
         );
 
         // 9. Seed Dummy Modul Ajar & Materi
-        $kurikulum = \App\Models\MasterKurikulum::first() ?? \App\Models\MasterKurikulum::create([
+        $kurikulum = MasterKurikulum::first() ?? MasterKurikulum::create([
             'kode_kurikulum' => 'KM-2024',
             'nama_kurikulum' => 'Kurikulum Merdeka 2024',
             'versi' => '2024.1',
             'status' => true,
         ]);
 
-        $guru = \App\Models\Employee::first() ?? \App\Models\Employee::create([
+        $guru = Employee::first() ?? Employee::create([
             'niy' => '199001012022011001',
             'nama_lengkap' => 'Ustadz Ahmad Al-Farisi, S.Pd.I',
             'email' => 'ahmad.farisi@sekolah.sch.id',
@@ -242,12 +267,13 @@ class SuperadminStudentLinkSeeder extends Seeder
 
         // 11. Seed Dummy Tahfizh Log
         TahfizhDailyLog::firstOrCreate(
-            ['student_id' => $student->id, 'hafalan_surah_name' => 'An-Naba'],
+            ['student_id' => $student->id, 'record_date' => now()->toDateString()],
             [
                 'academic_year_id' => $academicYear->id,
                 'semester_id' => $semester->id,
                 'class_id' => $kelasId,
                 'record_date' => now()->toDateString(),
+                'hafalan_surah_name' => 'An-Naba',
                 'hafalan_ayah_start' => 1,
                 'hafalan_ayah_end' => 40,
                 'status' => 'Lancar',
@@ -273,7 +299,7 @@ class SuperadminStudentLinkSeeder extends Seeder
         );
 
         // 13. Seed Dummy Catatan Guru
-        $teacherModel = \App\Models\Teacher::first() ?? \App\Models\Teacher::create([
+        $teacherModel = Teacher::first() ?? Teacher::create([
             'employee_id' => $guru->id,
             'is_active' => true,
         ]);
@@ -305,7 +331,7 @@ class SuperadminStudentLinkSeeder extends Seeder
             ]);
         }
 
-        $mutabaahTemplate = \App\Models\MutabaahTemplate::first() ?? \App\Models\MutabaahTemplate::create([
+        $mutabaahTemplate = MutabaahTemplate::first() ?? MutabaahTemplate::create([
             'code' => 'TPL-SD-DEFAULT',
             'name' => 'Template SD Default',
             'academic_year_id' => $academicYear->id,
@@ -348,7 +374,7 @@ class SuperadminStudentLinkSeeder extends Seeder
                 'kelas_id' => $kelasId,
                 'academic_year_id' => $academicYear->id,
                 'semester_id' => $semester->id,
-                'status' => \App\Enums\Mutabaah\DailyStatus::Finalized,
+                'status' => DailyStatus::Finalized,
                 'score' => 95.0,
             ]);
         }
@@ -389,7 +415,7 @@ class SuperadminStudentLinkSeeder extends Seeder
                 'alokasi_waktu_menit' => 90,
                 'kompetensi_dasar' => 'Memahami persamaan aljabar dan pengukuran geometri.',
                 'level_kognitif' => 'L2 - L3',
-                'status' => 'published',
+                'status' => true,
             ]
         );
 
@@ -399,6 +425,8 @@ class SuperadminStudentLinkSeeder extends Seeder
             [
                 'kisi_kisi_id' => $kisiKisi->id,
                 'kelas_id' => $kelasId,
+                'semester_id' => $semester->id,
+                'guru_id' => $guru->id,
                 'durasi_menit' => 90,
                 'nilai_kkm' => 75,
                 'max_attempt' => 3,

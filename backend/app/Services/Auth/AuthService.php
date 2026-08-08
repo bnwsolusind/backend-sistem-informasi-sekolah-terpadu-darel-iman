@@ -2,12 +2,9 @@
 
 namespace App\Services\Auth;
 
-use App\Models\Employee;
+use App\Exceptions\Auth\AuthLoginException;
 use App\Models\LoginEvent;
-use App\Models\ParentModel;
 use App\Models\QrCredential;
-use App\Models\Student;
-use App\Models\Teacher;
 use App\Models\User;
 use App\Services\Attendance\EmployeeAttendanceService;
 use Illuminate\Support\Facades\Hash;
@@ -16,43 +13,38 @@ use Symfony\Component\HttpKernel\Exception\UnauthorizedHttpException;
 class AuthService
 {
     public function __construct(
+        private readonly AuthIdentifierResolver $resolver,
         private readonly EmployeeAttendanceService $employeeAttendanceService
     ) {}
 
     /**
-     * Portal 1: Superadmin & Admin System Login (Username + Password only).
+     * Portal 1: Superadmin & Admin System Login (email / No. HP + password).
+     * Source of truth: users.email / users.phone (PostgreSQL).
      */
     public function loginAdminSystem(string $username, string $password, string $deviceName = 'web-dashboard', ?string $ipAddress = null): array
     {
         $identifier = trim($username);
 
-        // Find user strictly by username or email (matching username)
-        $user = User::query()
-            ->where('username', $identifier)
-            ->orWhere('email', $identifier)
-            ->first();
+        $user = $this->resolver->resolveAdminUser($identifier);
 
         if (! $user) {
-            $this->logLoginEvent(null, 'admin', $identifier, 'username_password', 'failed', 'Akun admin tidak ditemukan.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Username atau password tidak valid.');
+            $this->fail(
+                AuthLoginException::IDENTIFIER_NOT_FOUND,
+                'Username/Email/No. HP atau password tidak valid.',
+                null, 'admin', $identifier, $ipAddress
+            );
         }
 
-        // Ensure user is Superadmin or Admin
         if (! $user->hasAnyRole(['Super Admin', 'Admin', 'Superadmin'])) {
-            $this->logLoginEvent($user, 'admin', $identifier, 'username_password', 'failed', 'Akun tidak memiliki hak akses portal Admin.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Akses ditolak. Portal ini khusus untuk Superadmin dan Admin.');
+            $this->fail(
+                AuthLoginException::ROLE_NOT_ASSIGNED,
+                'Akses ditolak. Portal ini khusus untuk Superadmin dan Admin.',
+                $user, 'admin', $identifier, $ipAddress
+            );
         }
 
-        $passwordValid = $this->verifyPassword($user, $password);
-        if (! $passwordValid) {
-            $this->logLoginEvent($user, 'admin', $identifier, 'username_password', 'failed', 'Password tidak valid.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Username atau password tidak valid.');
-        }
-
-        if (! $user->is_active) {
-            $this->logLoginEvent($user, 'admin', $identifier, 'username_password', 'failed', 'Akun tidak aktif.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Akun tidak aktif. Hubungi Administrator.');
-        }
+        $this->verifyPasswordOrFail($user, $password, 'admin', $identifier, $ipAddress);
+        $this->assertActiveOrFail($user, 'admin', $identifier, $ipAddress);
 
         $token = $user->createToken($deviceName)->plainTextToken;
         $loginEvent = $this->logLoginEvent($user, 'admin', $identifier, 'username_password', 'success', null, $ipAddress);
@@ -66,59 +58,43 @@ class AuthService
     }
 
     /**
-     * Portal 2: Pegawai & Guru Login (Username / NIY / No. HP + Password).
+     * Portal 2: Pegawai & Guru Login (No. HP / NIY / Email + password).
+     *
+     * Identifier di-resolve dari PostgreSQL (employees.niy / no_hp / email /
+     * nik, fallback teachers.employee_number / phone / email). Akun pegawai
+     * tanpa linked User DITOLAK (EMPLOYEE_ACCOUNT_NOT_LINKED).
      */
     public function loginEmployeeGuru(string $identifier, string $password, string $deviceName = 'web-dashboard', ?string $ipAddress = null): array
     {
         $input = trim($identifier);
+        $resolved = $this->resolver->resolveEmployee($input);
 
-        $user = User::query()->where('username', $input)
-            ->orWhere('email', $input)
-            ->orWhere('phone', $input)
-            ->first();
+        $actor = $resolved['employee'] ?? $resolved['teacher'];
+        $user = $resolved['user'];
 
-        if (! $user) {
-            $employee = Employee::query()->where('niy', $input)
-                ->orWhere('nik', $input)
-                ->orWhere('no_hp', $input)
-                ->orWhere('email', $input)
-                ->first();
-            if ($employee && $employee->user_id) {
-                $user = User::query()->find($employee->user_id);
-            }
+        if (! $actor) {
+            $this->fail(
+                AuthLoginException::IDENTIFIER_NOT_FOUND,
+                'Kredensial pegawai/guru atau password tidak valid.',
+                null, 'employee', $input, $ipAddress
+            );
         }
 
         if (! $user) {
-            $teacher = Teacher::query()->where('employee_number', $input)
-                ->orWhere('phone', $input)
-                ->orWhere('email', $input)
-                ->first();
-            if ($teacher && $teacher->user_id) {
-                $user = User::query()->find($teacher->user_id);
-            }
+            $this->fail(
+                AuthLoginException::ACCOUNT_NOT_LINKED,
+                'Kredensial pegawai/guru atau password tidak valid.',
+                null, 'employee', $input, $ipAddress
+            );
         }
 
-        if (! $user) {
-            $this->logLoginEvent(null, 'employee', $input, 'identifier_password', 'failed', 'Akun pegawai/guru tidak ditemukan.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Kredensial pegawai/guru atau password tidak valid.');
-        }
-
-        $passwordValid = $this->verifyPassword($user, $password);
-        if (! $passwordValid) {
-            $this->logLoginEvent($user, 'employee', $input, 'identifier_password', 'failed', 'Password tidak valid.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Kredensial pegawai/guru atau password tidak valid.');
-        }
-
-        if (! $user->is_active) {
-            $this->logLoginEvent($user, 'employee', $input, 'identifier_password', 'failed', 'Akun pegawai tidak aktif.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Akun pegawai tidak aktif. Hubungi Administrator.');
-        }
+        $this->verifyPasswordOrFail($user, $password, 'employee', $input, $ipAddress);
+        $this->assertActiveOrFail($user, 'employee', $input, $ipAddress);
 
         $token = $user->createToken($deviceName)->plainTextToken;
         $loginEvent = $this->logLoginEvent($user, 'employee', $input, 'identifier_password', 'success', null, $ipAddress);
 
-        // Process automatic attendance evaluation for employee
-        $attendanceResult = $this->employeeAttendanceService->processEmployeeLoginAttendance($user, 'login_password', $ipAddress);
+        $attendanceResult = $this->processEmployeeAttendance($user, 'login_password', $ipAddress);
 
         return [
             'user' => $user,
@@ -147,7 +123,7 @@ class AuthService
             ->first();
 
         if (! $qrCredential) {
-            $this->logLoginEvent(null, 'employee', 'QR_SCAN', 'qr_code', 'failed', 'Token QR ID Card Pegawai tidak valid atau kedaluwarsa.', $ipAddress);
+            $this->logLoginEvent(null, 'employee', 'QR_SCAN', 'qr_code', 'failed', AuthLoginException::IDENTIFIER_NOT_FOUND, $ipAddress);
             throw new UnauthorizedHttpException('Bearer', 'QR Code ID Card Pegawai tidak valid, kedaluwarsa, atau telah dicabut.');
         }
 
@@ -155,7 +131,7 @@ class AuthService
         $user = $qrCredential->user ?? ($employee?->user_id ? User::query()->find($employee->user_id) : null);
 
         if (! $user || ! $user->is_active) {
-            $this->logLoginEvent($user, 'employee', 'QR_SCAN', 'qr_code', 'failed', 'Akun pegawai tidak aktif.', $ipAddress);
+            $this->logLoginEvent($user, 'employee', 'QR_SCAN', 'qr_code', 'failed', $user ? AuthLoginException::ACCOUNT_INACTIVE : AuthLoginException::ACCOUNT_NOT_LINKED, $ipAddress);
             throw new UnauthorizedHttpException('Bearer', 'Akun pegawai terkait QR Code tidak aktif.');
         }
 
@@ -164,8 +140,7 @@ class AuthService
         $token = $user->createToken($deviceName)->plainTextToken;
         $loginEvent = $this->logLoginEvent($user, 'employee', 'QR_SCAN', 'qr_code', 'success', null, $ipAddress);
 
-        // Process automatic attendance evaluation for employee
-        $attendanceResult = $this->employeeAttendanceService->processEmployeeLoginAttendance($user, 'login_qr', $ipAddress);
+        $attendanceResult = $this->processEmployeeAttendance($user, 'login_qr', $ipAddress);
 
         return [
             'user' => $user,
@@ -177,135 +152,128 @@ class AuthService
     }
 
     /**
-     * Portal 3: Orang Tua & Siswa Login (NIS / NIK / No. HP + Password/PIN).
+     * Portal 3: Orang Tua & Siswa Login (No. HP / NIK Ayah / NIK Ibu /
+     * NIS anak / email + password/PIN).
+     *
+     * - portal_type = parent  → resolve household; scope = parent_id; response
+     *   membawa SELURUH anak terhubung (child switcher).
+     * - portal_type = student → resolve siswa; scope = self only (TANPA akses
+     *   saudara kandung).
      */
     public function loginParentStudent(string $portalType, string $identifier, string $password, string $deviceName = 'web-dashboard', ?string $ipAddress = null): array
     {
         $input = trim($identifier);
-        $user = null;
         $isStudent = strtolower($portalType) === 'student';
 
         if ($isStudent) {
-            // Find student by NIS or NISN or Username
-            $student = Student::query()->where('nis', $input)
-                ->orWhere('nisn', $input)
-                ->first();
+            $resolved = $this->resolver->resolveStudent($input);
+            $student = $resolved['student'];
+            $user = $resolved['user'];
 
-            if ($student && $student->user_id) {
-                $user = User::query()->find($student->user_id);
+            if (! $student) {
+                $this->fail(
+                    AuthLoginException::IDENTIFIER_NOT_FOUND,
+                    'Kredensial atau password/PIN tidak valid.',
+                    null, 'student', $input, $ipAddress
+                );
             }
-            if (! $user) {
-                $user = User::query()->where('username', $input)->orWhere('email', $input)->first();
-            }
-        } else {
-            // Find Parent by NIK or Phone or Email
-            $parent = ParentModel::query()->where('nik', $input)
-                ->orWhere('phone', $input)
-                ->orWhere('email', $input)
-                ->first();
 
-            if ($parent && $parent->user_id) {
-                $user = User::query()->find($parent->user_id);
-            }
             if (! $user) {
-                $user = User::query()->where('username', $input)->orWhere('phone', $input)->orWhere('email', $input)->first();
+                $this->fail(
+                    AuthLoginException::STUDENT_NOT_LINKED,
+                    'Kredensial atau password/PIN tidak valid.',
+                    null, 'student', $input, $ipAddress
+                );
             }
+
+            if (! $student->is_active) {
+                $this->fail(
+                    AuthLoginException::STUDENT_NOT_ACTIVE,
+                    'Akun siswa tidak aktif. Hubungi pihak sekolah.',
+                    $user, 'student', $input, $ipAddress
+                );
+            }
+
+            $this->verifyPasswordOrFail($user, $password, 'student', $input, $ipAddress);
+            $this->assertActiveOrFail($user, 'student', $input, $ipAddress);
+
+            $token = $user->createToken($deviceName)->plainTextToken;
+            $loginEvent = $this->logLoginEvent($user, 'student', $input, 'identifier_password', 'success', null, $ipAddress);
+
+            return [
+                'user' => $user,
+                'token' => $token,
+                'login_event_id' => $loginEvent?->id,
+                'portal' => 'student',
+                'student' => $student,
+                'children' => null, // siswa: self scope
+            ];
+        }
+
+        // ===== Parent portal =====
+        $resolved = $this->resolver->resolveParent($input);
+        $parent = $resolved['parent'];
+        $user = $resolved['user'];
+
+        if (! $parent) {
+            $reason = $resolved['child_matched']
+                ? AuthLoginException::PARENT_NOT_LINKED
+                : AuthLoginException::IDENTIFIER_NOT_FOUND;
+
+            $this->fail(
+                $reason,
+                'Kredensial atau password/PIN tidak valid.',
+                null, 'parent', $input, $ipAddress
+            );
         }
 
         if (! $user) {
-            $this->logLoginEvent(null, $portalType, $input, 'identifier_password', 'failed', 'Akun tidak ditemukan.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Kredensial atau password/PIN tidak valid.');
+            $this->fail(
+                AuthLoginException::PARENT_NOT_LINKED,
+                'Kredensial atau password/PIN tidak valid.',
+                null, 'parent', $input, $ipAddress
+            );
         }
 
-        $hasPortalProfile = $isStudent
-            ? Student::query()->where('user_id', $user->id)->where('is_active', true)->exists()
-            : ParentModel::query()->where('user_id', $user->id)->exists();
-        if (! $hasPortalProfile) {
-            $this->logLoginEvent($user, $portalType, $input, 'identifier_password', 'failed', 'Profil portal tidak sesuai.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Akun tidak terdaftar pada portal yang dipilih.');
-        }
-
-        $passwordValid = $this->verifyPassword($user, $password);
-        if (! $passwordValid) {
-            $this->logLoginEvent($user, $portalType, $input, 'identifier_password', 'failed', 'Password/PIN tidak valid.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Kredensial atau password/PIN tidak valid.');
-        }
-
-        if (! $user->is_active) {
-            $this->logLoginEvent($user, $portalType, $input, 'identifier_password', 'failed', 'Akun tidak aktif.', $ipAddress);
-            throw new UnauthorizedHttpException('Bearer', 'Akun Anda tidak aktif. Hubungi pihak sekolah.');
-        }
+        $this->verifyPasswordOrFail($user, $password, 'parent', $input, $ipAddress);
+        $this->assertActiveOrFail($user, 'parent', $input, $ipAddress);
 
         $token = $user->createToken($deviceName)->plainTextToken;
-        $loginEvent = $this->logLoginEvent($user, $portalType, $input, 'identifier_password', 'success', null, $ipAddress);
+        $loginEvent = $this->logLoginEvent($user, 'parent', $input, 'identifier_password', 'success', null, $ipAddress);
+
+        $children = $this->resolver->childrenForParent($parent);
 
         return [
             'user' => $user,
             'token' => $token,
             'login_event_id' => $loginEvent?->id,
-            'portal' => $portalType,
+            'portal' => 'parent',
+            'parent' => $parent,
+            'children' => $children,
         ];
     }
 
     /**
-     * Legacy login method for backward compatibility.
+     * Legacy unified login untuk backward compatibility.
      */
     public function login(string $email, string $password, string $deviceName = 'web-client'): array
     {
         $input = trim($email);
-        $lowerInput = strtolower($input);
-
-        $user = User::query()->where('email', $input)
-            ->orWhere('email', $lowerInput)
-            ->orWhere('username', $input)
-            ->orWhere('username', $lowerInput)
-            ->orWhere('phone', $input)
-            ->first();
+        $user = $this->resolver->resolveAdminUser($input);
 
         if (! $user) {
-            $teacher = Teacher::query()->where('employee_number', $input)
-                ->orWhere('email', $input)
-                ->orWhere('email', $lowerInput)
-                ->orWhere('phone', $input)
-                ->first();
-            if ($teacher && $teacher->user_id) {
-                $user = User::query()->find($teacher->user_id);
-            }
+            $resolved = $this->resolver->resolveEmployee($input);
+            $user = $resolved['user'];
         }
 
         if (! $user) {
-            $employee = Employee::query()->where('niy', $input)
-                ->orWhere('nik', $input)
-                ->orWhere('no_hp', $input)
-                ->orWhere('email', $input)
-                ->orWhere('email', $lowerInput)
-                ->first();
-            if ($employee && $employee->user_id) {
-                $user = User::query()->find($employee->user_id);
-            }
+            $resolved = $this->resolver->resolveStudent($input);
+            $user = $resolved['user'];
         }
 
         if (! $user) {
-            $student = Student::query()->where('nis', $input)
-                ->orWhere('nisn', $input)
-                ->orWhere('user_id', function ($q) use ($input, $lowerInput) {
-                    $q->select('id')->from('users')->where('username', $input)->orWhere('username', $lowerInput);
-                })
-                ->first();
-            if ($student && $student->user_id) {
-                $user = User::query()->find($student->user_id);
-            }
-        }
-
-        if (! $user) {
-            $parent = ParentModel::query()->where('nik', $input)
-                ->orWhere('phone', $input)
-                ->orWhere('email', $input)
-                ->orWhere('email', $lowerInput)
-                ->first();
-            if ($parent && $parent->user_id) {
-                $user = User::query()->find($parent->user_id);
-            }
+            $resolved = $this->resolver->resolveParent($input);
+            $user = $resolved['user'];
         }
 
         if (! $user) {
@@ -325,7 +293,7 @@ class AuthService
 
         $attendanceResult = null;
         if ($user->hasAnyRole(['Guru', 'Kepala Sekolah', 'Divisi Pendidikan', 'Tata Usaha', 'Wali Kelas', 'Pegawai', 'Operator'])) {
-            $attendanceResult = $this->employeeAttendanceService->processEmployeeLoginAttendance($user, 'login_password');
+            $attendanceResult = $this->processEmployeeAttendance($user, 'login_password');
         }
 
         $this->logLoginEvent($user, 'unified', $input, 'identifier_password', 'success', null);
@@ -333,9 +301,56 @@ class AuthService
         return [$user, $token, $attendanceResult];
     }
 
+    /* =====================================================================
+     * Helpers
+     * ===================================================================== */
+
     private function verifyPassword(User $user, string $password): bool
     {
         return Hash::check($password, $user->password);
+    }
+
+    private function verifyPasswordOrFail(User $user, string $password, string $portalType, string $identifier, ?string $ipAddress): void
+    {
+        if (! $this->verifyPassword($user, $password)) {
+            $this->fail(
+                AuthLoginException::PASSWORD_INVALID,
+                'Kredensial atau password/PIN tidak valid.',
+                $user, $portalType, $identifier, $ipAddress
+            );
+        }
+    }
+
+    private function assertActiveOrFail(User $user, string $portalType, string $identifier, ?string $ipAddress): void
+    {
+        if (! $user->is_active) {
+            $this->fail(
+                AuthLoginException::ACCOUNT_INACTIVE,
+                'Akun tidak aktif. Hubungi Administrator.',
+                $user, $portalType, $identifier, $ipAddress
+            );
+        }
+    }
+
+    private function fail(string $reason, string $genericMessage, ?User $user, string $portalType, string $identifier, ?string $ipAddress): never
+    {
+        $this->logLoginEvent($user, $portalType, $identifier, 'identifier_password', 'failed', $reason, $ipAddress);
+        throw new AuthLoginException($reason, $genericMessage);
+    }
+
+    /**
+     * Proses absensi otomatis pegawai saat login. Kegagalan pada modul absensi
+     * tidak boleh menghalangi proses login.
+     */
+    private function processEmployeeAttendance(User $user, string $method, ?string $ipAddress = null)
+    {
+        try {
+            return $this->employeeAttendanceService->processEmployeeLoginAttendance($user, $method, $ipAddress);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     private function logLoginEvent(?User $user, string $portalType, ?string $identifier, string $method, string $status, ?string $failureReason = null, ?string $ipAddress = null): ?LoginEvent

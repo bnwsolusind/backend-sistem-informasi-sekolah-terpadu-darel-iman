@@ -227,7 +227,13 @@ class LmsUjianService
                 'tampilkan_nilai_langsung' => (bool) $ujian->tampilkan_nilai_langsung,
             ],
             'soal' => $soalFormatted,
-            'jawaban_tersimpan' => $sesi->jawaban,
+            // Jangan pernah membocorkan is_correct/poin_didapat ke siswa —
+            // hanya kembalikan jawaban mentah (soal_id, pilihan/esai).
+            'jawaban_tersimpan' => $sesi->jawaban->map(fn ($jawab) => [
+                'soal_id' => $jawab->soal_id,
+                'jawaban_dipilih' => $jawab->jawaban_dipilih,
+                'jawaban_esai' => $jawab->jawaban_esai,
+            ])->values(),
         ];
     }
 

@@ -15,9 +15,9 @@ class LmsPengumpulanTugasSeeder extends Seeder
     public function run(): void
     {
         $penugasans = LmsPenugasan::all();
-        $students = Student::all();
-        $gurus = Employee::all();
-        $adminUser = User::first();
+        $students = Student::orderBy('id')->get();
+        $gurus = Employee::orderBy('id')->get();
+        $adminUser = User::orderBy('id')->first();
 
         if ($penugasans->isEmpty() || $students->isEmpty()) {
             return;

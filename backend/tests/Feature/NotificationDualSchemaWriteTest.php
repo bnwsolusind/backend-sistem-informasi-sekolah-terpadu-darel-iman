@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\AcademicYear;
+use App\Models\EducationUnit;
+use App\Models\Employee;
+use App\Models\Kelas;
 use App\Models\Notification;
 use App\Models\ParentModel;
 use App\Models\Semester;
@@ -81,7 +84,7 @@ class NotificationDualSchemaWriteTest extends TestCase
 
     public function test_parent_chat_message_persists_notification_for_teacher(): void
     {
-        $this->activateAcademicContext();
+        [$ay, $sem] = $this->activateAcademicContext();
 
         Role::firstOrCreate(['name' => 'Orang Tua', 'guard_name' => 'web']);
         $user = User::factory()->create();
@@ -92,6 +95,28 @@ class NotificationDualSchemaWriteTest extends TestCase
         StudentParent::create(['student_id' => $child->id, 'parent_id' => $parent->id, 'relationship_type' => 'guardian', 'is_primary' => true]);
 
         $teacher = User::factory()->create();
+        $unit = EducationUnit::create(['name' => 'Unit Chat', 'code' => 'U-CHAT', 'is_active' => true]);
+        $teacherEmployee = Employee::create([
+            'user_id' => $teacher->id,
+            'unit_id' => $unit->id,
+            'education_unit_id' => $unit->id,
+            'nama_lengkap' => 'Guru Wali Chat',
+            'niy' => 'EMP-CHAT-1',
+            'status' => 'Aktif',
+            'is_active' => true,
+        ]);
+        $kelas = Kelas::create([
+            'unit_pendidikan_id' => $unit->id,
+            'tahun_ajaran_id' => $ay->id,
+            'semester_id' => $sem->id,
+            'jenjang' => 'SMP',
+            'tingkat' => 7,
+            'kode_kelas' => 'CHAT-7A',
+            'nama_kelas' => '7A Chat',
+            'wali_kelas_id' => $teacherEmployee->id,
+            'status' => 'Aktif',
+        ]);
+        $child->update(['kelas_id' => $kelas->id]);
 
         $this->actingAs($user)->postJson('/api/portal/chat/'.$teacher->id.'?child_id='.$child->id, [
             'message' => 'Terima kasih atas bimbingannya.',

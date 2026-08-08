@@ -60,7 +60,7 @@ export function DataTable({
   return (
     <div className="space-y-4">
       {/* Header Toolbar: Search & Dynamic Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-slate-50 p-4 rounded-[14px] border border-slate-200/80 dark:bg-slate-900/60 dark:border-slate-800">
         <div className="relative flex-1 max-w-sm">
           <LuSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input

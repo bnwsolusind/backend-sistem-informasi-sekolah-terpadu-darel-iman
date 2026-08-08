@@ -20,12 +20,13 @@ class PresensiPembelajaranSeeder extends Seeder
 {
     public function run(): void
     {
-        $teacher = Teacher::query()->with(['user', 'employee'])->whereNotNull('user_id')->first();
+        $teacher = Teacher::query()->with(['user', 'employee'])->whereNotNull('user_id')->orderBy('id')->first();
         $subject = Subject::query()->where(fn ($query) => $query
             ->where('status', true)
-            ->orWhereNull('status'))->first();
+            ->orWhereNull('status'))->orderBy('id')->first();
         $schoolClass = SchoolClass::query()
             ->whereIn('id', Student::query()->active()->whereNotNull('class_id')->select('class_id'))
+            ->orderBy('id')
             ->first();
 
         if (! $teacher || ! $teacher->user || ! $subject || ! $schoolClass) {

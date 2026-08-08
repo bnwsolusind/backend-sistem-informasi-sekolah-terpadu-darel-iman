@@ -20,7 +20,12 @@ class KelasSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Pastikan minimal 1 Tahun Ajaran ada
+        // 1. Pastikan minimal 1 Tahun Ajaran ada.
+        // PostgreSQL partial unique index `uniq_one_active_academic_year` mengizinkan
+        // HANYA satu academic year aktif. Seeder lain (DataDummySiswaSeeder) bisa membuat
+        // year aktif lain, jadi deaktivasi year aktif lama sebelum menetapkan 2026/2027.
+        AcademicYear::query()->where('is_active', true)->update(['is_active' => false]);
+
         $tahunAjaran = AcademicYear::firstOrCreate(
             ['name' => '2026/2027'],
             [
@@ -29,6 +34,10 @@ class KelasSeeder extends Seeder
                 'is_active' => true,
             ]
         );
+
+        if (! $tahunAjaran->is_active) {
+            $tahunAjaran->forceFill(['is_active' => true])->save();
+        }
 
         // 2. Pastikan minimal 1 Semester ada
         $semester = Semester::firstOrCreate(
@@ -107,20 +116,33 @@ class KelasSeeder extends Seeder
                     ]
                 );
 
-                // Sinkronkan ke tabel legacy classes untuk backward compatibility FK
-                DB::table('classes')->updateOrInsert(
-                    [
+                // Sinkronkan ke tabel legacy classes untuk backward compatibility FK.
+                // classes adalah tabel legacy: 1 baris per (tahun_ajaran, semester, nama_kelas).
+                // Jangan menimpa id yang sudah ada — id classes harus stabil lintas run.
+                $existingClass = DB::table('classes')
+                    ->where('academic_year_id', $tahunAjaran->id)
+                    ->where('semester_id', $semester->id)
+                    ->where('name', $c['nama'])
+                    ->first();
+
+                if ($existingClass) {
+                    DB::table('classes')
+                        ->where('id', $existingClass->id)
+                        ->update([
+                            'level' => (string) $c['tingkat'],
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    DB::table('classes')->insert([
+                        'id' => $kelasModel->id,
                         'academic_year_id' => $tahunAjaran->id,
                         'semester_id' => $semester->id,
                         'name' => $c['nama'],
-                    ],
-                    [
-                        'id' => $kelasModel->id,
                         'level' => (string) $c['tingkat'],
-                        'updated_at' => now(),
                         'created_at' => now(),
-                    ]
-                );
+                        'updated_at' => now(),
+                    ]);
+                }
             }
         }
     }

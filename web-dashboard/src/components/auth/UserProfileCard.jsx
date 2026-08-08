@@ -1,20 +1,29 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { FiCamera, FiCheck, FiUser } from 'react-icons/fi'
 import Swal from 'sweetalert2'
 import PersonAvatar from '../ui/PersonAvatar'
 import { useAuthStore } from '../../stores/authStore'
+import { educationUnitService } from '../../services/educationUnitService'
 
 export default function UserProfileCard() {
   const { user, setSession, token } = useAuthStore()
   const fileInputRef = useRef(null)
+  const [unitOptions, setUnitOptions] = useState([])
+
+  useEffect(() => {
+    educationUnitService.getDaftar().then((res) => {
+      const data = res?.data?.data || res?.data || []
+      if (Array.isArray(data)) setUnitOptions(data)
+    }).catch(() => {})
+  }, [])
 
   const [profile, setProfile] = useState({
-    fullName: user?.name || user?.fullName || 'Ahmad Zaky',
-    nip: user?.nip || 'ADM001',
-    email: user?.email || 'ahmadzaky@dareliman.sch.id',
-    phone: user?.phone || '0812-3456-7890',
-    role: user?.role || 'Super Admin',
-    unit: user?.unit || 'SDIT Dar El-Iman',
+    fullName: user?.name || user?.fullName || '',
+    nip: user?.nip || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    role: user?.role || '',
+    unit: user?.unit || '',
     avatar: user?.avatar || null,
   })
   const [saved, setSaved] = useState(false)
@@ -228,12 +237,12 @@ export default function UserProfileCard() {
                   onChange={(e) => setProfile({ ...profile, unit: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-white text-slate-800 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all shadow-sm"
                 >
-                  <option value="SDIT Dar El-Iman">SDIT Dar El-Iman</option>
-                  <option value="TKIT Dar El-Iman">TKIT Dar El-Iman</option>
-                  <option value="SMPIT Dar El-Iman">SMPIT Dar El-Iman</option>
-                  <option value="SMAIT Dar El-Iman">SMAIT Dar El-Iman</option>
-                  <option value="Pondok Pesantren">Pondok Pesantren</option>
-                  <option value="Ma'had">Ma'had</option>
+                  <option value="">Pilih Unit</option>
+                  {unitOptions.map((u) => (
+                    <option key={u.id || u.nama_unit} value={u.nama_unit || u.name}>
+                      {u.nama_unit || u.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

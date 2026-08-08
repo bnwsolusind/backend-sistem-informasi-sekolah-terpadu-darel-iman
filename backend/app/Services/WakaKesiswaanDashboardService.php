@@ -48,7 +48,7 @@ class WakaKesiswaanDashboardService
         if (Schema::hasTable('rekap_prestasi_siswas')) {
             $prestasiQuery = DB::table('rekap_prestasi_siswas');
             if ($unitId) {
-                $prestasiQuery->whereIn('student_id', $studentIds);
+                $prestasiQuery->whereIn('id_siswa', $studentIds);
             }
             $totalPrestasi = $prestasiQuery->count();
         }

@@ -37,7 +37,6 @@ use App\Models\TahfizhDailyLog;
 use App\Services\LmsUjianService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -165,8 +164,9 @@ class StudentParentPortalController extends Controller
         // Active assignments
         $activeAssignments = LmsPenugasan::query()
             ->with(['subject', 'teacher'])
-            ->where(fn ($q) => $q->where('class_id', $student->class_id)->orWhere('kelas_id', $student->kelas_id ?? $student->class_id))
-            ->where('status', 'published')
+            // lms_penugasan hanya punya kolom kelas_id (tidak ada class_id).
+            ->where('kelas_id', $student->kelas_id ?? $student->class_id)
+            ->where('is_published', true)
             ->where('deadline', '>=', now())
             ->orderBy('deadline', 'asc')
             ->get();
@@ -181,18 +181,27 @@ class StudentParentPortalController extends Controller
         // Tahfizh progress
         $latestTahfizh = TahfizhDailyLog::query()
             ->where('student_id', $student->id)
-            ->orderBy('date', 'desc')
+            ->orderBy('record_date', 'desc')
             ->first();
 
+        // tahfizh_daily_logs tidak punya kolom jumlah_ayat; hitung dari
+        // rentang ayat hafalan (fallback ke baris hafalan bila range kosong).
         $totalAyat = TahfizhDailyLog::query()
             ->where('student_id', $student->id)
-            ->sum('jumlah_ayat');
+            ->get()
+            ->sum(function (TahfizhDailyLog $log): int {
+                if ($log->hafalan_ayah_start && $log->hafalan_ayah_end) {
+                    return (int) ($log->hafalan_ayah_end - $log->hafalan_ayah_start + 1);
+                }
+
+                return (int) $log->hafalan_baris;
+            });
 
         // Mutabaah today
         $mutabaahToday = MutabaahDailyHeader::query()
             ->with('details')
             ->where('student_id', $student->id)
-            ->whereDate('entry_date', now()->toDateString())
+            ->whereDate('activity_date', now()->toDateString())
             ->first();
 
         // Announcements
@@ -370,8 +379,9 @@ class StudentParentPortalController extends Controller
             ->with(['subject', 'teacher', 'pengumpulanTugas' => function ($q) use ($student) {
                 $q->where('siswa_id', $student->id);
             }])
-            ->where('class_id', $student->class_id)
-            ->where('status', 'published')
+            // lms_penugasan hanya punya kolom kelas_id (tidak ada class_id).
+            ->where('kelas_id', $student->kelas_id ?? $student->class_id)
+            ->where('is_published', true)
             ->orderBy('deadline', 'asc')
             ->paginate(15);
 
@@ -463,7 +473,7 @@ class StudentParentPortalController extends Controller
         $logs = TahfizhDailyLog::query()
             ->with('teacher')
             ->where('student_id', $student->id)
-            ->orderBy('date', 'desc')
+            ->orderBy('record_date', 'desc')
             ->paginate(20);
 
         return response()->json([
@@ -793,20 +803,7 @@ class StudentParentPortalController extends Controller
         $user = $request->user();
         $student = $this->getStudentContext($request);
 
-        // Skema notifikasi berbeda antar engine (legacy `user_id` vs
-        // partitioned `notifiable_id/notifiable_type`). Query dibuat
-        // toleran terhadap kedua skema dengan guard Schema::hasColumn.
-        $query = Notification::query();
-
-        if (Schema::hasColumn('notifications', 'user_id')) {
-            $query->where('user_id', $user->id);
-        } else {
-            $query->where(fn ($q) => $q
-                ->where('notifiable_type', User::class)
-                ->orWhere('notifiable_type', 'user')
-                ->orWhere('notifiable_type', 'App\Models\User'));
-            $query->where('notifiable_id', $user->id);
-        }
+        $query = Notification::userQuery($user->id);
 
         // Child scope: notifikasi bertipe Student hanya tampil bila siswa
         // termasuk anak yang terhubung resmi dengan orang tua.
@@ -1214,6 +1211,49 @@ class StudentParentPortalController extends Controller
         ]);
     }
 
+    /**
+     * Pastikan penerima chat portal adalah kontak sah anak yang dipilih:
+     * wali kelas atau guru mapel aktif di kelas siswa. Mencegah pesan
+     * dikirim ke user-id sembarang (mis. wali/siswa lain).
+     */
+    private function isValidTeacherContact(Student $student, string $teacherUserId): bool
+    {
+        $kelasId = $student->kelas_id ?? $student->class_id;
+        if (! $kelasId) {
+            return false;
+        }
+
+        $kelas = Kelas::query()->with(['waliKelas.user'])->find($kelasId);
+
+        // 1. Wali kelas
+        $waliUser = $kelas?->waliKelas?->user;
+        if (! $waliUser && $kelas?->waliKelas?->email) {
+            $waliUser = User::query()->where('email', $kelas->waliKelas->email)->first();
+        }
+        if ($waliUser && $waliUser->id === $teacherUserId) {
+            return true;
+        }
+
+        // 2. Guru mapel pada jadwal aktif kelas siswa
+        $schedules = ClassSchedule::query()
+            ->with(['employee.user', 'teacher.user'])
+            ->where(fn ($q) => $q->where('kelas_id', $kelasId)->orWhere('class_id', $kelasId))
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($schedules as $sched) {
+            $teacherUser = $sched->employee?->user ?? $sched->teacher?->user;
+            if (! $teacherUser && ($sched->employee?->email || $sched->teacher?->email)) {
+                $teacherUser = User::query()->where('email', $sched->employee?->email ?? $sched->teacher?->email)->first();
+            }
+            if ($teacherUser && $teacherUser->id === $teacherUserId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function chatContacts(Request $request): JsonResponse
     {
         $student = $this->getStudentContext($request);
@@ -1341,6 +1381,10 @@ class StudentParentPortalController extends Controller
 
         $user = $request->user();
 
+        if (! $this->isValidTeacherContact($student, $teacherUserId)) {
+            return response()->json(['success' => false, 'message' => 'Guru tidak terhubung dengan siswa ini.'], 403);
+        }
+
         // Mark incoming messages as read
         PortalMessage::query()
             ->where('student_id', $student->id)
@@ -1377,6 +1421,10 @@ class StudentParentPortalController extends Controller
         }
 
         $user = $request->user();
+
+        if (! $this->isValidTeacherContact($student, $teacherUserId)) {
+            return response()->json(['success' => false, 'message' => 'Guru tidak terhubung dengan siswa ini.'], 403);
+        }
 
         $message = PortalMessage::query()->create([
             'id' => (string) Str::uuid(),

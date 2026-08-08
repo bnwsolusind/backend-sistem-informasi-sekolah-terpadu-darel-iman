@@ -5,14 +5,9 @@ namespace Tests\Feature;
 use App\Http\Middleware\EnsureFoundationReadOnly;
 use App\Models\AcademicYear;
 use App\Models\Attendance;
-use App\Models\ClassSchedule;
-use App\Models\DeleteRequest;
 use App\Models\Employee;
-use App\Models\ParentModel;
 use App\Models\QrCredential;
 use App\Models\Semester;
-use App\Models\Student;
-use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -38,7 +33,7 @@ class MultiPortalAuthTest extends TestCase
         // Konteks akademik aktif dibutuhkan oleh tabel `attendances` yang
         // partitioned pada PostgreSQL (academic_year_id/semester_id/month).
         $ay = AcademicYear::create([
-            'name' => 'Tahun Ajaran Test ' . Str::random(4),
+            'name' => 'Tahun Ajaran Test '.Str::random(4),
             'start_date' => now()->startOfYear()->toDateString(),
             'end_date' => now()->endOfYear()->toDateString(),
             'is_active' => true,
@@ -53,11 +48,10 @@ class MultiPortalAuthTest extends TestCase
         ]);
     }
 
-    public function test_superadmin_can_login_with_username_and_password_only(): void
+    public function test_superadmin_can_login_via_identifier_and_password_only(): void
     {
         $superadmin = User::create([
             'name' => 'Superadmin Test',
-            'username' => 'superadmin_test',
             'email' => 'superadmin_test@school-erp.local',
             'password' => Hash::make('Password123!'),
             'is_active' => true,
@@ -65,7 +59,7 @@ class MultiPortalAuthTest extends TestCase
         $superadmin->assignRole('Super Admin');
 
         $response = $this->postJson('/api/v2/auth/login/admin', [
-            'username' => 'superadmin_test',
+            'username' => 'superadmin_test@school-erp.local',
             'password' => 'Password123!',
         ]);
 
@@ -78,7 +72,6 @@ class MultiPortalAuthTest extends TestCase
     {
         $admin = User::create([
             'name' => 'Admin Test',
-            'username' => 'admin_test',
             'email' => 'admin_test@school-erp.local',
             'password' => Hash::make('Password123!'),
             'is_active' => true,
@@ -96,7 +89,6 @@ class MultiPortalAuthTest extends TestCase
     {
         $user = User::create([
             'name' => 'Employee Test',
-            'username' => 'emp001',
             'email' => 'emp001@school-erp.local',
             'password' => Hash::make('Password123!'),
             'is_active' => true,
@@ -144,7 +136,6 @@ class MultiPortalAuthTest extends TestCase
     {
         $user = User::create([
             'name' => 'Guru QR Test',
-            'username' => 'guruqr',
             'email' => 'guruqr@school-erp.local',
             'password' => Hash::make('Password123!'),
             'is_active' => true,
@@ -182,7 +173,6 @@ class MultiPortalAuthTest extends TestCase
     {
         $admin = User::create([
             'name' => 'Admin Requester',
-            'username' => 'admin_req',
             'email' => 'admin_req@school-erp.local',
             'password' => Hash::make('Password123!'),
             'is_active' => true,
@@ -191,7 +181,6 @@ class MultiPortalAuthTest extends TestCase
 
         $superadmin = User::create([
             'name' => 'Superadmin Approver',
-            'username' => 'super_appr',
             'email' => 'super_appr@school-erp.local',
             'password' => Hash::make('Password123!'),
             'is_active' => true,

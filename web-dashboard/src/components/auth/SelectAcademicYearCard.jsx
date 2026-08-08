@@ -1,9 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FiCalendar, FiCheckCircle } from 'react-icons/fi'
+import { tahunAjaranService } from '../../services/tahunAjaranService'
 
 export default function SelectAcademicYearCard({ onNavigate }) {
-  const [year, setYear] = useState('2024/2025')
+  const [year, setYear] = useState('')
   const [semester, setSemester] = useState('Genap')
+  const [academicYears, setAcademicYears] = useState([])
+
+  useEffect(() => {
+    tahunAjaranService.getDaftar().then((res) => {
+      const data = res?.data?.data || res?.data || []
+      if (Array.isArray(data) && data.length > 0) {
+        setAcademicYears(data)
+        setYear(data[0].nama || data[0].tahun_ajaran || '')
+      }
+    }).catch(() => {})
+  }, [])
 
   const handleContinue = () => {
     if (onNavigate) onNavigate(8) // Navigate to Session Login or Dashboard
@@ -30,9 +42,11 @@ export default function SelectAcademicYearCard({ onNavigate }) {
             onChange={(e) => setYear(e.target.value)}
             className="w-full px-3.5 py-2.5 bg-white text-slate-800 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all shadow-sm"
           >
-            <option value="2024/2025">2024/2025</option>
-            <option value="2023/2024">2023/2024</option>
-            <option value="2025/2026">2025/2026</option>
+            {academicYears.map((ay) => (
+              <option key={ay.id} value={ay.nama || ay.tahun_ajaran}>
+                {ay.nama || ay.tahun_ajaran}
+              </option>
+            ))}
           </select>
         </div>
 

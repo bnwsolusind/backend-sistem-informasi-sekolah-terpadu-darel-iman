@@ -96,7 +96,7 @@ class EducationUnit extends Model
         return $this->hasMany(Employee::class, 'unit_id')->where(function ($q) {
             $q->where('status_pegawai', 'like', '%Guru%')
               ->orWhereHas('position', function ($p) {
-                  $p->where('nama_jabatan', 'like', '%Guru%');
+                  $p->where('name', 'like', '%Guru%');
               });
         });
     }

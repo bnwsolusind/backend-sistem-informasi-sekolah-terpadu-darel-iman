@@ -228,9 +228,9 @@ class WorshipAttendanceSeeder extends Seeder
                         [
                             'id' => (string) Str::uuid(),
                             'attendance_status' => $stStatus,
-                            'recorded_method' => 'checklist',
-                            'recorded_at' => now(),
-                            'verification_status' => 'verified',
+                            'method' => 'checklist',
+                            'attended_at' => now(),
+                            'is_private' => false,
                         ]
                     );
                 }

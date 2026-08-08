@@ -18,9 +18,8 @@ use App\Models\MasterKurikulum;
 use App\Models\MutabaahDailyHeader;
 use App\Models\MutabaahSupervisorAssignment;
 use App\Models\Notification;
-use App\Models\ParentModel;
-use App\Models\PortalMessage;
 use App\Models\PengumumanSekolah;
+use App\Models\PortalMessage;
 use App\Models\QuranSurah;
 use App\Models\Semester;
 use App\Models\Student;
@@ -29,7 +28,6 @@ use App\Models\StudentNote;
 use App\Models\Subject;
 use App\Models\TahfizhDailyLog;
 use App\Models\Teacher;
-use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -55,7 +53,7 @@ class TeacherPortalController extends Controller
         if (! $employee) {
             $employee = Employee::query()->create([
                 'id' => (string) Str::uuid(),
-                'niy' => 'EMP-' . substr((string) Str::uuid(), 0, 8),
+                'niy' => 'EMP-'.substr((string) Str::uuid(), 0, 8),
                 'nama_lengkap' => $user->name ?? 'Guru Otomatis',
                 'email' => $user->email,
                 'user_id' => $user->id,
@@ -71,7 +69,7 @@ class TeacherPortalController extends Controller
             $teacher = Teacher::query()->create([
                 'user_id' => $user->id,
                 'employee_id' => $employee->id,
-                'employee_number' => 'TCH-' . substr((string) Str::uuid(), 0, 8),
+                'employee_number' => 'TCH-'.substr((string) Str::uuid(), 0, 8),
                 'full_name' => $employee->nama_lengkap ?? $user->name ?? 'Guru Otomatis',
                 'email' => $employee->email ?? $user->email,
             ]);
@@ -86,7 +84,7 @@ class TeacherPortalController extends Controller
             return null;
         }
 
-        $model = new $modelClass();
+        $model = new $modelClass;
         $exists = $model::query()->whereKey($value)->exists();
         if ($exists) {
             return $value;
@@ -104,7 +102,7 @@ class TeacherPortalController extends Controller
 
         return EducationUnit::query()->create([
             'id' => $requestedId ?: (string) Str::uuid(),
-            'code' => 'AUTO' . substr((string) Str::uuid(), 0, 6),
+            'code' => 'AUTO'.substr((string) Str::uuid(), 0, 6),
             'name' => 'Unit Pendidikan Otomatis',
             'level' => 'Sekolah',
             'description' => 'Dibuat otomatis untuk portal guru',
@@ -166,7 +164,7 @@ class TeacherPortalController extends Controller
 
         return MasterKurikulum::query()->create([
             'id' => $requestedId ?: (string) Str::uuid(),
-            'kode_kurikulum' => 'AUTO-' . substr((string) Str::uuid(), 0, 8),
+            'kode_kurikulum' => 'AUTO-'.substr((string) Str::uuid(), 0, 8),
             'nama_kurikulum' => 'Kurikulum Otomatis',
             'jenis_kurikulum' => 'Nasional',
             'unit_pendidikan_id' => $educationUnitId,
@@ -192,7 +190,7 @@ class TeacherPortalController extends Controller
             'id' => $requestedId ?: (string) Str::uuid(),
             'unit_pendidikan_id' => $educationUnitId ?: $this->ensureEducationUnit()->id,
             'kurikulum_id' => $this->ensureKurikulum($educationUnitId)->id,
-            'kode_mapel' => 'AUTO' . substr((string) Str::uuid(), 0, 4),
+            'kode_mapel' => 'AUTO'.substr((string) Str::uuid(), 0, 4),
             'nama_mapel' => 'Mapel Otomatis',
             'name' => 'Mapel Otomatis',
             'status' => true,
@@ -220,7 +218,7 @@ class TeacherPortalController extends Controller
             'semester_id' => $semesterId,
             'jenjang' => 'SD',
             'tingkat' => '1',
-            'kode_kelas' => 'AUTO' . substr((string) Str::uuid(), 0, 4),
+            'kode_kelas' => 'AUTO'.substr((string) Str::uuid(), 0, 4),
             'nama_kelas' => 'Kelas Otomatis',
             'status' => 'Aktif',
             'created_by' => $createdBy,
@@ -263,7 +261,7 @@ class TeacherPortalController extends Controller
             'kelas_id' => $classId,
             'semester_id' => $semesterId,
             'tahun_ajaran_id' => $academicYearId,
-            'judul_modul' => 'Modul otomatis ' . $subjectName,
+            'judul_modul' => 'Modul otomatis '.$subjectName,
             'tujuan_pembelajaran' => 'Dibuat otomatis dari portal guru.',
             'status' => 'draft',
             'created_by' => $createdBy,
@@ -397,7 +395,7 @@ class TeacherPortalController extends Controller
                 'teacher' => [
                     'id' => $teacher?->id ?? $employee?->id,
                     'name' => $user?->name ?? 'Pengajar',
-                    'nip_niy' => $teacher?->employee_number ?? $employee?->nip_niy ?? $user?->username,
+                    'nip_niy' => $teacher?->employee_number ?? $employee?->nip_niy ?? $user?->email,
                     'education_unit' => $educationUnit?->name ?? 'Unit Utama',
                 ],
                 'academic_context' => [
@@ -741,6 +739,7 @@ class TeacherPortalController extends Controller
     {
         $teacher = $this->getTeacherContext($request);
         $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
+
         return array_values(array_unique(array_filter([
             $teacher?->id,
             $teacher?->employee_id,
@@ -1141,6 +1140,7 @@ class TeacherPortalController extends Controller
     private function scopedStudentNote(Request $request, string $id, bool $ownerOnly = true): StudentNote
     {
         $teacher = $this->getTeacherContext($request);
+
         return StudentNote::query()
             ->whereHas('student', function ($query) use ($request, $teacher) {
                 $classIds = $this->teacherClassIds($request, $teacher);
@@ -1186,10 +1186,13 @@ class TeacherPortalController extends Controller
 
     public function notifications(Request $request): JsonResponse
     {
-        $notifications = Notification::query()
-            ->where('user_id', $request->user()->id)
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
+
+        $notifications = Notification::userQuery($request->user()->id, [
+            'search' => $request->query('search'),
+            'type' => $request->query('type'),
+            'is_read' => $request->query('is_read'),
+        ])->latest()->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -1238,6 +1241,37 @@ class TeacherPortalController extends Controller
             'message' => 'Profil berhasil diperbarui.',
             'data' => $user,
         ]);
+    }
+
+    /**
+     * Pastikan guru/pegawai login memang terhubung dengan siswa tersebut
+     * (sebagai wali kelas atau guru mapel di jadwal aktif kelas siswa).
+     */
+    private function isAssignedToStudent(Request $request, Student $student): bool
+    {
+        $user = $request->user();
+        $teacher = $this->getTeacherContext($request);
+        $employee = Employee::query()->where('user_id', $user->id)->first();
+
+        $kelasId = $student->kelas_id ?? $student->class_id;
+        if (! $kelasId) {
+            return false;
+        }
+
+        $isHomeroom = Kelas::query()
+            ->whereKey($kelasId)
+            ->where(fn ($q) => $q->where('wali_kelas_id', $teacher?->id)->orWhere('wali_kelas_id', $employee?->id))
+            ->exists();
+
+        if ($isHomeroom) {
+            return true;
+        }
+
+        return ClassSchedule::query()
+            ->where(fn ($q) => $q->where('kelas_id', $kelasId)->orWhere('class_id', $kelasId))
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('teacher_id', $teacher?->id)->orWhere('employee_id', $employee?->id))
+            ->exists();
     }
 
     public function chatConversations(Request $request): JsonResponse
@@ -1314,6 +1348,15 @@ class TeacherPortalController extends Controller
     {
         $user = $request->user();
 
+        $student = Student::query()->with('kelas')->find($studentId);
+        if (! $student) {
+            return response()->json(['success' => false, 'message' => 'Siswa tidak ditemukan.'], 404);
+        }
+
+        if (! $this->isAssignedToStudent($request, $student)) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak terhubung dengan siswa ini.'], 403);
+        }
+
         PortalMessage::query()
             ->where('student_id', $studentId)
             ->where('sender_user_id', $parentUserId)
@@ -1350,6 +1393,10 @@ class TeacherPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Siswa tidak ditemukan.'], 404);
         }
 
+        if (! $this->isAssignedToStudent($request, $student)) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak terhubung dengan siswa ini.'], 403);
+        }
+
         $message = PortalMessage::query()->create([
             'id' => (string) Str::uuid(),
             'student_id' => $studentId,
@@ -1361,7 +1408,7 @@ class TeacherPortalController extends Controller
         try {
             Notification::deliver(
                 userId: $parentUserId,
-                title: 'Pesan Baru Guru (' . $user->name . ')',
+                title: 'Pesan Baru Guru ('.$user->name.')',
                 body: Str::limit($message->message, 100),
                 channel: 'chat',
                 metadata: [
