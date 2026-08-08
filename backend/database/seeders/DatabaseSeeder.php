@@ -24,7 +24,6 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermissionSeeder::class,
             AttendancePermissionSeeder::class,
-            DefaultRoleUserSeeder::class,
             SiteSettingsSeeder::class,
             StudentCardSettingsSeeder::class,
         ]);
@@ -51,6 +50,9 @@ class DatabaseSeeder extends Seeder
             KelasSeeder::class,
             JadwalPelajaranSeeder::class,
             ModulSemesterSeeder::class,
+            // Akun role dibuat setelah unit, pegawai, tahun ajaran, semester,
+            // dan kelas tersedia agar setiap login mempunyai relasi scope utuh.
+            DefaultRoleUserSeeder::class,
         ]);
 
         // 5. LMS Core & Content

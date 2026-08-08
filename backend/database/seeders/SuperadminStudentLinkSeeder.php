@@ -348,7 +348,10 @@ class SuperadminStudentLinkSeeder extends Seeder
                 'employee_id' => $guru->id,
                 'supervisor_type' => 'wali_kelas',
                 'education_unit_id' => $unitId,
-                'kelas_id' => $kelasId,
+                // `kelas_id` adalah FK legacy ke `classes`; rombel aktif
+                // disimpan pada `rombel_id` yang menunjuk `tbl_kelas`.
+                'kelas_id' => null,
+                'rombel_id' => $kelasId,
                 'template_id' => $mutabaahTemplate->id,
                 'academic_year_id' => $academicYear->id,
                 'semester_id' => $semester->id,
@@ -371,7 +374,8 @@ class SuperadminStudentLinkSeeder extends Seeder
                 'template_id' => $mutabaahTemplate->id,
                 'supervisor_assignment_id' => $supervisorAssignmentId,
                 'education_unit_id' => $unitId,
-                'kelas_id' => $kelasId,
+                'kelas_id' => null,
+                'rombel_id' => $kelasId,
                 'academic_year_id' => $academicYear->id,
                 'semester_id' => $semester->id,
                 'status' => DailyStatus::Finalized,
