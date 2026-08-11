@@ -50,7 +50,7 @@ class RoleAccessMatrixTest extends TestCase
         $this->assertFalse($guru->can('pembelajaran.bank_soal'));
         $this->assertTrue($orangTua->can('tahfizh.laporan_target'));
         $this->assertFalse($orangTua->can('tahfizh.input_setoran_harian'));
-        $this->assertTrue($siswa->can('kehadiran.siswa.izin_sakit'));
+        $this->assertFalse($siswa->can('kehadiran.siswa.izin_sakit'));
         $this->assertFalse($siswa->can('tahfizh.mutabaah_yaumiyah'));
     }
 

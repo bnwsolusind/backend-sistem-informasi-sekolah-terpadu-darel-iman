@@ -317,9 +317,15 @@ export default function GateAttendancePage() {
   const executeScan = async (codeToScan, studentId = null) => {
     setProcessingScan(true)
     try {
-      const payload = studentId
-        ? { student_id: studentId, attendance_method: method }
-        : { card_number: codeToScan.trim(), attendance_method: method }
+      const payload = {
+        ...(studentId
+          ? { student_id: studentId }
+          : method === 'QRCODE'
+            ? { qr_token: codeToScan.trim() }
+            : { card_number: codeToScan.trim() }),
+        unit_id: selectedUnit || undefined,
+        attendance_method: method,
+      }
 
       if (scanMode === 'checkin') {
         const res = await gateAttendanceService.scanCheckIn(payload)

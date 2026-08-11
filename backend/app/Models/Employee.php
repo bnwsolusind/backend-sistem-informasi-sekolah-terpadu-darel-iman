@@ -93,6 +93,11 @@ class Employee extends Model
         return $this->hasMany(ClassSchedule::class, 'employee_id');
     }
 
+    public function teachingAttendances()
+    {
+        return $this->hasMany(TeachingAttendance::class, 'employee_id');
+    }
+
     /** Bridge ke tabel teachers lama (jika ada entri yang di-match) */
     public function teacherBridge()
     {

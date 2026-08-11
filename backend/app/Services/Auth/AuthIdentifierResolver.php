@@ -137,8 +137,11 @@ class AuthIdentifierResolver
 
         // Fallback terakhir: NIS / NISN salah satu anak → resolve household.
         $student = Student::query()
-            ->where('nis', $input)
-            ->orWhere('nisn', $input)
+            ->where(function (Builder $query) use ($input) {
+                $query->where('nis', $input)
+                    ->orWhere('nisn', $input);
+            })
+            ->where('is_active', true)
             ->first();
 
         if ($student) {

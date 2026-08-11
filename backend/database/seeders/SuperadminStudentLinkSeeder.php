@@ -20,7 +20,6 @@ use App\Models\MutabaahDailyHeader;
 use App\Models\MutabaahTemplate;
 use App\Models\ParentModel;
 use App\Models\PengumumanSekolah;
-use App\Models\Role;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\StudentAttendancePermission;
@@ -32,33 +31,20 @@ use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class SuperadminStudentLinkSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Dapatkan atau buat akun superadmin
+        // Seeder ini hanya menambah graph demo; akun dan role auth dibuat oleh
+        // DefaultRoleUserSeeder dan tidak boleh diperluas menjadi multi-role.
         $superadmin = User::query()
             ->where('email', 'superadmin@school-erp.local')
             ->first();
 
         if (! $superadmin) {
-            $superadmin = User::create([
-                'name' => 'Super Admin',
-                'email' => 'superadmin@school-erp.local',
-                'password' => Hash::make('Password123!'),
-                'is_active' => true,
-            ]);
-        }
-
-        // Berikan role Super Admin, Siswa, dan Orang Tua agar superadmin bisa tes seluruh portal
-        foreach (['Super Admin', 'Siswa', 'Orang Tua'] as $roleName) {
-            $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
-            if (! $superadmin->hasRole($roleName)) {
-                $superadmin->assignRole($role);
-            }
+            return;
         }
 
         // 2. Dapatkan Tahun Ajaran & Semester Aktif

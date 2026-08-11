@@ -46,10 +46,14 @@ class KepalaSekolahDashboardService
         }
 
         $totalSiswa = (clone $studentQuery)->where('is_active', true)->count();
-        $totalGuru = (clone $employeeQuery)->where(function ($q) {
-            $q->where('status_pegawai', 'like', '%Guru%')
-              ->orWhereHas('position', function ($p) {
-                  $p->where('name', 'like', '%Guru%');
+        $like = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+        $totalGuru = (clone $employeeQuery)->where(function ($q) use ($like) {
+            $q->whereHas('teacher')
+              ->orWhereHas('teachings')
+              ->orWhere('status_pegawai', $like, '%Guru%')
+              ->orWhereHas('position', function ($p) use ($like) {
+                  $p->where('name', $like, '%Guru%')
+                    ->orWhere('name', $like, '%Pendidik%');
               });
         })->count();
 
@@ -122,13 +126,27 @@ class KepalaSekolahDashboardService
         }
 
         // 3. Tables & Alerts
-        $recentAnnouncements = PengumumanSekolah::latest()->limit(5)->get();
+        $recentAnnouncements = PengumumanSekolah::query()
+            ->where('status_aktif', true)
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn ($announcement) => [
+                'id' => $announcement->id,
+                'judul' => $announcement->judul_pengumuman,
+                'isi' => $announcement->isi_pengumuman,
+                'target' => is_array($announcement->target_peran)
+                    ? implode(', ', $announcement->target_peran)
+                    : ($announcement->target_peran ?: 'Semua Unit'),
+                'prioritas' => $announcement->prioritas,
+                'created_at' => $announcement->created_at,
+            ]);
 
         return [
             'context' => [
                 'role' => 'Kepala Sekolah',
                 'unit' => $unit ? ['id' => $unit->id, 'nama' => $unit->name ?? $unit->nama] : null,
-                'tahun_ajaran' => $activeAcademicYear ? ['id' => $activeAcademicYear->id, 'nama' => $activeAcademicYear->year_name ?? $activeAcademicYear->nama] : null,
+                'tahun_ajaran' => $activeAcademicYear ? ['id' => $activeAcademicYear->id, 'nama' => $activeAcademicYear->name ?? $activeAcademicYear->year_name ?? $activeAcademicYear->nama] : null,
                 'semester' => $activeSemester ? ['id' => $activeSemester->id, 'nama' => $activeSemester->name ?? $activeSemester->nama] : null,
             ],
             'kpis' => $kpis,

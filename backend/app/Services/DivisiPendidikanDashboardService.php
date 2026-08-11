@@ -7,7 +7,6 @@ use App\Models\EducationUnit;
 use App\Models\Employee;
 use App\Models\Semester;
 use App\Models\Student;
-use App\Models\Teacher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -28,10 +27,14 @@ class DivisiPendidikanDashboardService
         // Multi-unit aggregates for Division
         $totalUnitsMonitored = count($unitIds);
         $totalSiswa = Student::whereIn('unit_id', $unitIds)->where('is_active', true)->count();
-        $totalGuru = Employee::whereIn('unit_id', $unitIds)->where(function ($q) {
-            $q->where('status_pegawai', 'like', '%Guru%')
-              ->orWhereHas('position', function ($p) {
-                  $p->where('name', 'like', '%Guru%');
+        $like = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+        $totalGuru = Employee::whereIn('unit_id', $unitIds)->where(function ($q) use ($like) {
+            $q->whereHas('teacher')
+              ->orWhereHas('teachings')
+              ->orWhere('status_pegawai', $like, '%Guru%')
+              ->orWhereHas('position', function ($p) use ($like) {
+                  $p->where('name', $like, '%Guru%')
+                    ->orWhere('name', $like, '%Pendidik%');
               });
         })->count();
 
@@ -39,8 +42,11 @@ class DivisiPendidikanDashboardService
         $laporanBulananMasuk = 0;
         $laporanBulananBelum = 0;
         if (Schema::hasTable('laporan_bulanans')) {
-            $laporanBulananMasuk = DB::table('laporan_bulanans')->whereIn('unit_id', $unitIds)->where('status', 'disetujui')->count();
-            $laporanBulananBelum = DB::table('laporan_bulanans')->whereIn('unit_id', $unitIds)->where('status', '!=', 'disetujui')->count();
+            $reportQuery = DB::table('laporan_bulanans')
+                ->when($activeAcademicYear, fn ($query) => $query->where('id_tahun_ajaran', $activeAcademicYear->id))
+                ->when($activeSemester, fn ($query) => $query->where('id_semester', $activeSemester->id));
+            $laporanBulananMasuk = (clone $reportQuery)->where('status_validasi', 'disetujui')->count();
+            $laporanBulananBelum = (clone $reportQuery)->where('status_validasi', '!=', 'disetujui')->count();
         }
 
         // Student achievement records
@@ -77,7 +83,7 @@ class DivisiPendidikanDashboardService
         return [
             'context' => [
                 'role' => 'Divisi Pendidikan',
-                'tahun_ajaran' => $activeAcademicYear ? ['id' => $activeAcademicYear->id, 'nama' => $activeAcademicYear->year_name ?? $activeAcademicYear->nama] : null,
+                'tahun_ajaran' => $activeAcademicYear ? ['id' => $activeAcademicYear->id, 'nama' => $activeAcademicYear->name ?? $activeAcademicYear->year_name ?? $activeAcademicYear->nama] : null,
                 'semester' => $activeSemester ? ['id' => $activeSemester->id, 'nama' => $activeSemester->name ?? $activeSemester->nama] : null,
             ],
             'kpis' => $kpis,

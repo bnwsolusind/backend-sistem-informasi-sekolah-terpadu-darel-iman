@@ -65,6 +65,7 @@ import {
   MasterStatsGrid,
 } from '../components/master-data'
 import TeacherMutabaahWeekly from '../components/TeacherMutabaahWeekly'
+import TeacherTeachingSessionPanel from '../components/attendance/TeacherTeachingSessionPanel'
 import ChatGuruWorkspace from '../components/portal/ChatGuruWorkspace'
 
 export default function TeacherTeachingWorkspacePage() {
@@ -1237,9 +1238,8 @@ export default function TeacherTeachingWorkspacePage() {
         tone="brand"
         icon={GraduationCap}
         actions={<MasterActionButton className="education-unit-hero__action !h-11 !border-white !bg-white !text-emerald-800 !shadow-none hover:!bg-emerald-50" icon={Play} onClick={() => {
-          const schedule = getCurrentSchedule()
-          if (schedule) openPresensiModal(schedule)
-          else addToast('warning', 'Jadwal Belum Tersedia', 'Tidak ada sesi mengajar yang dapat dimulai untuk kelas terpilih.')
+          changeTab('jadwal')
+          window.setTimeout(() => document.getElementById('teacher-step04-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
         }}>Mulai Mengajar</MasterActionButton>}
       />
 
@@ -1249,6 +1249,12 @@ export default function TeacherTeachingWorkspacePage() {
         <MasterStatCard icon={BookOpen} label="Materi Terbit" value={publishedMaterials} description={`${materials.length} total materi`} variant="warning" delay={120} />
         <MasterStatCard icon={FileText} label="Penugasan Aktif" value={activeAssignments} description={`${assignments.length} total penugasan`} variant="neutral" delay={160} />
       </MasterStatsGrid>
+
+      {activeTab === 'jadwal' && (
+        <div id="teacher-step04-panel">
+          <TeacherTeachingSessionPanel onNotify={addToast} />
+        </div>
+      )}
 
       <section className="rounded-[18px] border border-slate-200/80 bg-white p-4 shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]" aria-label="Filter dan navigasi workspace guru">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -1324,7 +1330,7 @@ export default function TeacherTeachingWorkspacePage() {
             {/* 2-Column Grid Buttons */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { title: 'Mulai Mengajar', icon: Play, tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60', action: () => { const schedule = getCurrentSchedule(); if (schedule) openPresensiModal(schedule); else addToast('warning', 'Jadwal Belum Tersedia', 'Tidak ada sesi mengajar untuk kelas terpilih.') } },
+                 { title: 'Mulai Mengajar', icon: Play, tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60', action: () => { changeTab('jadwal'); window.setTimeout(() => document.getElementById('teacher-step04-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) } },
                 { title: 'Input Presensi', icon: UserCheck, tone: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200/60', action: () => changeTab('presensi') },
                 { title: 'Tambah Materi', icon: BookOpen, tone: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200/60', action: () => { setEditingId(null); setMateriForm({ judul: '', subject_id: '', class_id: selectedClass, ringkasan: '', isi: '', status: 'published' }); setModalType('materi'); setShowModal(true) } },
                 { title: 'Tambah Tugas', icon: FileText, tone: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200/60', action: () => { setEditingId(null); setTugasForm({ judul: '', subject_id: '', class_id: selectedClass, instruksi: '', deadline: '', bobot: 100 }); setModalType('tugas'); setShowModal(true) } },

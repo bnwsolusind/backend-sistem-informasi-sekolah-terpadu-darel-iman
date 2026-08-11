@@ -13,18 +13,22 @@ import {
 import { useAuthStore } from '../../stores/authStore'
 import { familyPortalService } from '../../services/familyPortalService'
 import ChatGuruWorkspace from './ChatGuruWorkspace'
+import { hasAnyRole, isParentRole, isStudentRole } from '../../auth/portalResolver'
 
 export default function FloatingChatWidget() {
   const user = useAuthStore((state) => state.user)
   const roles = user?.roles || []
+  const permissions = user?.permissions || []
 
-  const isParent = roles.some((r) => ['Orang Tua', 'Orangtua', 'Wali Murid'].includes(r))
+  const isStudent = isStudentRole(roles)
+  const isParent = isParentRole(roles)
   const isTeacher = roles.some((r) => ['Guru', 'Wali Kelas', 'Guru Pengajar'].includes(r))
+  const canEmployeeChat = hasAnyRole(roles, ['Super Admin']) || permissions.includes('chat.conversation.view')
   const isEmployee = roles.some((r) =>
     ['Super Admin', 'Admin', 'Guru', 'Wali Kelas', 'Guru Pengajar', 'Pegawai', 'Staf', 'Yayasan', 'Kepala Sekolah', 'Bendahara', 'HRD'].includes(r)
-  ) || !isParent
+  ) && !isStudent && canEmployeeChat
 
-  const shouldRender = isParent || isTeacher || isEmployee
+  const shouldRender = !isStudent && (isParent || isTeacher || isEmployee)
 
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)

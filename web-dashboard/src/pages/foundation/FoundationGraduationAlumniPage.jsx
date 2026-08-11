@@ -1,47 +1,42 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import {
-  Sparkles,
-  Search,
-  Eye,
-  ShieldAlert,
-  RefreshCw,
-  AlertCircle,
-  TrendingUp,
-  Award,
-} from 'lucide-react'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Award, FileSpreadsheet, RefreshCcw, ShieldAlert, Sparkles, UserRound, UserCheck } from 'lucide-react'
 import api from '../../services/api'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Skeleton } from '../../components/ui/skeleton'
-import { EmptyState } from '../../components/ui/empty-state'
+import {
+  MasterActionButton,
+  MasterActionIconButton,
+  MasterBadge,
+  MasterDataPage,
+  MasterDataTable,
+  MasterEmptyState,
+  MasterErrorState,
+  MasterFilterBar,
+  MasterFilterSelect,
+  MasterPageHeader,
+  MasterPagination,
+  MasterSearchInput,
+  MasterStatCard,
+  MasterStatsGrid,
+} from '../../components/master-data'
+import { PersonIdentityCell } from '../../components/ui/PersonIdentityCell'
 import KpiDetailDrawer from '../../components/KpiDetailDrawer'
+import { FoundationExportModal } from '../../components/foundation/FoundationExportModal'
 
 export function FoundationGraduationAlumniPage() {
   const [alumniList, setAlumniList] = useState([])
   const [units, setUnits] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [isFetching, setIsFetching] = useState(false)
 
-  // Tabs & Filters
   const [activeTab, setActiveTab] = useState('alumni') // 'alumni' | 'kelulusan'
   const [search, setSearch] = useState('')
   const [selectedUnit, setSelectedUnit] = useState('all')
   const [page, setPage] = useState(1)
   const perPage = 15
 
-  // Selected Detail Modal
   const [selectedAlumniId, setSelectedAlumniId] = useState(null)
+  const [showExport, setShowExport] = useState(false)
 
-  // Fetch Units
   useEffect(() => {
     api.get('/foundation/units')
       .then((res) => {
@@ -51,9 +46,9 @@ export function FoundationGraduationAlumniPage() {
       .catch(() => {})
   }, [])
 
-  // Fetch Alumni & Graduations from DB API
-  const fetchAlumni = useCallback(async () => {
-    setLoading(true)
+  const fetchAlumni = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    else setIsFetching(true)
     setError(false)
     try {
       const endpoint = activeTab === 'alumni' ? '/foundation/alumni' : '/foundation/graduations'
@@ -62,7 +57,6 @@ export function FoundationGraduationAlumniPage() {
         unit_id: selectedUnit !== 'all' ? selectedUnit : undefined,
         per_page: 100,
       }
-
       const res = await api.get(endpoint, { params })
       const resData = res.data
       let list = []
@@ -77,15 +71,16 @@ export function FoundationGraduationAlumniPage() {
       setError(true)
     } finally {
       setLoading(false)
+      setIsFetching(false)
     }
   }, [search, selectedUnit, activeTab])
 
   useEffect(() => {
+    setPage(1)
     fetchAlumni()
   }, [fetchAlumni])
 
-  // Filtered List
-  const filteredList = alumniList.filter((item) => {
+  const filteredList = useMemo(() => alumniList.filter((item) => {
     const name = (item.full_name || item.nama || '').toString().toLowerCase()
     const nis = (item.nis || item.nisn || '').toString().toLowerCase()
     const unitName = (item.education_unit?.name || item.unit?.name || '').toString().toLowerCase()
@@ -94,262 +89,184 @@ export function FoundationGraduationAlumniPage() {
     const matchesUnit = selectedUnit === 'all' || item.unit_id === selectedUnit || unitName.includes(selectedUnit.toLowerCase())
 
     return matchesSearch && matchesUnit
-  })
+  }), [alumniList, search, selectedUnit])
 
   const totalItems = filteredList.length
-  const totalPages = Math.ceil(totalItems / perPage) || 1
+  const lastPage = Math.max(1, Math.ceil(totalItems / perPage))
   const paginatedList = filteredList.slice((page - 1) * perPage, page * perPage)
 
-  // KPI Calculations
-  const totalAlumni = alumniList.length
+  const totalData = alumniList.length
   const maleCount = alumniList.filter((a) => a.gender === 'male' || a.gender === 'L').length
   const femaleCount = alumniList.filter((a) => a.gender === 'female' || a.gender === 'P').length
-  const recentGrads = alumniList.filter((a) => {
-    const y = a.tahun_masuk ? Number(a.tahun_masuk) + 3 : new Date().getFullYear() - 1
-    return y >= new Date().getFullYear() - 1
-  }).length
 
-  // Chart Data
-  const unitDistribution = Object.values(
-    alumniList.reduce((acc, item) => {
-      const uName = item.education_unit?.code || item.education_unit?.name || 'Lainnya'
-      if (!acc[uName]) acc[uName] = { name: uName, alumni: 0 }
-      acc[uName].alumni += 1
-      return acc
-    }, {})
-  )
+  const graduationYear = (a) => {
+    if (!a.tahun_masuk) return '-'
+    const year = Number(a.tahun_masuk) + 3
+    return Number.isNaN(year) ? '-' : year
+  }
+
+  const handleRefresh = () => {
+    setPage(1)
+    fetchAlumni(Boolean(alumniList.length))
+  }
+
+  const exportRows = paginatedList.map((a, idx) => ({
+    No: (page - 1) * perPage + idx + 1,
+    'NIS / NISN': a.nis || a.nisn || '-',
+    Nama: a.full_name || a.nama || '-',
+    'Unit Asal': a.education_unit?.name || a.unit?.name || '-',
+    'Tahun Lulus': graduationYear(a),
+    Status: activeTab === 'alumni' ? 'Alumni Lulus' : 'Kelulusan',
+  }))
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* 1. HEADER BANNER */}
-      <div className="flex flex-col justify-between gap-4 rounded-2xl bg-white p-6 shadow-xs border border-slate-200/80 dark:border-slate-800 dark:bg-[#1B2433] md:flex-row md:items-center">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>Mode Monitoring • Akses Read-Only Pengurus Yayasan</span>
+    <MasterDataPage hideBreadcrumb className="foundation-graduation-page">
+      <MasterPageHeader
+        title="Kelulusan & Alumni"
+        description="Pantau data kelulusan dan alumni dari seluruh Unit Pendidikan secara terstruktur."
+        tone="brand"
+        icon={Award}
+        actions={(
+          <>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <ShieldAlert className="h-3 w-3" />
+              Mode Monitoring • Akses Read-Only
+            </span>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={() => setShowExport(true)}>
+              Export Data
+            </MasterActionButton>
+          </>
+        )}
+      />
+
+      <MasterStatsGrid>
+        <MasterStatCard icon={Sparkles} label={activeTab === 'alumni' ? 'Total Alumni' : 'Total Kelulusan'} value={totalData} description={activeTab === 'alumni' ? 'Terdata di sistem' : 'Siswa berstatus tidak aktif'} variant="success" delay={40} />
+        <MasterStatCard icon={Award} label="Lulusan Terbaru" value={alumniList.filter((a) => graduationYear(a) >= new Date().getFullYear() - 1).length} description="Tahun ajaran berjalan" variant="info" delay={80} />
+        <MasterStatCard icon={UserRound} label="Laki-Laki" value={maleCount} description="Data laki-laki" variant="warning" delay={120} />
+        <MasterStatCard icon={UserCheck} label="Perempuan" value={femaleCount} description="Data perempuan" variant="neutral" delay={160} />
+      </MasterStatsGrid>
+
+      <MasterFilterBar
+        search={<MasterSearchInput placeholder="Cari nama, NIS, atau angkatan..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />}
+        filters={
+          <>
+            <MasterFilterSelect value={activeTab} onChange={(e) => { setActiveTab(e.target.value); setPage(1) }} aria-label="Tampilkan data">
+              <option value="alumni">Data Alumni</option>
+              <option value="kelulusan">Data Kelulusan</option>
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedUnit} onChange={(e) => { setSelectedUnit(e.target.value); setPage(1) }} aria-label="Filter unit asal">
+              <option value="all">Semua Unit Asal</option>
+              {units.map((u) => <option key={u.id} value={u.id}>{u.name || u.code}</option>)}
+            </MasterFilterSelect>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              aria-label="Muat ulang data"
+              title="Muat ulang"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-[var(--master-control-radius,14px)] border border-slate-200 text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-emerald-950/40"
+            >
+              <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        }
+      />
+
+      <MasterDataTable className="foundation-table">
+        <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">{activeTab === 'alumni' ? 'Daftar Alumni' : 'Daftar Kelulusan'}</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data sesuai filter dan kewenangan pengguna.</p>
           </div>
-          <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">Kelulusan & Alumni</h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Pantau data kelulusan dan alumni dari seluruh Unit Pendidikan secara terstruktur.
-          </p>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{totalItems} {activeTab === 'alumni' ? 'alumni' : 'kelulusan'}</span>
         </div>
-
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchAlumni}
-            disabled={loading}
-            className="gap-2 rounded-xl border-slate-200 font-bold dark:border-slate-700"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Data</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* 2. KPI CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Total Alumni" value={totalAlumni} icon={Sparkles} color="text-purple-600" />
-        <KpiCard label="Lulusan Terbaru" value={recentGrads} icon={Award} color="text-emerald-600" />
-        <KpiCard label="Alumni Laki-Laki" value={maleCount} icon={Sparkles} color="text-blue-600" />
-        <KpiCard label="Alumni Perempuan" value={femaleCount} icon={Sparkles} color="text-rose-600" />
-      </div>
-
-      {/* 3. RECHARTS VISUAL SUMMARY */}
-      {!loading && !error && alumniList.length > 0 && (
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 dark:bg-[#1B2433] dark:border-slate-800 shadow-xs space-y-3">
-          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
-            <span>Distribusi Alumni Per Unit Pendidikan</span>
-          </h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={unitDistribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="alumni" name="Jumlah Alumni" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {/* 4. TABS & SEARCH & FILTERS */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-          <button
-            onClick={() => { setActiveTab('alumni'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'alumni' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Data Alumni ({totalAlumni})
-          </button>
-          <button
-            onClick={() => { setActiveTab('kelulusan'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'kelulusan' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Data Kelulusan ({totalAlumni})
-          </button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200/80 dark:bg-[#1B2433] dark:border-slate-800 shadow-xs">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Cari nama alumni, NIS, atau angkatan..."
-              className="w-full pl-10 pr-4 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            {units.length > 0 && (
-              <select
-                value={selectedUnit}
-                onChange={(e) => { setSelectedUnit(e.target.value); setPage(1); }}
-                className="px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
-              >
-                <option value="all">Semua Unit Asal</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name || u.code}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 5. CONTENT TABLE READ-ONLY VIEW */}
-      {loading ? (
-        <div className="space-y-3 p-4 bg-white dark:bg-[#1B2433] rounded-2xl border border-slate-200/80 dark:border-slate-800">
-          <Skeleton className="h-10 w-full rounded-xl" />
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl border border-rose-200 bg-rose-50/50 dark:border-rose-900/30 dark:bg-rose-950/20">
-          <AlertCircle className="h-10 w-10 text-rose-500 mb-2" />
-          <h4 className="text-sm font-bold text-slate-800 dark:text-white">Data Alumni Tidak Dapat Dimuat</h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-            Terjadi masalah saat mengambil data alumni dari database server. Silakan coba kembali.
-          </p>
-          <Button variant="primary" size="sm" onClick={fetchAlumni} className="mt-4 gap-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl">
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span>Coba Lagi</span>
-          </Button>
-        </div>
-      ) : filteredList.length === 0 ? (
-        <EmptyState
-          title="Tidak Ada Data Alumni"
-          description="Tidak ditemukan data alumni yang sesuai dengan kriteria pencarian dan filter Anda."
-        />
-      ) : (
-        <div className="space-y-4">
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#1B2433] shadow-xs">
-            <table className="w-full text-xs text-left text-slate-700 dark:text-slate-200">
-              <thead className="bg-slate-100/80 dark:bg-[#1b302c] text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider">
+        <div className="overflow-x-auto">
+          {error ? (
+            <div className="p-5"><MasterErrorState title="Data alumni gagal dimuat" description="Periksa koneksi kemudian coba muat ulang." onRetry={handleRefresh} /></div>
+          ) : (
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
                 <tr>
-                  <th className="px-3.5 py-3 text-center w-12">No</th>
-                  <th className="px-4 py-3">NIS / NISN</th>
-                  <th className="px-4 py-3">Nama Alumni</th>
-                  <th className="px-4 py-3">Unit Asal</th>
-                  <th className="px-4 py-3">Tahun Lulus</th>
-                  <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-center">Aksi</th>
+                  <th className="w-[5%] px-2 py-3 text-center">No</th>
+                  <th className="w-[28%] px-3 py-3 font-bold">Nama</th>
+                  <th className="hidden w-[20%] px-3 py-3 font-bold md:table-cell">Unit Asal</th>
+                  <th className="hidden w-[13%] px-3 py-3 font-bold lg:table-cell">Tahun Lulus</th>
+                  <th className="hidden w-[10%] px-3 py-3 font-bold xl:table-cell">Gender</th>
+                  <th className="hidden w-[9%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
+                  <th className="w-[7%] px-2 py-3 text-center font-bold">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {paginatedList.map((a, idx) => {
-                  const lulusYear = a.tahun_masuk ? Number(a.tahun_masuk) + 3 : new Date().getFullYear() - 1
-                  return (
-                    <tr key={a.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
-                      <td className="px-3.5 py-3 text-center font-bold text-slate-400">{(page - 1) * perPage + idx + 1}</td>
-                      <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">{a.nis || a.nisn || '-'}</td>
-                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{a.full_name || a.nama}</td>
-                      <td className="px-4 py-3 font-medium">{a.education_unit?.name || a.unit?.name || '-'}</td>
-                      <td className="px-4 py-3 font-medium">{lulusYear}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant="purple">Alumni Lulus</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedAlumniId(a.id)}
-                          className="gap-1.5 rounded-xl border-emerald-600/60 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-400 font-bold px-2.5 py-1 text-xs"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Lihat Detail</span>
-                        </Button>
-                      </td>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <tr key={index} className="animate-pulse">
+                      <td colSpan={7} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
                     </tr>
-                  )
-                })}
+                  ))
+                ) : paginatedList.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-5"><MasterEmptyState title="Belum ada data alumni" description="Ubah filter pencarian untuk menampilkan data alumni lain." /></td>
+                  </tr>
+                ) : (
+                  paginatedList.map((a, idx) => {
+                    const gender = a.gender === 'male' || a.gender === 'L' ? 'Laki-Laki' : a.gender === 'female' || a.gender === 'P' ? 'Perempuan' : '-'
+                    return (
+                      <tr key={a.id || idx} className="transition-colors hover:bg-emerald-50/40">
+                        <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">{(page - 1) * perPage + idx + 1}</td>
+                        <td className="px-3 py-3">
+                          <PersonIdentityCell
+                            src={a.photo}
+                            name={a.full_name || a.nama}
+                            subtitle={`${a.nis || a.nisn || '-'}`}
+                          />
+                        </td>
+                        <td className="hidden px-3 py-3 md:table-cell">
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{a.education_unit?.name || a.unit?.name || '-'}</span>
+                        </td>
+                        <td className="hidden px-3 py-3 lg:table-cell">
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{graduationYear(a)}</span>
+                        </td>
+                        <td className="hidden px-3 py-3 xl:table-cell">
+                          <span className="text-xs text-slate-600 dark:text-slate-300">{gender}</span>
+                        </td>
+                        <td className="hidden px-2 py-3 text-center sm:table-cell">
+                          <MasterBadge variant={activeTab === 'alumni' ? 'info' : 'success'}>{activeTab === 'alumni' ? 'Alumni Lulus' : 'Lulus'}</MasterBadge>
+                        </td>
+                        <td className="px-2 py-3 text-center">
+                          <MasterActionIconButton variant="view" onClick={() => setSelectedAlumniId(a.id)} label={`Lihat detail ${a.full_name || a.nama}`} />
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
-          </div>
-
-          {/* Pagination Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium px-2">
-            <span>
-              Menampilkan <span className="font-bold text-slate-800 dark:text-white">{Math.min((page - 1) * perPage + 1, totalItems)}</span> - <span className="font-bold text-slate-800 dark:text-white">{Math.min(page * perPage, totalItems)}</span> dari <span className="font-bold text-slate-800 dark:text-white">{totalItems}</span> Data Alumni.
-            </span>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-xl border-slate-200 dark:border-slate-700 font-bold"
-              >
-                Sebelumnya
-              </Button>
-              <span className="font-bold text-slate-800 dark:text-white px-2">
-                Halaman {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-xl border-slate-200 dark:border-slate-700 font-bold"
-              >
-                Selanjutnya
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
+      </MasterDataTable>
+
+      {totalItems > 0 && (
+        <MasterPagination
+          meta={{ total: totalItems, from: totalItems ? (page - 1) * perPage + 1 : 0, to: Math.min(page * perPage, totalItems), last_page: lastPage, current_page: page }}
+          page={page}
+          onPageChange={setPage}
+          label="data"
+        />
       )}
 
-      {/* READ-ONLY DETAIL MODAL / DRAWER */}
       <KpiDetailDrawer
         type="alumni"
         id={selectedAlumniId}
         isOpen={Boolean(selectedAlumniId)}
         onClose={() => setSelectedAlumniId(null)}
       />
-    </div>
-  )
-}
 
-function KpiCard({ label, value, icon: IconComponent, color }) {
-  return (
-    <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1">
-      <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
-        <span>{label}</span>
-        {IconComponent && <IconComponent className={`h-3.5 w-3.5 ${color}`} />}
-      </div>
-      <div className={`text-lg sm:text-xl font-black ${color} dark:text-white`}>
-        {Number(value || 0).toLocaleString('id-ID')}
-      </div>
-    </div>
+      <FoundationExportModal
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        title={activeTab === 'alumni' ? 'Data Alumni Yayasan' : 'Data Kelulusan Yayasan'}
+        rows={exportRows}
+        filename={activeTab === 'alumni' ? 'Alumni_Yayasan' : 'Kelulusan_Yayasan'}
+      />
+    </MasterDataPage>
   )
 }

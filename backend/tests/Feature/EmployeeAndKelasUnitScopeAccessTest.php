@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\Kelas;
 use App\Models\Semester;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
@@ -19,7 +20,8 @@ class EmployeeAndKelasUnitScopeAccessTest extends TestCase
 
     public function test_unit_user_cannot_list_employees_or_classes_from_another_unit(): void
     {
-        Role::firstOrCreate(['name' => 'Divisi Pendidikan', 'guard_name' => 'web']);
+        $this->seed(RolePermissionSeeder::class);
+        Role::firstOrCreate(['name' => 'Kepala Sekolah', 'guard_name' => 'web']);
         $unitA = EducationUnit::create(['code' => 'UNIT-A', 'name' => 'Unit A', 'level' => 'SD', 'is_active' => true]);
         $unitB = EducationUnit::create(['code' => 'UNIT-B', 'name' => 'Unit B', 'level' => 'SMP', 'is_active' => true]);
         $academicYear = AcademicYear::create(['name' => '2026/2027', 'start_date' => '2026-07-01', 'end_date' => '2027-06-30', 'is_active' => true]);
@@ -30,7 +32,7 @@ class EmployeeAndKelasUnitScopeAccessTest extends TestCase
             'password' => Hash::make('Password123!'),
             'is_active' => true,
         ]);
-        $user->assignRole('Divisi Pendidikan');
+        $user->assignRole('Kepala Sekolah');
         Employee::create(['niy' => 'NIY-A', 'nama_lengkap' => 'User Unit A', 'unit_id' => $unitA->id, 'user_id' => $user->id, 'status' => 'Aktif']);
         Employee::create(['niy' => 'NIY-B', 'nama_lengkap' => 'Pegawai Unit B', 'unit_id' => $unitB->id, 'status' => 'Aktif']);
         Kelas::create(['unit_pendidikan_id' => $unitA->id, 'tahun_ajaran_id' => $academicYear->id, 'semester_id' => $semester->id, 'jenjang' => 'SD', 'tingkat' => '1', 'kode_kelas' => 'A-1', 'nama_kelas' => 'Kelas Unit A', 'status' => 'Aktif']);

@@ -10,6 +10,7 @@ use App\Models\Kelas;
 use App\Models\ParentModel;
 use App\Models\PengumumanSekolah;
 use App\Models\Student;
+use App\Models\Teacher;
 use App\Models\User;
 use App\Services\FoundationDashboardService;
 use Illuminate\Http\JsonResponse;
@@ -102,6 +103,36 @@ class FoundationDashboardController extends Controller
         $employees = $query->paginate($perPage);
 
         return response()->json($employees);
+    }
+
+    /**
+     * Teachers list, sourced from the same table as the Super Admin KPI.
+     */
+    public function teachers(Request $request): JsonResponse
+    {
+        $query = Teacher::with(['employee.unit', 'employee.position']);
+
+        if ($request->filled('unit_id') && $request->query('unit_id') !== 'all') {
+            $query->whereHas('employee', fn ($employee) => $employee->where('unit_id', $request->query('unit_id')));
+        }
+
+        if ($request->filled('search')) {
+            $search = (string) $request->query('search');
+            $operator = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($teacher) use ($search, $operator) {
+                $teacher->where('full_name', $operator, "%{$search}%")
+                    ->orWhere('employee_number', $operator, "%{$search}%")
+                    ->orWhereHas('employee', fn ($employee) => $employee
+                        ->where('nama_lengkap', $operator, "%{$search}%")
+                        ->orWhere('niy', $operator, "%{$search}%"));
+            });
+        }
+
+        $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
+        $teachers = $query->orderBy('full_name')->paginate($perPage);
+        $teachers->through(fn (Teacher $teacher) => $this->serializeTeacher($teacher));
+
+        return response()->json($teachers);
     }
 
     /**
@@ -276,24 +307,36 @@ class FoundationDashboardController extends Controller
      */
     public function parents(Request $request): JsonResponse
     {
-        $query = ParentModel::with(['students.educationUnit']);
+        $query = ParentModel::with(['students.educationUnit', 'studentsPivot.educationUnit']);
 
         if ($request->filled('search')) {
             $search = (string) $request->query('search');
             $query->where(function ($q) use ($search) {
-                $q->where('father_name', 'like', "%{$search}%")
-                  ->orWhere('mother_name', 'like', "%{$search}%")
-                  ->orWhere('guardian_name', 'like', "%{$search}%");
+                $operator = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                $q->where('full_name', $operator, "%{$search}%")
+                  ->orWhere('nik', $operator, "%{$search}%")
+                  ->orWhere('phone', $operator, "%{$search}%")
+                  ->orWhere('email', $operator, "%{$search}%");
             });
         }
 
         $perPage = (int) $request->query('per_page', 15);
         $parents = $query->paginate($perPage);
+        $parents->through(function (ParentModel $parent) {
+            $children = $parent->students
+                ->concat($parent->studentsPivot)
+                ->unique('id')
+                ->values();
+            $parent->setRelation('students', $children);
+            $parent->unsetRelation('studentsPivot');
+
+            return $parent;
+        });
 
         $totalParents = ParentModel::count();
-        $totalFather = ParentModel::whereNotNull('father_name')->where('father_name', '!=', '')->count();
-        $totalMother = ParentModel::whereNotNull('mother_name')->where('mother_name', '!=', '')->count();
-        $totalGuardian = ParentModel::whereNotNull('guardian_name')->where('guardian_name', '!=', '')->count();
+        $totalFather = ParentModel::whereNotNull('father_nik')->where('father_nik', '!=', '')->count();
+        $totalMother = ParentModel::whereNotNull('mother_nik')->where('mother_nik', '!=', '')->count();
+        $totalGuardian = ParentModel::whereNull('father_nik')->whereNull('mother_nik')->count();
 
         return response()->json([
             'status' => 'success',
@@ -312,7 +355,7 @@ class FoundationDashboardController extends Controller
      */
     public function classes(Request $request): JsonResponse
     {
-        $query = Kelas::with(['waliKelas', 'unitPendidikan'])->withCount('students');
+        $query = Kelas::with(['waliKelas', 'unitPendidikan', 'siswa', 'siswaLegacy']);
 
         if ($request->filled('unit_id') && $request->query('unit_id') !== 'all') {
             $query->where('unit_pendidikan_id', $request->query('unit_id'));
@@ -323,12 +366,23 @@ class FoundationDashboardController extends Controller
             $query->where('nama_kelas', 'like', "%{$search}%");
         }
 
+        if ($request->filled('status') && $request->query('status') !== 'all') {
+            $status = strtolower((string) $request->query('status'));
+            $query->where(function ($kelas) use ($status) {
+                $kelas->whereRaw('LOWER(status) = ?', [$status]);
+                if ($status === 'aktif') {
+                    $kelas->orWhereNull('status');
+                }
+            });
+        }
+
         $perPage = (int) $request->query('per_page', 15);
         $classes = $query->paginate($perPage);
+        $classes->through(fn (Kelas $kelas) => $this->serializeKelas($kelas));
 
         $totalKelas = Kelas::count();
         $totalAktif = Kelas::where(function ($q) {
-            $q->where('status', 'aktif')->orWhereNull('status');
+            $q->whereRaw('LOWER(status) = ?', ['aktif'])->orWhereNull('status');
         })->count();
         $totalNonaktif = max(0, $totalKelas - $totalAktif);
 
@@ -348,7 +402,7 @@ class FoundationDashboardController extends Controller
      */
     public function rombel(Request $request): JsonResponse
     {
-        $query = Kelas::with(['waliKelas', 'unitPendidikan'])->withCount('students');
+        $query = Kelas::with(['waliKelas', 'unitPendidikan', 'siswa', 'siswaLegacy']);
 
         if ($request->filled('unit_id') && $request->query('unit_id') !== 'all') {
             $query->where('unit_pendidikan_id', $request->query('unit_id'));
@@ -359,15 +413,28 @@ class FoundationDashboardController extends Controller
             $query->where('nama_kelas', 'like', "%{$search}%");
         }
 
+        if ($request->filled('status') && $request->query('status') !== 'all') {
+            $status = strtolower((string) $request->query('status'));
+            $query->where(function ($kelas) use ($status) {
+                $kelas->whereRaw('LOWER(status) = ?', [$status]);
+                if ($status === 'aktif') {
+                    $kelas->orWhereNull('status');
+                }
+            });
+        }
+
         $perPage = (int) $request->query('per_page', 15);
         $rombel = $query->paginate($perPage);
+        $rombel->through(fn (Kelas $kelas) => $this->serializeKelas($kelas));
 
         $totalRombel = Kelas::count();
         $totalAktif = Kelas::where(function ($q) {
-            $q->where('status', 'aktif')->orWhereNull('status');
+            $q->whereRaw('LOWER(status) = ?', ['aktif'])->orWhereNull('status');
         })->count();
         $totalKapasitas = (int) Kelas::sum('kapasitas');
-        $totalTerisi = (int) Student::where('is_active', true)->whereNotNull('kelas_id')->count();
+        $totalTerisi = (int) Student::where('is_active', true)
+            ->where(fn ($student) => $student->whereNotNull('kelas_id')->orWhereNotNull('class_id'))
+            ->count();
 
         return response()->json([
             'status' => 'success',
@@ -391,6 +458,16 @@ class FoundationDashboardController extends Controller
     }
 
     /**
+     * Teacher detail.
+     */
+    public function teacherDetail(string $id): JsonResponse
+    {
+        $teacher = Teacher::with(['employee.unit', 'employee.position'])->findOrFail($id);
+
+        return response()->json(['status' => 'success', 'data' => $this->serializeTeacher($teacher)]);
+    }
+
+    /**
      * Student detail.
      */
     public function studentDetail(string $id): JsonResponse
@@ -404,7 +481,19 @@ class FoundationDashboardController extends Controller
      */
     public function parentDetail(string $id): JsonResponse
     {
-        $parent = ParentModel::with(['students.educationUnit', 'students.kelas'])->findOrFail($id);
+        $parent = ParentModel::with([
+            'students.educationUnit',
+            'students.kelas',
+            'studentsPivot.educationUnit',
+            'studentsPivot.kelas',
+        ])->findOrFail($id);
+        $children = $parent->students
+            ->concat($parent->studentsPivot)
+            ->unique('id')
+            ->values();
+        $parent->setRelation('students', $children);
+        $parent->unsetRelation('studentsPivot');
+
         return response()->json(['status' => 'success', 'data' => $parent]);
     }
 
@@ -422,7 +511,8 @@ class FoundationDashboardController extends Controller
      */
     public function classDetail(string $id): JsonResponse
     {
-        $class = Kelas::with(['waliKelas', 'unitPendidikan', 'students'])->withCount('students')->findOrFail($id);
+        $class = Kelas::with(['waliKelas', 'unitPendidikan', 'siswa', 'siswaLegacy'])->findOrFail($id);
+        $class = $this->serializeKelas($class);
         return response()->json(['status' => 'success', 'data' => $class]);
     }
 
@@ -431,7 +521,44 @@ class FoundationDashboardController extends Controller
      */
     public function rombelDetail(string $id): JsonResponse
     {
-        $rombel = Kelas::with(['waliKelas', 'unitPendidikan', 'students'])->withCount('students')->findOrFail($id);
+        $rombel = Kelas::with(['waliKelas', 'unitPendidikan', 'siswa', 'siswaLegacy'])->findOrFail($id);
+        $rombel = $this->serializeKelas($rombel);
         return response()->json(['status' => 'success', 'data' => $rombel]);
+    }
+
+    private function serializeKelas(Kelas $kelas): Kelas
+    {
+        $students = $kelas->siswa
+            ->concat($kelas->siswaLegacy)
+            ->unique('id')
+            ->values();
+        $kelas->setRelation('students', $students);
+        $kelas->unsetRelation('siswa');
+        $kelas->unsetRelation('siswaLegacy');
+        $kelas->setAttribute('students_count', $students->count());
+
+        return $kelas;
+    }
+
+    private function serializeTeacher(Teacher $teacher): array
+    {
+        $employee = $teacher->employee;
+
+        return [
+            'id' => $teacher->id,
+            'niy' => $employee?->niy ?? $teacher->employee_number,
+            'nik' => $employee?->nik,
+            'nama_lengkap' => $employee?->nama_lengkap ?? $teacher->full_name,
+            'jenis_kelamin' => $employee?->jenis_kelamin,
+            'unit' => $employee?->unit,
+            'position' => $employee?->position,
+            'jabatan' => $employee?->position?->name ?? 'Guru',
+            'status_pegawai' => $employee?->status_pegawai,
+            'status' => $employee?->status ?? 'Aktif',
+            'no_hp' => $employee?->no_hp ?? $teacher->phone,
+            'email' => $employee?->email ?? $teacher->email,
+            'alamat' => $employee?->alamat,
+            'tanggal_masuk' => $employee?->tanggal_masuk ?? $teacher->join_date,
+        ];
     }
 }

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { QRCodeCanvas } from 'qrcode.react'
 import {
-  Activity, AlertCircle, Award, BookOpen, BookOpenCheck, CalendarCheck, CalendarDays,
+  Activity, AlertCircle, Award, BookOpenCheck, CalendarCheck, CalendarDays,
   CheckCircle2, ClipboardList, Clock3, Download, Droplets, FileText, GraduationCap,
   HeartPulse, Home, IdCard, Mail, MapPin, MessageCircle, Phone, QrCode, School,
   ShieldCheck, Sparkles, Trophy, UserRound, UsersRound,
@@ -10,6 +10,7 @@ import {
 import { Modal } from '../ui/modal'
 import { EmptyState } from '../ui/empty-state'
 import PersonAvatar from '../../components/ui/PersonAvatar'
+import api from '../../services/api'
 
 const card = 'rounded-[18px] border border-slate-200/80 bg-white shadow-[0_16px_40px_-28px_rgba(15,23,42,.45)] dark:border-slate-800 dark:bg-slate-900'
 const valueOf = (source, keys, fallback = '-') => {
@@ -41,8 +42,10 @@ function Timeline({ items, emptyTitle }) {
   return <div className="relative ml-2 space-y-5 border-l border-emerald-200 pl-6 dark:border-emerald-900">{items.map((item, index) => <div key={item.id || index} className="relative"><span className="absolute -left-[31px] top-1 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50 dark:ring-emerald-950" /><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-sm font-bold text-slate-800 dark:text-slate-100">{item.school || item.sekolah || item.title || item.judul || item.activity || 'Aktivitas siswa'}</p><p className="mt-1 text-xs text-slate-500">{item.level || item.jenjang || item.description || item.keterangan || item.subject || ''}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.year || item.tahun || item.date || item.waktu || item.status || '-'}</span></div></div>)}</div>
 }
 
-export default function StudentProfileWorkspace({ student = {}, dashboard = {}, onNavigate, readOnly = true }) {
+export default function StudentProfileWorkspace({ student = {}, dashboard = {}, readOnly = true }) {
   const [qrOpen, setQrOpen] = useState(false)
+  const [qrToken, setQrToken] = useState('')
+  const [qrError, setQrError] = useState('')
   const [detail, setDetail] = useState(null)
   const meta = student.metadata || {}
   const parents = asList(student.parents)
@@ -61,7 +64,27 @@ export default function StudentProfileWorkspace({ student = {}, dashboard = {}, 
   const status = student.is_active === false ? 'Tidak Aktif' : valueOf(student, ['status', 'academic_status'], 'Aktif')
   const className = valueOf(student, ['kelas.nama_kelas', 'kelas.name', 'class_name'])
   const unitName = valueOf(student, ['education_unit.name', 'educationUnit.name', 'unit.name'])
-  const qrValue = JSON.stringify({ id: student.id, nis: student.nis, nisn: student.nisn, name })
+
+  useEffect(() => {
+    let active = true
+    setQrToken('')
+    setQrError('')
+
+    if (!student?.id) {
+      setQrError('QR kartu belum tersedia.')
+      return () => { active = false }
+    }
+
+    api.get('/portal/attendance-qr', { headers: { 'X-Child-Id': student.id } })
+      .then((response) => {
+        if (active) setQrToken(response.data?.data?.qr_token || '')
+      })
+      .catch(() => {
+        if (active) setQrError('QR kartu belum dapat dimuat.')
+      })
+
+    return () => { active = false }
+  }, [student?.id])
 
   const personal = [
     { label: 'Nama Lengkap', value: name, icon: UserRound }, { label: 'Nama Panggilan', value: valueOf(meta, ['nama_panggilan', 'nickname']), icon: UserRound },
@@ -130,7 +153,7 @@ export default function StudentProfileWorkspace({ student = {}, dashboard = {}, 
 
 
 
-    <Modal isOpen={qrOpen} onClose={() => setQrOpen(false)} title="QR Kartu Siswa" maxWidth="max-w-md" footer={<button type="button" onClick={() => setQrOpen(false)} className="h-10 rounded-xl bg-[#0E5C44] px-5 text-xs font-bold text-white">Tutup</button>}><div className="flex flex-col items-center text-center"><div className="rounded-[18px] bg-white p-4 shadow-inner"><QRCodeCanvas value={qrValue} size={220} level="H" /></div><h3 className="mt-5 font-black">{name}</h3><p className="mt-1 text-xs text-slate-500">NIS {student.nis || '-'} · {className}</p></div></Modal>
+    <Modal isOpen={qrOpen} onClose={() => setQrOpen(false)} title="QR Kartu Siswa" maxWidth="max-w-md" footer={<button type="button" onClick={() => setQrOpen(false)} className="h-10 rounded-xl bg-[#0E5C44] px-5 text-xs font-bold text-white">Tutup</button>}><div className="flex flex-col items-center text-center"><div className="flex min-h-[252px] min-w-[252px] items-center justify-center rounded-[18px] bg-white p-4 shadow-inner">{qrToken ? <QRCodeCanvas value={qrToken} size={220} level="M" /> : <p className="max-w-[220px] text-xs font-semibold text-slate-500">{qrError || 'Memuat QR kartu...'}</p>}</div><h3 className="mt-5 font-black">{name}</h3><p className="mt-1 text-xs text-slate-500">QR hanya berisi identitas kartu opaque.</p></div></Modal>
     <Modal isOpen={Boolean(detail)} onClose={() => setDetail(null)} title={detail?.type === 'document' ? 'Detail Dokumen' : 'Detail Prestasi'} maxWidth="max-w-2xl" footer={<button type="button" onClick={() => setDetail(null)} className="h-10 rounded-xl bg-[#0E5C44] px-5 text-xs font-bold text-white">Tutup</button>}>{detail && <div>{detail.type === 'document' ? <div className="space-y-4"><InfoGrid items={[{ label: 'Nama Dokumen', value: detail.item.name || detail.item.nama || detail.item.type || detail.item.jenis || 'Dokumen', icon: FileText }, { label: 'Status', value: detail.item.status || 'Tersimpan', icon: CheckCircle2 }]} />{(detail.item.url || detail.item.path) ? <a href={detail.item.url || detail.item.path} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0E5C44] px-4 text-xs font-bold text-white"><Download className="h-4 w-4" />Buka dokumen</a> : <EmptyState title="Pratinjau belum tersedia" description="File dokumen tidak menyertakan URL yang dapat dibuka." />}</div> : <InfoGrid items={Object.entries(detail.item).filter(([, value]) => ['string', 'number'].includes(typeof value)).map(([key, value]) => ({ label: key.replaceAll('_', ' '), value, icon: Award }))} />}</div>}</Modal>
   </div>
 }

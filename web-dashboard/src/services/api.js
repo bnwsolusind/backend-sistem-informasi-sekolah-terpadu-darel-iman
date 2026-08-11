@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { clearAuthArtifacts } from '../stores/authStore'
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
@@ -23,8 +24,8 @@ api.interceptors.response.use(
     const status = error?.response?.status
 
     if (status === 401) {
-      localStorage.removeItem('school_erp_token')
-      localStorage.removeItem('school_erp_user')
+      clearAuthArtifacts()
+      window.dispatchEvent(new Event('auth-session-cleared'))
 
       if (window.location.pathname !== '/masuk') {
         window.location.href = '/masuk'

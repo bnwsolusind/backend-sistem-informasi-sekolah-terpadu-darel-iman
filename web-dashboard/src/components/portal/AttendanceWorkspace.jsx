@@ -6,7 +6,7 @@ const cardStyle = 'rounded-[18px] border border-slate-200/80 bg-white p-5 shadow
 
 const formatDate = (val) => val ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(val)) : '-'
 
-export default function AttendanceWorkspace({ attendanceLogs = [], permissionsHistory = [], onSubmitPermission, isParent = false, loading = false }) {
+export default function AttendanceWorkspace({ attendanceLogs = [], permissionsHistory = [], onSubmitPermission, canSubmitPermission = false, isParent = false, loading = false }) {
   const [activeTab, setActiveTab] = useState('school')
   const [modalOpen, setModalOpen] = useState(false)
   const [type, setType] = useState('Sakit')
@@ -113,13 +113,15 @@ export default function AttendanceWorkspace({ attendanceLogs = [], permissionsHi
             </button>
           </div>
 
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex h-9 items-center gap-2 rounded-xl bg-[#0E5C44] px-4 text-xs font-bold text-white transition hover:bg-[#157255]"
-          >
-            <Plus className="h-4 w-4" />
-            Ajukan Izin / Sakit
-          </button>
+          {canSubmitPermission && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex h-9 items-center gap-2 rounded-xl bg-[#0E5C44] px-4 text-xs font-bold text-white transition hover:bg-[#157255]"
+            >
+              <Plus className="h-4 w-4" />
+              Ajukan Izin / Sakit
+            </button>
+          )}
         </div>
 
         {/* Content Presensi */}

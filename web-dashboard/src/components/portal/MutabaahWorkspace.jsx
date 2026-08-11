@@ -4,7 +4,8 @@ import { HeartHandshake, CheckCircle2, Circle, Clock, Save, Loader2, Calendar, A
 
 const cardStyle = 'rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900'
 
-export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isParent = false, loading = false }) {
+export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isParent = false, readOnly = false, loading = false }) {
+  const isReadOnly = isParent || readOnly
   const [checkedIds, setCheckedIds] = useState(() => {
     const existing = mutabaah?.details || []
     return new Set(existing.map((d) => d.activity_id || d.id || d.activity_name))
@@ -22,7 +23,7 @@ export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isP
   }, [detailsList, checkedIds])
 
   const toggleCheck = (id) => {
-    if (isParent) return // Parent is view only
+    if (isReadOnly) return
     setCheckedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -32,7 +33,7 @@ export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isP
   }
 
   const handleSave = async () => {
-    if (isParent || !onSaveMutabaah) return
+    if (isReadOnly || !onSaveMutabaah) return
     setSaving(true)
     setMessage('')
     try {
@@ -103,7 +104,7 @@ export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isP
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Checklist Mutabaah Yaumi</h3>
             <p className="mt-0.5 text-xs text-slate-500">
-              {isParent ? 'Monitoring ketercapaian mutabaah harian anak.' : 'Isi checklist ibadah harian secara jujur dan konsisten.'}
+              {isReadOnly ? 'Monitoring ketercapaian mutabaah harian.' : 'Isi checklist ibadah harian secara jujur dan konsisten.'}
             </p>
           </div>
 
@@ -112,7 +113,7 @@ export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isP
               Status: {mutabaah?.status || 'Menunggu Validasi'}
             </span>
 
-            {!isParent && (
+            {!isReadOnly && (
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -141,7 +142,7 @@ export default function MutabaahWorkspace({ mutabaah = null, onSaveMutabaah, isP
               <div
                 key={id}
                 onClick={() => toggleCheck(id)}
-                className={`flex items-center gap-3 rounded-2xl border p-4 transition ${isParent ? 'cursor-default' : 'cursor-pointer'} ${isChecked ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20' : 'border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/40'}`}
+                className={`flex items-center gap-3 rounded-2xl border p-4 transition ${isReadOnly ? 'cursor-default' : 'cursor-pointer'} ${isChecked ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20' : 'border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/40'}`}
               >
                 {isChecked ? (
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />

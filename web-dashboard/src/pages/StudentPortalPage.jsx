@@ -509,6 +509,7 @@ export default function StudentPortalPage({ section = 'ringkasan' }) {
             mutabaah={portalRecords}
             onSaveMutabaah={handleSaveMutabaah}
             isParent={false}
+            readOnly
             loading={panelLoading}
           />
         )}

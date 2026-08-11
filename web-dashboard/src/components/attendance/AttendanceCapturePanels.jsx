@@ -30,7 +30,7 @@ export function AttendanceMethodSelector({ value, onChange }) {
   )
 }
 
-export function AttendanceCapturePanel({ method, session, students = [], onRecorded, onScanMatch }) {
+export function AttendanceCapturePanel({ method, session, onRecorded, captureActive = false, disabled = false }) {
   const [identifier, setIdentifier] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
@@ -43,8 +43,16 @@ export function AttendanceCapturePanel({ method, session, students = [], onRecor
   const [modalInput, setModalInput] = useState('')
   const videoRef = useRef(null)
   const streamRef = useRef(null)
+  const detectorRef = useRef(null)
+  const scanTimerRef = useRef(null)
+  const busyRef = useRef(false)
 
   const stopCamera = () => {
+    if (scanTimerRef.current) {
+      window.clearInterval(scanTimerRef.current)
+      scanTimerRef.current = null
+    }
+    detectorRef.current = null
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
@@ -91,6 +99,30 @@ export function AttendanceCapturePanel({ method, session, students = [], onRecor
         await videoRef.current.play()
       }
       setCameraActive(true)
+
+      if (!('BarcodeDetector' in window)) {
+        setCameraError('Pemindaian otomatis belum tersedia di browser ini. Gunakan scanner USB atau input opaque token di bawah.')
+        return
+      }
+
+      try {
+        detectorRef.current = new window.BarcodeDetector({ formats: ['qr_code'] })
+        scanTimerRef.current = window.setInterval(async () => {
+          if (!videoRef.current || videoRef.current.readyState < 2 || busyRef.current || !detectorRef.current) return
+          try {
+            const codes = await detectorRef.current.detect(videoRef.current)
+            const value = codes[0]?.rawValue
+            if (value) {
+              stopCamera()
+              await processScanCode(value)
+            }
+          } catch {
+            // Frame tanpa QR valid diabaikan sampai pemindaian berikutnya.
+          }
+        }, 500)
+      } catch {
+        setCameraError('Browser tidak dapat membuat pemindai QR otomatis. Gunakan scanner USB atau input manual.')
+      }
     } catch (err) {
       console.error('Camera Access Error:', err)
       setCameraError('Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan di browser.')
@@ -112,106 +144,62 @@ export function AttendanceCapturePanel({ method, session, students = [], onRecor
     setShowCameraModal(false)
   }
 
-  const processScanCode = (codeToScan) => {
-    const cleanCode = String(codeToScan || '').trim().toLowerCase()
-    if (!cleanCode) return
+  const processScanCode = async (codeToScan) => {
+    const rawCode = String(codeToScan || '').trim()
+    if (!rawCode || disabled || !captureActive || busyRef.current) return
 
-    setBusy(true)
-
-    // Find student in local class list
-    const foundStudent = students.find((st) => {
-      const nisn = String(st.nisn || '').toLowerCase()
-      const nis = String(st.nis || '').toLowerCase()
-      const id = String(st.id || '').toLowerCase()
-      const card = String(st.card_number || st.nomor_kartu || '').toLowerCase()
-      const name = String(st.full_name || st.nama_lengkap || '').toLowerCase()
-
-      return (
-        nisn === cleanCode ||
-        nis === cleanCode ||
-        id === cleanCode ||
-        card === cleanCode ||
-        (cleanCode.length > 3 && name.includes(cleanCode))
-      )
-    })
-
-    if (foundStudent) {
-      const nowStr = new Date().toTimeString().slice(0, 5)
-      onScanMatch?.(foundStudent.id, {
-        status: 'hadir',
-        arrival_time: nowStr,
-        recorded_method: 'qr_code',
-        verification_status: 'verified',
-      })
-
-      const successRes = {
-        scan_status: 'success',
-        student: foundStudent,
-        message: `${foundStudent.full_name || foundStudent.nama_lengkap} tercatat HADIR jam ${nowStr}.`,
-      }
-      setResult(successRes)
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Presensi QR Code Berhasil!',
-        html: `<b style="color:#0E5C44; font-size:1.1rem;">${foundStudent.full_name || foundStudent.nama_lengkap}</b><br/>Tercatat <b>HADIR</b> via QR Code Kartu.`,
-        timer: 2000,
-        showConfirmButton: false,
-      })
-    } else if (session?.id) {
-      // Try backend scan if session exists
-      lmsPresensiService
-        .scanAttendance(session.id, 'qr', { identifier: codeToScan })
-        .then((res) => {
-          setResult(res.data)
-          if (res.data.scan_status === 'success') {
-            onRecorded?.(res.data)
-            Swal.fire({
-              icon: 'success',
-              title: 'Presensi Berhasil',
-              text: res.data.message,
-              timer: 2000,
-              showConfirmButton: false,
-            })
-          }
-        })
-        .catch((err) => {
-          const msg = err.response?.data?.message || 'Siswa tidak ditemukan dalam rombel kelas ini.'
-          setResult({ scan_status: 'rejected', message: msg })
-          Swal.fire({ icon: 'error', title: 'Pemindaian Ditolak', text: msg })
-        })
-    } else {
-      const rejectRes = {
-        scan_status: 'rejected',
-        message: `Siswa dengan kode "${codeToScan}" tidak ditemukan pada daftar rombel kelas ini.`,
-      }
-      setResult(rejectRes)
-      Swal.fire({
-        icon: 'error',
-        title: 'Siswa Tidak Ditemukan',
-        text: rejectRes.message,
-      })
+    if (!session?.id) {
+      setResult({ scan_status: 'rejected', message: 'Mulai sesi presensi mengajar terlebih dahulu.' })
+      return
     }
 
-    setIdentifier('')
-    setModalInput('')
-    setBusy(false)
+    busyRef.current = true
+    setBusy(true)
+    try {
+      const response = await lmsPresensiService.scanAttendance(session.id, 'qr', { identifier: codeToScan })
+      const payload = response?.data || {}
+      setResult(payload)
+      if (payload.scan_status === 'success') {
+        onRecorded?.(payload)
+        Swal.fire({
+          icon: 'success',
+          title: 'Presensi Berhasil',
+          text: payload.message,
+          timer: 2000,
+          showConfirmButton: false,
+        })
+      } else if (payload.scan_status === 'duplicate_scan') {
+        Swal.fire({ icon: 'info', title: 'Sudah Tercatat', text: payload.message })
+      } else {
+        Swal.fire({ icon: 'error', title: 'Pemindaian Ditolak', text: payload.message })
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Siswa tidak ditemukan dalam roster kelas ini.'
+      setResult({ scan_status: 'rejected', message: msg })
+      Swal.fire({ icon: 'error', title: 'Pemindaian Ditolak', text: msg })
+    } finally {
+      setIdentifier('')
+      setModalInput('')
+      setBusy(false)
+      busyRef.current = false
+    }
   }
 
   const handleScanSubmit = (e) => {
     e?.preventDefault()
-    if (!identifier.trim()) return
+    if (!identifier.trim() || disabled || !captureActive) return
     processScanCode(identifier)
   }
 
   const handleModalSubmit = (e) => {
     e?.preventDefault()
-    if (!modalInput.trim()) return
+    if (!modalInput.trim() || disabled || !captureActive) return
     processScanCode(modalInput)
   }
 
   return (
     <div className="space-y-4 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+      {!captureActive && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">Capture QR belum aktif. Simpan roster lalu klik <b>Mulai Capture</b>; server akan memeriksa status sesi sebelum menerima scan.</div>}
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl bg-emerald-50/60 p-4 border border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900">
         <div>
@@ -225,6 +213,7 @@ export function AttendanceCapturePanel({ method, session, students = [], onRecor
         <button
           type="button"
           onClick={openCameraModal}
+          disabled={disabled || !captureActive || cameraLoading}
           className="flex items-center justify-center gap-2 rounded-xl bg-[#0E5C44] px-4 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-emerald-800 whitespace-nowrap"
         >
           <Camera className="h-4 w-4" /> Buka Kamera Pemindai Live
@@ -242,12 +231,13 @@ export function AttendanceCapturePanel({ method, session, students = [], onRecor
             autoFocus
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-            placeholder="Scan QR code via scanner USB atau ketik NIS/NISN siswa..."
+            disabled={disabled || !captureActive || busy}
+            placeholder="Scan opaque QR kartu siswa via scanner USB..."
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           />
           <button
             type="submit"
-            disabled={busy}
+            disabled={disabled || !captureActive || busy}
             className="rounded-xl bg-[#0E5C44] px-5 py-3 text-xs font-bold text-white shadow transition hover:bg-emerald-800 disabled:opacity-50 whitespace-nowrap"
           >
             Proses QR
@@ -279,7 +269,7 @@ export function AttendanceCapturePanel({ method, session, students = [], onRecor
       {/* Live Camera Pop-up Modal */}
       {showCameraModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-md">
-          <div className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-3xl bg-white shadow-2xl dark:bg-slate-900 border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in duration-200">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
               <div className="flex items-center gap-3">
@@ -329,16 +319,18 @@ export function AttendanceCapturePanel({ method, session, students = [], onRecor
               <form onSubmit={handleModalSubmit} className="space-y-2 pt-2">
                 <label className="block text-xs font-semibold text-slate-500 uppercase">Input Kode / NISN Kartu</label>
                 <div className="flex gap-2">
-                  <input
+                 <input
                     type="text"
                     autoFocus
-                    value={modalInput}
-                    onChange={(e) => setModalInput(e.target.value)}
+                   value={modalInput}
+                   onChange={(e) => setModalInput(e.target.value)}
+                   disabled={disabled || !captureActive || busy}
                     placeholder="Hasil scan QR / Ketik NISN..."
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   />
                   <button
-                    type="submit"
+                   type="submit"
+                    disabled={disabled || !captureActive || busy}
                     className="rounded-xl bg-[#0E5C44] px-5 py-3 text-xs font-bold text-white shadow hover:bg-emerald-800 whitespace-nowrap"
                   >
                     Proses Scan

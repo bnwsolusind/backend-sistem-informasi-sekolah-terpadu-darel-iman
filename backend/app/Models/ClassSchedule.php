@@ -134,6 +134,11 @@ class ClassSchedule extends Model
         return $this->hasMany(LmsPresensi::class, 'jadwal_pelajaran_id');
     }
 
+    public function teachingAttendances()
+    {
+        return $this->hasMany(TeachingAttendance::class, 'schedule_id');
+    }
+
     // --- Scopes ---
 
     public function scopeAktif($query)

@@ -4,10 +4,11 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\EnsureFoundationReadOnly;
 use App\Models\AcademicYear;
-use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\ParentModel;
 use App\Models\QrCredential;
 use App\Models\Semester;
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -85,7 +86,7 @@ class MultiPortalAuthTest extends TestCase
         $response->assertStatus(401);
     }
 
-    public function test_employee_can_login_via_niy_and_records_daily_attendance_once(): void
+    public function test_employee_login_does_not_record_daily_attendance(): void
     {
         $user = User::create([
             'name' => 'Employee Test',
@@ -102,34 +103,29 @@ class MultiPortalAuthTest extends TestCase
             'user_id' => $user->id,
         ]);
 
-        // First login -> records attendance
+        // Login is authentication only; attendance is an explicit workflow.
         $response1 = $this->postJson('/api/v2/auth/login/employee', [
             'identifier' => 'NIY999',
             'password' => 'Password123!',
         ]);
 
         $response1->assertStatus(200);
-        $this->assertDatabaseHas('attendances', [
+        $this->assertDatabaseMissing('attendances', [
             'employee_id' => $employee->id,
             'attendance_date' => now()->toDateString(),
         ]);
 
-        $count = Attendance::where('employee_id', $employee->id)
-            ->where('attendance_date', now()->toDateString())
-            ->count();
-        $this->assertEquals(1, $count);
-
-        // Second login (re-login or refresh) -> does NOT duplicate attendance
+        // Re-login must remain side-effect free as well.
         $response2 = $this->postJson('/api/v2/auth/login/employee', [
             'identifier' => 'NIY999',
             'password' => 'Password123!',
         ]);
 
         $response2->assertStatus(200);
-        $countAfter = Attendance::where('employee_id', $employee->id)
-            ->where('attendance_date', now()->toDateString())
-            ->count();
-        $this->assertEquals(1, $countAfter);
+        $this->assertDatabaseMissing('attendances', [
+            'employee_id' => $employee->id,
+            'attendance_date' => now()->toDateString(),
+        ]);
     }
 
     public function test_employee_can_login_via_valid_qr_token(): void
@@ -167,6 +163,82 @@ class MultiPortalAuthTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure(['token', 'user', 'portal']);
+    }
+
+    public function test_unified_login_resolves_employee_niy_and_default_portal_without_attendance(): void
+    {
+        $user = User::create([
+            'name' => 'Unified Guru',
+            'email' => 'unified-guru@school-erp.local',
+            'password' => Hash::make('UnifiedGuru!2026'),
+            'is_active' => true,
+        ]);
+        $user->assignRole('Guru');
+        $employee = Employee::create([
+            'niy' => 'UNIFIED-NIY-01',
+            'nama_lengkap' => 'Unified Guru',
+            'status' => 'Aktif',
+            'user_id' => $user->id,
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'identifier' => 'UNIFIED-NIY-01',
+            'password' => 'UnifiedGuru!2026',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('portal', 'employee')
+            ->assertJsonPath('default_portal', 'teacher')
+            ->assertJsonPath('default_redirect', '/portal-guru');
+        $this->assertDatabaseMissing('attendances', ['employee_id' => $employee->id]);
+    }
+
+    public function test_unified_login_resolves_parent_or_student_by_linked_nis_after_password_validation(): void
+    {
+        $parentUser = User::create([
+            'name' => 'Unified Parent',
+            'email' => 'unified-parent@school-erp.local',
+            'password' => Hash::make('UnifiedParent!2026'),
+            'is_active' => true,
+        ]);
+        $parentUser->assignRole('Orang Tua');
+        $parent = ParentModel::create([
+            'user_id' => $parentUser->id,
+            'full_name' => 'Unified Parent',
+            'phone' => '081200000001',
+        ]);
+
+        $studentUser = User::create([
+            'name' => 'Unified Student',
+            'email' => 'unified-student@school-erp.local',
+            'password' => Hash::make('UnifiedStudent!2026'),
+            'is_active' => true,
+        ]);
+        $studentUser->assignRole('Siswa');
+        $student = Student::create([
+            'user_id' => $studentUser->id,
+            'parent_id' => $parent->id,
+            'nis' => 'UNIFIED-NIS-01',
+            'full_name' => 'Unified Student',
+            'gender' => 'male',
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/auth/login', [
+            'identifier' => $student->nis,
+            'password' => 'UnifiedParent!2026',
+        ])->assertOk()
+            ->assertJsonPath('portal', 'parent')
+            ->assertJsonPath('default_redirect', '/portal-orangtua')
+            ->assertJsonPath('children.0.nis', $student->nis);
+
+        $this->postJson('/api/auth/login', [
+            'identifier' => $student->nis,
+            'password' => 'UnifiedStudent!2026',
+        ])->assertOk()
+            ->assertJsonPath('portal', 'student')
+            ->assertJsonPath('default_redirect', '/portal-siswa')
+            ->assertJsonPath('student.nis', $student->nis);
     }
 
     public function test_admin_delete_request_and_superadmin_approval_flow(): void

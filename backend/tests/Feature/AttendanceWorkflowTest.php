@@ -108,7 +108,7 @@ class AttendanceWorkflowTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_student_only_reads_own_attendance_and_submits_permission(): void
+    public function test_student_only_reads_own_attendance_and_cannot_submit_permission(): void
     {
         $ctx = $this->context();
         Sanctum::actingAs($ctx['studentUser']);
@@ -117,7 +117,7 @@ class AttendanceWorkflowTest extends TestCase
         $this->postJson('/api/student-attendance/permissions', [
             'start_date' => '2026-07-29', 'end_date' => '2026-07-30',
             'type' => 'sakit', 'reason' => 'Demam', 'status' => 'submitted',
-        ])->assertCreated()->assertJsonPath('data.student_id', $ctx['student']->id);
+        ])->assertForbidden();
     }
 
     public function test_student_portal_reads_only_its_own_lesson_attendance(): void

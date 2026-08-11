@@ -4,6 +4,7 @@ import Swal from 'sweetalert2'
 import { FaMosque } from 'react-icons/fa6'
 import { usePengaturanStore } from '../stores/pengaturanStore'
 import LoginCard from '../components/auth/LoginCard'
+import { resolveDefaultPortal } from '../auth/portalResolver'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -32,7 +33,7 @@ export default function LoginPage() {
     }
   }, [faviconUrl])
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = (result) => {
     Swal.fire({
       title: 'Login Berhasil!',
       text: `Selamat datang di ${namaSekolah}.`,
@@ -41,7 +42,7 @@ export default function LoginPage() {
       timer: 1800,
       showConfirmButton: false,
     }).then(() => {
-      navigate('/dashboard', { replace: true })
+      navigate(resolveDefaultPortal(result), { replace: true })
     })
   }
 
@@ -83,9 +84,6 @@ export default function LoginPage() {
       <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
           <LoginCard onLoginSuccess={handleLoginSuccess} />
-          <button onClick={() => navigate('/masuk-keluarga')} className="mt-4 w-full rounded-xl border border-emerald-200 bg-white/80 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-50">
-            Masuk Portal Orang Tua / Siswa
-          </button>
         </div>
       </div>
 

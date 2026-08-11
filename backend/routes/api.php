@@ -60,6 +60,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\ScheduleController;
 use App\Http\Controllers\Api\V1\SiteSettingController;
+use App\Http\Controllers\Api\V1\Step04TeacherController;
 use App\Http\Controllers\Api\V1\StudentController;
 use App\Http\Controllers\Api\V1\StudentParentPortalController;
 use App\Http\Controllers\Api\V1\SubjectController;
@@ -118,10 +119,10 @@ Route::middleware(['auth:sanctum', 'can:sistem.master_data'])->group(function ()
 });
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/login/admin', [AuthController::class, 'loginAdmin']);
-    Route::post('/login/employee', [AuthController::class, 'loginEmployee']);
-    Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/login/admin', [AuthController::class, 'loginAdmin'])->middleware('throttle:10,1');
+    Route::post('/login/employee', [AuthController::class, 'loginEmployee'])->middleware('throttle:10,1');
+    Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr'])->middleware('throttle:10,1');
     Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent'])->middleware('throttle:10,1');
 
     Route::middleware('auth:sanctum')->group(function () {
@@ -139,9 +140,9 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::prefix('v2/auth')->group(function () {
-    Route::post('/login/admin', [AuthController::class, 'loginAdmin']);
-    Route::post('/login/employee', [AuthController::class, 'loginEmployee']);
-    Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr']);
+    Route::post('/login/admin', [AuthController::class, 'loginAdmin'])->middleware('throttle:10,1');
+    Route::post('/login/employee', [AuthController::class, 'loginEmployee'])->middleware('throttle:10,1');
+    Route::post('/login/employee-qr', [AuthController::class, 'loginEmployeeQr'])->middleware('throttle:10,1');
     Route::post('/login/parent-student', [AuthController::class, 'loginParentStudent'])->middleware('throttle:10,1');
 });
 
@@ -160,6 +161,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/units/{id}', [FoundationDashboardController::class, 'unitDetail']);
         Route::get('/employees', [FoundationDashboardController::class, 'employees']);
         Route::get('/employees/{id}', [FoundationDashboardController::class, 'employeeDetail']);
+        Route::get('/teachers', [FoundationDashboardController::class, 'teachers']);
+        Route::get('/teachers/{id}', [FoundationDashboardController::class, 'teacherDetail']);
         Route::get('/students', [FoundationDashboardController::class, 'students']);
         Route::get('/students/{id}', [FoundationDashboardController::class, 'studentDetail']);
         Route::get('/new-students', [FoundationDashboardController::class, 'newStudents']);
@@ -314,18 +317,31 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/indikator-kinerja-utama/{id}', [DashboardPemantauanController::class, 'hapusIndikatorKinerjaUtama']);
     });
 
-    // Direct Database Read Endpoints for Master Data
-    Route::get('/employees/dashboard', [EmployeeController::class, 'dashboard']);
-    Route::get('/employees/positions', [EmployeeController::class, 'positions']);
-    Route::get('/employees/export', [EmployeeController::class, 'export']);
-    Route::get('/employees', [EmployeeController::class, 'index']);
-    Route::get('/employees/{employee}', [EmployeeController::class, 'show']);
+    Route::get('/teacher-monitoring', [Step04TeacherController::class, 'monitoring'])
+        ->middleware('can:teacher_monitoring.view');
 
-    Route::post('/employees/import', [EmployeeController::class, 'import']);
-    Route::post('/employees/{id}/teachings', [EmployeeController::class, 'assignTeaching']);
-    Route::post('/employees', [EmployeeController::class, 'store']);
-    Route::put('/employees/{employee}', [EmployeeController::class, 'update']);
-    Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy']);
+    // Direct Database Read Endpoints for Master Data
+    Route::get('/employees/dashboard', [EmployeeController::class, 'dashboard'])
+        ->middleware('permission:employee.view|employee.view_all|foundation.employee.view|sistem.master_data');
+    Route::get('/employees/positions', [EmployeeController::class, 'positions'])
+        ->middleware('permission:employee.view|employee.view_all|foundation.employee.view|sistem.master_data');
+    Route::get('/employees/export', [EmployeeController::class, 'export'])
+        ->middleware('permission:employee.export|foundation.employee.view|sistem.master_data');
+    Route::get('/employees', [EmployeeController::class, 'index'])
+        ->middleware('permission:employee.view|employee.view_all|foundation.employee.view|sistem.master_data');
+    Route::get('/employees/{employee}', [EmployeeController::class, 'show'])
+        ->middleware('permission:employee.view|employee.view_all|foundation.employee.view|sistem.master_data');
+
+    Route::post('/employees/import', [EmployeeController::class, 'import'])
+        ->middleware('permission:employee.import|sistem.master_data');
+    Route::post('/employees/{id}/teachings', [EmployeeController::class, 'assignTeaching'])
+        ->middleware('permission:employee.update|academic.schedule.update|sistem.master_data');
+    Route::post('/employees', [EmployeeController::class, 'store'])
+        ->middleware('permission:employee.create|sistem.master_data');
+    Route::put('/employees/{employee}', [EmployeeController::class, 'update'])
+        ->middleware('permission:employee.update|sistem.master_data');
+    Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy'])
+        ->middleware('permission:employee.delete|sistem.master_data');
 
     Route::middleware('can:kesiswaan.data_lengkap_siswa')->group(function () {
         Route::get('/students/dashboard', [StudentController::class, 'dashboard']);
@@ -333,17 +349,26 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::get('/student-card-settings', [\App\Http\Controllers\Api\V1\StudentCardSettingController::class, 'show']);
     Route::post('/student-card-settings', [\App\Http\Controllers\Api\V1\StudentCardSettingController::class, 'store']);
-    Route::apiResource('education-units', EducationUnitController::class)->except(['create', 'edit']);
-    Route::apiResource('teachers', TeacherController::class)->only(['index']);
-    Route::apiResource('classes', ClassController::class)->only(['index']);
+    Route::apiResource('education-units', EducationUnitController::class)->except(['create', 'edit'])
+        ->middleware('permission:unit.view|unit.view_all|foundation.unit.view|sistem.master_data');
+    Route::apiResource('teachers', TeacherController::class)->only(['index'])
+        ->middleware('permission:employee.view|employee.view_all|foundation.teacher.view|sistem.master_data');
+    Route::apiResource('classes', ClassController::class)->only(['index'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|sistem.master_data');
 
     // Rute Master Data Kelas / Rombongan Belajar (Rombel)
-    Route::get('/kelas/options', [KelasController::class, 'options']);
-    Route::get('/kelas/stats', [KelasController::class, 'stats']);
-    Route::post('/kelas/import', [KelasController::class, 'import']);
-    Route::post('/kelas/{id}/restore', [KelasController::class, 'restore']);
-    Route::get('/kelas/{id}/siswa', [KelasController::class, 'siswa']);
-    Route::apiResource('kelas', KelasController::class)->except(['create', 'edit']);
+    Route::get('/kelas/options', [KelasController::class, 'options'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|sistem.master_data');
+    Route::get('/kelas/stats', [KelasController::class, 'stats'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|sistem.master_data');
+    Route::post('/kelas/import', [KelasController::class, 'import'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.create|sistem.master_data');
+    Route::post('/kelas/{id}/restore', [KelasController::class, 'restore'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.update|sistem.master_data');
+    Route::get('/kelas/{id}/siswa', [KelasController::class, 'siswa'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|sistem.master_data');
+    Route::apiResource('kelas', KelasController::class)->except(['create', 'edit'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|academic.schedule.create|academic.schedule.update|sistem.master_data');
     // Rute Master Data Jabatan
     Route::get('/jabatan/options', [JabatanController::class, 'options']);
     Route::get('/jabatan/stats', [JabatanController::class, 'stats']);
@@ -463,11 +488,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/sessions/{session}/scan-logs', [AttendanceCaptureController::class, 'logs']);
         Route::get('/students/{student}/qr-token', [AttendanceCaptureController::class, 'studentToken']);
     });
-    Route::get('/student-attendance/me', [AttendanceWorkflowController::class, 'myAttendance']);
-    Route::match(['get', 'post'], '/student-attendance/permissions', [AttendanceWorkflowController::class, 'permissions']);
-    Route::put('/student-attendance/permissions/{permission}', [AttendanceWorkflowController::class, 'updatePermission']);
-    Route::post('/student-attendance/permissions/{permission}/submit', [AttendanceWorkflowController::class, 'submitPermission']);
-    Route::post('/student-attendance/permissions/{permission}/cancel', [AttendanceWorkflowController::class, 'cancelPermission']);
+    Route::get('/student-attendance/me', [AttendanceWorkflowController::class, 'myAttendance'])->middleware('role:Siswa|siswa|student');
+    Route::get('/student-attendance/permissions', [AttendanceWorkflowController::class, 'permissions'])->middleware('role:Siswa|siswa|student');
+    // Siswa may read their history, but leave/sick transactions are parent-controlled.
+    Route::post('/student-attendance/permissions', [AttendanceWorkflowController::class, 'permissions'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
+    Route::put('/student-attendance/permissions/{permission}', [AttendanceWorkflowController::class, 'updatePermission'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
+    Route::post('/student-attendance/permissions/{permission}/submit', [AttendanceWorkflowController::class, 'submitPermission'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
+    Route::post('/student-attendance/permissions/{permission}/cancel', [AttendanceWorkflowController::class, 'cancelPermission'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
     Route::get('/homeroom-attendance/permissions', [AttendanceWorkflowController::class, 'homeroomPermissions']);
     Route::post('/homeroom-attendance/permissions/{permission}/review', [AttendanceWorkflowController::class, 'reviewPermission']);
     Route::get('/homeroom-attendance/dashboard', [AttendanceWorkflowController::class, 'homeroomDashboard']);
@@ -559,13 +586,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Gate Attendance (Absensi Kedatangan & Pulang Sekolah)
     Route::prefix('gate-attendance')->group(function () {
-        Route::get('/logs', [GateAttendanceController::class, 'index']);
-        Route::get('/stats', [GateAttendanceController::class, 'stats']);
-        Route::get('/schedule-config', [GateAttendanceController::class, 'getScheduleConfig']);
-        Route::get('/schedule-config/all', [GateAttendanceController::class, 'getAllScheduleConfigs']);
-        Route::post('/schedule-config', [GateAttendanceController::class, 'saveScheduleConfig']);
-        Route::post('/scan-in', [GateAttendanceController::class, 'scanCheckIn']);
-        Route::post('/scan-out', [GateAttendanceController::class, 'scanCheckOut']);
+        Route::get('/logs', [GateAttendanceController::class, 'index'])->middleware('can:gate_attendance.view');
+        Route::get('/stats', [GateAttendanceController::class, 'stats'])->middleware('can:gate_attendance.view');
+        Route::get('/schedule-config', [GateAttendanceController::class, 'getScheduleConfig'])->middleware('can:gate_attendance.config');
+        Route::get('/schedule-config/all', [GateAttendanceController::class, 'getAllScheduleConfigs'])->middleware('can:gate_attendance.config');
+        Route::post('/schedule-config', [GateAttendanceController::class, 'saveScheduleConfig'])->middleware('can:gate_attendance.config');
+        Route::post('/scan-in', [GateAttendanceController::class, 'scanCheckIn'])->middleware('can:gate_attendance.scan');
+        Route::post('/scan-out', [GateAttendanceController::class, 'scanCheckOut'])->middleware('can:gate_attendance.scan');
     });
 
     // Santri Worship Attendance (Absensi Ibadah Santri)
@@ -720,8 +747,17 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Teacher Portal Routes (/api/teacher/*)
-    Route::prefix('teacher')->middleware('role:Guru|Guru Mata Pelajaran|Guru PAI|Pembimbing|Wali Kelas|Guru Tahfizh|Musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|Kepala Sekolah|Tata Usaha|TU|Operator|Divisi Pendidikan|Waka Kurikulum|Waka Kesiswaan|Wakil Kepala Sekolah|Admin|Super Admin')->group(function () {
-            Route::get('/dashboard', [TeacherPortalController::class, 'dashboard']);
+    Route::prefix('teacher')->middleware('role:Guru|Guru Mata Pelajaran|Guru PAI|Pembimbing|Wali Kelas|Guru Tahfizh|Musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|Super Admin')->group(function () {
+             Route::get('/step04/schedules', [Step04TeacherController::class, 'schedules']);
+             Route::post('/teaching-attendance/scan', [Step04TeacherController::class, 'scan'])
+                 ->middleware('permission:teaching_attendance.scan');
+             Route::post('/teaching-sessions/{session}/start', [Step04TeacherController::class, 'startSession'])
+                 ->middleware('permission:teaching_session.start');
+             Route::post('/teaching-sessions/{session}/close', [Step04TeacherController::class, 'closeSession'])
+                 ->middleware('permission:teaching_session.close');
+             Route::post('/presence/heartbeat', [Step04TeacherController::class, 'heartbeat'])
+                 ->middleware('permission:teacher_presence.heartbeat');
+             Route::get('/dashboard', [TeacherPortalController::class, 'dashboard']);
             Route::get('/schedules', [TeacherPortalController::class, 'schedules']);
             Route::get('/classes', [TeacherPortalController::class, 'classes']);
             Route::get('/students', [TeacherPortalController::class, 'students']);
@@ -757,13 +793,14 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // Parent & Student Portal Routes (/api/portal/*)
-        Route::prefix('portal')->middleware('role:Orang Tua|Siswa')->group(function () {
+        Route::prefix('portal')->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent|Siswa|siswa|student')->group(function () {
             Route::get('/dashboard', [StudentParentPortalController::class, 'dashboard']);
             Route::get('/children', [StudentParentPortalController::class, 'children']);
-            Route::get('/profile', [StudentParentPortalController::class, 'profile']);
-            Route::get('/schedules', [StudentParentPortalController::class, 'schedules']);
+             Route::get('/profile', [StudentParentPortalController::class, 'profile']);
+             Route::get('/attendance-qr', [StudentParentPortalController::class, 'attendanceQr']);
+             Route::get('/schedules', [StudentParentPortalController::class, 'schedules']);
             Route::get('/attendance', [StudentParentPortalController::class, 'attendance']);
-            Route::post('/permissions', [StudentParentPortalController::class, 'submitPermission']);
+            Route::post('/permissions', [StudentParentPortalController::class, 'submitPermission'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
             Route::get('/permissions', [StudentParentPortalController::class, 'permissionsHistory']);
             Route::get('/materials', [StudentParentPortalController::class, 'materials']);
             Route::get('/assignments', [StudentParentPortalController::class, 'assignments']);
@@ -771,9 +808,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/grades', [StudentParentPortalController::class, 'grades']);
             Route::get('/tahfizh', [StudentParentPortalController::class, 'tahfizh']);
             Route::get('/mutabaah', [StudentParentPortalController::class, 'mutabaah']);
-            Route::post('/mutabaah', [StudentParentPortalController::class, 'saveMutabaahStudent'])->middleware('role:Siswa');
+            Route::post('/mutabaah', [StudentParentPortalController::class, 'saveMutabaahStudent'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
             Route::get('/student-notes', [StudentParentPortalController::class, 'studentNotes']);
-            Route::post('/student-notes/{id}/sign', [StudentParentPortalController::class, 'signStudentNote']);
+            Route::post('/student-notes/{id}/sign', [StudentParentPortalController::class, 'signStudentNote'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
             Route::get('/achievements', [StudentParentPortalController::class, 'achievements']);
             Route::get('/announcements', [StudentParentPortalController::class, 'announcements']);
             Route::get('/school-information', [StudentParentPortalController::class, 'schoolInformation']);

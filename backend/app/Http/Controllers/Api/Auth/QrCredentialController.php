@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\QrCredential;
 use App\Models\Student;
+use App\Services\StudentQrCredentialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class QrCredentialController extends Controller
 {
+    public function __construct(private StudentQrCredentialService $studentQr)
+    {
+    }
+
     public function generateEmployeeQr(Request $request, string $employeeId): JsonResponse
     {
         $employee = Employee::findOrFail($employeeId);
@@ -56,28 +61,9 @@ class QrCredentialController extends Controller
     public function generateStudentQr(Request $request, string $studentId): JsonResponse
     {
         $student = Student::findOrFail($studentId);
-
-        // Revoke any existing active student card QR
-        QrCredential::where('student_id', $student->id)
-            ->where('card_type', 'student_card')
-            ->where('status', 'active')
-            ->update([
-                'status' => 'revoked',
-                'revoked_at' => now(),
-            ]);
-
-        $rawToken = Str::uuid()->toString();
-        $tokenHash = hash('sha256', $rawToken);
-
-        $qr = QrCredential::create([
-            'user_id' => $student->user_id,
-            'student_id' => $student->id,
-            'card_type' => 'student_card',
-            'token_hash' => $tokenHash,
-            'card_version' => 'v1',
-            'status' => 'active',
-            'issued_at' => now(),
-        ]);
+        $issued = $this->studentQr->issue($student);
+        $qr = $issued['credential'];
+        $rawToken = $issued['raw_token'];
 
         return response()->json([
             'status' => 'success',
@@ -86,7 +72,6 @@ class QrCredentialController extends Controller
                 'id' => $qr->id,
                 'student_id' => $student->id,
                 'raw_token' => $rawToken,
-                'token_hash' => $tokenHash,
                 'status' => $qr->status,
                 'issued_at' => $qr->issued_at,
             ],

@@ -8,6 +8,7 @@ use App\Models\EducationUnit;
 use App\Models\Employee;
 use App\Models\MutabaahSupervisorAssignment;
 use App\Models\MutabaahTemplate;
+use App\Models\ParentModel;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\User;
@@ -31,9 +32,10 @@ class MutabaahPortalGateTest extends TestCase
 
     private function chain(): array
     {
-        Role::firstOrCreate(['name' => 'Siswa', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'Orang Tua', 'guard_name' => 'web']);
         $user = User::factory()->create();
-        $user->assignRole('Siswa');
+        $user->assignRole('Orang Tua');
+        $parent = ParentModel::create(['user_id' => $user->id, 'full_name' => 'Wali Gate']);
 
         $unit = EducationUnit::create(['name' => 'Unit A', 'code' => 'UNA']);
         $ay = AcademicYear::create(['name' => '2026/2027', 'is_active' => true]);
@@ -52,7 +54,7 @@ class MutabaahPortalGateTest extends TestCase
             'full_name' => 'Siswa Gate',
             'nis' => 'GATE001',
             'gender' => 'male',
-            'user_id' => $user->id,
+            'parent_id' => $parent->id,
             'unit_id' => $unit->id,
             'is_active' => true,
         ]);

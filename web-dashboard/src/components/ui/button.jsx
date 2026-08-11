@@ -6,6 +6,7 @@ const buttonVariants = {
   primary: 'bg-[#0E5C44] text-white hover:bg-[#1E8E5A] shadow-md hover:-translate-y-0.5 hover:scale-[1.03] active:scale-[0.97] active:translate-y-0 hover:shadow-[0_0_20px_rgba(14,92,68,0.35)] dark:bg-[#0E5C44] dark:hover:bg-[#1E8E5A]',
   default: 'bg-[#0E5C44] text-white hover:bg-[#1E8E5A] shadow-md hover:-translate-y-0.5 hover:scale-[1.03] active:scale-[0.97] active:translate-y-0 hover:shadow-[0_0_20px_rgba(14,92,68,0.35)] dark:bg-[#0E5C44] dark:hover:bg-[#1E8E5A]',
   secondary: 'bg-white border border-slate-200/80 text-slate-700 hover:bg-slate-50 hover:border-[#0E5C44]/30 hover:-translate-y-0.5 hover:scale-[1.03] active:scale-[0.97] active:translate-y-0 shadow-xs dark:bg-[#111827] dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800',
+  warning: 'bg-amber-500 text-white hover:bg-amber-600 shadow-md hover:-translate-y-0.5 hover:scale-[1.03] active:scale-[0.97] active:translate-y-0',
   destructive: 'bg-rose-600 text-white hover:bg-rose-700 shadow-md hover:-translate-y-0.5 hover:scale-[1.03] active:scale-[0.97] active:translate-y-0',
   outline: 'border border-slate-200/80 bg-transparent text-slate-700 hover:bg-slate-50 hover:border-[#0E5C44]/40 hover:-translate-y-0.5 hover:scale-[1.03] active:scale-[0.97] active:translate-y-0 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800',
   ghost: 'text-slate-600 hover:bg-[#0E5C44]/10 hover:text-[#0E5C44] active:scale-[0.97] dark:text-slate-400 dark:hover:bg-[#3FBF75]/20 dark:hover:text-[#3FBF75]',
@@ -44,7 +45,7 @@ Button.displayName = 'Button'
 
 Button.propTypes = {
   className: PropTypes.string,
-  variant: PropTypes.oneOf(['primary', 'default', 'secondary', 'destructive', 'outline', 'ghost', 'icon', 'link']),
+  variant: PropTypes.oneOf(['primary', 'default', 'secondary', 'warning', 'destructive', 'outline', 'ghost', 'icon', 'link']),
   size: PropTypes.oneOf(['default', 'sm', 'lg', 'icon']),
   disabled: PropTypes.bool,
   children: PropTypes.node,

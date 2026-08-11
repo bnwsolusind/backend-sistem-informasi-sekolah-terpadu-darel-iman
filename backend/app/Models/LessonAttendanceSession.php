@@ -17,6 +17,7 @@ class LessonAttendanceSession extends Model
         'finalized_at', 'finalized_by', 'locked_at', 'created_by', 'updated_by',
         'attendance_method', 'session_token_hash', 'session_started_at',
         'session_expires_at', 'session_closed_at', 'device_id', 'scan_location', 'metadata',
+        'teaching_attendance_id', 'teaching_session_status',
     ];
 
     protected $casts = ['attendance_date' => 'date:Y-m-d', 'finalized_at' => 'datetime', 'locked_at' => 'datetime', 'session_started_at' => 'datetime', 'session_expires_at' => 'datetime', 'session_closed_at' => 'datetime', 'metadata' => 'array'];
@@ -34,5 +35,10 @@ class LessonAttendanceSession extends Model
     public function scanLogs()
     {
         return $this->hasMany(AttendanceScanLog::class, 'lesson_attendance_id');
+    }
+
+    public function teachingAttendance()
+    {
+        return $this->belongsTo(TeachingAttendance::class, 'teaching_attendance_id');
     }
 }

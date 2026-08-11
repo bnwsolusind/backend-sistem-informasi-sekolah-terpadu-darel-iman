@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\SimpanKelasRequest;
 use App\Http\Requests\V1\UbahKelasRequest;
 use App\Http\Resources\V1\KelasResource;
+use App\Models\Kelas;
 use App\Services\AccessScopeService;
 use App\Services\KelasService;
 use Illuminate\Http\JsonResponse;
@@ -99,6 +100,7 @@ class KelasController extends Controller
      */
     public function store(SimpanKelasRequest $request): JsonResponse
     {
+        $this->assertUnitScope($request, $request->validated('unit_pendidikan_id'));
         $kelas = $this->kelasService->simpan($request->validated());
 
         return response()->json([
@@ -111,9 +113,9 @@ class KelasController extends Controller
     /**
      * Tampilkan detail data kelas berdasarkan ID.
      */
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        $kelas = $this->kelasService->cariBerdasarkanId($id);
+        $kelas = $this->scopedKelas($request, $id);
 
         if (! $kelas) {
             return response()->json([
@@ -134,6 +136,8 @@ class KelasController extends Controller
      */
     public function update(UbahKelasRequest $request, string $id): JsonResponse
     {
+        $this->scopedKelas($request, $id);
+        $this->assertUnitScope($request, $request->validated('unit_pendidikan_id'));
         $kelas = $this->kelasService->ubah($id, $request->validated());
 
         return response()->json([
@@ -146,8 +150,9 @@ class KelasController extends Controller
     /**
      * Hapus data kelas (Soft Delete).
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
+        $this->scopedKelas($request, $id);
         $berhasil = $this->kelasService->hapus($id);
 
         if (! $berhasil) {
@@ -166,8 +171,9 @@ class KelasController extends Controller
     /**
      * Pulihkan data kelas yang terhapus.
      */
-    public function restore(string $id): JsonResponse
+    public function restore(Request $request, string $id): JsonResponse
     {
+        $this->scopedKelas($request, $id);
         $berhasil = $this->kelasService->pulihkan($id);
 
         if (! $berhasil) {
@@ -186,8 +192,9 @@ class KelasController extends Controller
     /**
      * Dapatkan daftar siswa dalam kelas tertentu.
      */
-    public function siswa(string $id): JsonResponse
+    public function siswa(Request $request, string $id): JsonResponse
     {
+        $this->scopedKelas($request, $id);
         $data = $this->kelasService->dapatkanSiswaRombel($id);
 
         return response()->json([
@@ -217,5 +224,26 @@ class KelasController extends Controller
             'message' => "Proses impor selesai. Berhasil: {$hasil['berhasil']}, Gagal: {$hasil['gagal']}.",
             'data' => $hasil,
         ]);
+    }
+
+    private function scopedKelas(Request $request, string $id): Kelas
+    {
+        return $this->accessScopeService
+            ->accessibleRombels($request->user())
+            ->whereKey($id)
+            ->firstOrFail();
+    }
+
+    private function assertUnitScope(Request $request, ?string $unitId): void
+    {
+        if (! $unitId) {
+            return;
+        }
+
+        abort_unless(
+            $this->accessScopeService->accessibleEducationUnits($request->user())->whereKey($unitId)->exists(),
+            403,
+            'Kelas berada di luar cakupan unit akun.'
+        );
     }
 }

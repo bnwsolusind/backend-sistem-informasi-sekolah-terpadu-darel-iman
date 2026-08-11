@@ -8,6 +8,7 @@ use App\Models\LessonAttendanceSession;
 use App\Models\Student;
 use App\Services\AttendanceAccessService;
 use App\Services\AttendanceCaptureService;
+use App\Services\TeachingAttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,7 +16,11 @@ use Illuminate\Validation\Rule;
 
 class AttendanceCaptureController extends Controller
 {
-    public function __construct(private AttendanceCaptureService $capture, private AttendanceAccessService $access) {}
+    public function __construct(
+        private AttendanceCaptureService $capture,
+        private AttendanceAccessService $access,
+        private TeachingAttendanceService $teachingAttendance,
+    ) {}
 
     private function teacher(Request $request, LessonAttendanceSession $session, string $permission): void
     {
@@ -28,12 +33,24 @@ class AttendanceCaptureController extends Controller
         $this->teacher($request, $session, 'lesson_attendance.session.start');
         $data = $request->validate(['duration_minutes' => ['nullable', 'integer', 'min:5', 'max:240']]);
 
+        if ($session->teaching_attendance_id || $session->teaching_session_status !== null) {
+            return response()->json(['success' => true, 'data' => $this->teachingAttendance->startSession(
+                $request,
+                $session,
+                $data['duration_minutes'] ?? config('attendance.session_duration_minutes'),
+            )]);
+        }
+
         return response()->json(['success' => true, 'data' => $this->capture->start($session, $data['duration_minutes'] ?? config('attendance.session_duration_minutes'))]);
     }
 
     public function close(Request $request, LessonAttendanceSession $session): JsonResponse
     {
         $this->teacher($request, $session, 'lesson_attendance.session.close');
+
+        if ($session->teaching_attendance_id || $session->teaching_session_status !== null) {
+            return response()->json(['success' => true, 'data' => $this->teachingAttendance->closeSession($request, $session)]);
+        }
 
         return response()->json(['success' => true, 'data' => $this->capture->close($session)]);
     }
@@ -70,6 +87,11 @@ class AttendanceCaptureController extends Controller
     {
         $resolvedMethod = ['qr' => 'qr_code', 'rfid' => 'rfid'][$method] ?? null;
         abort_unless($resolvedMethod, 404);
+        abort_unless(
+            $request->user()?->hasAnyRole(['Guru', 'Super Admin'])
+                || $request->user()?->hasAnyPermission(['lesson_attendance.qr_scan', 'lesson_attendance.create']),
+            403,
+        );
         $data = $request->validate([
             'schedule_id' => ['required', 'uuid', 'exists:class_schedules,id'],
             'identifier' => ['required', 'string', 'max:2048'],
@@ -89,7 +111,7 @@ class AttendanceCaptureController extends Controller
             'message' => 'Kartu siswa berhasil diidentifikasi.',
             'data' => [
                 'student' => array_merge(
-                    $student->only(['id', 'nis', 'nisn', 'full_name', 'class_id', 'kelas_id']),
+                    $student->only(['id', 'full_name', 'class_id', 'kelas_id']),
                     ['nama_lengkap' => $student->nama_lengkap]
                 ),
                 'method' => $resolvedMethod,

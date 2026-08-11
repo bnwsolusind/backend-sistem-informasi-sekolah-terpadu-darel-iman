@@ -69,6 +69,11 @@ class User extends Authenticatable
         return $this->hasMany(LoginEvent::class, 'user_id');
     }
 
+    public function devices()
+    {
+        return $this->hasMany(UserDevice::class, 'user_id');
+    }
+
     public function userDevices()
     {
         return $this->hasMany(UserDevice::class, 'user_id');

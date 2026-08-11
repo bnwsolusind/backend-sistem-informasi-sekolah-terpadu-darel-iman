@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\StudentParent;
+use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -53,6 +54,12 @@ class DefaultRoleUserSeeder extends Seeder
      */
     public function run(): void
     {
+        // Fixture login hanya untuk local/development/testing; production
+        // tetap memakai role/permission bootstrap tanpa akun demo aktif.
+        if (! app()->environment(['local', 'development', 'testing'])) {
+            return;
+        }
+
         $unit = EducationUnit::query()->where('is_active', true)->orderBy('code')->first();
         $academicYear = AcademicYear::query()->where('is_active', true)->first()
             ?? AcademicYear::query()->latest('start_date')->first();
@@ -106,7 +113,7 @@ class DefaultRoleUserSeeder extends Seeder
             $users[$roleName] = $user;
 
             if (! in_array($roleName, ['Super Admin', 'Orang Tua', 'Siswa', 'Alumni'], true)) {
-                Employee::query()->updateOrCreate(
+                $employee = Employee::query()->updateOrCreate(
                     ['niy' => 'TEST-NIY-'.$sequence],
                     [
                         'user_id' => $user->id,
@@ -127,28 +134,43 @@ class DefaultRoleUserSeeder extends Seeder
                         ],
                     ],
                 );
+
+                if (in_array($roleName, ['Guru', 'Guru Tahfizh', 'Guru BK', 'Wali Kelas'], true)) {
+                    Teacher::query()->updateOrCreate(
+                        ['user_id' => $user->id],
+                        [
+                            'employee_id' => $employee->id,
+                            'employee_number' => 'TEST-TEACHER-'.$sequence,
+                            'full_name' => $user->name,
+                            'email' => $email,
+                            'phone' => $phone,
+                            'metadata' => ['fixture' => 'canonical_role_login'],
+                        ],
+                    );
+                }
             }
         }
 
         // Akun alias lama tetap disediakan agar fixture dan integrasi yang
         // sudah memakai identifier historis tidak rusak.
         $legacyAccounts = [
-            'Admin' => ['Admin Sistem', 'admin@school-erp.local', (string) env('DEFAULT_ADMIN_PASSWORD', 'Admin@2026!')],
-            'Yayasan' => ['Pengurus Yayasan', 'yayasan@school-erp.local', (string) env('DEFAULT_YAYASAN_PASSWORD', 'Yayasan@2026!')],
-            'ketua_yayasan' => ['Ketua Yayasan', 'ketua.yayasan@school-erp.local', (string) env('DEFAULT_KETUA_YAYASAN_PASSWORD', 'Yayasan@2026!')],
-            'sekretaris_yayasan' => ['Sekretaris Yayasan', 'sekretaris.yayasan@school-erp.local', (string) env('DEFAULT_SEKRETARIS_YAYASAN_PASSWORD', 'Yayasan@2026!')],
-            'bendahara_yayasan' => ['Bendahara Yayasan', 'bendahara.yayasan@school-erp.local', (string) env('DEFAULT_BENDAHARA_YAYASAN_PASSWORD', 'Yayasan@2026!')],
-            'pengurus_yayasan' => ['Pengurus Yayasan', 'pengurus.yayasan@school-erp.local', (string) env('DEFAULT_PENGURUS_YAYASAN_PASSWORD', 'Yayasan@2026!')],
-            'Divisi Pendidikan' => ['Divisi Pendidikan', 'divisi.pendidikan@school-erp.local', (string) env('DEFAULT_DIVISI_PASSWORD', 'Divisi@2026!')],
+            ['Admin', 'Admin Sistem', 'admin@school-erp.local', (string) env('DEFAULT_ADMIN_PASSWORD', 'Admin@2026!')],
+            ['Yayasan', 'Pengurus Yayasan', 'yayasan@school-erp.local', (string) env('DEFAULT_YAYASAN_PASSWORD', 'Yayasan@2026!')],
+            ['ketua_yayasan', 'Ketua Yayasan', 'ketua.yayasan@school-erp.local', (string) env('DEFAULT_KETUA_YAYASAN_PASSWORD', 'Yayasan@2026!')],
+            ['sekretaris_yayasan', 'Sekretaris Yayasan', 'sekretaris.yayasan@school-erp.local', (string) env('DEFAULT_SEKRETARIS_YAYASAN_PASSWORD', 'Yayasan@2026!')],
+            ['bendahara_yayasan', 'Bendahara Yayasan', 'bendahara.yayasan@school-erp.local', (string) env('DEFAULT_BENDAHARA_YAYASAN_PASSWORD', 'Yayasan@2026!')],
+            ['pengurus_yayasan', 'Pengurus Yayasan', 'pengurus.yayasan@school-erp.local', (string) env('DEFAULT_PENGURUS_YAYASAN_PASSWORD', 'Yayasan@2026!')],
+            ['Divisi Pendidikan', 'Divisi Pendidikan', 'divisi.pendidikan@school-erp.local', (string) env('DEFAULT_DIVISI_PASSWORD', 'Divisi@2026!')],
         ];
 
-        foreach ($legacyAccounts as $roleName => [$name, $email, $password]) {
+        foreach ($legacyAccounts as $legacyIndex => [$roleName, $name, $email, $password]) {
             Role::query()->firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
             $user = User::query()->updateOrCreate(
                 ['email' => $email],
                 [
                     'name' => $name,
                     'password' => $password,
+                    'phone' => '0812999910'.str_pad((string) ($legacyIndex + 1), 2, '0', STR_PAD_LEFT),
                     'is_active' => true,
                     'metadata' => [
                         'created_by' => 'default_role_user_seeder',
@@ -162,7 +184,33 @@ class DefaultRoleUserSeeder extends Seeder
                 ],
             );
             $user->syncRoles([$roleName]);
+
+            if ($roleName !== 'Admin') {
+                Employee::query()->updateOrCreate(
+                    ['niy' => 'TEST-LEGACY-NIY-'.str_pad((string) ($legacyIndex + 1), 2, '0', STR_PAD_LEFT)],
+                    [
+                        'user_id' => $user->id,
+                        'role_id' => Role::query()->where('name', $roleName)->value('id'),
+                        'unit_id' => $unit?->id,
+                        'nama_lengkap' => $name,
+                        'jenis_kelamin' => 'L',
+                        'status_pegawai' => 'Tetap',
+                        'status' => 'Aktif',
+                        'no_hp' => $user->phone,
+                        'email' => $email,
+                        'metadata' => ['fixture' => 'canonical_role_login'],
+                    ],
+                );
+            }
         }
+
+        // Reconcile the old local-only Super Admin portal fixture without
+        // deleting business rows: one account must not masquerade as student,
+        // parent, and employee simultaneously.
+        $superAdminUser = $users['Super Admin'];
+        Employee::query()->where('user_id', $superAdminUser->id)->update(['user_id' => null]);
+        Student::query()->where('user_id', $superAdminUser->id)->update(['user_id' => null]);
+        ParentModel::query()->where('user_id', $superAdminUser->id)->update(['user_id' => null]);
 
         $parentUser = $users['Orang Tua'];
         $parent = ParentModel::withTrashed()->updateOrCreate(
@@ -190,6 +238,7 @@ class DefaultRoleUserSeeder extends Seeder
                 [
                     'user_id' => $studentUser->id,
                     'parent_id' => $parent->id,
+                    'nisn' => 'TEST-NISN-'.($roleName === 'Alumni' ? '024' : '023'),
                     'kelas_id' => $kelas?->id,
                     'unit_id' => $unit?->id,
                     'full_name' => $studentUser->name,

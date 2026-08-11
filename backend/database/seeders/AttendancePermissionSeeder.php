@@ -11,6 +11,11 @@ class AttendancePermissionSeeder extends Seeder
     public function run(): void
     {
         $permissions = [
+            // Gate attendance access is separate from student self-portal.
+            'gate_attendance.view',
+            'gate_attendance.scan',
+            'gate_attendance.config',
+
             // Daily Gate Attendance
             'student_attendance.daily.view',
             'student_attendance.daily.scan',
@@ -67,6 +72,14 @@ class AttendancePermissionSeeder extends Seeder
             'attendance_follow_up.close',
             'attendance_report.view',
             'attendance_report.export',
+
+            // Step 04: teacher card, teaching attendance, session, presence.
+            'teaching_attendance.scan',
+            'teaching_attendance.view_own',
+            'teaching_session.start',
+            'teaching_session.close',
+            'teacher_presence.heartbeat',
+            'teacher_monitoring.view',
         ];
 
         foreach ($permissions as $name) {
@@ -87,6 +100,11 @@ class AttendancePermissionSeeder extends Seeder
                 'lesson_attendance.cancel',
                 'lesson_attendance.correct',
                 'lesson_attendance.export',
+                'teaching_attendance.scan',
+                'teaching_attendance.view_own',
+                'teaching_session.start',
+                'teaching_session.close',
+                'teacher_presence.heartbeat',
             ],
             'Wali Kelas' => [
                 'student_attendance.daily.view',
@@ -107,6 +125,9 @@ class AttendancePermissionSeeder extends Seeder
                 'worship_attendance.private_status.view',
             ],
             'Tata Usaha' => [
+                'gate_attendance.view',
+                'gate_attendance.scan',
+                'gate_attendance.config',
                 'student_attendance.daily.view',
                 'student_attendance.daily.scan',
                 'student_attendance.daily.create',
@@ -114,12 +135,7 @@ class AttendancePermissionSeeder extends Seeder
                 'student_attendance.daily.verify',
                 'student_attendance.daily.export',
             ],
-            'Siswa' => [
-                'attendance.student.view_own',
-                'attendance_permission.view_own',
-                'attendance_permission.create',
-                'attendance_permission.submit',
-            ],
+            'Siswa' => ['attendance.student.view_own', 'attendance_permission.view_own'],
         ];
 
         foreach ($map as $roleName => $items) {
@@ -132,6 +148,31 @@ class AttendancePermissionSeeder extends Seeder
             if ($role = Role::query()->where(['name' => $roleName, 'guard_name' => 'web'])->first()) {
                 $role->givePermissionTo($permissions);
             }
+        }
+
+        foreach (['Yayasan', 'Ketua Yayasan', 'Pengurus Yayasan', 'Divisi Pendidikan'] as $roleName) {
+            if ($role = Role::query()->where(['name' => $roleName, 'guard_name' => 'web'])->first()) {
+                $role->givePermissionTo(['gate_attendance.view']);
+            }
+        }
+
+        foreach (['Yayasan', 'Ketua Yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan', 'Divisi Pendidikan', 'Kepala Bidang Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa', 'Divisi Program Khusus', 'Kepala Sekolah', 'Wakil Kepala Sekolah', 'Waka Kurikulum', 'Wakil Kurikulum', 'Waka Kesiswaan', 'Wakil Kesiswaan'] as $roleName) {
+            if ($role = Role::query()->where(['name' => $roleName, 'guard_name' => 'web'])->first()) {
+                $role->givePermissionTo('teacher_monitoring.view');
+            }
+        }
+
+        // Izin/sakit adalah transaksi parent-controlled. Revoke legacy write
+        // permissions agar rerunning the seeder also repairs existing DB state.
+        if ($studentRole = Role::query()->where(['name' => 'Siswa', 'guard_name' => 'web'])->first()) {
+            $studentRole->revokePermissionTo([
+                'kehadiran.siswa.izin_sakit',
+                'student_attendance.permission.create',
+                'student_attendance.permission.update',
+                'student_attendance.permission.cancel',
+                'attendance_permission.create',
+                'attendance_permission.submit',
+            ]);
         }
     }
 }

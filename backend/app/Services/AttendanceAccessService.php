@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ClassSchedule;
 use App\Models\Employee;
 use App\Models\Kelas;
+use App\Models\LessonAttendanceSession;
 use App\Models\LmsPresensi;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -101,10 +102,13 @@ class AttendanceAccessService
                 return $at->betweenIncluded($start, $end);
             })
             ->map(function (ClassSchedule $schedule) use ($teacherScheduleIds, $at) {
-                $session = $schedule->presensis()
-                    ->whereDate('tanggal', $at->toDateString())
-                    ->with('session')
-                    ->first()?->session;
+                // A Step 04 scan creates the lesson session before any
+                // student row exists, so resolving through lms_presensi
+                // would hide the active schedule at the start of class.
+                $session = LessonAttendanceSession::query()
+                    ->where('schedule_id', $schedule->id)
+                    ->whereDate('attendance_date', $at->toDateString())
+                    ->first();
                 $isOwner = $teacherScheduleIds->contains($schedule->id);
 
                 $schedule->setAttribute('attendance_access', $isOwner ? 'teacher' : 'homeroom_substitute');
@@ -172,9 +176,16 @@ class AttendanceAccessService
             }
         }
 
+        $scheduleUnitId = $schedule->kelas?->unit_pendidikan_id;
+
         return Student::query()->active()->where(function (Builder $query) use ($classIds, $kelasIds) {
             $query->whereIn('class_id', $classIds->unique()->values())
                 ->orWhereIn('kelas_id', $kelasIds->unique()->values());
+        })->when($scheduleUnitId, function (Builder $query) use ($scheduleUnitId): void {
+            $query->where(function (Builder $unitQuery) use ($scheduleUnitId): void {
+                $unitQuery->where('unit_id', $scheduleUnitId)
+                    ->orWhereHas('kelas', fn (Builder $kelasQuery) => $kelasQuery->where('unit_pendidikan_id', $scheduleUnitId));
+            });
         });
     }
 

@@ -54,6 +54,7 @@ import {
 import Swal from 'sweetalert2'
 import StatCard from '../components/StatCard'
 import KpiQuickViewModal from '../components/KpiQuickViewModal'
+import ModalErrorBoundary from '../components/common/ModalErrorBoundary'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
@@ -898,11 +899,13 @@ export default function DashboardPage() {
       </Modal>
 
       {/* KPI QUICK VIEW MODAL (POPUP) */}
-      <KpiQuickViewModal
-        type={activeKpiModal}
-        isOpen={Boolean(activeKpiModal)}
-        onClose={() => setActiveKpiModal(null)}
-      />
+      <ModalErrorBoundary onClose={() => setActiveKpiModal(null)}>
+        <KpiQuickViewModal
+          type={activeKpiModal}
+          isOpen={Boolean(activeKpiModal)}
+          onClose={() => setActiveKpiModal(null)}
+        />
+      </ModalErrorBoundary>
     </div>
   )
 }

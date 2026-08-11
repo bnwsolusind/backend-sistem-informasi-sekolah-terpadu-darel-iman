@@ -11,7 +11,8 @@ import DataTableCard from '../components/dashboard/DataTableCard'
 import QuickActionCard from '../components/dashboard/QuickActionCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
-import DetailModal from '../components/dashboard/DetailModal'
+import KpiQuickViewModal from '../components/KpiQuickViewModal'
+import ModalErrorBoundary from '../components/common/ModalErrorBoundary'
 
 import { managementDashboardService } from '../services/managementDashboardService'
 
@@ -59,19 +60,19 @@ export default function GuruTahfizhDashboardPage() {
     {
       label: 'Input Setoran',
       icon: Plus,
-      onClick: () => window.location.href = '/dashboard/tahfizh',
+       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
       permissions: ['tahfizh.input_setoran_harian']
     },
     {
       label: 'Monitoring Target',
       icon: BookOpen,
-      onClick: () => window.location.href = '/dashboard/tahfizh',
+       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
       permissions: ['tahfizh.monitoring_target']
     },
     {
       label: 'Rekap Harian',
       icon: FileText,
-      onClick: () => window.location.href = '/dashboard/tahfizh',
+       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
       permissions: ['tahfizh.rekap_harian']
     }
   ]
@@ -179,16 +180,13 @@ export default function GuruTahfizhDashboardPage() {
         </div>
       </div>
 
-      <DetailModal
-        isOpen={Boolean(activeModal)}
-        onClose={() => setActiveModal(null)}
-        title={`Detail Tahfizh (${activeModal})`}
-        subtitle="Data detail hafalan dan target santri binaan"
-      >
-        <div className="p-4 text-center text-sm text-slate-500">
-          Data detail <span className="font-bold text-slate-800 dark:text-slate-200">{activeModal}</span> siap ditampilkan.
-        </div>
-      </DetailModal>
+      <ModalErrorBoundary onClose={() => setActiveModal(null)}>
+        <KpiQuickViewModal
+          type={activeModal}
+          isOpen={Boolean(activeModal)}
+          onClose={() => setActiveModal(null)}
+        />
+      </ModalErrorBoundary>
     </div>
   )
 }

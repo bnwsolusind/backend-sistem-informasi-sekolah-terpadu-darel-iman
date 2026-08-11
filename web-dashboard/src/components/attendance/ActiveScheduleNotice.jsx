@@ -53,7 +53,7 @@ export default function ActiveScheduleNotice() {
             <button
               type="button"
               disabled={done}
-              onClick={() => navigate(`/absensi/presensi?active_schedule=${schedule.id}&attendance_date=${data.date}`)}
+               onClick={() => navigate(`/absensi/presensi?schedule_id=${schedule.id}&date=${data.date}`)}
               className="rounded-xl bg-[#0E5C44] px-5 py-3 text-sm font-bold text-white shadow-md disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {done ? 'Sudah Final' : schedule.attendance_status === 'draft' ? 'Lanjutkan Absen' : 'Ambil Absen'}

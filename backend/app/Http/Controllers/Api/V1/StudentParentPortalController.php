@@ -35,6 +35,7 @@ use App\Models\Teacher;
 use App\Models\User;
 use App\Models\TahfizhDailyLog;
 use App\Services\LmsUjianService;
+use App\Services\StudentQrCredentialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -42,7 +43,10 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class StudentParentPortalController extends Controller
 {
-    public function __construct(private readonly LmsUjianService $ujianService) {}
+    public function __construct(
+        private readonly LmsUjianService $ujianService,
+        private readonly StudentQrCredentialService $studentQr,
+    ) {}
 
     private function parentStudentsQuery(ParentModel $parent)
     {
@@ -127,6 +131,23 @@ class StudentParentPortalController extends Controller
         return response()->json([
             'success' => true,
             'data' => $children,
+        ]);
+    }
+
+    public function attendanceQr(Request $request): JsonResponse
+    {
+        $student = $this->getStudentContext($request);
+        abort_unless($student, 404, 'Data siswa tidak ditemukan.');
+
+        $issued = $this->studentQr->issue($student);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'student_id' => $student->id,
+                'qr_token' => $issued['raw_token'],
+                'credential_id' => $issued['credential']->id,
+            ],
         ]);
     }
 

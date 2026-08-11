@@ -19,7 +19,13 @@ class AccessScopeService
      */
     public function accessibleEducationUnits(User $user): Builder
     {
-        if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan'])) {
+        if ($this->hasAnyRole($user, [
+            'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
+            'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Bidang Pendidikan',
+            'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
+            'Divisi Program Khusus', 'divisi_pendidikan',
+        ])) {
             return EducationUnit::query();
         }
 
@@ -53,7 +59,15 @@ class AccessScopeService
      */
     public function accessibleRombels(User $user): Builder
     {
-        if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah', 'Waka Kurikulum', 'waka_kurikulum', 'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'TU', 'tata_usaha', 'Guru BK', 'guru_bk'])) {
+        if ($this->hasAnyRole($user, [
+            'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
+            'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Bidang Pendidikan',
+            'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
+            'Divisi Program Khusus', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah',
+            'Waka Kurikulum', 'waka_kurikulum', 'Waka Kesiswaan', 'waka_kesiswaan',
+            'Tata Usaha', 'TU', 'tata_usaha', 'Guru BK', 'guru_bk',
+        ])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
             return Kelas::query()->whereIn('unit_pendidikan_id', $unitIds);
         }
@@ -95,7 +109,15 @@ class AccessScopeService
      */
     public function accessibleStudents(User $user): Builder
     {
-        if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah', 'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'TU', 'tata_usaha', 'Guru BK', 'guru_bk'])) {
+        if ($this->hasAnyRole($user, [
+            'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
+            'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Bidang Pendidikan',
+            'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
+            'Divisi Program Khusus', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah',
+            'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'TU', 'tata_usaha',
+            'Guru BK', 'guru_bk',
+        ])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
             return Student::query()->whereIn('unit_id', $unitIds);
         }
@@ -118,11 +140,30 @@ class AccessScopeService
     }
 
     /**
+     * Validate an explicit unit filter against the same scope used by data
+     * queries. Gate/config endpoints must not trust a client-selected unit.
+     */
+    public function assertEducationUnitAccess(User $user, string $unitId): void
+    {
+        abort_unless(
+            $this->accessibleEducationUnits($user)->whereKey($unitId)->exists(),
+            403,
+            'Unit pendidikan tidak berada dalam cakupan akun.'
+        );
+    }
+
+    /**
      * Scope query Pegawai & Guru yang berhak diakses user.
      */
     public function accessibleEmployees(User $user): Builder
     {
-        if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan'])) {
+        if ($this->hasAnyRole($user, [
+            'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
+            'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Bidang Pendidikan',
+            'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
+            'Divisi Program Khusus', 'divisi_pendidikan',
+        ])) {
             return Employee::query();
         }
 
@@ -135,7 +176,14 @@ class AccessScopeService
      */
     public function accessibleSchedules(User $user): Builder
     {
-        if ($this->hasAnyRole($user, ['Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'pengurus_yayasan', 'Pengurus Yayasan', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah', 'Waka Kurikulum', 'waka_kurikulum', 'Tata Usaha', 'TU', 'tata_usaha'])) {
+        if ($this->hasAnyRole($user, [
+            'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
+            'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Bidang Pendidikan',
+            'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
+            'Divisi Program Khusus', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah',
+            'Waka Kurikulum', 'waka_kurikulum', 'Tata Usaha', 'TU', 'tata_usaha',
+        ])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
             $rombelIds = Kelas::query()->whereIn('unit_pendidikan_id', $unitIds)->pluck('id');
             return ClassSchedule::query()->whereIn('kelas_id', $rombelIds);
@@ -179,10 +227,9 @@ class AccessScopeService
 
     private function hasAnyRole(User $user, array $roles): bool
     {
-        if (method_exists($user, 'hasAnyRole')) {
-            return $user->hasAnyRole($roles);
-        }
+        $normalize = static fn (string $role): string => strtolower((string) preg_replace('/[\s_-]+/', '', $role));
+        $actual = $user->getRoleNames()->map($normalize);
 
-        return false;
+        return collect($roles)->map($normalize)->intersect($actual)->isNotEmpty();
     }
 }

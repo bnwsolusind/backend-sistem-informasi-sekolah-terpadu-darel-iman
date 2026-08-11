@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
+use App\Models\Employee;
 use App\Services\AccessScopeService;
 use App\Services\EmployeeService;
 use Illuminate\Http\Request;
@@ -46,9 +47,12 @@ class EmployeeController extends Controller
         return response()->json($result);
     }
 
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
-        $employee = $this->employeeService->getById($id);
+        $employee = $this->accessScopeService
+            ->accessibleEmployees($request->user())
+            ->whereKey($id)
+            ->first();
 
         if (! $employee) {
             return response()->json([
@@ -65,7 +69,9 @@ class EmployeeController extends Controller
 
     public function store(StoreEmployeeRequest $request)
     {
-        $employee = $this->employeeService->create($request->validated());
+        $data = $request->validated();
+        $this->assertUnitScope($request, $data['unit_id'] ?? null);
+        $employee = $this->employeeService->create($data);
 
         return response()->json([
             'status' => 'success',
@@ -76,7 +82,10 @@ class EmployeeController extends Controller
 
     public function update(UpdateEmployeeRequest $request, string $id)
     {
-        $employee = $this->employeeService->update($id, $request->validated());
+        $this->scopedEmployee($request, $id);
+        $data = $request->validated();
+        $this->assertUnitScope($request, $data['unit_id'] ?? null);
+        $employee = $this->employeeService->update($id, $data);
 
         return response()->json([
             'status' => 'success',
@@ -85,8 +94,9 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function destroy(string $id)
+    public function destroy(Request $request, string $id)
     {
+        $this->scopedEmployee($request, $id);
         $this->employeeService->delete($id);
 
         return response()->json([
@@ -107,6 +117,7 @@ class EmployeeController extends Controller
 
     public function assignTeaching(Request $request, string $id)
     {
+        $this->scopedEmployee($request, $id);
         $request->validate([
             'teachings' => 'required|array',
             'teachings.*.classroom_id' => 'nullable|uuid',
@@ -139,5 +150,26 @@ class EmployeeController extends Controller
             'status' => 'success',
             'message' => 'Data pegawai berhasil diexport',
         ]);
+    }
+
+    private function scopedEmployee(Request $request, string $id): Employee
+    {
+        return $this->accessScopeService
+            ->accessibleEmployees($request->user())
+            ->whereKey($id)
+            ->firstOrFail();
+    }
+
+    private function assertUnitScope(Request $request, ?string $unitId): void
+    {
+        if (! $unitId) {
+            return;
+        }
+
+        abort_unless(
+            $this->accessScopeService->accessibleEducationUnits($request->user())->whereKey($unitId)->exists(),
+            403,
+            'Unit pegawai berada di luar cakupan akun.'
+        );
     }
 }

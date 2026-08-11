@@ -93,6 +93,7 @@ class LmsPresensi extends Model
             'sakit' => 'Sakit',
             'alpa' => 'Alpa / Tanpa Keterangan',
             'terlambat' => 'Terlambat',
+            'belum_diverifikasi', 'belum_diisi' => 'Belum Diisi',
             default => ucfirst($this->status_hadir ?? 'Belum Presensi'),
         };
     }

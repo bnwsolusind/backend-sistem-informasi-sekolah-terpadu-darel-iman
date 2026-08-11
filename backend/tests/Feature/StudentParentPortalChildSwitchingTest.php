@@ -134,10 +134,11 @@ class StudentParentPortalChildSwitchingTest extends TestCase
 
     public function test_student_cannot_submit_mutabaah_without_active_assignment(): void
     {
-        Role::firstOrCreate(['name' => 'Siswa', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'Orang Tua', 'guard_name' => 'web']);
         $user = User::factory()->create();
-        $user->assignRole('Siswa');
-        $student = Student::create(['full_name' => 'Siswa Uji', 'nis' => 'S001', 'gender' => 'male', 'user_id' => $user->id, 'is_active' => true]);
+        $user->assignRole('Orang Tua');
+        $parent = ParentModel::create(['user_id' => $user->id, 'full_name' => 'Wali Uji Mutabaah']);
+        $student = Student::create(['full_name' => 'Siswa Uji', 'nis' => 'S001', 'gender' => 'male', 'parent_id' => $parent->id, 'is_active' => true]);
 
         $this->actingAs($user)->postJson('/api/portal/mutabaah?child_id='.$student->id)
             ->assertStatus(422);

@@ -314,38 +314,31 @@ class TeacherPortalController extends Controller
         // Total students
         $totalStudents = Student::query()
             ->where(fn ($q) => $q->whereIn('kelas_id', $classIds)->orWhereIn('class_id', $classIds))
-            ->where('status', 'aktif')
+            ->active()
             ->count();
 
         // Pending assignments to grade
         $pendingGrading = LmsPengumpulanTugas::query()
-            ->whereNull('nilai')
+            ->whereNull('nilai_guru')
             ->whereHas('penugasan', function ($q) use ($teacher, $employee) {
-                if ($teacher || $employee) {
-                    $q->where(function ($sq) use ($teacher, $employee) {
-                        if ($teacher) {
-                            $sq->where('teacher_id', $teacher->id);
-                        }
-                        if ($employee) {
-                            $sq->orWhere('employee_id', $employee->id);
-                        }
-                    });
+                $employeeIds = array_values(array_unique(array_filter([
+                    $employee?->id,
+                    $teacher?->employee_id,
+                ])));
+
+                if ($employeeIds) {
+                    $q->whereIn('guru_id', $employeeIds);
                 }
             })
             ->count();
 
         // Tahfizh deposits today
-        $tahfizhTodayCount = TahfizhDailyLog::query()
-            ->whereDate('date', now()->toDateString())
-            ->when($teacher || $employee, fn ($q) => $q->where(function ($sq) use ($teacher, $employee) {
-                if ($teacher) {
-                    $sq->where('teacher_id', $teacher->id);
-                }
-                if ($employee) {
-                    $sq->orWhere('employee_id', $employee->id);
-                }
-            }))
-            ->count();
+        $tahfizhTodayCount = $teacher
+            ? TahfizhDailyLog::query()
+                ->whereDate('record_date', now()->toDateString())
+                ->where('teacher_id', $teacher->id)
+                ->count()
+            : 0;
 
         // Mutabaah unverified count - scoped to the teacher's own supervisor assignments
         $unverifiedMutabaah = 0;
@@ -361,10 +354,9 @@ class TeacherPortalController extends Controller
         }
 
         // Notifications
-        $unreadNotifications = Notification::query()
-            ->where('user_id', $user?->id)
-            ->where('is_read', false)
-            ->count();
+        $unreadNotifications = $user
+            ? Notification::userQuery((string) $user->id)->unread()->count()
+            : 0;
 
         // Teacher attendance log (View Only)
         $teacherAttendanceLogs = [];
@@ -384,7 +376,7 @@ class TeacherPortalController extends Controller
 
         // Announcements
         $announcements = PengumumanSekolah::query()
-            ->where('is_active', true)
+            ->where('status_aktif', true)
             ->orderBy('created_at', 'desc')
             ->take(5)
             ->get();

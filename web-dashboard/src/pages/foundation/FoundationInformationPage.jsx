@@ -1,49 +1,60 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import {
-  FileText,
-  Search,
-  Eye,
-  ShieldAlert,
-  RefreshCw,
-  AlertCircle,
-  LayoutGrid,
-  List,
-  Calendar,
-  User,
-  Megaphone,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Calendar, FileSpreadsheet, FileText, Megaphone, RefreshCcw, ShieldAlert, User } from 'lucide-react'
 import api from '../../services/api'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Skeleton } from '../../components/ui/skeleton'
-import { EmptyState } from '../../components/ui/empty-state'
-import { Modal } from '../../components/ui/modal'
+import {
+  MasterActionButton,
+  MasterBadge,
+  MasterDataPage,
+  MasterDetailModal,
+  MasterEmptyState,
+  MasterErrorState,
+  MasterFilterBar,
+  MasterFilterSelect,
+  MasterPageHeader,
+  MasterPagination,
+  MasterSearchInput,
+  MasterStatCard,
+  MasterStatsGrid,
+  masterStyles,
+} from '../../components/master-data'
+import { FoundationExportModal } from '../../components/foundation/FoundationExportModal'
+
+function categoryVariant(category) {
+  const key = (category || '').toLowerCase()
+  if (key.includes('berita')) return 'info'
+  if (key.includes('agenda')) return 'warning'
+  return 'success'
+}
+
+function formatFullDate(value) {
+  if (!value) return 'Terbaru'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? 'Terbaru' : date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+}
 
 export function FoundationInformationPage() {
   const [information, setInformation] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
-  const [viewMode, setViewMode] = useState('grid')
+  const [isFetching, setIsFetching] = useState(false)
 
-  // Tabs & Filters
   const [activeTab, setActiveTab] = useState('all') // 'all' | 'pengumuman' | 'berita' | 'agenda'
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const perPage = 12
+  const perPage = 9
 
-  // Selected Detail Modal State
   const [selectedInfo, setSelectedInfo] = useState(null)
+  const [showExport, setShowExport] = useState(false)
 
-  // Fetch Information from DB API
-  const fetchInformation = useCallback(async () => {
-    setLoading(true)
+  const fetchInformation = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    else setIsFetching(true)
     setError(false)
     try {
       const params = {
         search: search || undefined,
         per_page: 100,
       }
-
       const res = await api.get('/foundation/information', { params })
       const resData = res.data
       let list = []
@@ -58,6 +69,7 @@ export function FoundationInformationPage() {
       setError(true)
     } finally {
       setLoading(false)
+      setIsFetching(false)
     }
   }, [search])
 
@@ -65,8 +77,7 @@ export function FoundationInformationPage() {
     fetchInformation()
   }, [fetchInformation])
 
-  // Filtered List
-  const filteredInfo = information.filter((info) => {
+  const filteredInfo = useMemo(() => information.filter((info) => {
     const title = (info.judul_pengumuman || info.judul || info.title || '').toString().toLowerCase()
     const content = (info.isi_pengumuman || info.content || '').toString().toLowerCase()
     const type = (info.kategori || info.jenis || 'pengumuman').toString().toLowerCase()
@@ -80,326 +91,176 @@ export function FoundationInformationPage() {
     const matchesSearch = title.includes(search.toLowerCase()) || content.includes(search.toLowerCase())
 
     return matchesTab && matchesSearch
-  })
+  }), [information, activeTab, search])
 
   const totalItems = filteredInfo.length
-  const totalPages = Math.ceil(totalItems / perPage) || 1
+  const lastPage = Math.max(1, Math.ceil(totalItems / perPage))
   const paginatedInfo = filteredInfo.slice((page - 1) * perPage, page * perPage)
 
-  // KPI Calculations
   const totalCount = information.length
   const pengumumanCount = information.filter((i) => (i.kategori || i.jenis || 'pengumuman').toLowerCase().includes('pengumuman')).length
   const beritaCount = information.filter((i) => (i.kategori || i.jenis || '').toLowerCase().includes('berita')).length
   const agendaCount = information.filter((i) => (i.kategori || i.jenis || '').toLowerCase().includes('agenda')).length
 
+  const handleRefresh = () => {
+    setPage(1)
+    fetchInformation(Boolean(information.length))
+  }
+
+  const exportRows = paginatedInfo.map((info, idx) => ({
+    No: (page - 1) * perPage + idx + 1,
+    Judul: info.judul_pengumuman || info.judul || info.title || '-',
+    Kategori: info.kategori || info.jenis || 'Pengumuman',
+    Penulis: info.penulis || 'Humas Yayasan',
+    'Tanggal Publikasi': formatFullDate(info.created_at),
+  }))
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* 1. HEADER BANNER */}
-      <div className="flex flex-col justify-between gap-4 rounded-2xl bg-white p-6 shadow-xs border border-slate-200/80 dark:border-slate-800 dark:bg-[#1B2433] md:flex-row md:items-center">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>Mode Monitoring • Akses Read-Only Pengurus Yayasan</span>
-          </div>
-          <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">Informasi Sekolah</h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Lihat berita, pengumuman, agenda, dan informasi resmi dari seluruh Unit Pendidikan Dar el-Iman.
-          </p>
-        </div>
+    <MasterDataPage hideBreadcrumb className="foundation-information-page">
+      <MasterPageHeader
+        title="Informasi Sekolah"
+        description="Lihat berita, pengumuman, agenda, dan informasi resmi dari seluruh Unit Pendidikan Dar el-Iman."
+        tone="brand"
+        icon={Megaphone}
+        actions={(
+          <>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <ShieldAlert className="h-3 w-3" />
+              Mode Monitoring • Akses Read-Only
+            </span>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={() => setShowExport(true)}>
+              Export Data
+            </MasterActionButton>
+          </>
+        )}
+      />
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchInformation}
-            disabled={loading}
-            className="gap-2 rounded-xl border-slate-200 font-bold dark:border-slate-700"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Data</span>
-          </Button>
-        </div>
-      </div>
+      <MasterStatsGrid>
+        <MasterStatCard icon={FileText} label="Total Informasi" value={totalCount} description="Semua kategori" variant="success" delay={40} />
+        <MasterStatCard icon={Megaphone} label="Pengumuman" value={pengumumanCount} description="Pengumuman resmi" variant="info" delay={80} />
+        <MasterStatCard icon={FileText} label="Berita Terbit" value={beritaCount} description="Berita sekolah" variant="warning" delay={120} />
+        <MasterStatCard icon={Calendar} label="Agenda" value={agendaCount} description="Agenda mendatang" variant="neutral" delay={160} />
+      </MasterStatsGrid>
 
-      {/* 2. KPI CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Total Informasi" value={totalCount} icon={FileText} color="text-emerald-600" />
-        <KpiCard label="Pengumuman" value={pengumumanCount} icon={Megaphone} color="text-blue-600" />
-        <KpiCard label="Berita Terbit" value={beritaCount} icon={FileText} color="text-purple-600" />
-        <KpiCard label="Agenda Mendatang" value={agendaCount} icon={Calendar} color="text-amber-600" />
-      </div>
+      <MasterFilterBar
+        search={<MasterSearchInput placeholder="Cari judul atau isi pengumuman/berita..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />}
+        filters={
+          <>
+            <MasterFilterSelect value={activeTab} onChange={(e) => { setActiveTab(e.target.value); setPage(1) }} aria-label="Filter kategori">
+              <option value="all">Semua ({totalCount})</option>
+              <option value="pengumuman">Pengumuman ({pengumumanCount})</option>
+              <option value="berita">Berita ({beritaCount})</option>
+              <option value="agenda">Agenda ({agendaCount})</option>
+            </MasterFilterSelect>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              aria-label="Muat ulang data"
+              title="Muat ulang"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-[var(--master-control-radius,14px)] border border-slate-200 text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-emerald-950/40"
+            >
+              <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
-      {/* 3. TABS & SEARCH & VIEW MODE CONTROLS */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-          <button
-            onClick={() => { setActiveTab('all'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'all' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Semua ({totalCount})
-          </button>
-          <button
-            onClick={() => { setActiveTab('pengumuman'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'pengumuman' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Pengumuman ({pengumumanCount})
-          </button>
-          <button
-            onClick={() => { setActiveTab('berita'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'berita' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Berita ({beritaCount})
-          </button>
-          <button
-            onClick={() => { setActiveTab('agenda'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'agenda' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Agenda ({agendaCount})
-          </button>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200/80 dark:bg-[#1B2433] dark:border-slate-800 shadow-xs">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Cari judul atau isi pengumuman/berita..."
-              className="w-full pl-10 pr-4 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex rounded-xl border border-slate-200 p-1 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`rounded-lg p-1.5 transition ${viewMode === 'grid' ? 'bg-[#0E5C44] text-white font-bold' : 'text-slate-500'}`}
-                title="Tampilan Grid Card"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`rounded-lg p-1.5 transition ${viewMode === 'table' ? 'bg-[#0E5C44] text-white font-bold' : 'text-slate-500'}`}
-                title="Tampilan Tabel"
-              >
-                <List className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. CONTENT VIEW */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {error ? (
+        <MasterErrorState title="Informasi gagal dimuat" description="Periksa koneksi kemudian coba muat ulang." onRetry={handleRefresh} />
+      ) : loading ? (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-40 w-full rounded-2xl" />
+            <div key={i} className={`${masterStyles.card} animate-pulse p-6`}><div className="h-5 w-24 rounded-full bg-slate-100 dark:bg-slate-800" /><div className="mt-4 h-4 w-full rounded-xl bg-slate-100 dark:bg-slate-800" /><div className="mt-2 h-4 w-3/4 rounded-xl bg-slate-100 dark:bg-slate-800" /><div className="mt-6 h-8 w-28 rounded-xl bg-slate-100 dark:bg-slate-800" /></div>
           ))}
         </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl border border-rose-200 bg-rose-50/50 dark:border-rose-900/30 dark:bg-rose-950/20">
-          <AlertCircle className="h-10 w-10 text-rose-500 mb-2" />
-          <h4 className="text-sm font-bold text-slate-800 dark:text-white">Informasi Sekolah Tidak Dapat Dimuat</h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-            Terjadi masalah saat mengambil informasi dari database server. Silakan coba kembali.
-          </p>
-          <Button variant="primary" size="sm" onClick={fetchInformation} className="mt-4 gap-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl">
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span>Coba Lagi</span>
-          </Button>
-        </div>
-      ) : filteredInfo.length === 0 ? (
-        <EmptyState
-          title="Belum Ada Informasi"
-          description="Tidak ditemukan pengumuman atau berita yang sesuai dengan kata kunci pencarian Anda."
-        />
-      ) : viewMode === 'grid' ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      ) : paginatedInfo.length === 0 ? (
+        <MasterEmptyState title="Belum ada informasi" description="Ubah filter pencarian untuk menampilkan pengumuman atau berita lain." />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {paginatedInfo.map((info, idx) => {
               const title = info.judul_pengumuman || info.judul || info.title || 'Informasi Resmi'
               const content = info.isi_pengumuman || info.content || 'Konten informasi sekolah.'
               const category = info.kategori || info.jenis || 'Pengumuman'
-              const dateStr = info.created_at ? new Date(info.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Terbaru'
-
               return (
-                <div
-                  key={info.id || idx}
-                  className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition hover:shadow-md dark:border-slate-800 dark:bg-[#1B2433] flex flex-col justify-between space-y-4"
-                >
-                  <div className="space-y-2">
+                <article key={info.id || idx} className={`${masterStyles.card} ui-enter flex flex-col justify-between p-6 transition hover:-translate-y-0.5`}>
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <Badge variant="emerald">{category}</Badge>
+                      <MasterBadge variant={categoryVariant(category)}>{category}</MasterBadge>
                       <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {dateStr}
+                        {formatFullDate(info.created_at)}
                       </span>
                     </div>
-
-                    <h3 className="font-bold text-slate-900 dark:text-white text-sm line-clamp-2 leading-snug">{title}</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-3 leading-relaxed">{content}</p>
+                    <h3 className="line-clamp-2 text-sm font-bold leading-snug text-slate-900 dark:text-white">{title}</h3>
+                    <p className="line-clamp-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{content}</p>
                   </div>
-
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <span className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
                       <User className="h-3 w-3" />
                       {info.penulis || 'Humas Yayasan'}
                     </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <button
+                      type="button"
                       onClick={() => setSelectedInfo(info)}
-                      className="gap-1.5 rounded-xl border-emerald-600/60 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-400 font-bold text-xs"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300"
                     >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>Baca Detail</span>
-                    </Button>
+                      Baca Detail
+                    </button>
                   </div>
-                </div>
+                </article>
               )
             })}
           </div>
 
-          {/* Pagination Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium px-2 pt-2">
-            <span>
-              Menampilkan <span className="font-bold text-slate-800 dark:text-white">{Math.min((page - 1) * perPage + 1, totalItems)}</span> - <span className="font-bold text-slate-800 dark:text-white">{Math.min(page * perPage, totalItems)}</span> dari <span className="font-bold text-slate-800 dark:text-white">{totalItems}</span> Informasi.
-            </span>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-xl border-slate-200 dark:border-slate-700 font-bold"
-              >
-                Sebelumnya
-              </Button>
-              <span className="font-bold text-slate-800 dark:text-white px-2">
-                Halaman {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-xl border-slate-200 dark:border-slate-700 font-bold"
-              >
-                Selanjutnya
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#1B2433] shadow-xs">
-            <table className="w-full text-xs text-left text-slate-700 dark:text-slate-200">
-              <thead className="bg-slate-100/80 dark:bg-[#1b302c] text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="px-3.5 py-3 text-center w-12">No</th>
-                  <th className="px-4 py-3">Judul Informasi</th>
-                  <th className="px-4 py-3">Kategori</th>
-                  <th className="px-4 py-3">Penulis</th>
-                  <th className="px-4 py-3">Tanggal Publikasi</th>
-                  <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {paginatedInfo.map((info, idx) => (
-                  <tr key={info.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
-                    <td className="px-3.5 py-3 text-center font-bold text-slate-400">{(page - 1) * perPage + idx + 1}</td>
-                    <td className="px-4 py-3 font-bold text-slate-900 dark:text-white max-w-xs truncate">
-                      {info.judul_pengumuman || info.judul || info.title}
-                    </td>
-                    <td className="px-4 py-3 font-medium">
-                      <Badge variant="emerald">{info.kategori || info.jenis || 'Pengumuman'}</Badge>
-                    </td>
-                    <td className="px-4 py-3 font-medium">{info.penulis || 'Humas Yayasan'}</td>
-                    <td className="px-4 py-3 font-medium">
-                      {info.created_at ? new Date(info.created_at).toLocaleDateString('id-ID') : 'Terbaru'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Badge variant="success">Terbit</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedInfo(info)}
-                        className="gap-1.5 rounded-xl border-emerald-600/60 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-400 font-bold px-2.5 py-1 text-xs"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Baca Detail</span>
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          {totalItems > 0 && (
+            <MasterPagination
+              meta={{ total: totalItems, from: totalItems ? (page - 1) * perPage + 1 : 0, to: Math.min(page * perPage, totalItems), last_page: lastPage, current_page: page }}
+              page={page}
+              onPageChange={setPage}
+              label="informasi"
+            />
+          )}
+        </>
       )}
 
-      {/* READ-ONLY READ DETAIL MODAL */}
-      {selectedInfo && (
-        <Modal
-          isOpen={Boolean(selectedInfo)}
-          onClose={() => setSelectedInfo(null)}
-          maxWidth="max-w-2xl"
-          title={
-            <div className="flex items-center gap-2">
-              <Badge variant="emerald">{selectedInfo.kategori || selectedInfo.jenis || 'Pengumuman'}</Badge>
-              <span className="text-xs text-slate-400 font-medium">
-                {selectedInfo.created_at ? new Date(selectedInfo.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Terbaru'}
-              </span>
-            </div>
-          }
-          footer={
-            <div className="flex justify-end w-full">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setSelectedInfo(null)}
-                className="rounded-xl px-6 font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
-              >
-                Tutup
-              </Button>
-            </div>
-          }
-        >
-          <div className="space-y-4 text-xs text-slate-700 dark:text-slate-200">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white leading-snug">
+      <MasterDetailModal
+        isOpen={Boolean(selectedInfo)}
+        onClose={() => setSelectedInfo(null)}
+        icon={Megaphone}
+        title={selectedInfo ? (selectedInfo.kategori || selectedInfo.jenis || 'Pengumuman') : ''}
+        description={selectedInfo ? formatFullDate(selectedInfo.created_at) : ''}
+        maxWidth="max-w-2xl"
+        footer={(
+          <div className="flex justify-end">
+            <button type="button" onClick={() => setSelectedInfo(null)} className="h-11 rounded-xl bg-emerald-800 px-5 text-xs font-semibold text-white transition hover:bg-emerald-900">Tutup</button>
+          </div>
+        )}
+      >
+        {selectedInfo && (
+          <div className="space-y-4 p-6 text-xs text-slate-700 dark:text-slate-200">
+            <h2 className="text-lg font-black leading-snug text-slate-900 dark:text-white">
               {selectedInfo.judul_pengumuman || selectedInfo.judul || selectedInfo.title}
             </h2>
-            <div className="flex items-center gap-3 text-[11px] text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3 text-[11px] text-slate-400 dark:border-slate-800">
               <span>Penulis: <strong className="text-slate-700 dark:text-slate-200">{selectedInfo.penulis || 'Humas Yayasan'}</strong></span>
               <span>•</span>
-              <span>Status: <Badge variant="success">Terbit Resmi</Badge></span>
+              <span>Status: <MasterBadge variant="success">Terbit Resmi</MasterBadge></span>
             </div>
-            <div className="prose dark:prose-invert max-w-none leading-relaxed space-y-3 whitespace-pre-wrap">
+            <div className="whitespace-pre-wrap leading-relaxed">
               {selectedInfo.isi_pengumuman || selectedInfo.content || 'Konten pengumuman sekolah.'}
             </div>
           </div>
-        </Modal>
-      )}
-    </div>
-  )
-}
+        )}
+      </MasterDetailModal>
 
-function KpiCard({ label, value, icon: IconComponent, color }) {
-  return (
-    <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1">
-      <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
-        <span>{label}</span>
-        {IconComponent && <IconComponent className={`h-3.5 w-3.5 ${color}`} />}
-      </div>
-      <div className={`text-lg sm:text-xl font-black ${color} dark:text-white`}>
-        {Number(value || 0).toLocaleString('id-ID')}
-      </div>
-    </div>
+      <FoundationExportModal
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        title="Informasi Sekolah Seluruh Yayasan"
+        rows={exportRows}
+        filename="Informasi_Sekolah_Yayasan"
+      />
+    </MasterDataPage>
   )
 }

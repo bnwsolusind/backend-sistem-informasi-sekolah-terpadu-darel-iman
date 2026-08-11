@@ -32,7 +32,8 @@ import ChartCard from '../../components/dashboard/ChartCard'
 import DataTableCard from '../../components/dashboard/DataTableCard'
 import SkeletonDashboard from '../../components/dashboard/SkeletonDashboard'
 import ErrorState from '../../components/dashboard/ErrorState'
-import DetailModal from '../../components/dashboard/DetailModal'
+import KpiQuickViewModal from '../../components/KpiQuickViewModal'
+import ModalErrorBoundary from '../../components/common/ModalErrorBoundary'
 
 import api from '../../services/api'
 
@@ -290,19 +291,14 @@ export function FoundationDashboardPage() {
         emptyMessage="Belum ada pengumuman terbaru."
       />
 
-      {/* KPI Detail Modal (View Only) */}
-      <DetailModal
-        isOpen={Boolean(activeModal)}
-        onClose={() => setActiveModal(null)}
-        title={`Detail Monitoring (${activeModal})`}
-        subtitle="Data detail eksekutif yayasan (View Only)"
-      >
-        <div className="p-6 text-center">
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            Ringkasan data <span className="font-bold text-[#0E5C44] dark:text-emerald-400">{activeModal}</span>.
-          </p>
-        </div>
-      </DetailModal>
+      {/* KPI Detail Modal (Real PostgreSQL Data) */}
+      <ModalErrorBoundary onClose={() => setActiveModal(null)}>
+        <KpiQuickViewModal
+          type={activeModal}
+          isOpen={Boolean(activeModal)}
+          onClose={() => setActiveModal(null)}
+        />
+      </ModalErrorBoundary>
     </div>
   )
 }

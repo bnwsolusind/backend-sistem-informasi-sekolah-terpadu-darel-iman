@@ -80,7 +80,7 @@ export default function TataUsahaDashboardPage() {
           title="Data Siswa Belum Lengkap"
           value={formatNumber(kpis.siswa_incomplete?.total)}
           icon={AlertTriangle}
-          subtitle="Siswa dengan NISN, NIK, atau data ortu belum terisi"
+          subtitle="Siswa dengan NISN, tanggal lahir, atau data ortu belum terisi"
         />
         <KpiCard
           title="Data Pegawai Belum Lengkap"

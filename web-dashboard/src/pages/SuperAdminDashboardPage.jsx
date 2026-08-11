@@ -37,7 +37,8 @@ import DataTableCard from '../components/dashboard/DataTableCard'
 import QuickActionCard from '../components/dashboard/QuickActionCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
-import DetailModal from '../components/dashboard/DetailModal'
+import KpiQuickViewModal from '../components/KpiQuickViewModal'
+import ModalErrorBoundary from '../components/common/ModalErrorBoundary'
 
 import { superAdminDashboardService } from '../services/superAdminDashboardService'
 
@@ -47,7 +48,6 @@ export default function SuperAdminDashboardPage() {
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
   const [activeModal, setActiveModal] = useState(null)
-  const [modalSearch, setModalSearch] = useState('')
 
   const fetchDashboard = async () => {
     setLoading(true)
@@ -176,7 +176,7 @@ export default function SuperAdminDashboardPage() {
           title="Total Rombel / Kelas"
           value={formatNumber(kpis.total_rombel?.total || kpis.total_classes?.total)}
           icon={Layers}
-          onClick={() => setActiveModal('total_classes')}
+          onClick={() => setActiveModal('total_rombel')}
         />
         <KpiCard
           title="Total Alumni"
@@ -290,19 +290,14 @@ export default function SuperAdminDashboardPage() {
         </div>
       </div>
 
-      {/* KPI Detail Modal */}
-      <DetailModal
-        isOpen={Boolean(activeModal)}
-        onClose={() => setActiveModal(null)}
-        title={`Detail Data KPI (${activeModal})`}
-        subtitle="Rincian data agregat dari database"
-        searchTerm={modalSearch}
-        onSearchChange={setModalSearch}
-      >
-        <div className="p-4 text-center text-sm text-slate-500">
-          Data detail KPI <span className="font-bold text-slate-800 dark:text-slate-200">{activeModal}</span> sedang siap ditampilkan secara terperinci.
-        </div>
-      </DetailModal>
+      {/* KPI Detail Modal (Real PostgreSQL Data) */}
+      <ModalErrorBoundary onClose={() => setActiveModal(null)}>
+        <KpiQuickViewModal
+          type={activeModal}
+          isOpen={Boolean(activeModal)}
+          onClose={() => setActiveModal(null)}
+        />
+      </ModalErrorBoundary>
     </div>
   )
 }

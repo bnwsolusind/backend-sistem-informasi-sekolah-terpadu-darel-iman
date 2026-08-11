@@ -66,6 +66,7 @@ class DatabaseSeeder extends Seeder
             LmsPengumpulanTugasSeeder::class,
             LmsPresensiSeeder::class,
             PresensiPembelajaranSeeder::class,
+            Step04DemoSeeder::class,
             LmsBankSoalSeeder::class,
             LmsUjianSeeder::class,
             LmsPenilaianSeeder::class,
@@ -86,7 +87,6 @@ class DatabaseSeeder extends Seeder
             DoaSeeder::class,
             PrayerScheduleSeeder::class,
             TahfizhSeeder::class,
-            SuperadminStudentLinkSeeder::class,
         ]);
 
         if (app()->environment(['local', 'development', 'testing'])) {

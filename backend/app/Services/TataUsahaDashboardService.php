@@ -32,7 +32,7 @@ class TataUsahaDashboardService
 
         // Incomplete student records
         $siswaIncomplete = (clone $studentQuery)->where(function ($q) {
-            $q->whereNull('nisn')->orWhereNull('nik')->orWhereNull('birth_place');
+            $q->whereNull('nisn')->orWhereNull('birth_date')->orWhereNull('parent_id');
         })->count();
 
         // Incomplete employee records
@@ -61,7 +61,7 @@ class TataUsahaDashboardService
         return [
             'context' => [
                 'role' => 'Tata Usaha',
-                'tahun_ajaran' => $activeAcademicYear ? ['id' => $activeAcademicYear->id, 'nama' => $activeAcademicYear->year_name ?? $activeAcademicYear->nama] : null,
+                'tahun_ajaran' => $activeAcademicYear ? ['id' => $activeAcademicYear->id, 'nama' => $activeAcademicYear->name ?? $activeAcademicYear->year_name ?? $activeAcademicYear->nama] : null,
                 'semester' => $activeSemester ? ['id' => $activeSemester->id, 'nama' => $activeSemester->name ?? $activeSemester->nama] : null,
             ],
             'kpis' => $kpis,

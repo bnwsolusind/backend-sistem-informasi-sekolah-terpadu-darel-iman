@@ -4,8 +4,6 @@ import {
   FiEye,
   FiEyeOff,
   FiAlertCircle,
-  FiCheckCircle,
-  FiBookOpen,
   FiX,
   FiUser,
   FiCameraOff,
@@ -22,15 +20,15 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
 
   // Single Unified Form inputs
   const [form, setForm] = useState({
-    identifier: 'superadmin@school-erp.local',
-    password: 'Password123!',
-    rememberMe: true,
+    identifier: '',
+    password: '',
+    rememberMe: false,
   })
 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [attendanceInfo, setAttendanceInfo] = useState(null)
+  const [workspaceOptions, setWorkspaceOptions] = useState([])
 
   // QR Modal scanner state
   const [showQrModal, setShowQrModal] = useState(false)
@@ -123,40 +121,53 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setAttendanceInfo(null)
+    setWorkspaceOptions([])
 
     try {
-      // Unified login API call
       const result = await authService.login({
-        email: form.identifier,
+        identifier: form.identifier,
         password: form.password,
         device_name: 'web-dashboard',
       })
 
-      const token = result.token
-      const user = result.user
-
-      if (result.attendance_summary) {
-        setAttendanceInfo(result.attendance_summary)
-      }
-
-      setSession({
-        token: token || 'session-token',
-        user: user || {
-          id: 'user-id',
-          name: form.identifier,
-          is_active: true,
-        },
-      })
-
-      if (onLoginSuccess) onLoginSuccess()
+      if (!result.token || !result.user) throw new Error('Respons autentikasi tidak valid.')
+      setSession({ token: result.token, user: result.user })
+      if (onLoginSuccess) onLoginSuccess(result)
       else if (onNavigate) onNavigate(6)
     } catch (err) {
+      if (err?.response?.status === 409 && err.response.data?.workspace_chooser) {
+        setWorkspaceOptions(err.response.data.workspaces || [])
+        return
+      }
       const msg =
         err?.response?.data?.message ||
-        err?.response?.data?.errors?.email?.[0] ||
+        err?.response?.data?.errors?.identifier?.[0] ||
         'Username, NIP, NIS, NIK, atau password tidak valid.'
       setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleWorkspaceLogin = async (portalType) => {
+    setLoading(true)
+    setError('')
+
+    try {
+      const result = await authService.loginParentStudent({
+        portal_type: portalType,
+        identifier: form.identifier,
+        password: form.password,
+        device_name: 'web-dashboard',
+      })
+
+      if (!result.token || !result.user) throw new Error('Respons autentikasi tidak valid.')
+      setSession({ token: result.token, user: result.user })
+      setWorkspaceOptions([])
+      if (onLoginSuccess) onLoginSuccess(result)
+      else if (onNavigate) onNavigate(6)
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Kredensial atau workspace tidak valid.')
     } finally {
       setLoading(false)
     }
@@ -174,17 +185,14 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
         device_name: 'web-dashboard',
       })
 
-      if (result.attendance_summary) {
-        setAttendanceInfo(result.attendance_summary)
-      }
-
+      if (!result.token || !result.user) throw new Error('Respons autentikasi tidak valid.')
       setSession({
         token: result.token,
         user: result.user,
       })
 
       setShowQrModal(false)
-      if (onLoginSuccess) onLoginSuccess()
+       if (onLoginSuccess) onLoginSuccess(result)
       else if (onNavigate) onNavigate(6)
     } catch (err) {
       const msg = err?.response?.data?.message || 'QR Code tidak valid, kedaluwarsa, atau telah dicabut.'
@@ -226,22 +234,6 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
 
       {/* Main Form Body */}
       <div className="p-6 lg:p-8 flex flex-col gap-5">
-        {/* Attendance Toast Notification */}
-        {attendanceInfo && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs font-medium text-emerald-900 flex items-start gap-3 shadow-sm animate-fade-in">
-            <FiCheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-bold text-emerald-950">{attendanceInfo.message}</p>
-              {attendanceInfo.lesson_info?.lesson_recorded && (
-                <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-100/70 py-1 px-2 rounded-lg font-mono">
-                  <FiBookOpen className="w-3.5 h-3.5 shrink-0" />
-                  <span>{attendanceInfo.lesson_info.message}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Form Title */}
         <div className="text-center">
           <h3 className="text-lg font-bold text-slate-800 tracking-tight">
@@ -259,6 +251,26 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
             <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl p-3 text-xs font-medium animate-fade-in">
               <FiAlertCircle className="w-4 h-4 text-red-500 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {workspaceOptions.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+              <p className="font-bold">Identitas cocok dengan lebih dari satu workspace.</p>
+              <p className="mt-1">Pilih workspace setelah password berhasil diverifikasi.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {workspaceOptions.map((workspace) => (
+                  <button
+                    key={workspace.portal_type}
+                    type="button"
+                    onClick={() => handleWorkspaceLogin(workspace.portal_type)}
+                    disabled={loading}
+                    className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-left font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60"
+                  >
+                    Masuk sebagai {workspace.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

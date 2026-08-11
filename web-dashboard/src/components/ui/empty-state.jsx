@@ -7,6 +7,7 @@ export function EmptyState({
   icon = <FaInbox className="text-4xl text-emerald-600/70" />,
   title = 'Belum Ada Data',
   description = 'Data yang Anda cari saat ini belum tersedia atau belum diinputkan ke sistem.',
+  action,
   actionLabel,
   onAction,
 }) {
@@ -17,11 +18,11 @@ export function EmptyState({
       </div>
       <h4 className="text-base font-bold text-slate-800 dark:text-white leading-snug">{title}</h4>
       <p className="mt-1 text-xs text-slate-500 max-w-sm dark:text-slate-400">{description}</p>
-      {actionLabel && onAction && (
+      {action || (actionLabel && onAction && (
         <Button variant="primary" size="sm" onClick={onAction} className="mt-4">
           {actionLabel}
         </Button>
-      )}
+      ))}
     </div>
   )
 }
@@ -30,6 +31,7 @@ EmptyState.propTypes = {
   icon: PropTypes.node,
   title: PropTypes.node,
   description: PropTypes.node,
+  action: PropTypes.node,
   actionLabel: PropTypes.node,
   onAction: PropTypes.func,
 }

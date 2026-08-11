@@ -180,6 +180,14 @@ class RolePermissionSeeder extends Seeder
             'attendance_device.manage',
             'attendance_device.receive_event',
 
+            // Step 04: teacher card, teaching attendance, session, presence.
+            'teaching_attendance.scan',
+            'teaching_attendance.view_own',
+            'teaching_session.start',
+            'teaching_session.close',
+            'teacher_presence.heartbeat',
+            'teacher_monitoring.view',
+
             // Tahfizh & Mutabaah
             'tahfizh.monitoring_target',
             'tahfizh.input_setoran_harian',
@@ -350,6 +358,7 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view',
                 'dashboard.pemantauan.lihat',
                 'dashboard.pemantauan.kelola',
+                'employee.view',
                 'divisi.monitoring',
                 'divisi.laporan_bulanan',
                 'kehadiran.siswa.monitoring',
@@ -394,6 +403,7 @@ class RolePermissionSeeder extends Seeder
                 'dashboard.view',
                 'dashboard.pemantauan.lihat',
                 'dashboard.pemantauan.kelola',
+                'employee.view',
                 'divisi.monitoring',
                 'divisi.laporan_bulanan',
                 'kesiswaan.rekap_prestasi',
@@ -460,6 +470,11 @@ class RolePermissionSeeder extends Seeder
                 'lesson_attendance.session.start',
                 'lesson_attendance.session.close',
                 'lesson_attendance.scan_logs.view',
+                'teaching_attendance.scan',
+                'teaching_attendance.view_own',
+                'teaching_session.start',
+                'teaching_session.close',
+                'teacher_presence.heartbeat',
                 'chat.conversation.view',
                 'chat.message.view',
                 'chat.message.send',
@@ -537,22 +552,18 @@ class RolePermissionSeeder extends Seeder
                 'student.grade.view',
                 'student.tahfizh.view',
                 'student.mutabaah.view',
-                'student.mutabaah.create',
-                'student.notification.view',
-                'kehadiran.siswa.barcode_kartu',
-                'kehadiran.siswa.izin_sakit',
-                'tahfizh.laporan_target',
+                 'student.mutabaah.create',
+                 'student.notification.view',
+                 'kehadiran.siswa.barcode_kartu',
+                 'tahfizh.laporan_target',
                 'sekolah.data_pribadi_siswa',
                 'sekolah.informasi_sekolah',
                 'kesiswaan.penugasan_siswa',
                 'pembelajaran.materi',
-                'pembelajaran.kisi_kisi_ujian',
-                'pembelajaran.bank_soal',
-                'student_attendance.view_own',
-                'student_attendance.permission.create',
-                'student_attendance.permission.update',
-                'student_attendance.permission.cancel',
-            ],
+                 'pembelajaran.kisi_kisi_ujian',
+                 'pembelajaran.bank_soal',
+                 'student_attendance.view_own',
+             ],
         ];
 
         $foundationPerms = [
@@ -575,8 +586,10 @@ class RolePermissionSeeder extends Seeder
             'foundation.profile.view',
             'foundation.profile.update',
             'foundation.profile.change_password',
+            'employee.view',
             'report.cross_unit.view',
             'report.cross_unit.export',
+            'teacher_monitoring.view',
         ];
         $readAll = ['mutabaah.dashboard.view', 'mutabaah.recap.view', 'mutabaah.report.view', 'mutabaah.report.export'];
 
@@ -634,7 +647,7 @@ class RolePermissionSeeder extends Seeder
             $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Alumni'] ?? [], ['alumni.view', 'alumni.update_own', 'alumni.tracer_study.create'])));
         }
         foreach (['Divisi Pendidikan', 'divisi_pendidikan'] as $roleName) {
-            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Divisi Pendidikan'] ?? [], ['divisi.monitoring', 'divisi.laporan_bulanan', 'report.cross_unit.view'])));
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Divisi Pendidikan'] ?? [], ['divisi.monitoring', 'divisi.laporan_bulanan', 'report.cross_unit.view', 'employee.view'])));
         }
 
         // Role kanonik baru mewarisi capability role lama yang ekuivalen.
@@ -659,6 +672,13 @@ class RolePermissionSeeder extends Seeder
             $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
                 $rolePermissionMap[$templateRole] ?? ['dashboard.view'],
                 $rolePermissionMap[$roleName] ?? [],
+            )));
+        }
+
+        foreach (['Kepala Sekolah', 'Yayasan', 'Ketua Yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan', 'Divisi Pendidikan', 'Kepala Bidang Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa', 'Divisi Program Khusus', 'Kepala Sekolah', 'Wakil Kepala Sekolah', 'Wakil Kurikulum', 'Waka Kurikulum', 'Wakil Kesiswaan', 'Waka Kesiswaan'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                ['teacher_monitoring.view'],
             )));
         }
 

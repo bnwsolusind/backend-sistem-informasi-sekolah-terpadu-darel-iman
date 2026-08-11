@@ -369,6 +369,7 @@ export default function ParentPortalPage() {
                 attendanceLogs={records}
                 permissionsHistory={permissionsRecords}
                 onSubmitPermission={handleSubmitPermissionFromWorkspace}
+                canSubmitPermission={true}
                 isParent={true}
                 loading={loading}
               />

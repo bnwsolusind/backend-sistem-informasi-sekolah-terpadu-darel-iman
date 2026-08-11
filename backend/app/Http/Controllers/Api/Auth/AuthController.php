@@ -16,18 +16,47 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        [$user, $token, $attendanceSummary] = $this->authService->login(
-            email: $request->validated('email'),
+        $result = $this->authService->login(
+            identifier: $request->input('identifier', $request->input('email')),
             password: $request->validated('password'),
-            deviceName: $request->validated('device_name', 'school-erp-client')
+            deviceName: $request->validated('device_name', 'school-erp-client'),
+            ipAddress: $request->ip(),
         );
+
+        if (($result['ambiguous'] ?? false) === true) {
+            return response()->json([
+                'message' => 'Pilih workspace setelah kredensial berhasil diverifikasi.',
+                'workspace_chooser' => true,
+                'workspaces' => $result['workspaces'],
+            ], 409);
+        }
 
         return response()->json([
             'message' => 'Login berhasil.',
-            'token' => $token,
+            'token' => $result['token'],
             'token_type' => 'Bearer',
-            'user' => new UserProfileResource($user),
-            'attendance_summary' => $attendanceSummary,
+            'user' => new UserProfileResource($result['user']),
+            'portal' => $result['portal'],
+            'default_portal' => $result['default_portal'],
+            'default_redirect' => $result['default_redirect'],
+            'available_workspaces' => $result['available_workspaces'],
+            'attendance_summary' => null,
+            'parent' => isset($result['parent']) ? [
+                'id' => $result['parent']->id,
+                'name' => $result['parent']->full_name,
+            ] : null,
+            'student' => isset($result['student']) ? [
+                'id' => $result['student']->id,
+                'nis' => $result['student']->nis,
+                'name' => $result['student']->full_name,
+            ] : null,
+            'children' => isset($result['children'])
+                ? $result['children']->map(fn ($child) => [
+                    'id' => $child->id,
+                    'nis' => $child->nis,
+                    'name' => $child->full_name,
+                ])->values()
+                : null,
         ]);
     }
 
@@ -76,6 +105,9 @@ class AuthController extends Controller
             'token_type' => 'Bearer',
             'user' => new UserProfileResource($result['user']),
             'portal' => $result['portal'],
+            'default_portal' => $result['default_portal'],
+            'default_redirect' => $result['default_redirect'],
+            'available_workspaces' => $result['available_workspaces'],
             'attendance_summary' => $result['attendance_summary'] ?? null,
         ]);
     }
@@ -99,6 +131,9 @@ class AuthController extends Controller
             'token_type' => 'Bearer',
             'user' => new UserProfileResource($result['user']),
             'portal' => $result['portal'],
+            'default_portal' => $result['default_portal'],
+            'default_redirect' => $result['default_redirect'],
+            'available_workspaces' => $result['available_workspaces'],
             'attendance_summary' => $result['attendance_summary'] ?? null,
         ]);
     }
@@ -126,6 +161,9 @@ class AuthController extends Controller
             'token_type' => 'Bearer',
             'user' => new UserProfileResource($result['user']),
             'portal' => $result['portal'],
+            'default_portal' => $result['default_portal'],
+            'default_redirect' => $result['default_redirect'],
+            'available_workspaces' => $result['available_workspaces'],
             'parent' => isset($result['parent'])
                 ? [
                     'id' => $result['parent']->id,

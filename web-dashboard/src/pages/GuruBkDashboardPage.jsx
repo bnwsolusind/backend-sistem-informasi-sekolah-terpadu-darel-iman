@@ -9,7 +9,8 @@ import DataTableCard from '../components/dashboard/DataTableCard'
 import QuickActionCard from '../components/dashboard/QuickActionCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
-import DetailModal from '../components/dashboard/DetailModal'
+import KpiQuickViewModal from '../components/KpiQuickViewModal'
+import ModalErrorBoundary from '../components/common/ModalErrorBoundary'
 
 import { managementDashboardService } from '../services/managementDashboardService'
 
@@ -130,16 +131,13 @@ export default function GuruBkDashboardPage() {
         emptyMessage="Belum ada catatan konseling terbaru."
       />
 
-      <DetailModal
-        isOpen={Boolean(activeModal)}
-        onClose={() => setActiveModal(null)}
-        title={`Detail Pendampingan BK (${activeModal})`}
-        subtitle="Data detail konseling terproteksi"
-      >
-        <div className="p-4 text-center text-sm text-slate-500">
-          Data detail <span className="font-bold text-slate-800 dark:text-slate-200">{activeModal}</span> siap ditampilkan.
-        </div>
-      </DetailModal>
+      <ModalErrorBoundary onClose={() => setActiveModal(null)}>
+        <KpiQuickViewModal
+          type={activeModal}
+          isOpen={Boolean(activeModal)}
+          onClose={() => setActiveModal(null)}
+        />
+      </ModalErrorBoundary>
     </div>
   )
 }

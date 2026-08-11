@@ -19,6 +19,9 @@ class UserAccountController extends Controller
 
         $users = User::query()
             ->with('roles:id,name')
+            ->when($request->query('status') === 'aktif', fn ($query) => $query->where('is_active', true))
+            ->when($request->query('status') === 'nonaktif', fn ($query) => $query->where('is_active', false))
+            ->when($request->query('role_status') === 'without_role', fn ($query) => $query->doesntHave('roles'))
             ->when($search, fn ($query) => $query->where(function ($query) use ($search) {
                 $operator = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
                 $query->where('name', $operator, "%{$search}%")

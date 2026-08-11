@@ -29,16 +29,19 @@ import {
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { authService } from '../services/authService'
-import { reportService } from '../services/reportService'
+import { api } from '../services/api'
 import { educationUnitService } from '../services/educationUnitService'
 import { useAuthStore } from '../stores/authStore'
 import { usePengaturanStore } from '../stores/pengaturanStore'
 import { useUnitStore } from '../stores/unitStore'
-import { Drawer } from '../components/ui/drawer'
 import { FAB } from '../components/ui/fab'
 import ActiveScheduleNotice from '../components/attendance/ActiveScheduleNotice'
 import FloatingChatWidget from '../components/portal/FloatingChatWidget'
 import PersonAvatar from '../components/ui/PersonAvatar'
+import GlobalSearchModal from '../components/GlobalSearchModal'
+import NotificationCenter from '../components/app/NotificationCenter'
+import AppBottomNavigation from '../components/app/AppBottomNavigation'
+import { isParentRole, isStudentRole, isTeacherRole, resolveDefaultPortal } from '../auth/portalResolver'
 
 export default function DashboardLayout() {
   const location = useLocation()
@@ -55,7 +58,8 @@ export default function DashboardLayout() {
   const permissions = Array.isArray(user?.permissions) ? user.permissions : []
   const hasRole = (...names) => names.some((name) => roles.some((role) => String(role).toLowerCase().replace(/[\s_-]+/g, '') === String(name).toLowerCase().replace(/[\s_-]+/g, '')))
   const can = (...names) => hasRole('Super Admin') || names.some((name) => permissions.includes(name))
-  const isPortalUser = hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid')
+  const canViewEducationUnits = can('unit.view', 'unit.view_all', 'foundation.unit.view', 'sistem.master_data')
+  const isPortalUser = isStudentRole(roles) || isParentRole(roles)
 
   const [collapsed, setCollapsed] = useState(Boolean(pengaturan?.sidebar_collapsed))
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -63,15 +67,10 @@ export default function DashboardLayout() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [unitDropdownOpen, setUnitDropdownOpen] = useState(false)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const [notifikasiItems, setNotifikasiItems] = useState([])
-  const [notifikasiUnread, setNotifikasiUnread] = useState(0)
-  const [notifikasiLoading, setNotifikasiLoading] = useState(false)
-  const [notifikasiError, setNotifikasiError] = useState(false)
   const [roleAccessOpen, setRoleAccessOpen] = useState(false)
   const [roleAccessLoading, setRoleAccessLoading] = useState('')
   const [impersonating] = useState(() => Boolean(localStorage.getItem('school_erp_superadmin_session')))
-  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme')
     if (saved === 'light') return false
@@ -80,54 +79,25 @@ export default function DashboardLayout() {
   })
 
   const [dbUnits, setDbUnits] = useState([])
+  const [serverNow, setServerNow] = useState(null)
+
+  const muatPengaturanRef = muatPengaturan
 
   useEffect(() => {
-    muatPengaturan()
+    muatPengaturanRef()
+    if (!canViewEducationUnits) {
+      setDbUnits([])
+      return undefined
+    }
+
     educationUnitService.getAll().then((res) => {
       const list = res?.data || res || []
       if (Array.isArray(list) && list.length > 0) {
         setDbUnits(list.map((u) => ({ id: u.code || u.level || u.id, name: u.name || u.nama })))
       }
     }).catch(() => {})
-  }, [muatPengaturan])
-
-  const muatNotifikasi = async () => {
-    setNotifikasiLoading(true)
-    setNotifikasiError(false)
-    try {
-      const data = await reportService.notifications({ per_page: 50 })
-      setNotifikasiItems(Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [])
-    } catch {
-      setNotifikasiError(true)
-      setNotifikasiItems([])
-    } finally {
-      setNotifikasiLoading(false)
-    }
-
-    try {
-      const count = await reportService.notificationUnreadCount()
-      setNotifikasiUnread(Number(count.unread_count) || 0)
-    } catch {
-      setNotifikasiUnread(0)
-    }
-  }
-
-  useEffect(() => {
-    if (!isPortalUser) {
-      muatNotifikasi()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPortalUser])
-
-  const tandaiSemuaDibaca = async () => {
-    try {
-      await reportService.markAllNotificationsRead()
-      setNotifikasiUnread(0)
-      setNotifikasiItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })))
-    } catch {
-      Swal.fire('Gagal', 'Tidak dapat menandai notifikasi telah dibaca.', 'error')
-    }
-  }
+    return undefined
+  }, [muatPengaturanRef, canViewEducationUnits])
 
   useEffect(() => {
     document.title = pengaturan.application_name || 'Sistem Manajemen Sekolah'
@@ -143,6 +113,35 @@ export default function DashboardLayout() {
   useEffect(() => {
     setCollapsed(Boolean(pengaturan.sidebar_collapsed))
   }, [pengaturan.sidebar_collapsed])
+
+  const serverTimeEndpoint = location.pathname.startsWith('/portal-guru')
+    ? '/teacher/step04/schedules'
+    : location.pathname === '/dashboard/pemantauan'
+      ? '/teacher-monitoring'
+      : null
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!serverTimeEndpoint) {
+      setServerNow(null)
+      return () => {
+        cancelled = true
+      }
+    }
+
+    api.get(serverTimeEndpoint)
+      .then((response) => {
+        if (!cancelled) setServerNow(response.data?.data?.server_time || null)
+      })
+      .catch(() => {
+        if (!cancelled) setServerNow(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [serverTimeEndpoint])
 
   const profileDropdownRef = useRef(null)
   const unitDropdownRef = useRef(null)
@@ -166,6 +165,11 @@ export default function DashboardLayout() {
 
   // Close dropdowns when clicking outside
   useEffect(() => {
+    const handleGlobalSearch = () => setIsSearchModalOpen(true)
+    window.addEventListener('open-global-search', handleGlobalSearch)
+    return () => window.removeEventListener('open-global-search', handleGlobalSearch)
+  }, [])
+  useEffect(() => {
     const handler = (e) => {
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
         setProfileDropdownOpen(false)
@@ -186,7 +190,13 @@ export default function DashboardLayout() {
 
   const namaTampil = user?.name || 'Ketua Yayasan'
   const roleTampil = roles.join(', ') || 'Pengguna'
-  const tanggalTampil = 'Senin, 27 Juli 2026 / 1 Muharram 1448 H'
+  const tanggalTampil = new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Jakarta',
+  }).format(serverNow ? new Date(serverNow) : new Date())
 
   const toggleSection = (sectionKey) => {
     setOpenSection((prev) => (prev === sectionKey ? '' : sectionKey))
@@ -217,9 +227,7 @@ export default function DashboardLayout() {
   ]
 
   const routeForRole = (role) => {
-    if (role === 'Orang Tua') return '/portal-orangtua'
-    if (role === 'Siswa') return '/portal-siswa'
-    return '/dashboard'
+    return resolveDefaultPortal({ roles: [role] })
   }
 
   const accessAsRole = async (option) => {
@@ -286,10 +294,12 @@ export default function DashboardLayout() {
       { to: '/absensi/presensi', label: 'Presensi Pembelajaran' },
       { to: '/absensi/riwayat-guru', label: 'Riwayat Presensi' },
     ] : []),
-    ...(hasRole('Siswa', 'Orang Tua') && can('attendance.student.view_own', 'student_attendance.view_own') ? [
-      // { to: '/absensi/kehadiran-saya', label: 'Kehadiran Saya' },
-      // { to: '/absensi/riwayat-saya', label: 'Riwayat Kehadiran' },
-      // { to: '/absensi/pengajuan-izin', label: 'Pengajuan Izin/Sakit' },
+    ...(isStudentRole(roles) && can('attendance.student.view_own', 'student_attendance.view_own') ? [
+      { to: '/absensi/kehadiran-saya', label: 'Kehadiran Saya' },
+      { to: '/absensi/riwayat-saya', label: 'Riwayat Kehadiran' },
+    ] : []),
+    ...(can('teacher_monitoring.view') ? [
+      { to: '/dashboard/pemantauan', label: 'Monitoring Guru Mengajar' },
     ] : []),
     ...(!hasRole('Guru') && !hasRole('Guru Tahfizh') && !hasRole('Wali Kelas') && !hasRole('Siswa') ? [
       { to: '/dashboard/absensi-gerbang', label: 'Absensi Gerbang' },
@@ -306,11 +316,11 @@ export default function DashboardLayout() {
   const bolehBukaMenu = (to) => {
     if (hasRole('Super Admin')) return true
 
-    if (to.startsWith('/portal-siswa')) return hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid')
-    if (to.startsWith('/portal-orangtua')) return hasRole('Orang Tua', 'Orangtua', 'Wali Murid')
-    if (to.startsWith('/portal-guru')) return hasRole('Guru', 'Guru Tahfizh', 'Wali Kelas')
+    if (to.startsWith('/portal-siswa')) return isStudentRole(roles)
+    if (to.startsWith('/portal-orangtua')) return isParentRole(roles)
+    if (to.startsWith('/portal-guru')) return isTeacherRole(roles)
     if (to === '/dashboard') return can('dashboard.view')
-    if (to.startsWith('/dashboard/pemantauan')) return can('dashboard.pemantauan.lihat')
+    if (to.startsWith('/dashboard/pemantauan')) return can('dashboard.pemantauan.lihat', 'teacher_monitoring.view')
     // Data pribadi hanya memberi akses ke profil siswa sendiri di portal,
     // bukan ke master data seluruh siswa.
     if (to === '/dashboard/students') return can('kesiswaan.data_lengkap_siswa')
@@ -323,7 +333,7 @@ export default function DashboardLayout() {
     if (to.includes('/jadwal-pelajaran')) return can('pembelajaran.jadwal_pelajaran')
     if (to.includes('/master-kurikulum')) return can('pembelajaran.kurikulum.view')
     if (to === '/dashboard/mutabaah/rekap') return can('mutabaah.recap.view', 'mutabaah.report.view', 'mutabaah.report.export')
-    if (to === '/dashboard/tahfizh') return hasRole('Super Admin', 'Admin', 'Tata Usaha', 'TU', 'Musyrif')
+    if (to === '/dashboard/tahfizh') return can('kesiswaan.kelas_rombel', 'academic.schedule.view', 'sistem.master_data')
     if (to.includes('/tahfizh')) return can('tahfizh.monitoring_target', 'tahfizh.laporan_target')
     if (to.includes('/absensi-ibadah') || to.includes('/worship')) {
       return (
@@ -381,7 +391,7 @@ export default function DashboardLayout() {
     (hasRole('Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'sekretaris_yayasan', 'bendahara_yayasan', 'pengurus_yayasan') ||
       can('foundation.dashboard.view'))
 
-  const sidebarMenu = isFoundationUser ? [
+  const sidebarMenu = (isFoundationUser ? [
     {
       key: 'dashboard-yayasan',
       label: 'Dashboard Yayasan',
@@ -400,6 +410,7 @@ export default function DashboardLayout() {
         { to: '/dashboard/yayasan/mutasi-siswa', label: 'Mutasi Siswa' },
         { to: '/dashboard/yayasan/kelulusan-alumni', label: 'Kelulusan & Alumni' },
         { to: '/dashboard/yayasan/informasi-sekolah', label: 'Informasi Sekolah' },
+        ...(can('teacher_monitoring.view') ? [{ to: '/dashboard/pemantauan', label: 'Monitoring Guru Mengajar' }] : []),
       ],
     },
     {
@@ -432,7 +443,7 @@ export default function DashboardLayout() {
       to: '/dashboard',
     },
     {
-      key: 'master-data',
+      key: 'dashboard-yayasan-menu',
       label: 'DASHBOARD YAYASAN',
       icon: Building2,
       submenus: [
@@ -490,16 +501,11 @@ export default function DashboardLayout() {
       label: hasRole('Orang Tua') ? 'PORTAL ORANG TUA' : hasRole('Siswa') ? 'PORTAL SISWA' : 'PORTAL ORANG TUA & SISWA',
       icon: Users,
       submenus: [
-        ...(hasRole('Orang Tua') ? [
-          { to: '/portal-orangtua?tab=ringkasan', label: 'Dashboard' },
-          { to: '/portal-orangtua?tab=chat', label: 'Chat Guru' },
-          { to: '/portal-siswa/mutabaah', label: 'Mutabaah' },
-          { to: '/portal-siswa/absensi', label: 'Absensi' },
-          { to: '/absensi/kehadiran-saya', label: 'Kehadiran Saya' },
-          { to: '/absensi/riwayat-saya', label: 'Riwayat Kehadiran' },
-          { to: '/absensi/pengajuan-izin', label: 'Pengajuan Izin/Sakit' },
-        ] : []),
-        ...(hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid') ? [
+         ...(isParentRole(roles) ? [
+           { to: '/portal-orangtua?tab=ringkasan', label: 'Dashboard' },
+           { to: '/portal-orangtua?tab=chat', label: 'Chat Guru' },
+         ] : []),
+         ...(isStudentRole(roles) ? [
           { to: '/portal-siswa/profil', label: 'Profil & Biodata' },
           { to: '/portal-siswa/informasi-sekolah', label: 'Informasi Sekolah' },
           { to: '/portal-siswa/jadwal', label: 'Jadwal' },
@@ -527,7 +533,7 @@ export default function DashboardLayout() {
       submenus: [
         { to: '/dashboard/absensi-ibadah', label: 'Presensi Ibadah Santri' },
         { to: '/dashboard/mutabaah', label: 'Mutaba’ah Harian Santri' },
-        ...(hasRole('Super Admin', 'Admin', 'Tata Usaha', 'TU', 'Musyrif')
+        ...(can('kesiswaan.kelas_rombel', 'academic.schedule.view', 'sistem.master_data')
           ? [{ to: '/dashboard/tahfizh', label: 'Setoran Tahfizh Asrama' }]
           : []),
       ],
@@ -585,7 +591,7 @@ export default function DashboardLayout() {
         // { to: '/dashboard/pengaturan?tab=unit', label: 'Pengaturan Unit' },
       ],
     },
-  ].map((item) => (
+  ]).map((item) => (
     item.submenus
       ? { ...item, submenus: item.submenus.filter((submenu) => bolehBukaMenu(submenu.to)) }
       : item
@@ -593,24 +599,34 @@ export default function DashboardLayout() {
     item.submenus ? item.submenus.length > 0 : bolehBukaMenu(item.to)
   ))
 
-  const isSubActive = (to) => {
-    const targetPath = to.split('?')[0]
-    if (targetPath.startsWith('/dashboard/mutabaah')) {
-      return location.pathname.replace(/\/$/, '') === targetPath
-    }
-    if (targetPath === '/dashboard/students') {
-      return location.pathname === '/dashboard/students' || location.pathname === '/dashboard/students/'
-    }
-    return location.pathname.startsWith(targetPath) && targetPath !== '/dashboard'
+  const normalizePath = (to) => (to || '').split('?')[0].replace(/\/+$/, '') || '/'
+
+  // Aktif jika path sama persis, ATAU target adalah "leaf" dalam grupnya
+  // sehingga tidak ada dua submenu yang menyala bersamaan.
+  const isSubActive = (to, siblings = []) => {
+    const target = normalizePath(to)
+    const current = normalizePath(location.pathname)
+    if (current === target) return true
+    const hasDeeperSibling = siblings.some((sibling) => {
+      const sTarget = normalizePath(sibling.to)
+      return sTarget !== target && sTarget.startsWith(target + '/')
+    })
+    if (!hasDeeperSibling && target !== '/dashboard' && current.startsWith(target + '/')) return true
+    return false
   }
 
-  const notifikasiDataTampil = notifikasiItems.map((item) => ({
-    id: item.id,
-    title: item.title ?? 'Notifikasi',
-    desc: item.body ?? item.message ?? '-',
-    time: item.created_at ? new Date(item.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : '',
-    unread: !item.read_at,
-  }))
+  // Auto-expand grup menu yang berisi route aktif.
+  useEffect(() => {
+    const current = normalizePath(location.pathname)
+    for (const item of sidebarMenu) {
+      if (!item.submenus) continue
+      if (item.submenus.some((sub) => normalizePath(sub.to) === current || current.startsWith(normalizePath(sub.to) + '/'))) {
+        setOpenSection((prev) => (prev === item.key ? prev : item.key))
+        return
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isFoundationUser])
 
   return (
     <div
@@ -684,7 +700,7 @@ export default function DashboardLayout() {
             {sidebarMenu.map((item) => {
               const Icon = item.icon
               if (!item.submenus) {
-                const isActive = location.pathname === item.to
+                const isActive = normalizePath(location.pathname) === normalizePath(item.to)
                 return (
                   <NavLink
                     key={item.key}
@@ -705,7 +721,7 @@ export default function DashboardLayout() {
               }
 
               const isOpen = openSection === item.key
-              const hasActiveChild = item.submenus.some((sub) => isSubActive(sub.to))
+              const hasActiveChild = item.submenus.some((sub) => isSubActive(sub.to, item.submenus))
 
               return (
                 <div key={item.key} className="space-y-1">
@@ -736,7 +752,7 @@ export default function DashboardLayout() {
                   {!collapsed && isOpen && (
                     <div className="ml-5 space-y-1 border-l-2 border-[#3FBF75]/40 pl-3 pt-1 animate-[masterDropdownSlide_0.2s_ease-out]">
                       {item.submenus.map((sub) => {
-                        const active = isSubActive(sub.to)
+                        const active = isSubActive(sub.to, item.submenus)
                         return (
                           <NavLink
                             key={sub.label}
@@ -801,7 +817,7 @@ export default function DashboardLayout() {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Topbar Navbar (Sticky Header) */}
           <header
-            className={`${pengaturan.header_sticky ? 'sticky top-0' : 'relative'} z-30 flex h-16 items-center justify-between border-b border-slate-200/80 px-4 md:px-8 backdrop-blur-md shadow-2xs transition-colors duration-200 dark:border-slate-800/80`}
+            className={`${pengaturan.header_sticky ? 'sticky top-0' : 'relative'} z-30 flex h-16 items-center justify-between border-b border-slate-200/80 px-4 lg:px-8 backdrop-blur-md shadow-2xs transition-colors duration-200 dark:border-slate-800/80`}
             style={{
               backgroundColor: isDarkMode
                 ? 'rgba(17, 24, 39, 0.94)'
@@ -862,14 +878,16 @@ export default function DashboardLayout() {
               </div>
 
               {/* Global Search Bar (Expand Width on Focus) */}
-              <div className="relative hidden md:flex items-center flex-1 max-w-xs transition-all duration-300 focus-within:max-w-md">
+              <div
+                onClick={() => setIsSearchModalOpen(true)}
+                className="relative hidden md:flex items-center flex-1 max-w-xs transition-all duration-300 focus-within:max-w-md cursor-pointer"
+              >
                 <Search className="absolute left-3 text-slate-400 h-4 w-4" />
                 <input
                   type="text"
+                  readOnly
                   placeholder="Cari siswa, guru, kelas..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200/80 bg-slate-50/80 pl-9 pr-8 py-1.5 text-xs font-medium placeholder-slate-400 focus:bg-white focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/30 transition-all duration-300 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:bg-[#111827] dark:focus:border-[#3FBF75]"
+                  className="w-full rounded-xl border border-slate-200/80 bg-slate-50/80 pl-9 pr-8 py-1.5 text-xs font-medium placeholder-slate-400 focus:bg-white focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/30 transition-all duration-300 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder-slate-500 cursor-pointer"
                 />
                 <span className="absolute right-3 rounded-md bg-slate-200/60 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 dark:bg-slate-700 dark:text-slate-300">
                   Ctrl + K
@@ -878,7 +896,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* Right Controls: Date, Notifications, Profile Avatar */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 lg:gap-3">
               {/* Realtime Date Display */}
               <div className="hidden lg:flex items-center gap-2 rounded-xl bg-slate-100/70 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
                 <Calendar className="h-3.5 w-3.5 text-[#0E5C44] dark:text-[#3FBF75]" />
@@ -931,22 +949,8 @@ export default function DashboardLayout() {
                 </div>
               )}
 
-              {/* Notification Drawer Trigger */}
-              {!isPortalUser && (
-                <button
-                  type="button"
-                  onClick={() => setNotificationsOpen(true)}
-                  className="relative rounded-xl border border-slate-200/80 bg-slate-50/80 p-2 text-slate-600 hover:bg-slate-100 hover:text-[#0E5C44] transition-all dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 btn-master"
-                  title="Notifikasi Sistem"
-                >
-                  <Bell className="h-4 w-4" />
-                  {notifikasiUnread > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs">
-                      {notifikasiUnread > 9 ? '9+' : notifikasiUnread}
-                    </span>
-                  )}
-                </button>
-              )}
+              {/* Notification Center (Global) */}
+              {!isPortalUser && <NotificationCenter />}
 
               {/* Mode Tampilan Switcher (Light / Dark Mode) */}
               <div className="relative" ref={themeDropdownRef}>
@@ -1051,7 +1055,9 @@ export default function DashboardLayout() {
                       </button>
                       <button
                         onClick={() => {
-                          if (hasRole('Siswa', 'Orang Tua', 'Orangtua', 'Wali Murid')) {
+                          if (isParentRole(roles)) {
+                            navigate('/portal-orangtua?tab=notifications')
+                          } else if (isStudentRole(roles)) {
                             navigate('/portal-siswa/informasi-sekolah')
                           } else {
                             navigate(isFoundationUser ? '/dashboard/yayasan/notifikasi' : '/notifications')
@@ -1117,139 +1123,37 @@ export default function DashboardLayout() {
         </div>
       </div>
 
-      {/* Notifications Drawer */}
-      {!isPortalUser && (
-        <Drawer
-          isOpen={notificationsOpen}
-          onClose={() => setNotificationsOpen(false)}
-          title="Pemberitahuan & Activity Log"
-          position="right"
-        >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              {notifikasiUnread > 0 && (
-                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                  {notifikasiUnread} belum dibaca
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={tandaiSemuaDibaca}
-                className="ml-auto text-[11px] font-bold text-emerald-700 hover:underline dark:text-emerald-300"
-              >
-                Tandai semua dibaca
-              </button>
-            </div>
-
-            {notifikasiLoading && (
-              <p className="text-center text-xs text-slate-400 py-6">Memuat notifikasi...</p>
-            )}
-
-            {!notifikasiLoading && notifikasiError && (
-              <p className="text-center text-xs text-rose-500 py-6">
-                Gagal memuat notifikasi. Silakan muat ulang halaman.
-              </p>
-            )}
-
-            {!notifikasiLoading && !notifikasiError && notifikasiDataTampil.length === 0 && (
-              <p className="text-center text-xs text-slate-400 py-6">Tidak ada notifikasi.</p>
-            )}
-
-            {!notifikasiLoading && notifikasiDataTampil.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                onClick={async () => {
-                  if (item.unread) {
-                    try {
-                      await reportService.markNotificationRead(item.id)
-                      setNotifikasiUnread((prev) => Math.max(0, prev - 1))
-                      setNotifikasiItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read_at: new Date().toISOString() } : n)))
-                    } catch {
-                      // Abaikan; status lokal tetap konsisten
-                    }
-                  }
-                }}
-                className={`w-full text-left p-4 rounded-2xl border transition ${item.unread
-                  ? 'bg-emerald-50/50 border-emerald-200/80 dark:bg-emerald-950/30 dark:border-emerald-800/80'
-                  : 'bg-white border-slate-200/80 dark:bg-slate-900 dark:border-slate-800/80'
-                  }`}
-              >
-                <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-bold text-slate-900 dark:text-white">{item.title}</h5>
-                  {item.unread && <span className="h-2 w-2 rounded-full bg-emerald-600" />}
-                </div>
-                <p className="text-xs text-slate-600 mt-1 dark:text-slate-300">{item.desc}</p>
-                <p className="text-[10px] text-slate-400 mt-2 font-medium">{item.time}</p>
-              </button>
-            ))}
-          </div>
-        </Drawer>
-      )}
-
       {/* Mobile Bottom Navigation (Responsive Mobile View <= 768px) */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 flex items-center justify-around border-t border-slate-200/80 bg-white/95 px-2 py-2 backdrop-blur-md md:hidden shadow-lg dark:border-slate-800 dark:bg-slate-900/95">
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) =>
-            `flex flex-col items-center gap-1 text-[10px] font-semibold transition ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
-            }`
-          }
-        >
-          <LayoutDashboard className="h-5 w-5" />
-          <span>Dashboard</span>
-        </NavLink>
-
-        {(hasRole('Siswa', 'Orang Tua') || can('kesiswaan.data_lengkap_siswa')) && (
-          <NavLink
-            to={hasRole('Siswa') ? '/portal-siswa' : hasRole('Orang Tua') ? '/portal-orangtua' : '/dashboard/students'}
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 text-[10px] font-semibold transition ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
-              }`
-            }
-          >
-            <Database className="h-5 w-5" />
-            <span>{hasRole('Siswa') ? 'Portal Siswa' : hasRole('Orang Tua') ? 'Portal Anak' : 'Data Siswa'}</span>
-          </NavLink>
-        )}
-
-        {/* Action Center Trigger */}
-        {(hasRole('Siswa', 'Orang Tua') || can('kesiswaan.data_lengkap_siswa')) && (
-          <button
-            type="button"
-            onClick={() => navigate(hasRole('Siswa') ? '/portal-siswa/tugas' : hasRole('Orang Tua') ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add')}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setNotificationsOpen(true)}
-          className="flex flex-col items-center gap-1 text-[10px] font-semibold text-slate-400"
-        >
-          <Bell className="h-5 w-5" />
-          <span>Notifikasi</span>
-        </button>
-
-        <NavLink
-          to="/dashboard/pengaturan"
-          className={({ isActive }) =>
-            `flex flex-col items-center gap-1 text-[10px] font-semibold transition ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
-            }`
-          }
-        >
-          <User className="h-5 w-5" />
-          <span>Profil</span>
-        </NavLink>
-      </nav>
+      <AppBottomNavigation
+        items={[
+          { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
+           ...((isStudentRole(roles) || isParentRole(roles) || can('kesiswaan.data_lengkap_siswa'))
+             ? [{
+                 to: isStudentRole(roles) ? '/portal-siswa' : isParentRole(roles) ? '/portal-orangtua' : '/dashboard/students',
+                 label: isStudentRole(roles) ? 'Portal Siswa' : isParentRole(roles) ? 'Portal Anak' : 'Data Siswa',
+                icon: Database,
+              }]
+            : []),
+          { to: '/dashboard/pengaturan', label: 'Profil', icon: User },
+        ]}
+         actionCenter={isStudentRole(roles) || isParentRole(roles) || can('kesiswaan.data_lengkap_siswa') ? {
+          icon: Plus,
+          ariaLabel: 'Aksi Cepat',
+           onClick: () => navigate(isStudentRole(roles) ? '/portal-siswa/tugas' : isParentRole(roles) ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add'),
+        } : null}
+        onOpenNotifications={() => window.dispatchEvent(new Event('open-notification-center'))}
+      />
 
       {/* Floating Action Button (FAB) for Mobile Quick Add */}
-      {!hasRole('Siswa', 'Orang Tua') && can('kesiswaan.data_lengkap_siswa') && <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />}
+       {!isStudentRole(roles) && !isParentRole(roles) && can('kesiswaan.data_lengkap_siswa') && <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />}
 
       {/* Floating Chat Pop-Up & Melayang Button */}
       <FloatingChatWidget />
+      {/* Global Search Modal */}
+      <GlobalSearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+      />
     </div>
   )
 }

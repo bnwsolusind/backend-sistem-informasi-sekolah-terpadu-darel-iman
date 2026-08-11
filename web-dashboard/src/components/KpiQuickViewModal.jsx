@@ -16,6 +16,9 @@ import {
   AlertCircle,
   TrendingUp,
   Eye,
+  Key,
+  ShieldCheck,
+  UserX,
 } from 'lucide-react'
 import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
@@ -38,8 +41,7 @@ const MODAL_CONFIGS = {
     title: 'Data Guru & Tenaga Pendidik',
     subtitle: 'Daftar Tenaga Pendidik Aktif di Seluruh Unit',
     icon: UserCheck,
-    endpoint: '/foundation/employees',
-    defaultParams: { role: 'guru' },
+    endpoint: '/foundation/teachers',
     linkTo: '/dashboard/master/guru',
   },
   pegawai: {
@@ -84,12 +86,80 @@ const MODAL_CONFIGS = {
     endpoint: '/foundation/rombel',
     linkTo: '/dashboard/akademik/rombel',
   },
+  pengguna: {
+    title: 'Data Pengguna Sistem Aktif',
+    subtitle: 'Daftar Akun Aktif yang Dapat Mengakses Sistem',
+    icon: ShieldCheck,
+    endpoint: '/hak-akses/users',
+    defaultParams: { status: 'aktif' },
+    linkTo: '/dashboard/hak-akses',
+  },
+  role: {
+    title: 'Data Role Terdaftar',
+    subtitle: 'Daftar Role dan Cakupan Hak Akses Sistem',
+    icon: Key,
+    endpoint: '/hak-akses/roles',
+    linkTo: '/dashboard/hak-akses',
+  },
+  pengguna_tanpa_role: {
+    title: 'Data User Tanpa Role',
+    subtitle: 'Daftar Akun yang Belum Memiliki Role Sistem',
+    icon: UserX,
+    endpoint: '/hak-akses/users',
+    defaultParams: { role_status: 'without_role' },
+    linkTo: '/dashboard/hak-akses',
+  },
+}
+
+const KEY_ALIASES = {
+  total_units: 'unit_pendidikan',
+  total_unit: 'unit_pendidikan',
+  unit: 'unit_pendidikan',
+  units: 'unit_pendidikan',
+  active_units: 'unit_pendidikan',
+
+  total_teachers: 'guru',
+  total_guru: 'guru',
+  teachers: 'guru',
+
+  total_employees: 'pegawai',
+  total_pegawai: 'pegawai',
+  employees: 'pegawai',
+  total_users: 'pengguna',
+  active_users: 'pengguna',
+  users: 'pengguna',
+
+  total_students: 'siswa',
+  total_siswa: 'siswa',
+  total_siswa_aktif: 'siswa',
+  students: 'siswa',
+  santri_binaan: 'siswa',
+  total_siswa_binaan: 'siswa',
+
+  total_parents: 'orang_tua',
+  total_ortu: 'orang_tua',
+  parents: 'orang_tua',
+
+  total_alumni: 'alumni',
+
+  total_classes: 'kelas',
+  total_kelas: 'kelas',
+  classes: 'kelas',
+
+  total_rombel: 'rombel',
+  rombel: 'rombel',
+
+  active_roles: 'role',
+  roles: 'role',
+
+  users_without_role: 'pengguna_tanpa_role',
 }
 
 export default function KpiQuickViewModal({ type, isOpen, onClose }) {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
-  const config = MODAL_CONFIGS[type]
+  const resolvedType = KEY_ALIASES[type] || type
+  const config = MODAL_CONFIGS[resolvedType]
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -133,12 +203,16 @@ export default function KpiQuickViewModal({ type, isOpen, onClose }) {
     setError(false)
 
     try {
-      const params = {
+      const defaultParams = {
         ...(config.defaultParams || {}),
+        ...(type === 'active_units' ? { status: 'aktif' } : {}),
+      }
+      const params = {
+        ...defaultParams,
         search: search || undefined,
         unit_id: selectedUnit !== 'all' ? selectedUnit : undefined,
-        status: selectedStatus !== 'all' ? selectedStatus : undefined,
-        per_page: 50,
+        ...(selectedStatus !== 'all' ? { status: selectedStatus } : {}),
+        per_page: 100,
       }
 
       const res = await api.get(config.endpoint, { params })
@@ -159,7 +233,7 @@ export default function KpiQuickViewModal({ type, isOpen, onClose }) {
         }
       }
 
-      summaryData = resData?.summary || resData?.data?.summary || null
+      summaryData = resData?.summary || resData?.data?.summary || resData?.meta || null
 
       setItems(dataList)
       setStats(summaryData)
@@ -203,10 +277,18 @@ export default function KpiQuickViewModal({ type, isOpen, onClose }) {
   if (!isOpen || !config) return null
 
   const IconComponent = config.icon || Building2
-  const previewItems = items.slice(0, 10)
+  const filteredItems = (Array.isArray(items) ? items : []).filter((row) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    const nameStr = String(row.name || row.nama || row.full_name || row.judul || '').toLowerCase()
+    const codeStr = String(row.code || row.kode || row.niy || row.nisn || '').toLowerCase()
+    const jenisStr = String(row.jenis_unit || row.level || row.location || row.kepala_sekolah || '').toLowerCase()
+    return nameStr.includes(q) || codeStr.includes(q) || jenisStr.includes(q)
+  })
+  const previewItems = filteredItems.slice(0, 100)
 
   const handleOpenRowDetail = (rowId) => {
-    setSelectedDetailType(type)
+    setSelectedDetailType(resolvedType)
     setSelectedDetailId(rowId)
   }
 
@@ -298,7 +380,7 @@ export default function KpiQuickViewModal({ type, isOpen, onClose }) {
             </div>
 
             <div className="flex items-center gap-2">
-              {type !== 'unit_pendidikan' && units.length > 0 && (
+              {!['unit_pendidikan', 'role', 'pengguna', 'pengguna_tanpa_role'].includes(resolvedType) && units.length > 0 && (
                 <select
                   value={selectedUnit}
                   onChange={(e) => setSelectedUnit(e.target.value)}
@@ -313,15 +395,17 @@ export default function KpiQuickViewModal({ type, isOpen, onClose }) {
                 </select>
               )}
 
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 text-xs font-medium bg-white dark:bg-[#1B2433] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
-              >
-                <option value="all">Semua Status</option>
-                <option value="aktif">Aktif</option>
-                <option value="nonaktif">Nonaktif</option>
-              </select>
+              {resolvedType !== 'role' && resolvedType !== 'pengguna_tanpa_role' && (
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-3 py-2 text-xs font-medium bg-white dark:bg-[#1B2433] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
+                >
+                  <option value="all">Semua Status</option>
+                  <option value="aktif">Aktif</option>
+                  <option value="nonaktif">Nonaktif</option>
+                </select>
+              )}
             </div>
           </div>
 
@@ -347,7 +431,7 @@ export default function KpiQuickViewModal({ type, isOpen, onClose }) {
             />
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
-              <RenderKpiTable type={type} items={previewItems} onViewDetail={handleOpenRowDetail} canAccessDetail={canAccessDetail} />
+              <RenderKpiTable type={resolvedType} items={previewItems} onViewDetail={handleOpenRowDetail} />
             </div>
           )}
         </div>
@@ -408,9 +492,9 @@ function RenderStatsOverview({ type, items, stats, loading }) {
     ],
     orang_tua: [
       { label: 'Total Orang Tua', val: stats?.total || items.length, trend: 'Wali Murid', color: 'text-emerald-600' },
-      { label: 'Total Ayah', val: stats?.father || items.filter((p) => p.father_name).length, trend: 'Ayah', color: 'text-blue-600' },
-      { label: 'Total Ibu', val: stats?.mother || items.filter((p) => p.mother_name).length, trend: 'Ibu', color: 'text-rose-600' },
-      { label: 'Wali', val: stats?.guardian || items.filter((p) => p.guardian_name).length, trend: 'Wali', color: 'text-amber-600' },
+      { label: 'NIK Ayah Terisi', val: stats?.father ?? items.filter((p) => p.father_nik).length, trend: 'Ayah', color: 'text-blue-600' },
+      { label: 'NIK Ibu Terisi', val: stats?.mother ?? items.filter((p) => p.mother_nik).length, trend: 'Ibu', color: 'text-rose-600' },
+      { label: 'Wali Lainnya', val: stats?.guardian ?? items.filter((p) => !p.father_nik && !p.mother_nik).length, trend: 'Wali', color: 'text-amber-600' },
     ],
     alumni: [
       { label: 'Total Alumni', val: items.length, trend: 'Lulusan', color: 'text-emerald-600' },
@@ -430,9 +514,28 @@ function RenderStatsOverview({ type, items, stats, loading }) {
       { label: 'Kapasitas', val: stats?.kapasitas || (items.length * 30), trend: 'Siswa', color: 'text-amber-600' },
       { label: 'Terisi', val: stats?.terisi || items.reduce((acc, r) => acc + Number(r.students_count || 0), 0), trend: 'Terdaftar', color: 'text-indigo-600' },
     ],
+    pengguna: [
+      { label: 'Pengguna Aktif', val: stats?.total ?? items.length, trend: 'Akun', color: 'text-emerald-600' },
+      { label: 'Sudah Memiliki Role', val: items.filter((u) => (u.roles || []).length > 0).length, trend: 'Role', color: 'text-blue-600' },
+      { label: 'Wajib Ganti Password', val: items.filter((u) => u.must_change_password).length, trend: 'Keamanan', color: 'text-amber-600' },
+      { label: 'Data Ditampilkan', val: items.length, trend: 'Baris', color: 'text-indigo-600' },
+    ],
+    role: [
+      { label: 'Total Role', val: stats?.total ?? items.length, trend: 'Role', color: 'text-emerald-600' },
+      { label: 'Total Izin', val: items.reduce((acc, role) => acc + Number(role.jumlah_izin || 0), 0), trend: 'Permission', color: 'text-blue-600' },
+      { label: 'Total Pengguna', val: items.reduce((acc, role) => acc + Number(role.jumlah_pengguna || 0), 0), trend: 'User', color: 'text-indigo-600' },
+      { label: 'Role Belum Dipakai', val: items.filter((role) => Number(role.jumlah_pengguna || 0) === 0).length, trend: 'Kosong', color: 'text-amber-600' },
+    ],
+    pengguna_tanpa_role: [
+      { label: 'Tanpa Role', val: stats?.total ?? items.length, trend: 'Perlu Ditinjau', color: 'text-rose-600' },
+      { label: 'Akun Aktif', val: items.filter((u) => u.is_active).length, trend: 'Aktif', color: 'text-emerald-600' },
+      { label: 'Akun Nonaktif', val: items.filter((u) => !u.is_active).length, trend: 'Nonaktif', color: 'text-slate-600' },
+      { label: 'Data Ditampilkan', val: items.length, trend: 'Baris', color: 'text-indigo-600' },
+    ],
   }
 
-  const list = statCardsMap[type] || statCardsMap.unit_pendidikan
+  const normalizedType = KEY_ALIASES[type] || type
+  const list = statCardsMap[normalizedType] || statCardsMap.unit_pendidikan
 
   return list.map((card, idx) => (
     <div key={idx} className="p-3 rounded-2xl bg-white dark:bg-[#13221f] border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1">
@@ -485,7 +588,7 @@ ActionButton.propTypes = {
 }
 
 // Sub-component: Render specific table headers and rows according to requested KPI type with AKSI column
-function RenderKpiTable({ type, items, onViewDetail, canAccessDetail }) {
+function RenderKpiTable({ type, items, onViewDetail }) {
   switch (type) {
     case 'unit_pendidikan':
       return (
@@ -643,8 +746,9 @@ function RenderKpiTable({ type, items, onViewDetail, canAccessDetail }) {
           <thead className="bg-slate-100/80 dark:bg-[#1b302c] text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider">
             <tr>
               <th className="px-3.5 py-3 text-center w-12">No</th>
-              <th className="px-4 py-3">Nama Ayah / Wali</th>
-              <th className="px-4 py-3">Nama Ibu</th>
+              <th className="px-4 py-3">Nama Orang Tua / Wali</th>
+              <th className="px-4 py-3">NIK</th>
+              <th className="px-4 py-3">Kontak</th>
               <th className="px-4 py-3">Anak Terdaftar</th>
               <th className="px-4 py-3">Unit Sekolah</th>
               <th className="px-4 py-3 text-center">Aksi</th>
@@ -658,16 +762,17 @@ function RenderKpiTable({ type, items, onViewDetail, canAccessDetail }) {
                 <tr key={row.id || i} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                   <td className="px-3.5 py-3 text-center font-bold text-slate-400">{i + 1}</td>
                   <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
-                    {row.father_name || row.guardian_name || 'Terdaftar'}
+                    {row.full_name || 'Orang Tua / Wali'}
                   </td>
-                  <td className="px-4 py-3 font-medium">{row.mother_name || '-'}</td>
+                  <td className="px-4 py-3 font-mono font-medium">{row.nik || '-'}</td>
+                  <td className="px-4 py-3 font-medium">{row.phone || row.email || '-'}</td>
                   <td className="px-4 py-3 font-medium">
                     {children.length > 0
                       ? children.map((c) => c.full_name).join(', ')
-                      : 'Siswa Aktif'}
+                      : 'Belum terhubung'}
                   </td>
                   <td className="px-4 py-3 font-medium">
-                    {firstChild?.education_unit?.name || 'Dar El-Iman'}
+                    {firstChild?.education_unit?.name || '-'}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <ActionButton rowId={row.id || row.uuid} onViewDetail={onViewDetail} />
@@ -750,6 +855,65 @@ function RenderKpiTable({ type, items, onViewDetail, canAccessDetail }) {
         </table>
       )
 
+    case 'pengguna':
+    case 'pengguna_tanpa_role':
+      return (
+        <table className="w-full text-xs text-left text-slate-700 dark:text-slate-200">
+          <thead className="bg-slate-100/80 dark:bg-[#1b302c] text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider">
+            <tr>
+              <th className="px-3.5 py-3 text-center w-12">No</th>
+              <th className="px-4 py-3">Nama Pengguna</th>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3 text-center">Status</th>
+              <th className="px-4 py-3">Dibuat</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {items.map((row, i) => (
+              <tr key={row.id || i} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                <td className="px-3.5 py-3 text-center font-bold text-slate-400">{i + 1}</td>
+                <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{row.name || '-'}</td>
+                <td className="px-4 py-3">{row.email || '-'}</td>
+                <td className="px-4 py-3">{(row.roles || []).join(', ') || 'Belum Ada Role'}</td>
+                <td className="px-4 py-3 text-center">
+                  <Badge variant={row.is_active ? 'success' : 'secondary'}>{row.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+                </td>
+                <td className="px-4 py-3">{row.created_at ? new Date(row.created_at).toLocaleDateString('id-ID') : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+
+    case 'role':
+      return (
+        <table className="w-full text-xs text-left text-slate-700 dark:text-slate-200">
+          <thead className="bg-slate-100/80 dark:bg-[#1b302c] text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider">
+            <tr>
+              <th className="px-3.5 py-3 text-center w-12">No</th>
+              <th className="px-4 py-3">Nama Role</th>
+              <th className="px-4 py-3">Guard</th>
+              <th className="px-4 py-3 text-center">Jumlah Izin</th>
+              <th className="px-4 py-3 text-center">Jumlah Pengguna</th>
+              <th className="px-4 py-3">Diperbarui</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {items.map((row, i) => (
+              <tr key={row.id || i} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                <td className="px-3.5 py-3 text-center font-bold text-slate-400">{i + 1}</td>
+                <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{row.name || '-'}</td>
+                <td className="px-4 py-3 font-mono">{row.guard_name || 'web'}</td>
+                <td className="px-4 py-3 text-center font-bold">{row.jumlah_izin || 0}</td>
+                <td className="px-4 py-3 text-center font-bold">{row.jumlah_pengguna || 0}</td>
+                <td className="px-4 py-3">{row.updated_at ? new Date(row.updated_at).toLocaleDateString('id-ID') : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+
     default:
       return null
   }
@@ -759,5 +923,4 @@ RenderKpiTable.propTypes = {
   type: PropTypes.string.isRequired,
   items: PropTypes.array.isRequired,
   onViewDetail: PropTypes.func.isRequired,
-  canAccessDetail: PropTypes.bool,
 }

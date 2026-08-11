@@ -10,6 +10,21 @@ document.documentElement.classList.toggle('dark', savedTheme === 'dark')
 document.body.classList.toggle('dark', savedTheme === 'dark')
 document.documentElement.style.colorScheme = savedTheme === 'dark' ? 'dark' : 'light'
 
+if (import.meta.env.PROD) {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    })
+  }
+} else if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => registrations.forEach((registration) => registration.unregister()))
+      .catch(() => {})
+  })
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />

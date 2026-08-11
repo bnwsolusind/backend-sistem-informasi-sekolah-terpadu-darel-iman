@@ -1,5 +1,6 @@
 import React from 'react'
-import { Filter, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
+import { AppButton, AppFilterBar } from '../app'
 
 export default function DashboardFilter({
   units = [],
@@ -15,12 +16,8 @@ export default function DashboardFilter({
   extraFilters
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-[18px] border border-slate-200/80 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <AppFilterBar label="Filter Data" className="justify-between">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <Filter className="w-4 h-4 text-[#0E5C44] dark:text-emerald-400" />
-          <span>Filter Data:</span>
-        </div>
 
         {units.length > 0 && (
           <select
@@ -71,15 +68,17 @@ export default function DashboardFilter({
       </div>
 
       {onReset && (
-        <button
+        <AppButton
           type="button"
+          variant="ghost"
+          size="sm"
+          icon={RefreshCw}
           onClick={onReset}
-          className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-[#0E5C44] dark:text-slate-400 dark:hover:text-emerald-400 transition-colors"
+          className="shrink-0"
         >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Reset Filter</span>
-        </button>
+          Reset Filter
+        </AppButton>
       )}
-    </div>
+    </AppFilterBar>
   )
 }

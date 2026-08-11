@@ -3,24 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { ShieldAlert } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import SuperAdminDashboardPage from './SuperAdminDashboardPage'
-
-const normalizeRole = (role) => String(role).toLowerCase().replace(/[\s_-]+/g, '')
-const hasAnyRole = (roles, allowedRoles) =>
-  allowedRoles.some((allowed) => roles.some((role) => normalizeRole(role) === normalizeRole(allowed)))
-
-const roleDashboardRoutes = [
-  { roles: ['Guru', 'guru', 'Guru Mata Pelajaran', 'Guru PAI', 'Pembimbing'], route: '/portal-guru' },
-  { roles: ['Wali Kelas', 'walas', 'wali_kelas'], route: '/dashboard/wali-kelas' },
-  { roles: ['Guru Tahfizh', 'Musyrif', 'Musyrifah', 'Musyrif / Musyrifah', 'guru_tahfizh'], route: '/dashboard/guru-tahfizh' },
-  { roles: ['Kepala Sekolah', 'kepala_sekolah', 'kepsek'], route: '/dashboard/kepala-sekolah' },
-  { roles: ['Divisi Pendidikan', 'divisi_pendidikan'], route: '/dashboard/divisi-pendidikan' },
-  { roles: ['Waka Kurikulum', 'waka_kurikulum', 'Wakil Kepala Sekolah'], route: '/dashboard/waka-kurikulum' },
-  { roles: ['Waka Kesiswaan', 'waka_kesiswaan'], route: '/dashboard/waka-kesiswaan' },
-  { roles: ['Tata Usaha', 'TU', 'tu', 'tata_usaha'], route: '/dashboard/tata-usaha' },
-  { roles: ['Guru BK', 'guru_bk'], route: '/dashboard/guru-bk' },
-  { roles: ['Operator', 'operator'], route: '/dashboard/operator' },
-  { roles: ['Alumni', 'alumni'], route: '/portal/alumni' },
-]
+import { hasAnyRole, resolveDefaultPortal } from '../auth/portalResolver'
 
 export default function MultiRoleDashboardPage() {
   const user = useAuthStore((state) => state.user)
@@ -49,11 +32,8 @@ export default function MultiRoleDashboardPage() {
     return <Navigate to="/portal-orangtua" replace />
   }
 
-  const resolvedRoute = roleDashboardRoutes.find(({ roles: allowedRoles }) =>
-    roles.some((role) => allowedRoles.some((allowed) => normalizeRole(role) === normalizeRole(allowed))),
-  )?.route
-
-  if (resolvedRoute) {
+  const resolvedRoute = resolveDefaultPortal(user)
+  if (resolvedRoute !== '/dashboard') {
     return <Navigate to={resolvedRoute} replace />
   }
 

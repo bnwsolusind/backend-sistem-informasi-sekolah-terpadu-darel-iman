@@ -29,7 +29,7 @@ import { Skeleton } from './ui/skeleton'
 
 const ENDPOINT_MAP = {
   unit_pendidikan: '/foundation/units',
-  guru: '/foundation/employees',
+  guru: '/foundation/teachers',
   pegawai: '/foundation/employees',
   siswa: '/foundation/students',
   orang_tua: '/foundation/parents',
@@ -372,22 +372,24 @@ function RenderDetailContent({ type, data }) {
         <div className="space-y-5">
           <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-100 dark:bg-rose-950/40 dark:border-rose-900/30 flex items-center gap-3">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-rose-600 text-white font-black text-xl">
-              {(data.father_name || data.guardian_name || 'OT').substring(0, 2).toUpperCase()}
+              {(data.full_name || 'OT').substring(0, 2).toUpperCase()}
             </div>
             <div>
-              <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{data.father_name || data.guardian_name || 'Orang Tua / Wali'}</h4>
+              <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{data.full_name || 'Orang Tua / Wali'}</h4>
               <p className="text-xs font-semibold text-rose-700 dark:text-rose-400">Orang Tua Terdaftar</p>
               <Badge variant="purple" className="mt-1">{childrenList.length} Anak Terhubung</Badge>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 dark:bg-slate-900/40 dark:border-slate-800">
-            <Field label="Nama Ayah / Wali" value={data.father_name || data.guardian_name} />
-            <Field label="Nama Ibu" value={data.mother_name} />
-            <Field label="Pekerjaan Ayah" value={data.father_occupation || 'Swasta'} />
-            <Field label="Pekerjaan Ibu" value={data.mother_occupation || 'Ibu Rumah Tangga'} />
-            <Field label="Nomor Telepon / WA" value={data.phone || '0812-3456-7890'} icon={Phone} />
+            <Field label="Nama Orang Tua / Wali" value={data.full_name} />
+            <Field label="NIK Utama" value={data.nik} />
+            <Field label="NIK Ayah" value={data.father_nik} />
+            <Field label="NIK Ibu" value={data.mother_nik} />
+            <Field label="Pekerjaan" value={data.occupation} />
+            <Field label="Nomor Telepon / WA" value={data.phone} icon={Phone} />
             <Field label="Email" value={data.email} icon={Mail} />
+            <Field label="Alamat" value={data.address} icon={MapPin} />
           </div>
 
           <div className="space-y-3">

@@ -103,7 +103,7 @@ export default function WaliKelasDashboardPage() {
     {
       label: 'Rekap Tahfizh',
       icon: BookOpen,
-      onClick: () => window.location.href = '/dashboard/tahfizh',
+       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
       permissions: ['tahfizh.monitoring_target']
     }
   ]

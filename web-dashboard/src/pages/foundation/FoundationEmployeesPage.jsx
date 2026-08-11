@@ -1,56 +1,45 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import {
-  Users,
-  Search,
-  Eye,
-  ShieldAlert,
-  RefreshCw,
-  AlertCircle,
-  UserCheck,
-  Building2,
-  TrendingUp,
-} from 'lucide-react'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BadgeCheck, FileSpreadsheet, RefreshCcw, ShieldAlert, Users, UserCheck, UsersRound } from 'lucide-react'
 import api from '../../services/api'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Skeleton } from '../../components/ui/skeleton'
-import { EmptyState } from '../../components/ui/empty-state'
+import {
+  MasterActionButton,
+  MasterActionIconButton,
+  MasterBadge,
+  MasterDataPage,
+  MasterDataTable,
+  MasterEmptyState,
+  MasterErrorState,
+  MasterFilterBar,
+  MasterFilterSelect,
+  MasterPageHeader,
+  MasterPagination,
+  MasterSearchInput,
+  MasterStatCard,
+  MasterStatsGrid,
+  MasterStatusBadge,
+} from '../../components/master-data'
+import { PersonIdentityCell } from '../../components/ui/PersonIdentityCell'
 import KpiDetailDrawer from '../../components/KpiDetailDrawer'
-
-const CHART_COLORS = ['#0E5C44', '#1E8E5A', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#F59E0B']
+import { FoundationExportModal } from '../../components/foundation/FoundationExportModal'
 
 export function FoundationEmployeesPage() {
   const [employees, setEmployees] = useState([])
   const [units, setUnits] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [isFetching, setIsFetching] = useState(false)
 
-  // Filters & Tabs
-  const [activeTab, setActiveTab] = useState('all') // 'all' | 'guru' | 'pegawai'
+  const [jenis, setJenis] = useState('all') // 'all' | 'guru' | 'pegawai'
   const [search, setSearch] = useState('')
   const [selectedUnit, setSelectedUnit] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [page, setPage] = useState(1)
   const perPage = 15
 
-  // Selected Detail Modal
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
   const [selectedDetailType, setSelectedDetailType] = useState('pegawai')
+  const [showExport, setShowExport] = useState(false)
 
-  // Fetch Units
   useEffect(() => {
     api.get('/foundation/units')
       .then((res) => {
@@ -60,9 +49,9 @@ export function FoundationEmployeesPage() {
       .catch(() => {})
   }, [])
 
-  // Fetch Employees from DB API
-  const fetchEmployees = useCallback(async () => {
-    setLoading(true)
+  const fetchEmployees = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    else setIsFetching(true)
     setError(false)
     try {
       const params = {
@@ -71,7 +60,6 @@ export function FoundationEmployeesPage() {
         status: selectedStatus !== 'all' ? selectedStatus : undefined,
         per_page: 100,
       }
-
       const res = await api.get('/foundation/employees', { params })
       const resData = res.data
       let list = []
@@ -86,6 +74,7 @@ export function FoundationEmployeesPage() {
       setError(true)
     } finally {
       setLoading(false)
+      setIsFetching(false)
     }
   }, [search, selectedUnit, selectedStatus])
 
@@ -93,330 +82,212 @@ export function FoundationEmployeesPage() {
     fetchEmployees()
   }, [fetchEmployees])
 
-  // Tab Filtering & Search Filtering
-  const filteredEmployees = employees.filter((emp) => {
+  const isGuru = (emp) => {
+    const j = (emp.position?.nama_jabatan || emp.jabatan || '').toLowerCase()
+    return j.includes('guru') || j.includes('pendidik')
+  }
+
+  const filteredEmployees = useMemo(() => employees.filter((emp) => {
     const name = (emp.nama_lengkap || emp.nama || '').toString().toLowerCase()
     const niy = (emp.niy || emp.nik || '').toString().toLowerCase()
     const unitName = (emp.unit?.name || emp.unit?.code || '').toString().toLowerCase()
-    const jabatan = (emp.position?.nama_jabatan || emp.jabatan || '').toString().toLowerCase()
 
-    const isGuru = jabatan.includes('guru') || jabatan.includes('pendidik')
-
-    const matchesTab =
-      activeTab === 'all' ||
-      (activeTab === 'guru' && isGuru) ||
-      (activeTab === 'pegawai' && !isGuru)
-
+    const matchesJenis = jenis === 'all' || (jenis === 'guru' ? isGuru(emp) : !isGuru(emp))
     const matchesSearch = name.includes(search.toLowerCase()) || niy.includes(search.toLowerCase())
     const matchesUnit = selectedUnit === 'all' || emp.unit_id === selectedUnit || unitName.includes(selectedUnit.toLowerCase())
+    const matchesStatus = selectedStatus === 'all' || emp.status === selectedStatus
 
-    return matchesTab && matchesSearch && matchesUnit
-  })
+    return matchesJenis && matchesSearch && matchesUnit && matchesStatus
+  }), [employees, jenis, search, selectedUnit, selectedStatus])
 
-  // Pagination Slice
   const totalItems = filteredEmployees.length
-  const totalPages = Math.ceil(totalItems / perPage) || 1
+  const lastPage = Math.max(1, Math.ceil(totalItems / perPage))
   const paginatedEmployees = filteredEmployees.slice((page - 1) * perPage, page * perPage)
 
-  // KPI Calculations
+  const totalGuru = employees.filter((e) => isGuru(e)).length
   const totalSDM = employees.length
-  const totalGuru = employees.filter((e) => {
-    const j = (e.position?.nama_jabatan || e.jabatan || '').toLowerCase()
-    return j.includes('guru') || j.includes('pendidik')
-  }).length
   const totalTendik = Math.max(0, totalSDM - totalGuru)
-  const guruAktif = employees.filter((e) => {
-    const j = (e.position?.nama_jabatan || e.jabatan || '').toLowerCase()
-    return (j.includes('guru') || j.includes('pendidik')) && (e.status === 'aktif' || !e.status)
-  }).length
-  const pegawaiAktif = employees.filter((e) => e.status === 'aktif' || !e.status).length
   const guruTetap = employees.filter((e) => (e.status_pegawai || '').toLowerCase().includes('tetap')).length
 
-  // Chart Data
-  const unitDistribution = Object.values(
-    employees.reduce((acc, emp) => {
-      const uName = emp.unit?.code || emp.unit?.name || 'Lainnya'
-      if (!acc[uName]) acc[uName] = { name: uName, guru: 0, tendik: 0 }
-      const j = (emp.position?.nama_jabatan || emp.jabatan || '').toLowerCase()
-      if (j.includes('guru') || j.includes('pendidik')) {
-        acc[uName].guru += 1
-      } else {
-        acc[uName].tendik += 1
-      }
-      return acc
-    }, {})
-  )
-
   const handleOpenDetail = (emp) => {
-    const j = (emp.position?.nama_jabatan || emp.jabatan || '').toLowerCase()
-    const type = j.includes('guru') ? 'guru' : 'pegawai'
-    setSelectedDetailType(type)
+    setSelectedDetailType(isGuru(emp) ? 'guru' : 'pegawai')
     setSelectedEmployeeId(emp.id)
   }
 
+  const handleRefresh = () => {
+    setPage(1)
+    fetchEmployees(Boolean(employees.length))
+  }
+
+  const exportRows = paginatedEmployees.map((emp, idx) => ({
+    No: (page - 1) * perPage + idx + 1,
+    'NIY / NIK': emp.niy || emp.nik || '-',
+    Nama: emp.nama_lengkap || emp.nama || '-',
+    Jenis: isGuru(emp) ? 'Guru' : 'Pegawai',
+    'Unit Kerja': emp.unit?.name || emp.unit?.code || '-',
+    Jabatan: emp.position?.nama_jabatan || emp.jabatan || 'Staf',
+    'Status Pegawai': emp.status_pegawai || 'Tetap',
+    Status: emp.status || 'Aktif',
+  }))
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* 1. HEADER BANNER */}
-      <div className="flex flex-col justify-between gap-4 rounded-2xl bg-white p-6 shadow-xs border border-slate-200/80 dark:border-slate-800 dark:bg-[#1B2433] md:flex-row md:items-center">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span>Mode Monitoring • Akses Read-Only Pengurus Yayasan</span>
-          </div>
-          <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white">Pegawai & Guru Seluruh Unit</h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Pantau seluruh tenaga pendidik dan tenaga kependidikan pada semua Unit Pendidikan secara terpusat.
-          </p>
-        </div>
+    <MasterDataPage hideBreadcrumb className="foundation-employees-page">
+      <MasterPageHeader
+        title="Pegawai & Guru Seluruh Unit"
+        description="Pantau seluruh tenaga pendidik dan tenaga kependidikan pada semua Unit Pendidikan secara terpusat."
+        tone="brand"
+        icon={UsersRound}
+        actions={(
+          <>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <ShieldAlert className="h-3 w-3" />
+              Mode Monitoring • Akses Read-Only
+            </span>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={() => setShowExport(true)}>
+              Export Data
+            </MasterActionButton>
+          </>
+        )}
+      />
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchEmployees}
-            disabled={loading}
-            className="gap-2 rounded-xl border-slate-200 font-bold dark:border-slate-700"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Data</span>
-          </Button>
-        </div>
-      </div>
+      <MasterStatsGrid>
+        <MasterStatCard icon={Users} label="Total SDM" value={totalSDM} description="Seluruh pegawai & guru" variant="success" delay={40} />
+        <MasterStatCard icon={UserCheck} label="Total Guru" value={totalGuru} description="Pendidik pengajar" variant="info" delay={80} />
+        <MasterStatCard icon={UsersRound} label="Total Pegawai" value={totalTendik} description="Tenaga kependidikan" variant="warning" delay={120} />
+        <MasterStatCard icon={BadgeCheck} label="Guru Tetap" value={guruTetap} description="Status kepegawaian tetap" variant="neutral" delay={160} />
+      </MasterStatsGrid>
 
-      {/* 2. KPI CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KpiCard label="Total SDM" value={totalSDM} icon={Users} color="text-emerald-600" />
-        <KpiCard label="Total Guru" value={totalGuru} icon={UserCheck} color="text-blue-600" />
-        <KpiCard label="Total Pegawai" value={totalTendik} icon={Users} color="text-purple-600" />
-        <KpiCard label="Guru Aktif" value={guruAktif} icon={UserCheck} color="text-indigo-600" />
-        <KpiCard label="Pegawai Aktif" value={pegawaiAktif} icon={Users} color="text-amber-600" />
-        <KpiCard label="Guru Tetap" value={guruTetap} icon={UserCheck} color="text-teal-600" />
-      </div>
-
-      {/* 3. RECHARTS VISUAL SUMMARY */}
-      {!loading && !error && employees.length > 0 && (
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 dark:bg-[#1B2433] dark:border-slate-800 shadow-xs space-y-3">
-          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
-            <span>Distribusi Pendidik (Guru) & Tendik Per Unit</span>
-          </h3>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={unitDistribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="guru" name="Guru / Pendidik" fill="#0E5C44" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="tendik" name="Pegawai / Tendik" fill="#3B82F6" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {/* 4. TABS & SEARCH & FILTERS */}
-      <div className="space-y-4">
-        {/* Tab Selection */}
-        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-          <button
-            onClick={() => { setActiveTab('all'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'all' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Semua SDM ({totalSDM})
-          </button>
-          <button
-            onClick={() => { setActiveTab('guru'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'guru' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Guru & Pendidik ({totalGuru})
-          </button>
-          <button
-            onClick={() => { setActiveTab('pegawai'); setPage(1); }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition ${activeTab === 'pegawai' ? 'bg-[#0E5C44] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'}`}
-          >
-            Pegawai & Tendik ({totalTendik})
-          </button>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200/80 dark:bg-[#1B2433] dark:border-slate-800 shadow-xs">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Cari nama, NIY, NIK, atau jabatan..."
-              className="w-full pl-10 pr-4 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            {units.length > 0 && (
-              <select
-                value={selectedUnit}
-                onChange={(e) => { setSelectedUnit(e.target.value); setPage(1); }}
-                className="px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
-              >
-                <option value="all">Semua Unit Pendidikan</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name || u.code}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <select
-              value={selectedStatus}
-              onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }}
-              className="px-3 py-2 text-xs font-medium bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-100"
-            >
+      <MasterFilterBar
+        search={<MasterSearchInput placeholder="Cari nama, NIY, NIK, atau jabatan..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />}
+        filters={
+          <>
+            <MasterFilterSelect value={jenis} onChange={(e) => { setJenis(e.target.value); setPage(1) }} aria-label="Filter jenis SDM">
+              <option value="all">Semua SDM</option>
+              <option value="guru">Guru & Pendidik</option>
+              <option value="pegawai">Pegawai & Tendik</option>
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedUnit} onChange={(e) => { setSelectedUnit(e.target.value); setPage(1) }} aria-label="Filter unit kerja">
+              <option value="all">Semua Unit</option>
+              {units.map((u) => <option key={u.id} value={u.id}>{u.name || u.code}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedStatus} onChange={(e) => { setSelectedStatus(e.target.value); setPage(1) }} aria-label="Filter status">
               <option value="all">Semua Status</option>
               <option value="aktif">Aktif</option>
               <option value="nonaktif">Nonaktif</option>
-            </select>
-          </div>
-        </div>
-      </div>
+            </MasterFilterSelect>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              aria-label="Muat ulang data"
+              title="Muat ulang"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-[var(--master-control-radius,14px)] border border-slate-200 text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-emerald-950/40"
+            >
+              <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
-      {/* 5. CONTENT TABLE VIEW */}
-      {loading ? (
-        <div className="space-y-3 p-4 bg-white dark:bg-[#1B2433] rounded-2xl border border-slate-200/80 dark:border-slate-800">
-          <Skeleton className="h-10 w-full rounded-xl" />
-          {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-xl" />
-          ))}
+      <MasterDataTable className="foundation-table">
+        <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Daftar Pegawai & Guru</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data SDM sesuai filter dan kewenangan pengguna.</p>
+          </div>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{totalItems} SDM</span>
         </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center p-8 text-center rounded-2xl border border-rose-200 bg-rose-50/50 dark:border-rose-900/30 dark:bg-rose-950/20">
-          <AlertCircle className="h-10 w-10 text-rose-500 mb-2" />
-          <h4 className="text-sm font-bold text-slate-800 dark:text-white">Data SDM Tidak Dapat Dimuat</h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
-            Terjadi masalah saat mengambil data dari database server. Silakan coba kembali.
-          </p>
-          <Button variant="primary" size="sm" onClick={fetchEmployees} className="mt-4 gap-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl">
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span>Coba Lagi</span>
-          </Button>
-        </div>
-      ) : filteredEmployees.length === 0 ? (
-        <EmptyState
-          title="Tidak Ada Data SDM"
-          description="Tidak ditemukan pegawai atau guru yang sesuai dengan kriteria pencarian dan filter Anda."
-        />
-      ) : (
-        <div className="space-y-4">
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#1B2433] shadow-xs">
-            <table className="w-full text-xs text-left text-slate-700 dark:text-slate-200">
-              <thead className="bg-slate-100/80 dark:bg-[#1b302c] text-slate-600 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider">
+        <div className="overflow-x-auto">
+          {error ? (
+            <div className="p-5"><MasterErrorState title="Data SDM gagal dimuat" description="Periksa koneksi kemudian coba muat ulang." onRetry={handleRefresh} /></div>
+          ) : (
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
                 <tr>
-                  <th className="px-3.5 py-3 text-center w-12">No</th>
-                  <th className="px-4 py-3">NIY / NIK</th>
-                  <th className="px-4 py-3">Nama SDM</th>
-                  <th className="px-4 py-3">Jenis</th>
-                  <th className="px-4 py-3">Unit Kerja</th>
-                  <th className="px-4 py-3">Jabatan</th>
-                  <th className="px-4 py-3">Status Pegawai</th>
-                  <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-center">Aksi</th>
+                  <th className="w-[5%] px-2 py-3 text-center">No</th>
+                  <th className="w-[22%] px-3 py-3 font-bold">Nama SDM</th>
+                  <th className="hidden w-[9%] px-3 py-3 font-bold md:table-cell">Jenis</th>
+                  <th className="hidden w-[18%] px-3 py-3 font-bold lg:table-cell">Unit Kerja</th>
+                  <th className="hidden w-[18%] px-3 py-3 font-bold xl:table-cell">Jabatan</th>
+                  <th className="hidden w-[12%] px-3 py-3 font-bold lg:table-cell">Status Pegawai</th>
+                  <th className="hidden w-[9%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
+                  <th className="w-[7%] px-2 py-3 text-center font-bold">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {paginatedEmployees.map((emp, idx) => {
-                  const j = (emp.position?.nama_jabatan || emp.jabatan || '').toLowerCase()
-                  const isGuru = j.includes('guru') || j.includes('pendidik')
-                  return (
-                    <tr key={emp.id || idx} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition">
-                      <td className="px-3.5 py-3 text-center font-bold text-slate-400">{(page - 1) * perPage + idx + 1}</td>
-                      <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">{emp.niy || emp.nik || '-'}</td>
-                      <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">{emp.nama_lengkap || emp.nama}</td>
-                      <td className="px-4 py-3 font-medium">
-                        <Badge variant={isGuru ? 'success' : 'purple'}>
-                          {isGuru ? 'Guru' : 'Pegawai'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 font-medium">{emp.unit?.name || emp.unit?.code || '-'}</td>
-                      <td className="px-4 py-3 font-medium">{emp.position?.nama_jabatan || emp.jabatan || 'Staf'}</td>
-                      <td className="px-4 py-3 font-medium">{emp.status_pegawai || 'Tetap'}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant={emp.status === 'aktif' || !emp.status ? 'success' : 'secondary'}>
-                          {emp.status || 'Aktif'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenDetail(emp)}
-                          className="gap-1.5 rounded-xl border-emerald-600/60 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-400 font-bold px-2.5 py-1 text-xs"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Lihat Detail</span>
-                        </Button>
-                      </td>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, index) => (
+                    <tr key={index} className="animate-pulse">
+                      <td colSpan={8} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
                     </tr>
-                  )
-                })}
+                  ))
+                ) : paginatedEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-5"><MasterEmptyState title="Belum ada data SDM" description="Ubah filter pencarian untuk menampilkan pegawai atau guru lain." /></td>
+                  </tr>
+                ) : (
+                  paginatedEmployees.map((emp, idx) => {
+                    const guru = isGuru(emp)
+                    return (
+                      <tr key={emp.id || idx} className="transition-colors hover:bg-emerald-50/40">
+                        <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">{(page - 1) * perPage + idx + 1}</td>
+                        <td className="px-3 py-3">
+                          <PersonIdentityCell
+                            src={emp.foto || emp.photo}
+                            name={emp.nama_lengkap || emp.nama}
+                            subtitle={`${emp.niy || emp.nik || 'NIY tidak tersedia'}`}
+                          />
+                        </td>
+                        <td className="hidden px-3 py-3 md:table-cell">
+                          <MasterBadge variant={guru ? 'success' : 'info'}>{guru ? 'Guru' : 'Pegawai'}</MasterBadge>
+                        </td>
+                        <td className="hidden px-3 py-3 lg:table-cell">
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{emp.unit?.name || emp.unit?.code || '-'}</span>
+                        </td>
+                        <td className="hidden px-3 py-3 xl:table-cell">
+                          <span className="text-xs text-slate-600 dark:text-slate-300">{emp.position?.nama_jabatan || emp.jabatan || 'Staf'}</span>
+                        </td>
+                        <td className="hidden px-3 py-3 lg:table-cell">
+                          <MasterBadge variant="neutral">{emp.status_pegawai || 'Tetap'}</MasterBadge>
+                        </td>
+                        <td className="hidden px-2 py-3 text-center sm:table-cell">
+                          <MasterStatusBadge active={emp.status === 'aktif' || !emp.status} activeLabel="Aktif" inactiveLabel="Nonaktif" />
+                        </td>
+                        <td className="px-2 py-3 text-center">
+                          <MasterActionIconButton variant="view" onClick={() => handleOpenDetail(emp)} label={`Lihat detail ${emp.nama_lengkap || emp.nama}`} />
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
-          </div>
-
-          {/* Pagination Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium px-2">
-            <span>
-              Menampilkan <span className="font-bold text-slate-800 dark:text-white">{Math.min((page - 1) * perPage + 1, totalItems)}</span> - <span className="font-bold text-slate-800 dark:text-white">{Math.min(page * perPage, totalItems)}</span> dari <span className="font-bold text-slate-800 dark:text-white">{totalItems}</span> SDM.
-            </span>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-xl border-slate-200 dark:border-slate-700 font-bold"
-              >
-                Sebelumnya
-              </Button>
-              <span className="font-bold text-slate-800 dark:text-white px-2">
-                Halaman {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-xl border-slate-200 dark:border-slate-700 font-bold"
-              >
-                Selanjutnya
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
+      </MasterDataTable>
+
+      {totalItems > 0 && (
+        <MasterPagination
+          meta={{ total: totalItems, from: totalItems ? (page - 1) * perPage + 1 : 0, to: Math.min(page * perPage, totalItems), last_page: lastPage, current_page: page }}
+          page={page}
+          onPageChange={setPage}
+          label="pegawai"
+        />
       )}
 
-      {/* READ-ONLY DETAIL MODAL / DRAWER */}
       <KpiDetailDrawer
         type={selectedDetailType}
         id={selectedEmployeeId}
         isOpen={Boolean(selectedEmployeeId)}
         onClose={() => setSelectedEmployeeId(null)}
       />
-    </div>
-  )
-}
 
-function KpiCard({ label, value, icon: IconComponent, color }) {
-  return (
-    <div className="p-3.5 rounded-2xl bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-1">
-      <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
-        <span>{label}</span>
-        {IconComponent && <IconComponent className={`h-3.5 w-3.5 ${color}`} />}
-      </div>
-      <div className={`text-lg sm:text-xl font-black ${color} dark:text-white`}>
-        {Number(value || 0).toLocaleString('id-ID')}
-      </div>
-    </div>
+      <FoundationExportModal
+        isOpen={showExport}
+        onClose={() => setShowExport(false)}
+        title="Pegawai & Guru Seluruh Yayasan"
+        rows={exportRows}
+        filename="Pegawai_Guru_Yayasan"
+      />
+    </MasterDataPage>
   )
 }
