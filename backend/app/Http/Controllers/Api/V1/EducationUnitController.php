@@ -7,13 +7,20 @@ use App\Http\Requests\V1\IndexRequest;
 use App\Http\Requests\V1\StoreEducationUnitRequest;
 use App\Http\Requests\V1\UpdateEducationUnitRequest;
 use App\Models\EducationUnit;
+use App\Models\Employee;
 use App\Models\JenisUnitPendidikan;
+use App\Models\Student;
+use App\Services\AccessScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class EducationUnitController extends Controller
 {
+    public function __construct(
+        private readonly AccessScopeService $accessScope,
+    ) {}
+
     public function index(IndexRequest $request): JsonResponse
     {
         $search = (string) $request->validated('search', '');
@@ -24,7 +31,14 @@ class EducationUnitController extends Controller
         $status = $request->query('status');
         $likeOp = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
 
-        $data = EducationUnit::query()
+        $scopedUnits = $this->accessScope->accessibleEducationUnits($request->user());
+        $unitIds = (clone $scopedUnits)->pluck('education_units.id');
+
+        $data = (clone $scopedUnits)
+            ->withCount([
+                'students as total_siswa',
+                'employees as total_guru' => fn ($query) => $this->teacherQuery($query),
+            ])
             ->when($search !== '', function ($query) use ($search, $likeOp) {
                 $query->where(function ($subQuery) use ($search, $likeOp) {
                     $subQuery
@@ -57,7 +71,47 @@ class EducationUnitController extends Controller
             ->orderBy('name')
             ->paginate($perPage);
 
-        return response()->json($data);
+        $employees = Employee::query()->whereIn('unit_id', $unitIds);
+        $this->teacherQuery($employees);
+
+        $metadataOptions = (clone $scopedUnits)
+            ->get(['level', 'metadata'])
+            ->reduce(function (array $options, EducationUnit $unit) {
+                if ($unit->level) {
+                    $options['levels'][] = $unit->level;
+                }
+                if ($unit->metadata['city'] ?? null) {
+                    $options['cities'][] = $unit->metadata['city'];
+                }
+                if ($unit->metadata['province'] ?? null) {
+                    $options['provinces'][] = $unit->metadata['province'];
+                }
+
+                return $options;
+            }, [
+                'levels' => JenisUnitPendidikan::query()
+                    ->where('status', true)
+                    ->pluck('singkatan')
+                    ->filter()
+                    ->values()
+                    ->all(),
+                'cities' => [],
+                'provinces' => [],
+            ]);
+
+        foreach ($metadataOptions as $key => $values) {
+            $metadataOptions[$key] = collect($values)->unique()->sort()->values()->all();
+        }
+
+        return response()->json(array_merge($data->toArray(), [
+            'statistics' => [
+                'total_unit' => $unitIds->count(),
+                'total_siswa' => Student::query()->whereIn('unit_id', $unitIds)->count(),
+                'total_tenaga_pendidik' => $employees->count(),
+                'total_unit_aktif' => (clone $scopedUnits)->where('is_active', true)->count(),
+            ],
+            'filter_options' => $metadataOptions,
+        ]));
     }
 
     public function store(StoreEducationUnitRequest $request): JsonResponse
@@ -139,5 +193,27 @@ class EducationUnitController extends Controller
         }
 
         return $payload;
+    }
+
+    /**
+     * Identifikasi guru kanonis: bridge Teacher, penugasan mengajar, atau jabatan
+     * pendidik yang sudah direkonsiliasi. Tidak memakai status_pegawai sebagai tebakan.
+     */
+    private function teacherQuery($query)
+    {
+        return $query->where(function ($teacher) {
+            $teacher
+                ->whereHas('teacherBridge')
+                ->orWhereHas('teachings', fn ($teaching) => $teaching->where('aktif', true))
+                ->orWhereHas('position', function ($position) {
+                    $position
+                        ->whereIn('level_jabatan', [9, 10, 11])
+                        ->orWhere(function ($name) {
+                            $likeOp = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                            $name->where('name', $likeOp, '%guru%')
+                                ->orWhere('name', $likeOp, '%pendidik%');
+                        });
+                });
+        });
     }
 }
