@@ -67,7 +67,7 @@ class AlumniPortalController extends Controller
         ];
 
         $announcements = PengumumanSekolah::query()
-            ->where('is_active', true)
+            ->where('status_aktif', true)
             ->orderByDesc('created_at')
             ->limit(5)
             ->get();
