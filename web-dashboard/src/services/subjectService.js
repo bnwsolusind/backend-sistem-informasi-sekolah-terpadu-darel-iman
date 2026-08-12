@@ -52,13 +52,11 @@ export const subjectService = {
   },
 
   exportExcel: async (params = {}) => {
-    const response = await api.get('/master/subjects/export/excel', { params })
-    return response.data
+    return api.get('/master/subjects/export/excel', { params, responseType: 'blob' })
   },
 
   exportPdf: async (params = {}) => {
-    const response = await api.get('/master/subjects/export/pdf', { params })
-    return response.data
+    return api.get('/master/subjects/export/pdf', { params, responseType: 'blob' })
   },
 
   importFile: async (formData) => {

@@ -4,10 +4,8 @@ import Swal from 'sweetalert2'
 import {
   BookOpen,
   Plus,
-  Search,
   FileSpreadsheet,
   Upload,
-  Filter,
   CheckCircle,
   XCircle,
 } from 'lucide-react'
@@ -17,14 +15,13 @@ import KurikulumFormModal from '../components/kurikulum/KurikulumFormModal'
 import KurikulumDetailModal from '../components/kurikulum/KurikulumDetailModal'
 import KurikulumImportModal from '../components/kurikulum/KurikulumImportModal'
 import {
+  MasterActionButton,
+  MasterDataSection,
   MasterDataPage,
   MasterPageHeader,
   MasterStatsGrid,
   MasterStatCard,
-  MasterFilterBar,
-  MasterSearchInput,
   MasterFilterSelect,
-  MasterPagination,
 } from '../components/master-data'
 
 const JENIS_LIST = ['SIT', 'Merdeka', 'Nasional', 'Pesantren', 'Lokal', 'Lainnya']
@@ -40,7 +37,7 @@ export default function MasterKurikulumPage() {
   const [selectedJenjangFilter, setSelectedJenjangFilter] = useState('')
   const [denganSampahFilter, setDenganSampahFilter] = useState('')
   const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(15)
+  const perPage = 15
 
   // Modal States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
@@ -56,6 +53,8 @@ export default function MasterKurikulumPage() {
     data: responseData = {},
     isLoading,
     isFetching,
+    isError,
+    refetch,
   } = useQuery({
     queryKey: [
       'master-kurikulum-list',
@@ -84,6 +83,7 @@ export default function MasterKurikulumPage() {
   const listData = responseData?.data || []
   const meta = responseData?.meta || {}
   const stats = responseData?.statistik || {}
+  const statsValue = (value) => (isError ? '—' : value)
 
   // Mutations
   const simpanMutation = useMutation({
@@ -223,6 +223,15 @@ export default function MasterKurikulumPage() {
     }
   }
 
+  const handleResetFilters = () => {
+    setSearch('')
+    setSelectedStatusFilter('')
+    setSelectedJenisFilter('')
+    setSelectedJenjangFilter('')
+    setDenganSampahFilter('')
+    setPage(1)
+  }
+
   const handleExportExcel = async () => {
     try {
       Swal.fire({
@@ -301,86 +310,76 @@ export default function MasterKurikulumPage() {
         timer: 2000,
         showConfirmButton: false,
       })
-    } catch (err) {
+    } catch {
       Swal.fire('Error', 'Gagal mengunduh data ekspor.', 'error')
     }
   }
 
   return (
     <MasterDataPage className="education-unit-page" hideBreadcrumb>
-      {/* Header Banner */}
       <MasterPageHeader
-        tone="brand"
         icon={BookOpen}
         title="Master Data Kurikulum"
         description="Kelola seluruh kurikulum pendidikan yang digunakan oleh setiap Unit Pendidikan Sekolah Islam Terpadu."
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-700" /> Export CSV/Excel
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <Upload className="h-4 w-4 text-emerald-700" /> Import Data
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenFormTambah}
-              className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-emerald-800 px-5 text-xs font-semibold text-white shadow-lg shadow-emerald-800/20 transition hover:bg-emerald-900"
-            >
-              <Plus className="h-4 w-4" /> Tambah Kurikulum
-            </button>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>
+              Export CSV
+            </MasterActionButton>
+            <MasterActionButton variant="import" icon={Upload} onClick={() => setIsImportModalOpen(true)}>
+              Import Data
+            </MasterActionButton>
+            <MasterActionButton icon={Plus} onClick={handleOpenFormTambah}>
+              Tambah Kurikulum
+            </MasterActionButton>
           </>
         }
       />
 
-      {/* KPI Cards */}
       <MasterStatsGrid className="education-unit-kpis">
         <MasterStatCard
           icon={BookOpen}
           label="TOTAL KURIKULUM"
-          value={stats.total ?? 0}
+          value={statsValue(stats.total ?? 0)}
           description="Terdaftar di sistem"
           variant="success"
+          loading={isLoading}
         />
         <MasterStatCard
           icon={CheckCircle}
           label="KURIKULUM AKTIF"
-          value={stats.aktif ?? 0}
+          value={statsValue(stats.aktif ?? 0)}
           description="Sedang diberlakukan"
           variant="info"
+          loading={isLoading}
         />
         <MasterStatCard
           icon={XCircle}
           label="KURIKULUM NONAKTIF"
-          value={stats.tidak_aktif ?? 0}
+          value={statsValue(stats.tidak_aktif ?? 0)}
           description="Arsip / Tidak aktif"
           variant="warning"
+          loading={isLoading}
         />
       </MasterStatsGrid>
 
-      {/* Search & Filter Bar */}
-      <MasterFilterBar
-        search={
-          <MasterSearchInput
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            placeholder="Cari Kode Kurikulum, Nama Kurikulum, atau Deskripsi..."
-          />
-        }
+      <MasterDataSection
+        title="Data Kurikulum"
+        description="Daftar kurikulum sesuai pencarian dan filter yang dipilih."
+        countLabel={`${Number(meta.total ?? listData.length).toLocaleString('id-ID')} kurikulum`}
+        search={{
+          value: search,
+          onChange: (event) => {
+            setSearch(event.target.value)
+            setPage(1)
+          },
+          placeholder: 'Cari kode, nama, atau deskripsi kurikulum...',
+          'aria-label': 'Cari kurikulum',
+        }}
         filters={
           <>
             <MasterFilterSelect
+              aria-label="Filter jenis kurikulum"
               value={selectedJenisFilter}
               onChange={(e) => {
                 setSelectedJenisFilter(e.target.value)
@@ -394,6 +393,7 @@ export default function MasterKurikulumPage() {
             </MasterFilterSelect>
 
             <MasterFilterSelect
+              aria-label="Filter jenjang kurikulum"
               value={selectedJenjangFilter}
               onChange={(e) => {
                 setSelectedJenjangFilter(e.target.value)
@@ -407,6 +407,7 @@ export default function MasterKurikulumPage() {
             </MasterFilterSelect>
 
             <MasterFilterSelect
+              aria-label="Filter status kurikulum"
               value={selectedStatusFilter}
               onChange={(e) => {
                 setSelectedStatusFilter(e.target.value)
@@ -419,6 +420,7 @@ export default function MasterKurikulumPage() {
             </MasterFilterSelect>
 
             <MasterFilterSelect
+              aria-label="Filter data terhapus"
               value={denganSampahFilter}
               onChange={(e) => {
                 setDenganSampahFilter(e.target.value)
@@ -430,35 +432,45 @@ export default function MasterKurikulumPage() {
             </MasterFilterSelect>
           </>
         }
-      />
-
-      {/* Table Data */}
-      <KurikulumTable
-        data={listData}
+        onReset={handleResetFilters}
+        resetDisabled={
+          !search &&
+          !selectedStatusFilter &&
+          !selectedJenisFilter &&
+          !selectedJenjangFilter &&
+          !denganSampahFilter
+        }
         isLoading={isLoading || isFetching}
-        page={page}
-        perPage={perPage}
-        onDetail={handleOpenDetail}
-        onEdit={handleOpenFormEdit}
-        onDelete={handleConfirmDelete}
-        onRestore={handleConfirmRestore}
-      />
-
-      {/* Pagination Footer */}
-      <MasterPagination
-        meta={{
-          total: meta.total || listData.length,
-          from: meta.from || 1,
-          to: meta.to || listData.length,
-          last_page: meta.last_page || 1,
-          current_page: meta.current_page || page,
+        isError={isError}
+        errorTitle="Data kurikulum gagal dimuat"
+        onRetry={refetch}
+        isEmpty={!isLoading && !isFetching && !isError && listData.length === 0}
+        emptyTitle="Kurikulum tidak ditemukan"
+        emptyDescription="Coba sesuaikan kata kunci pencarian atau filter yang diterapkan."
+        pagination={{
+          meta: {
+            total: meta.total ?? listData.length,
+            from: meta.from ?? (listData.length ? (page - 1) * perPage + 1 : 0),
+            to: meta.to ?? ((page - 1) * perPage + listData.length),
+            last_page: meta.last_page ?? 1,
+            current_page: meta.current_page ?? page,
+            per_page: meta.per_page ?? perPage,
+          },
+          page,
+          onPageChange: setPage,
         }}
-        page={page}
-        onPageChange={(newPage) => setPage(newPage)}
-        label="kurikulum"
-      />
+      >
+        <KurikulumTable
+          data={listData}
+          page={page}
+          perPage={perPage}
+          onDetail={handleOpenDetail}
+          onEdit={handleOpenFormEdit}
+          onDelete={handleConfirmDelete}
+          onRestore={handleConfirmRestore}
+        />
+      </MasterDataSection>
 
-      {/* Modals */}
       <KurikulumFormModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}

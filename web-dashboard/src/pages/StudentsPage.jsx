@@ -25,13 +25,19 @@ import {
 import Swal from 'sweetalert2'
 import CetakKartuSiswaModal from '../components/siswa/CetakKartuSiswaModal'
 import StudentFormModal from '../components/siswa/StudentFormModal'
+import ActionDropdown from '../components/app/ActionDropdown'
+import AppBadge from '../components/app/AppBadge'
 import { useDaftarKelas } from '../hooks/useReferenceData'
 import { useAksiSiswa, useDaftarSiswa } from '../hooks/useStudents'
 import { educationUnitService } from '../services/educationUnitService'
+import { studentService } from '../services/studentService'
 import PersonAvatar from '../components/ui/PersonAvatar'
+import PersonIdentityCell from '../components/ui/PersonIdentityCell'
 import {
   MasterActionButton,
   MasterDataPage,
+  MasterDataSection,
+  MasterFilterSelect,
   MasterPageHeader,
   MasterStatCard,
   MasterStatsGrid,
@@ -124,6 +130,10 @@ export default function StudentsPage() {
     enabled: showFormModal,
     staleTime: 5 * 60 * 1000,
   })
+  const { data: studentDashboardData, isLoading: isSummaryLoading } = useQuery({
+    queryKey: ['students-dashboard-summary'],
+    queryFn: studentService.getDashboard,
+  })
   const { tambah, ubah, hapus } = useAksiSiswa()
 
   const rawStudents = daftarSiswaData?.data || []
@@ -135,6 +145,8 @@ export default function StudentsPage() {
     to: daftarSiswaData?.to || 0,
     lastPage: daftarSiswaData?.last_page || 1,
   }
+  const studentStats = studentDashboardData?.statistik || {}
+  const genderStats = studentDashboardData?.komposisi_gender || {}
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -447,15 +459,15 @@ export default function StudentsPage() {
   const renderStatusBadge = (statusStr) => {
     const st = String(statusStr || '').toLowerCase()
     if (st === 'aktif') {
-      return <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Aktif</span>
+      return <AppBadge variant="success" dot>Aktif</AppBadge>
     }
     if (st === 'mutasi') {
-      return <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Mutasi</span>
+      return <AppBadge variant="warning" dot>Mutasi</AppBadge>
     }
     if (st === 'lulus') {
-      return <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">Lulus</span>
+      return <AppBadge variant="info" dot>Lulus</AppBadge>
     }
-    return <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-700">Nonaktif</span>
+    return <AppBadge variant="danger" dot>Nonaktif</AppBadge>
   }
 
   return (
@@ -463,317 +475,180 @@ export default function StudentsPage() {
       <MasterPageHeader
         title="Master Siswa"
         description="Kelola identitas, data akademik, orang tua atau wali, serta status seluruh siswa."
-        tone="brand"
         icon={FaUserGraduate}
-        actions={(
-          <MasterActionButton
-            className="education-unit-hero__action !h-11 !rounded-xl !border-white !bg-white !px-5 !text-xs !text-emerald-800 !shadow-none hover:!bg-emerald-50"
-            icon={FaPlus}
-            onClick={handleOpenTambah}
-          >
-            Tambah Siswa
-          </MasterActionButton>
-        )}
+        actions={<>
+          <MasterActionButton variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export CSV</MasterActionButton>
+          <MasterActionButton icon={FaPlus} onClick={handleOpenTambah}>Tambah Siswa</MasterActionButton>
+        </>}
       />
 
       {/* Quick Summary Cards */}
       <MasterStatsGrid className="education-unit-kpis">
-        <MasterStatCard icon={FaUserGraduate} label="Total Siswa" value={studentPagination.total || filteredStudents.length} description="Terdaftar di sistem" variant="success" delay={40} />
+        <MasterStatCard loading={isSummaryLoading} icon={FaUserGraduate} label="Total Siswa" value={studentStats.total_siswa ?? 0} description="Terdaftar di sistem" variant="success" delay={40} />
         <MasterStatCard
           icon={FaMale}
           label="Siswa Laki-laki"
-          value={filteredStudents.filter((s) => ['laki-laki', 'l'].includes((s.gender || '').toLowerCase())).length}
-          description="Berdasarkan data filter"
+          loading={isSummaryLoading}
+          value={genderStats.laki_laki ?? 0}
+          description="Berdasarkan data siswa"
           variant="info"
           delay={80}
         />
         <MasterStatCard
           icon={FaFemale}
           label="Siswa Perempuan"
-          value={filteredStudents.filter((s) => ['perempuan', 'p'].includes((s.gender || '').toLowerCase())).length}
-          description="Berdasarkan data filter"
+          loading={isSummaryLoading}
+          value={genderStats.perempuan ?? 0}
+          description="Berdasarkan data siswa"
           variant="danger"
           delay={120}
         />
         <MasterStatCard
           icon={FaCheckCircle}
           label="Status Aktif"
-          value={filteredStudents.filter((s) => (s.status || '').toLowerCase() === 'aktif').length}
-          description="Berdasarkan data filter"
+          loading={isSummaryLoading}
+          value={studentStats.siswa_aktif ?? 0}
+          description="Berstatus aktif"
           variant="warning"
           delay={160}
         />
       </MasterStatsGrid>
 
-      {/* Filter Bar */}
-      <section className="edu-enter rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-label="Pencarian dan filter siswa">
-        {/* Search Input */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Cari siswa</span>
-            <FaSearch className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400" />
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Cari NIS, NISN, atau nama siswa..."
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-100"
-            />
-          </label>
-          <div className="hidden shrink-0 items-center gap-2 lg:flex">
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="import" icon={FaFileImport} onClick={() => setShowImportModal(true)}>Import</MasterActionButton>
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export Excel</MasterActionButton>
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" icon={FaPlus} onClick={handleOpenTambah}>Tambah Siswa</MasterActionButton>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-          <div className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-slate-500 dark:border-slate-700 dark:text-slate-300">
-            <FaFilter className="text-xs" />
-            <span className="text-xs font-bold">Filter</span>
-          </div>
-
-          <select
-            value={unitFilter}
-            onChange={(e) => { setUnitFilter(e.target.value); setCurrentPage(1) }}
-            className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
-          >
-            <option value="">Semua Unit Pendidikan</option>
-            {rawUnits.map((u) => (
-              <option key={u.id || u.nama_unit} value={u.nama_unit || u.name || u.id}>{u.nama_unit || u.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={kelasFilter}
-            onChange={(e) => { setKelasFilter(e.target.value); setCurrentPage(1) }}
-            className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
-          >
-            <option value="">Semua Kelas</option>
-            {rawClasses.map((c) => (
-              <option key={c.id || c.nama_kelas} value={c.nama_kelas || c.name || c.id}>{c.nama_kelas || c.name}</option>
-            ))}
-          </select>
-
-
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
-            className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
-          >
-            <option value="">Semua Status</option>
-            <option value="aktif">Aktif</option>
-            <option value="mutasi">Mutasi</option>
-            <option value="lulus">Lulus</option>
-            <option value="nonaktif">Nonaktif</option>
-          </select>
-          <div className="ml-auto flex shrink-0 items-center gap-2 lg:hidden">
-            <button type="button" onClick={() => setShowImportModal(true)} title="Import Excel" className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-600"><FaFileImport /></button>
-            <button type="button" onClick={handleExportExcel} title="Export Excel" className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-emerald-700"><FaFileExcel /></button>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Student Data Table */}
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
-      <section className="edu-enter overflow-hidden rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="student-table-title">
-        <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
-          <div>
-            <h2 id="student-table-title" className="text-base font-bold text-slate-900 dark:text-white">Daftar Siswa</h2>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data siswa sesuai filter dan kewenangan pengguna.</p>
-          </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{studentPagination.total || filteredStudents.length} siswa</span>
-        </div>
-        <div className="overflow-hidden">
-          <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar siswa">
-            <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
-              <tr>
-                <th className="w-[6%] px-2 py-3 text-center">No</th>
-                <th className="w-[34%] px-3 py-3 font-bold">Identitas Siswa</th>
-                <th className="hidden w-[29%] px-3 py-3 font-bold md:table-cell">Orang Tua / Wali</th>
-                <th className="hidden w-[11%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
-                <th className="w-[20%] px-2 py-3 text-center font-bold">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, index) => (
-                  <tr key={index} className="animate-pulse">
-                    <td colSpan={5} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
-                  </tr>
-                ))
-              ) : isError ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center">
-                    <p className="text-sm font-bold text-rose-700">Data siswa gagal dimuat</p>
-                    <p className="mt-1 text-xs text-slate-500">Periksa koneksi server kemudian coba kembali.</p>
-                    <button type="button" onClick={() => refetch()} className="mt-4 h-10 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white">Muat Ulang</button>
-                  </td>
-                </tr>
-              ) : paginatedStudents.map((item, idx) => (
-                <tr key={item.id} className="edu-row align-middle transition-colors hover:bg-emerald-50/40" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
-                  <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">
-                    {(studentPagination.from || 1) + idx}
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <PersonAvatar src={item.foto} name={item.nama} size="table" />
-                      <span className="min-w-0">
-                        <strong className="block truncate text-xs font-extrabold leading-5 text-slate-900 dark:text-white" title={item.nama}>{item.nama}</strong>
-                        <small className="block truncate text-[9px] font-medium text-slate-400">NIS {item.nis} · NISN {item.nisn || '-'}</small>
-                        <small className="mt-0.5 block truncate text-[9px] font-semibold text-emerald-700 dark:text-emerald-300" title={`${item.unit} · Kelas ${item.kelas}`}>
-                          {item.unit} · Kelas {item.kelas}
-                        </small>
-                        <small className="mt-0.5 block truncate text-[9px] font-medium text-slate-500 md:hidden" title={item.orangTua}>Ortu: {item.orangTua} ({item.noHp || '-'})</small>
-                        <small className={`mt-0.5 text-[9px] font-bold sm:hidden ${(item.status || '').toLowerCase() === 'aktif' ? 'text-emerald-700' : 'text-amber-600'}`}>• {item.status}</small>
-                      </span>
-                    </div>
-                  </td>
-                  <td className="hidden px-3 py-3 md:table-cell">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-800">{(item.orangTua || 'W').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
-                      <span className="min-w-0">
-                        <strong className="block truncate text-xs text-slate-800 dark:text-slate-100" title={item.orangTua}>{item.orangTua}</strong>
-                        <small className="mt-1 block whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
-                          {item.noHp || '-'}
-                        </small>
-                      </span>
-                    </div>
-                  </td>
-                  <td className="hidden whitespace-nowrap px-3 py-3 text-center sm:table-cell">{renderStatusBadge(item.status)}</td>
-                  <td className="px-3 py-3 text-center">
-                    <div className="flex flex-nowrap items-center justify-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDetail(item)}
-                        title="Lihat detail"
-                        aria-label={`Lihat detail ${item.nama}`}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-500/20 dark:border-blue-800/70 dark:bg-blue-950/40 dark:text-blue-300"
-                      >
-                        <FaEye className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(item)}
-                        title="Edit siswa"
-                        aria-label={`Edit ${item.nama}`}
-                        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-amber-500/20 sm:flex dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-300"
-                      >
-                        <FaEdit className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStudentToPrint(item)
-                          setShowCetakModal(true)
-                        }}
-                        title="Cetak Kartu Siswa"
-                        aria-label={`Cetak kartu ${item.nama}`}
-                        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-500/20 lg:flex dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-300"
-                      >
-                        <FaPrint className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item)}
-                        title="Hapus siswa"
-                        aria-label={`Hapus ${item.nama}`}
-                        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-rose-500/20 sm:flex dark:border-rose-800/70 dark:bg-rose-950/40 dark:text-rose-300"
-                      >
-                        <FaTrash className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+      {/* Unified Master Data Section */}
+      <MasterDataSection
+        title="Daftar Siswa"
+        description="Data siswa sesuai filter dan kewenangan pengguna."
+        countLabel={`${Number(studentPagination.total || filteredStudents.length).toLocaleString('id-ID')} siswa`}
+        search={{
+          value: searchInput,
+          onValueChange: (value) => setSearchInput(value),
+          placeholder: 'Cari NIS, NISN, atau nama siswa...',
+          'aria-label': 'Cari siswa',
+        }}
+        filters={
+          <>
+            <MasterFilterSelect
+              aria-label="Filter unit pendidikan"
+              value={unitFilter}
+              onChange={(e) => { setUnitFilter(e.target.value); setCurrentPage(1) }}
+            >
+              <option value="">Semua Unit Pendidikan</option>
+              {rawUnits.map((u) => (
+                <option key={u.id || u.nama_unit} value={u.nama_unit || u.name || u.id}>{u.nama_unit || u.name}</option>
               ))}
+            </MasterFilterSelect>
 
-              {!isLoading && !isError && paginatedStudents.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500 font-medium">
-                    Tidak ada data siswa yang cocok dengan filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Table Pagination Footer */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 bg-slate-50/80 px-4 py-3 text-xs">
-          <div className="text-slate-500">
-            Menampilkan {filteredStudents.length === 0 ? 0 : studentPagination.from || 1} sampai{' '}
-            {filteredStudents.length === 0 ? 0 : studentPagination.to || filteredStudents.length} dari {studentPagination.total || filteredStudents.length} data
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+            <MasterFilterSelect
+              aria-label="Filter kelas"
+              value={kelasFilter}
+              onChange={(e) => { setKelasFilter(e.target.value); setCurrentPage(1) }}
             >
-              Sebelumnya
-            </button>
+              <option value="">Semua Kelas</option>
+              {rawClasses.map((c) => (
+                <option key={c.id || c.nama_kelas} value={c.nama_kelas || c.name || c.id}>{c.nama_kelas || c.name}</option>
+              ))}
+            </MasterFilterSelect>
 
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-              <button
-                key={pg}
-                onClick={() => setCurrentPage(pg)}
-                className={`h-7 w-7 rounded-lg text-xs font-bold transition ${
-                  currentPage === pg ? 'bg-[#064e3b] text-white shadow' : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                {pg}
-              </button>
-            ))}
-
-            <button
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+            <MasterFilterSelect
+              aria-label="Filter status"
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
             >
-              Selanjutnya
-            </button>
-          </div>
-        </div>
-      </section>
-      <aside className="space-y-4 xl:sticky xl:top-5" aria-label="Ringkasan siswa">
-        <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><FaUserGraduate /></div>
-            <div><h2 className="text-sm font-bold text-slate-900 dark:text-white">Ringkasan Siswa</h2><p className="text-xs text-slate-500">Data halaman aktif</p></div>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {[
-              ['Total Siswa', studentPagination.total || filteredStudents.length, FaUserGraduate, 'text-emerald-700 bg-emerald-50'],
-              ['Siswa Aktif', filteredStudents.filter((s) => (s.status || '').toLowerCase() === 'aktif').length, FaCheckCircle, 'text-emerald-700 bg-emerald-50'],
-              ['Laki-laki', filteredStudents.filter((s) => ['laki-laki', 'l'].includes((s.gender || '').toLowerCase())).length, FaMale, 'text-blue-700 bg-blue-50'],
-              ['Perempuan', filteredStudents.filter((s) => ['perempuan', 'p'].includes((s.gender || '').toLowerCase())).length, FaFemale, 'text-rose-600 bg-rose-50'],
-            ].map(([label, value, Icon, color]) => (
-              <div key={label} className="flex items-center gap-3 py-3">
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon /></span>
-                <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-500">{label}</span>
-                <strong className="text-sm font-black tabular-nums text-slate-900 dark:text-white">{value}</strong>
-              </div>
+              <option value="">Semua Status</option>
+              <option value="aktif">Aktif</option>
+              <option value="mutasi">Mutasi</option>
+              <option value="lulus">Lulus</option>
+              <option value="nonaktif">Nonaktif</option>
+            </MasterFilterSelect>
+          </>
+        }
+        onReset={() => {
+          setSearchInput('')
+          setUnitFilter('')
+          setKelasFilter('')
+          setStatusFilter('')
+          setCurrentPage(1)
+        }}
+        resetDisabled={!searchInput && !unitFilter && !kelasFilter && !statusFilter}
+        isLoading={isLoading}
+        isError={isError}
+        errorTitle="Data siswa gagal dimuat"
+        errorMessage="Periksa koneksi server kemudian coba kembali."
+        onRetry={refetch}
+        isEmpty={!isLoading && !isError && paginatedStudents.length === 0}
+        emptyTitle="Siswa tidak ditemukan"
+        emptyDescription="Tidak ada data siswa yang cocok dengan kriteria filter."
+        pagination={{
+          meta: {
+            total: studentPagination.total || filteredStudents.length,
+            from: studentPagination.from || 1,
+            to: studentPagination.to || filteredStudents.length,
+            last_page: studentPagination.lastPage || 1,
+            current_page: currentPage,
+          },
+          page: currentPage,
+          onPageChange: setCurrentPage,
+        }}
+      >
+        <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar siswa">
+          <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+            <tr>
+              <th className="w-[6%] px-2 py-3 text-center">No</th>
+              <th className="w-[34%] px-3 py-3 font-bold">Identitas Siswa</th>
+              <th className="hidden w-[29%] px-3 py-3 font-bold md:table-cell">Orang Tua / Wali</th>
+              <th className="hidden w-[11%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
+              <th className="w-[20%] px-2 py-3 text-center font-bold">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
+            {paginatedStudents.map((item, idx) => (
+              <tr key={item.id} className="edu-row align-middle transition-colors hover:bg-emerald-50/40 dark:hover:bg-slate-800/50" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
+                <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">
+                  {(studentPagination.from || 1) + idx}
+                </td>
+                <td className="px-3 py-3">
+                  <div className="min-w-0">
+                    <PersonIdentityCell src={item.foto} name={item.nama} subtitle={`NIS ${item.nis} · NISN ${item.nisn || '-'}`} />
+                    <span className="mt-1 block min-w-0 pl-11">
+                      <small className="mt-0.5 block truncate text-[9px] font-semibold text-emerald-700 dark:text-emerald-300" title={`${item.unit} · Kelas ${item.kelas}`}>
+                        {item.unit} · Kelas {item.kelas}
+                      </small>
+                      <small className="mt-0.5 block truncate text-[9px] font-medium text-slate-500 md:hidden" title={item.orangTua}>Ortu: {item.orangTua} ({item.noHp || '-'})</small>
+                      <small className={`mt-0.5 text-[9px] font-bold sm:hidden ${(item.status || '').toLowerCase() === 'aktif' ? 'text-emerald-700' : 'text-amber-600'}`}>• {item.status}</small>
+                    </span>
+                  </div>
+                </td>
+                <td className="hidden px-3 py-3 md:table-cell">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{(item.orangTua || 'W').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
+                    <span className="min-w-0">
+                      <strong className="block truncate text-xs text-slate-800 dark:text-slate-100" title={item.orangTua}>{item.orangTua}</strong>
+                      <small className="mt-1 block whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+                        {item.noHp || '-'}
+                      </small>
+                    </span>
+                  </div>
+                </td>
+                <td className="hidden whitespace-nowrap px-3 py-3 text-center sm:table-cell">{renderStatusBadge(item.status)}</td>
+                <td className="px-3 py-3 text-center">
+                  <div className="flex items-center justify-center">
+                    <ActionDropdown
+                      onView={() => handleOpenDetail(item)}
+                      onEdit={() => handleOpenEdit(item)}
+                      onDelete={() => handleDelete(item)}
+                      extraItems={[{
+                        label: 'Cetak Kartu',
+                        icon: <FaPrint className="h-4 w-4 text-emerald-600" />,
+                        onClick: () => { setStudentToPrint(item); setShowCetakModal(true) },
+                      }]}
+                    />
+                  </div>
+                </td>
+              </tr>
             ))}
-          </div>
-        </section>
-        <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Aksi Cepat</h2>
-          <div className="mt-3 grid gap-2">
-            {[
-              ['Tambah Siswa', FaPlus, handleOpenTambah, 'text-emerald-700 bg-emerald-50'],
-              ['Import Data Siswa', FaFileImport, () => setShowImportModal(true), 'text-blue-700 bg-blue-50'],
-              ['Export Excel', FaFileExcel, handleExportExcel, 'text-emerald-700 bg-emerald-50'],
-            ].map(([label, Icon, action, color]) => (
-              <button key={label} type="button" onClick={action} className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60">
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon /></span>{label}
-              </button>
-            ))}
-          </div>
-        </section>
-      </aside>
-      </div>
+          </tbody>
+        </table>
+      </MasterDataSection>
 
       {/* POP UP MODAL 1: DETAIL SISWA */}
       {showDetailModal && selectedStudent && (

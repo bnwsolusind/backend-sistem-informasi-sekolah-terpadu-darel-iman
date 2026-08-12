@@ -107,11 +107,11 @@ export default function AlumniPortalPage() {
         <KpiCard title="Aktivitas Saat Ini" value={kpis.status_lanjutan} icon={Briefcase} />
       </KpiCardGrid>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         {/* Read-Only Official Academic Records & Editable Profile Form */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-4 lg:col-span-8">
           {/* Read-Only Official Credentials */}
-          <div className="rounded-[20px] border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
               Data Resmi Kelulusan (Read-Only)
             </h3>
@@ -140,7 +140,7 @@ export default function AlumniPortalPage() {
           </div>
 
           {/* Editable Form for Alumni Contact & Education/Job info */}
-          <form onSubmit={handleSaveProfile} className="rounded-[20px] border border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
+          <form onSubmit={handleSaveProfile} className="space-y-4 rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
               Perbarui Informasi Kontak &amp; Karir Alumni
             </h3>
@@ -244,7 +244,7 @@ export default function AlumniPortalPage() {
         </div>
 
         {/* Alumni Announcements Table */}
-        <div>
+        <div className="lg:col-span-4">
           <DataTableCard
             title="Pengumuman Sekolah & Alumni"
             subtitle="Kabar alumni dan informasi resmi dari sekolah"

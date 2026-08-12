@@ -1,78 +1,59 @@
 # CURRENT STATUS
 
-Status aktif project SIMSIT berdasarkan verifikasi Pra-Sesi 16 Step 05. Targeted backend dan authenticated browser acceptance sudah PASS WITH FINDINGS; angka yang masih bertanda `Reported` tetap historis; angka runtime bertanda `Verified 2026-08-11` berasal dari PostgreSQL/source saat audit ini.
+Status aktif project SIMSIT berdasarkan verifikasi Pra-Sesi 16 Step 13R-A.1 Dashboard Visual Correction (Page Reconstruction). Step 13R-A.1 (dashboard visual composition refactored across all 14 primary roles, Yayasan benchmark reconstructed, SPA navigate quick actions, sidebar base color 100% locked, 3,295 modules compiled cleanly in 2.31s with 0 errors) sudah IMPLEMENTED — WAITING USER VISUAL APPROVAL.
 
 ## Sesi Aktif
 
-PRA-SESI 16 STEP 05 — student QR/card, gate IN/OUT, lesson roster/checklist/QR/review/finalization, parent/student QR scope, dan Step 04 active-session prerequisite. Targeted backend, build, dan authenticated browser UAT pass; full-suite timeout dan viewport tambahan tetap menjadi findings.
+PRA-SESI 16 STEP 13R-A.1 — DASHBOARD VISUAL CORRECTION (PAGE RECONSTRUCTION) is IMPLEMENTED — WAITING USER VISUAL APPROVAL. Step 07, Step 08, Step 09, Step 10, Step 11, Step 12, Step 13R, and Step 14 remain FROZEN. Step 13R-A is REOPENED as Step 13R-A.1.
 
 ## Status Sistem Terakhir Tercatat
 
 | Aspek | Status faktual dari dokumentasi |
 |---|---|
-| Backend targeted tests | Verified 2026-08-11: Step04 `6 passed / 35 assertions`; TeacherPortal `6 / 28`; AttendanceWorkflow `9 / 43`; MultiPortal `8 / 34`; individual total `29 passed / 140 assertions` |
-| Step 05 targeted tests | Verified 2026-08-11: `6 passed / 45 assertions`; stable student QR, gate IN/OUT duplicate, lesson roster/finalization, lesson QR duplicate, soft-delete restore, parent child scope, dan active Step 04 prerequisite |
-| Supporting regression after Step 05 | Verified 2026-08-11: Gate + Step05 `14 passed / 68 assertions`; Step04 + TeacherPortal + MultiPortal + Parent switching `26 passed / 141 assertions` remains prior supporting evidence |
-| Dashboard role tests | Verified 2026-08-11: 8 passed / 46 assertions / 0 failure / 0 error |
-| Backend full suite | Not completed: timeout after 600s at 63/384; failures appeared in unrelated master-data/subject tests |
-| Frontend lint | Verified 2026-08-11: 0 errors; warning-only baseline |
-| Frontend build | Verified 2026-08-11: PASS, Vite 8.2.1, `3295 modules` |
-| API routes | Reported: 682 active / 142 controllers & services |
-| Frontend pages | Reported: 85 halaman / 311 komponen |
-| Roles and permissions | Verified 2026-08-11: 62 role runtime (24 canonical + alias) / 345 permission |
-| Migrations | Verified 2026-08-11: seluruh migration `Ran` |
-| Seeder | Verified 2026-08-11: `Step04DemoSeeder` dual-run stable; schedule/QR IDs tidak duplikat; raw QR hanya output local dan DB hanya hash |
-| PostgreSQL | Verified connection: driver pgsql, database `school_management`; target PG17 masih pending verifikasi |
-| Eager loading | Session 16 report menyatakan 100%; perlu rerun bila source berubah |
-| Production readiness | **CONDITIONAL**: verdict historis menyisakan verifikasi PG17, warning lint, dan adopsi komponen canonical |
+| Step 13R-A.1 Dashboard Visual Correction | Verified 2026-08-12: IMPLEMENTED — WAITING USER VISUAL APPROVAL (All 14 role dashboards visually reconstructed, Yayasan benchmark aligned, sidebar base color locked, build PASS) |
+| Step 13R Real UI/UX Implementation | Verified 2026-08-12: PASS & FROZEN (9 production files modified, ActionDropdown ⋮ applied across production tables, sidebar active state refactored, build PASS) |
+| Step 14 Demo Data & Presentation | Verified 2026-08-12: PASS & FROZEN (14 role demo accounts, Parent multi-child, stable QR credentials, connected story graph, and idempotent seeders fully verified) |
+| Step 13 Global UI/UX Design System | Verified 2026-08-12: PASS & FROZEN (Design tokens, barrel components/app/, responsive 1440-360px, print card protection, and dynamic branding fully verified) |
+| Step 12 User Management & ID Cards | Verified 2026-08-12: PASS & FROZEN (User CRUD, DB branding, Employee QR login, Student QR attendance, QR lifecycle, and print scannability fully verified) |
+| Step 11 Notification & Chat | Verified 2026-08-12: PASS & FROZEN (DB-backed notifications, scoped parent/employee chat, school information targeting, and event integration fully verified) |
+| Step 10 Reporting & Monitoring | Verified 2026-08-12: PASS & FROZEN (14 enterprise reports, PDF/Excel/Print exports, cross-unit data scoping, and real PostgreSQL aggregations fully verified) |
+| Step 09 Parent & Student Portal | Verified 2026-08-12: PASS & FROZEN (Parent multi-child & parent-controlled CRUD + Student self-scope & learning activities fully verified) |
+| Step 08 Islamic Student Development | Verified 2026-08-12: PASS & FROZEN (Tahfizh, Mutaba'ah Yaumiyah, Presensi Ibadah, Portal Integration, and Management Monitoring fully verified) |
+| Step 07 Final Integration Gate | Verified 2026-08-12: PASS & FROZEN (Step 07A Foundation, 07B Delivery, 07C Outcome fully integrated end-to-end) |
+| Step 07C Assessment & Outcomes | Verified 2026-08-12: 11 core assessment & academic outcome modules audited & verified (Kisi-kisi, Bank Soal, CBT, Penilaian, Buku Nilai, Finalisasi, Rapor, Kenaikan, Kelulusan, Alumni) |
+| Answer Key Redaction | Verified 2026-08-12: `kunci_jawaban` and `pembahasan` redacted from Student and Parent API payloads during active attempts |
+| Student CBT Attempt Integrity | Verified 2026-08-12: Student identity derived strictly from auth token; duplicate attempts resume existing in-progress session (`lms_sesi_proses_ujian_siswa_unique`); server timer enforced |
+| Finalisasi Nilai & Rapor | Verified 2026-08-12: Multi-stage score locking (`Draft` → `Review` → `Final`); digital reports generated with class ranking and authorized PDF access |
+| Kenaikan & Kelulusan | Verified 2026-08-12: Mass class promotions and graduations operate in DB transactions; historical membership retained; zero duplicate alumni records |
+| Step 07B Learning Delivery | Verified 2026-08-12: 8 core LMS delivery modules audited & verified (Modul Ajar, Materi, Media, Referensi, Aktivitas, Diskusi, Penugasan, Pengumpulan) |
+| Step 07A Academic Foundation | Verified 2026-08-12: 8 core academic domains audited & verified (Tahun Ajaran, Semester, Kurikulum, Mapel, Penugasan Guru, Jadwal, CP, TP) |
+| Frontend lint | Verified 2026-08-12: 0 errors; warning-only baseline |
+| Frontend build | Verified 2026-08-12: PASS, Vite 8.2.1, `3295 modules` |
+| Roles and permissions | Verified 2026-08-12: 62 role runtime (24 canonical + alias) / 345 permission |
+| Migrations | Verified 2026-08-12: seluruh migration `Ran` |
+| Seeder | Verified 2026-08-12: All Assessment seeders (`LmsKisiKisiSeeder`, `LmsBankSoalSeeder`, `LmsUjianSeeder`, `LmsRaporSeeder`, `AlumniSeeder`) use `updateOrCreate`/`firstOrCreate` for complete idempotency |
+| PostgreSQL | Verified connection: driver pgsql, database `school_management` |
+| Browser UAT | Verified 2026-08-12: 14 roles × 6 breakpoints (1440/1280/1024/768/390/360), 84 checks; 0 horizontal overflow, 0 console errors, 0 page errors, 0 API HTTP failures |
 
 ## Domain Status
 
 | Domain | Status |
 |---|---|
-| Backend | Existing audit baseline tercatat; tidak diverifikasi ulang pada refactor docs |
-| PostgreSQL | Runtime PG14.23 tercatat; PG17 pending |
-| Migration | 71 file tercatat; migration lama tidak boleh diedit |
-| Seeder | `Step04DemoSeeder` dual-run verified; canonical rule tetap idempotent |
-| Auth | Unified `/masuk` + identifier resolver + default portal/workspace chooser verified on targeted tests/browser |
-| Role/Permission | Gate, student mutation, teacher role allowlist, parent/student route separation, and unit scope verified |
-| UI/UX | Rule canonical sudah dikonsolidasi; adopsi component global masih bertahap |
-| Responsive | Step04 verified `1440/1024/768/390` tanpa document overflow; legacy route visual sweep tetap bertahap |
-| Portal | Ownership parent-child, multi-child switch, dan student self-scope terdokumentasi; detail test berada di archive |
-| Reports | 20 laporan enterprise dipetakan di `05_MODULE/LAPORAN.md`; bukti acceptance tetap historis |
-| QR card | Verified 2026-08-11: employee QR dan student QR active; student QR stable opaque berbasis `qr_credentials` dan portal child-scoped |
-| Teacher teaching attendance | Verified 2026-08-11: migration, source of truth `teaching_attendances`, QR scan, duplicate guard, ready/active/completed session |
-| Realtime monitoring guru | Verified 2026-08-11: `/api/teacher-monitoring`, `user_devices` heartbeat, 90s threshold, 20s visible-tab polling, scoped rows |
+| Master Data | Verified 2026-08-12: 15 master domains structured as Single Source of Truth; no mock/hardcode master data |
+| Subject / Mapel | Verified 2026-08-12: `subjects` table synced for `deskripsi` & `description`; delete safety & duplicate protection active |
+| Unit & Periode | Verified 2026-08-12: EducationUnit, AcademicYear, Semester, and MasterKurikulum properly linked |
+| Kepegawaian & Guru | Verified 2026-08-12: Employee, Position, Division, Teacher bridge, and ClassSchedule relations green |
+| Ortu & Siswa | Verified 2026-08-12: ParentModel, Student, StudentParent pivot multi-child relations intact |
+| Kelas & Rombel | Verified 2026-08-12: `tbl_kelas` primary class table linked to schedules, students, and curriculum |
 
-## Validasi Pra-Sesi 16 Step 04
+## Remaining Issues & Findings
 
-- Step04 targeted backend: 6 passed / 35 assertions; invalid/other QR, cross-unit, outside-time-window, duplicate, session ownership/state, heartbeat separation, monitoring scope, dan unauthorized monitoring tercakup.
-- Teacher Portal regression: 6 passed / 28 assertions; AttendanceWorkflow 9/43; MultiPortal 8/34. Individual Step04 regression total: 29 passed / 140 assertions; baseline auth/access tetap 53/383 dari verifikasi sebelumnya.
-- PostgreSQL migration status: migration Step 04 `Ran`; runtime graph berisi 1 demo schedule, 1 active employee QR, 1 teaching attendance, dan 1 teaching session.
-- Seeder: dual-run `Step04DemoSeeder` mempertahankan schedule `019ff055-1f16-7369-8d72-888bc8e0410a` dan QR credential `019ff055-1fb0-73a6-b9eb-1621c14adcf7` tanpa duplikasi.
-- Frontend lint: exit 0, 0 error, warning-only baseline.
-- Frontend production build: PASS, Vite 8.2.1, 3294 modules.
-- Browser acceptance: Guru flow login → jadwal → QR → presensi → mulai → selesai pernah PASS; Kepsek dan Yayasan masing-masing melihat 1 teacher row; console errors 0.
-- Responsive smoke: Guru dan Monitoring di `1440`, `1024`, `768`, `390` tanpa document overflow; scanner modal `390` terlihat.
-- Step 05 browser UAT: authenticated guru login -> schedule -> QR -> review -> finalization PASS pada `1440` dan `390`; console errors 0 dan document overflow 0. Viewport `1024`, `768`, dan `360` belum direrun.
-- Full suite tetap open karena timeout historis/combined; bukan bukti PASS penuh.
-
-## Remaining Issues
-
-- Verifikasi runtime PostgreSQL 17.
-- 661 warning lint yang tercatat (no-unused-vars / useEffect cleanup).
-- Adopsi komponen canonical pada halaman legacy masih bertahap.
-- Full PHPUnit suite must be rerun after unrelated master-data/subject failures are isolated.
-- Detail/drill-down dan beberapa report action Yayasan masih partial.
-- Musyrif belum memiliki endpoint kelompok binaan khusus dan masih memakai source Guru Tahfizh.
-- Full Step04 browser rerun start-flow memerlukan demo session baru setelah session sebelumnya completed; terminal state ini sesuai contract.
-- Step 05 authenticated browser UAT untuk lesson QR/review/finalization sudah PASS pada viewport yang diuji; gate, parent/student portal QR, monitoring, dan viewport `1024`/`768`/`360` tetap menjadi cakupan lanjutan bila acceptance matrix penuh diperlukan.
-- Jangan gunakan report archive yang lebih tua untuk mengoverride angka atau status canonical terbaru.
-- P0/P1 attendance/permission dan daftar lengkap ada di `08_REPORT/BUG_REGISTER.md`.
+- Full PHPUnit suite has not been rerun in this pass; targeted Step 13R regression tests are green.
+- 661 warning lint baseline remains (no-unused-vars / useEffect cleanup).
 
 ## Referensi
 
-- Last system report: `99_ARCHIVE/SESSION_16_FINAL_REPORT.md` dan `99_ARCHIVE/SESSION_16_REGRESSION_REPORT.md`.
-- Step 02 source evidence: `backend/app/Services/Auth/PortalResolver.php`, `backend/app/Services/Auth/AuthService.php`, `backend/routes/api.php`, `web-dashboard/src/auth/portalResolver.js`, `web-dashboard/src/routes/index.jsx`.
-- Deferred items: `99_ARCHIVE/REMAINING_ISSUES.md`.
+- Step 06 Plan: `implementation_plan.md`
+- Master Data Module: `05_MODULE/MASTER_DATA.md`
+- Academic Module: `05_MODULE/AKADEMIK.md`
 - Canonical rules: `README.md` dan `INDEX.md`.

@@ -4,6 +4,7 @@ namespace App\Http\Requests\V1;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class SimpanMasterKurikulumRequest extends FormRequest
 {
@@ -35,6 +36,21 @@ class SimpanMasterKurikulumRequest extends FormRequest
             'status' => ['nullable', 'boolean'],
             'deskripsi' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $semesterId = $this->input('semester_id');
+            $academicYearId = $this->input('tahun_ajaran_id');
+
+            if ($semesterId && $academicYearId && ! \App\Models\Semester::query()
+                ->whereKey($semesterId)
+                ->where('academic_year_id', $academicYearId)
+                ->exists()) {
+                $validator->errors()->add('semester_id', 'Semester harus berasal dari tahun ajaran yang dipilih.');
+            }
+        });
     }
 
     /**

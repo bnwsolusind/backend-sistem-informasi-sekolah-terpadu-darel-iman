@@ -20,11 +20,12 @@ export default function AppPageHeader({
   chips = [],
   className = '',
   eyebrow,
+  welcomeName,
 }) {
   if (variant === 'card') {
     return (
-      <header className={`relative overflow-hidden rounded-[18px] border border-slate-200/80 bg-white p-6 shadow-sm md:p-7 dark:border-slate-800 dark:bg-[#1B2433] ${className}`}>
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+      <header className={`relative overflow-hidden rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm md:p-6 dark:border-slate-800 dark:bg-[#1B2433] ${className}`}>
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div className="flex min-w-0 items-start gap-4">
             {Icon && (
               <div className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#0E5C44]/10 text-[#0E5C44] sm:flex dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]">
@@ -74,7 +75,7 @@ export default function AppPageHeader({
 
   // brand (default)
   return (
-    <div className={`relative overflow-hidden rounded-[24px] bg-gradient-to-r from-[#083A2A] via-[#0E5C44] to-[#1E8E5A] p-6 text-white shadow-xl md:p-8 ${className}`}>
+    <div className={`relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#083A2A] via-[#0E5C44] to-[#1E8E5A] p-5 text-white shadow-lg md:p-6 ${className}`}>
       <div className="pointer-events-none absolute inset-0 opacity-15">
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -86,16 +87,17 @@ export default function AppPageHeader({
           <rect width="100%" height="100%" fill="url(#appPageHeaderPattern)" />
         </svg>
       </div>
-      <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1.5">
+      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0 space-y-1">
           {eyebrow && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-100">
               <Sparkles className="h-3 w-3 text-emerald-300" />
               {eyebrow}
             </span>
           )}
-          <h1 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">{title}</h1>
-          {description && <p className="max-w-2xl text-sm text-emerald-100">{description}</p>}
+          {welcomeName && <p className="text-[11px] font-semibold text-emerald-100/85">Selamat datang, {welcomeName}</p>}
+          <h1 className="text-xl font-extrabold tracking-tight text-white md:text-2xl">{title}</h1>
+          {description && <p className="max-w-2xl text-xs leading-5 text-emerald-100 md:text-sm">{description}</p>}
           {chips.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {chips.map((chip, idx) => (

@@ -72,19 +72,19 @@ export default function KpiCard({
       onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick() } : undefined}
       title={isClickable ? 'Klik untuk melihat detail' : undefined}
       className={cn(
-        'relative overflow-hidden rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 dark:border-slate-800 dark:bg-[#1B2433]',
+        'relative h-full min-h-[112px] overflow-hidden rounded-[16px] border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 dark:border-slate-800 dark:bg-[#1B2433]',
         isClickable && 'cursor-pointer hover:-translate-y-0.5 hover:border-[#3FBF75]/40 hover:shadow-lg active:translate-y-0',
         className
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{title}</p>
+        <div className="min-w-0 space-y-0.5">
+          <p className="line-clamp-2 min-h-4 text-[10px] font-bold uppercase leading-4 tracking-[0.08em] text-slate-400 dark:text-slate-500">{title}</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">{displayValue}</h3>
+            <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">{displayValue}</h3>
             {badge && <AppBadge variant={badgeVariant} dot>{badge}</AppBadge>}
           </div>
-          {subtitle && <p className="text-xs text-slate-400 dark:text-slate-500">{subtitle}</p>}
+          {subtitle && <p className="line-clamp-1 text-[10px] text-slate-400 dark:text-slate-500">{subtitle}</p>}
         </div>
         {Icon && (
           <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border', tone)}>
@@ -94,15 +94,15 @@ export default function KpiCard({
       </div>
 
       {(trend !== undefined && trend !== null) && (
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+          <div className="mt-2 flex min-h-6 items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <span className={cn('inline-flex items-center gap-0.5 text-xs font-black', trendColor)}>
+              <span className={cn('inline-flex items-center gap-0.5 text-[11px] font-black', trendColor)}>
               <TrendIcon className="h-3.5 w-3.5" />
               {trend}
             </span>
-            <span className="text-[10px] font-medium text-slate-400">{trendText || 'dari periode sebelumnya'}</span>
+            <span className="truncate text-[9px] font-medium text-slate-400">{trendText || 'dari periode sebelumnya'}</span>
           </div>
-          {sparkline && <Sparkline data={sparkline} />}
+          {sparkline && <Sparkline data={sparkline} className="h-6 w-16" />}
         </div>
       )}
 

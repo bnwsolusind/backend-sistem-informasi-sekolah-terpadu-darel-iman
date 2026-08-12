@@ -4,41 +4,37 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Building2,
-  CalendarDays,
   CheckCircle2,
   Download,
-  Eye,
   FileSpreadsheet,
   FileText,
-  FolderOpen,
   GraduationCap,
   MapPin,
-  Menu,
   Pencil,
   Plus,
   RefreshCcw,
-  Search,
   School,
-  SlidersHorizontal,
   Trash2,
   Upload,
   UsersRound,
-  WalletCards,
   X,
 } from 'lucide-react'
 import { educationUnitService } from '../services/educationUnitService'
+import ActionDropdown from '../components/app/ActionDropdown'
+import { useAuthStore } from '../stores/authStore'
 import {
   MasterActionButton,
   MasterDataPage,
   MasterEmptyState,
   MasterErrorState,
+  MasterFilterSelect,
   MasterPageHeader,
+  MasterPagination,
+  MasterSearchInput,
   MasterStatCard,
   MasterStatsGrid,
   MasterStatusBadge,
 } from '../components/master-data'
-
-const UNIT_TYPES = ['TKIT', 'TAUD', 'SDIT', 'MIT', 'SMPIT', 'SMAIT', 'PONPES', 'Mahad']
 
 const UNIT_COLORS = {
   TKIT: { bg: 'bg-emerald-800', text: 'text-white', border: 'border-emerald-700' },
@@ -97,20 +93,20 @@ function parseFromApi(item) {
     email: meta.email || '',
     phone: meta.phone || '',
     address: meta.address || '',
-    city: meta.city || 'Padang',
-    province: meta.province || 'Sumatera Barat',
+    city: meta.city || '',
+    province: meta.province || '',
     postal_code: meta.postal_code || '',
     principal_name: meta.principal_name || meta.kepala_unit || '',
     principal_nip: meta.principal_nip || '',
-    established_year: meta.established_year || 2011,
-    accreditation: meta.accreditation || 'A',
+    established_year: meta.established_year || '',
+    accreditation: meta.accreditation || '',
     sk_pendirian: meta.sk_pendirian || '',
     tgl_sk: meta.tgl_sk || '',
     logo_url: meta.logo_url || '',
     is_active: item?.is_active ?? true,
     description: item?.description || '',
-    total_siswa: meta.total_siswa || 0,
-    total_guru: meta.total_guru || 0,
+    total_siswa: item?.total_siswa ?? 0,
+    total_guru: item?.total_guru ?? 0,
     total_kelas: meta.total_kelas || 0,
     total_rombel: meta.total_rombel || 0,
   }
@@ -144,6 +140,13 @@ function makePayload(form) {
 
 export default function EducationUnitsPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
+  const roles = Array.isArray(user?.roles) ? user.roles : []
+  const permissions = Array.isArray(user?.permissions) ? user.permissions : []
+  const isSuperAdmin = roles.some((role) => String(role).toLowerCase().replace(/[\s_-]+/g, '') === 'superadmin')
+  const canCreate = isSuperAdmin || permissions.includes('unit.create') || permissions.includes('sistem.master_data')
+  const canUpdate = isSuperAdmin || permissions.includes('unit.update') || permissions.includes('sistem.master_data')
+  const canDelete = isSuperAdmin || permissions.includes('unit.delete') || permissions.includes('sistem.master_data')
 
   // Filter States
   const [search, setSearch] = useState('')
@@ -161,7 +164,6 @@ export default function EducationUnitsPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState(initialFormState())
   const [showImportModal, setShowImportModal] = useState(false)
-  const [showMobileActions, setShowMobileActions] = useState(false)
   const [showStatisticsModal, setShowStatisticsModal] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportFormat, setExportFormat] = useState('xlsx')
@@ -182,7 +184,7 @@ export default function EducationUnitsPage() {
   const [hasConfirmedDeleteCheck, setHasConfirmedDeleteCheck] = useState(false)
 
   // Query Fetching
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [
       'education-units',
       page,
@@ -205,25 +207,21 @@ export default function EducationUnitsPage() {
   })
 
   const rawList = data?.data || []
+  const statistics = data?.statistics || {}
   const paginationInfo = {
-    total: data?.total || rawList.length,
-    from: data?.from || (rawList.length > 0 ? 1 : 0),
-    to: data?.to || rawList.length,
-    last_page: data?.last_page || 1,
+    total: data?.total ?? rawList.length,
+    from: data?.from ?? (rawList.length > 0 ? 1 : 0),
+    to: data?.to ?? rawList.length,
+    last_page: data?.last_page ?? 1,
+    current_page: data?.current_page ?? page,
+    per_page: data?.per_page ?? 15,
   }
 
   const items = useMemo(() => (data?.data || []).map(parseFromApi), [data?.data])
 
-  // Extract unique cities & provinces for filters
-  const cityOptions = useMemo(() => {
-    const set = new Set(items.map((i) => i.city).filter(Boolean))
-    return Array.from(set)
-  }, [items])
-
-  const provinceOptions = useMemo(() => {
-    const set = new Set(items.map((i) => i.province).filter(Boolean))
-    return Array.from(set)
-  }, [items])
+  const typeOptions = data?.filter_options?.levels || []
+  const cityOptions = data?.filter_options?.cities || []
+  const provinceOptions = data?.filter_options?.provinces || []
 
   const pushNotification = (title, message, tone = 'success') => {
     const id = `${Date.now()}-${Math.random()}`
@@ -262,26 +260,44 @@ export default function EducationUnitsPage() {
     if (!file) return
     setImportFile(file)
     setImportedData([])
-    setImportPreviewData([
-      { kode: 'U-010', nama: 'TKIT 3 Dar el-Iman', tingkat: 'TKIT', npsn: '12345678', status: 'Valid' },
-      { kode: 'U-011', nama: 'SDIT 5 Dar el-Iman', tingkat: 'SDIT', npsn: '12345679', status: 'Valid' },
-    ])
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = String(reader.result || '').split(/\r?\n/).filter(Boolean)
+      const parsed = rows.slice(1).map((line) => {
+        const [kode = '', nama = '', tingkat = '', npsn = '', email = '', telepon = '', pimpinan = ''] = line.split(',').map((value) => value.trim())
+        return { kode, nama, tingkat, npsn, email, telepon, pimpinan, status: nama && tingkat ? 'Valid' : 'Tidak valid' }
+      })
+      setImportPreviewData(parsed)
+    }
+    reader.readAsText(file)
   }
 
-  const handleProcessImport = () => {
+  const handleProcessImport = async () => {
     if (!importFile) return
     setIsImporting(true)
-    setTimeout(() => {
-      const successfulRows = importPreviewData.map((row) => ({ ...row, status: 'Berhasil' }))
+    const results = []
+    for (const row of importPreviewData.filter((item) => item.status === 'Valid')) {
+      try {
+        await educationUnitService.tambah({
+          code: row.kode,
+          name: row.nama,
+          level: row.tingkat,
+          is_active: true,
+          metadata: { npsn: row.npsn, email: row.email, phone: row.telepon, principal_name: row.pimpinan },
+        })
+        results.push({ ...row, status: 'Berhasil' })
+      } catch {
+        results.push({ ...row, status: 'Gagal' })
+      }
+    }
       setIsImporting(false)
-      setImportedData(successfulRows)
+      setImportedData(results)
       setImportPreviewData([])
       queryClient.invalidateQueries({ queryKey: ['education-units'] })
       pushNotification(
         'Import Data Berhasil',
-        `${successfulRows.length} data unit pendidikan berhasil diimpor dan siap digunakan.`,
+        `${results.filter((row) => row.status === 'Berhasil').length} data unit pendidikan berhasil diimpor.`,
       )
-    }, 1200)
   }
 
   // Mutations
@@ -386,226 +402,221 @@ export default function EducationUnitsPage() {
     setShowExportModal(true)
   }
 
-  const handleProcessExport = () => {
+  const resetFilters = () => {
+    setSearch('')
+    setSelectedTypeFilter('')
+    setSelectedCityFilter('')
+    setSelectedProvinceFilter('')
+    setSelectedStatusFilter('')
+    setPage(1)
+  }
+
+  const handleProcessExport = async () => {
+    if (exportFormat === 'pdf') {
+      setShowExportModal(false)
+      window.print()
+      return
+    }
+
+    const response = await educationUnitService.getDaftar({
+      per_page: 100,
+      search: search || undefined,
+      level: selectedTypeFilter || undefined,
+      city: selectedCityFilter || undefined,
+      province: selectedProvinceFilter || undefined,
+      status: selectedStatusFilter || undefined,
+    })
+    const exportRows = (response?.data || []).map(parseFromApi)
+    const rows = [
+      ['Kode', 'Nama Unit', 'Jenis', 'NPSN', 'Kota', 'Provinsi', 'Pimpinan', 'Siswa', 'Tenaga Pendidik', 'Status'],
+      ...exportRows.map((row) => [row.code, row.name, row.unit_type, row.npsn, row.city, row.province, row.principal_name, row.total_siswa, row.total_guru, row.is_active ? 'Aktif' : 'Nonaktif']),
+    ]
+    const csv = rows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `unit-pendidikan.${exportFormat === 'xlsx' ? 'csv' : exportFormat}`
+    link.click()
+    URL.revokeObjectURL(url)
     setShowExportModal(false)
-    pushNotification(
-      'Export Berhasil',
-      `Data unit pendidikan berhasil disiapkan dalam format ${exportFormat === 'xlsx' ? 'Excel (.xlsx)' : exportFormat === 'csv' ? 'CSV (.csv)' : 'PDF (.pdf)'}.`,
-    )
+    pushNotification('Export Berhasil', `${exportRows.length} data unit pendidikan berhasil diekspor.`)
   }
 
   return (
-    <MasterDataPage className="education-unit-page" hideBreadcrumb>
+    <MasterDataPage className="education-unit-page golden-unit-page" hideBreadcrumb>
       <MasterPageHeader
-        title="Master Unit Pendidikan"
-        description="Kelola identitas, pimpinan, lokasi, dan status operasional seluruh unit pendidikan."
-        tone="brand"
+        title="Unit Pendidikan"
+        description="Kelola identitas, lokasi, pimpinan, dan status seluruh unit pendidikan."
         icon={School}
+        className="golden-unit-header"
         actions={(
-          <MasterActionButton className="education-unit-hero__action !h-11 !rounded-xl !border-white !bg-white !px-5 !text-xs !text-emerald-800 !shadow-none hover:!bg-emerald-50" icon={Plus} onClick={openAddModal}>Tambah Unit</MasterActionButton>
+          <>
+            {canCreate && <MasterActionButton className="golden-unit-action" variant="import" icon={Upload} onClick={() => setShowImportModal(true)}>Import</MasterActionButton>}
+            <MasterActionButton className="golden-unit-action" variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>Export</MasterActionButton>
+            {canCreate && <MasterActionButton className="golden-unit-action" icon={Plus} onClick={openAddModal}>Tambah Unit</MasterActionButton>}
+          </>
         )}
       />
 
-      <MasterStatsGrid className="education-unit-kpis">
+      <MasterStatsGrid className="golden-unit-kpis">
         <MasterStatCard
           icon={Building2}
           label="Total Unit"
-          value={paginationInfo.total}
+          value={Number(statistics.total_unit ?? 0).toLocaleString('id-ID')}
           description="Terdaftar di sistem"
           variant="success"
           delay={40}
-        />
-        <MasterStatCard
-          icon={CheckCircle2}
-          label="Unit Aktif"
-          value={items.filter((item) => item.is_active).length}
-          description={`${items.filter((item) => !item.is_active).length} unit nonaktif`}
-          variant="info"
-          delay={80}
+          loading={isLoading}
+          className="golden-unit-kpi"
         />
         <MasterStatCard
           icon={GraduationCap}
           label="Total Siswa"
-          value={items.reduce((total, item) => total + (item.total_siswa || 0), 0).toLocaleString('id-ID')}
-          description="Pada unit di halaman ini"
+          value={Number(statistics.total_siswa ?? 0).toLocaleString('id-ID')}
+          description="Terdaftar di seluruh unit"
           variant="warning"
-          delay={120}
+          delay={80}
+          loading={isLoading}
+          className="golden-unit-kpi"
         />
         <MasterStatCard
           icon={UsersRound}
           label="Tenaga Pendidik"
-          value={items.reduce((total, item) => total + (item.total_guru || 0), 0).toLocaleString('id-ID')}
+          value={Number(statistics.total_tenaga_pendidik ?? 0).toLocaleString('id-ID')}
           description="Guru pada seluruh unit"
           variant="neutral"
+          delay={120}
+          loading={isLoading}
+          className="golden-unit-kpi"
+        />
+        <MasterStatCard
+          icon={CheckCircle2}
+          label="Unit Aktif"
+          value={Number(statistics.total_unit_aktif ?? 0).toLocaleString('id-ID')}
+          description="Berstatus aktif"
+          variant="info"
           delay={160}
+          loading={isLoading}
+          className="golden-unit-kpi"
         />
       </MasterStatsGrid>
 
-      <section className="edu-enter rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-label="Pencarian dan filter unit pendidikan">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Cari unit pendidikan</span>
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-            <input
-              type="search"
-              placeholder="Cari nama unit, NPSN, atau pimpinan..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-100"
-            />
-          </label>
-          <div className="hidden shrink-0 items-center gap-2 lg:flex">
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="import" icon={Upload} onClick={() => setShowImportModal(true)}>Import</MasterActionButton>
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>Export Excel</MasterActionButton>
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" icon={Plus} onClick={openAddModal}>Tambah Unit</MasterActionButton>
+      <section className="golden-unit-data-card edu-enter rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="unit-table-title">
+        <div className="golden-unit-data-heading flex items-center justify-between gap-4 border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+          <div className="min-w-0">
+            <h2 id="unit-table-title" className="text-base font-bold text-slate-900 dark:text-white">Data Unit Pendidikan</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Daftar unit sesuai filter dan kewenangan pengguna.</p>
           </div>
+          <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{Number(paginationInfo.total).toLocaleString('id-ID')} unit</span>
         </div>
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-            <span className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500 dark:border-slate-700 dark:text-slate-300">
-              <SlidersHorizontal className="h-4 w-4 text-emerald-700" aria-hidden="true" /> Filter
-            </span>
-            <select aria-label="Filter jenis unit" value={selectedTypeFilter} onChange={(e) => { setSelectedTypeFilter(e.target.value); setPage(1) }} className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827]">
+
+        <div className="golden-unit-toolbar border-b border-slate-200/80 p-4 dark:border-slate-700" aria-label="Pencarian dan filter data unit pendidikan">
+          <MasterSearchInput
+            className="golden-unit-search"
+            placeholder="Cari nama, kode, lokasi, atau pimpinan..."
+            value={search}
+            onChange={(event) => { setSearch(event.target.value); setPage(1) }}
+            aria-label="Cari unit pendidikan"
+          />
+          <div className="golden-unit-filters">
+            <MasterFilterSelect className="golden-unit-filter" aria-label="Filter jenis unit" value={selectedTypeFilter} onChange={(event) => { setSelectedTypeFilter(event.target.value); setPage(1) }}>
               <option value="">Semua Jenis</option>
-              {UNIT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-            </select>
-            <select aria-label="Filter kota" value={selectedCityFilter} onChange={(e) => { setSelectedCityFilter(e.target.value); setPage(1) }} className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827]">
+              {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect className="golden-unit-filter" aria-label="Filter kota" value={selectedCityFilter} onChange={(event) => { setSelectedCityFilter(event.target.value); setPage(1) }}>
               <option value="">Semua Kota</option>
               {cityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
-            </select>
-            <select aria-label="Filter provinsi" value={selectedProvinceFilter} onChange={(e) => { setSelectedProvinceFilter(e.target.value); setPage(1) }} className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827]">
+            </MasterFilterSelect>
+            <MasterFilterSelect className="golden-unit-filter" aria-label="Filter provinsi" value={selectedProvinceFilter} onChange={(event) => { setSelectedProvinceFilter(event.target.value); setPage(1) }}>
               <option value="">Semua Provinsi</option>
               {provinceOptions.map((province) => <option key={province} value={province}>{province}</option>)}
-            </select>
-            <select aria-label="Filter status" value={selectedStatusFilter} onChange={(e) => { setSelectedStatusFilter(e.target.value); setPage(1) }} className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827]">
+            </MasterFilterSelect>
+            <MasterFilterSelect className="golden-unit-filter" aria-label="Filter status" value={selectedStatusFilter} onChange={(event) => { setSelectedStatusFilter(event.target.value); setPage(1) }}>
               <option value="">Semua Status</option>
               <option value="aktif">Aktif</option>
               <option value="nonaktif">Nonaktif</option>
-            </select>
-            <button type="button" onClick={() => refetch()} aria-label="Muat ulang data" title="Muat ulang" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-700/20 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-emerald-950/40">
-              <RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-            </button>
-        </div>
-      </section>
-
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <section className="edu-enter overflow-hidden rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="unit-table-title">
-          <div className="flex items-center justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
-            <div>
-              <h2 id="unit-table-title" className="text-base font-bold text-slate-900 dark:text-white">Daftar Unit Pendidikan</h2>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data unit sesuai filter dan kewenangan pengguna.</p>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">{paginationInfo.total} unit</span>
+            </MasterFilterSelect>
+            <MasterActionButton className="golden-unit-reset" variant="import" icon={RefreshCcw} onClick={resetFilters}>Reset</MasterActionButton>
           </div>
-          {isError ? (
-            <div className="p-5"><MasterErrorState title="Data unit gagal dimuat" description="Periksa koneksi kemudian coba muat ulang." onRetry={refetch} /></div>
-          ) : (
-        <div className="overflow-hidden">
-          <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar unit pendidikan">
+        </div>
+
+        {isError ? (
+          <div className="p-5"><MasterErrorState title="Data unit gagal dimuat" description="Periksa koneksi kemudian coba muat ulang." onRetry={refetch} /></div>
+        ) : (
+          <div className="golden-unit-table-wrap">
+          <table className="golden-unit-table w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar unit pendidikan">
             <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
               <tr>
-                <th className="w-[5%] px-2 py-3 text-center">No</th>
-                <th className="w-[28%] px-3 py-3 font-bold">Identitas Unit</th>
-                <th className="hidden w-[15%] px-3 py-3 font-bold md:table-cell">Lokasi</th>
-                <th className="hidden w-[20%] px-3 py-3 font-bold lg:table-cell">Pimpinan</th>
-                <th className="hidden w-[13%] px-3 py-3 font-bold xl:table-cell">Statistik</th>
-                <th className="hidden w-[10%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
-                <th className="w-[19%] px-2 py-3 text-center font-bold">Aksi</th>
+                <th className="hidden w-12 px-2 py-3 text-center sm:table-cell">No</th>
+                <th className="px-3 py-3 font-bold">Unit Pendidikan</th>
+                <th className="hidden w-24 px-3 py-3 font-bold md:table-cell">Jenis</th>
+                <th className="hidden w-36 px-3 py-3 font-bold xl:table-cell">Kota</th>
+                <th className="hidden w-24 px-3 py-3 text-right font-bold xl:table-cell">Siswa</th>
+                <th className="hidden w-28 px-3 py-3 text-right font-bold xl:table-cell">Pendidik</th>
+                <th className="hidden w-24 px-2 py-3 text-center font-bold sm:table-cell">Status</th>
+                <th className="w-16 px-2 py-3 text-center font-bold"><span className="sr-only">Aksi</span></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading ? (
                 Array.from({ length: 6 }).map((_, index) => (
                   <tr key={index} className="animate-pulse">
-                    <td colSpan={7} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
+                    <td colSpan={8} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
                   </tr>
                 ))
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-5"><MasterEmptyState title="Belum ada unit pendidikan" description="Ubah filter pencarian atau tambahkan unit pendidikan baru." action={<MasterActionButton onClick={openAddModal}>Tambah Unit</MasterActionButton>} /></td>
+                  <td colSpan={8} className="p-5"><MasterEmptyState title="Belum ada unit pendidikan" description="Ubah pencarian atau filter untuk menampilkan data yang tersedia." /></td>
                 </tr>
               ) : (
                 items.map((row, idx) => {
                   const style = getUnitBadgeStyle(row.unit_type)
                   return (
                     <tr key={row.id || idx} className="edu-row hover:bg-emerald-50/40 transition-colors" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
-                      <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">{(paginationInfo.from || 1) + idx}</td>
+                      <td className="hidden px-2 py-3 text-center text-xs font-bold tabular-nums text-slate-400 sm:table-cell">{(paginationInfo.from || 1) + idx}</td>
                       <td className="px-3 py-3">
                         <div className="flex min-w-0 items-center gap-2.5">
                           {row.logo_url ? (
-                            <img src={row.logo_url} alt={row.name} className="h-9 w-9 shrink-0 rounded-full border border-slate-200 object-cover shadow-sm" />
+                            <img src={row.logo_url} alt="" className="h-10 w-10 shrink-0 rounded-xl border border-slate-200 object-cover shadow-sm" />
                           ) : (
-                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-black shadow-sm ${style.bg} ${style.text}`}>{row.unit_type || 'UP'}</span>
+                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[10px] font-black shadow-sm ${style.bg} ${style.text}`}>{row.unit_type || 'UP'}</span>
                           )}
-                          <span className="min-w-0">
-                            <strong className="block truncate text-xs font-extrabold leading-5 text-slate-900 dark:text-white" title={row.name}>{row.name}</strong>
-                            <span className="flex items-center gap-1.5">
-                              <small className="truncate text-[9px] font-medium text-slate-400">{row.code || '-'}</small>
-                              <span className={`inline-flex rounded-md border px-1.5 py-0.5 text-[8px] font-bold ${style.bg} ${style.text} ${style.border}`}>{row.unit_type || '-'}</span>
+                          <span className="min-w-0 flex-1">
+                            <strong className="block truncate text-[13px] font-extrabold leading-5 text-slate-900 dark:text-white" title={row.name}>{row.name || '—'}</strong>
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <small className="truncate text-[10px] font-semibold text-slate-400">{row.code || '—'}</small>
+                              <span className={`inline-flex rounded-md border px-1.5 py-0.5 text-[8px] font-bold md:hidden ${style.bg} ${style.text} ${style.border}`}>{row.unit_type || '—'}</span>
                             </span>
-                            <small className="mt-0.5 block truncate text-[9px] text-slate-400 md:hidden">{row.city || '-'}, {row.province || '-'}</small>
+                            <small className="mt-0.5 block truncate text-[9px] text-slate-400 xl:hidden">{[row.city, row.province].filter(Boolean).join(', ') || 'Lokasi belum dilengkapi'}</small>
                             <small className={`mt-0.5 text-[9px] font-bold sm:hidden ${row.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>• {row.is_active ? 'Aktif' : 'Nonaktif'}</small>
                           </span>
                         </div>
                       </td>
                       <td className="hidden px-3 py-3 md:table-cell">
+                        <span className={`inline-flex rounded-lg border px-2 py-1 text-[9px] font-bold ${style.bg} ${style.text} ${style.border}`}>{row.unit_type || '—'}</span>
+                      </td>
+                      <td className="hidden px-3 py-3 xl:table-cell">
                         <span className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200"><MapPin className="h-3.5 w-3.5 text-slate-400" />{row.city || '-'}</span>
                         <span className="mt-1 block pl-5 text-[10px] text-slate-500">{row.province || '-'}</span>
                       </td>
-                      <td className="hidden px-3 py-3 lg:table-cell">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
-                            {(row.principal_name || 'P').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
-                          </span>
-                          <span className="min-w-0">
-                            <strong className="block truncate text-xs text-slate-800 dark:text-slate-100">{row.principal_name || '-'}</strong>
-                            <small className="mt-0.5 block truncate text-[10px] text-slate-400">NIP. {row.principal_nip || '-'}</small>
-                          </span>
-                        </div>
+                      <td className="hidden px-3 py-3 text-right xl:table-cell">
+                        <span className="inline-flex items-center justify-end gap-1.5 text-xs font-extrabold tabular-nums text-slate-800 dark:text-slate-100"><GraduationCap className="h-3.5 w-3.5 text-slate-400" />{Number(row.total_siswa ?? 0).toLocaleString('id-ID')}</span>
                       </td>
-                      <td className="hidden px-3 py-3 xl:table-cell">
-                        <div className="space-y-1 text-[10px] font-medium text-slate-500 dark:text-slate-300">
-                          <span className="flex items-center gap-1.5"><GraduationCap className="h-3 w-3" />{(row.total_siswa || 0).toLocaleString('id-ID')} siswa</span>
-                          <span className="flex items-center gap-1.5"><UsersRound className="h-3 w-3" />{(row.total_guru || 0).toLocaleString('id-ID')} guru</span>
-                          <span className="flex items-center gap-1.5"><WalletCards className="h-3 w-3" />{(row.total_rombel || 0).toLocaleString('id-ID')} rombel</span>
-                        </div>
+                      <td className="hidden px-3 py-3 text-right xl:table-cell">
+                        <span className="inline-flex items-center justify-end gap-1.5 text-xs font-extrabold tabular-nums text-slate-800 dark:text-slate-100"><UsersRound className="h-3.5 w-3.5 text-slate-400" />{Number(row.total_guru ?? 0).toLocaleString('id-ID')}</span>
                       </td>
                       <td className="hidden px-2 py-3 text-center sm:table-cell">
-                        {row.is_active ? (
-                          <MasterStatusBadge active />
-                        ) : (
-                          <MasterStatusBadge active={false} inactiveLabel="Nonaktif" />
-                        )}
+                        <MasterStatusBadge active={row.is_active} inactiveLabel="Nonaktif" />
                       </td>
                       <td className="px-2 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => setDetailUnit(row)}
-                            title="Lihat detail"
-                            aria-label={`Lihat detail ${row.name}`}
-                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-blue-500/20 dark:border-blue-800/70 dark:bg-blue-950/40 dark:text-blue-300"
-                          >
-                            <Eye className="h-4 w-4" strokeWidth={2.5} />
-                          </button>
-                          <button
-                            onClick={() => openEditModal(row)}
-                            title="Edit unit"
-                            aria-label={`Edit ${row.name}`}
-                            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition-colors hover:border-amber-300 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-amber-500/20 sm:flex dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-300"
-                          >
-                            <Pencil className="h-4 w-4" strokeWidth={2.5} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeleteTarget(row)
-                              setHasConfirmedDeleteCheck(false)
-                            }}
-                            title="Hapus unit"
-                            aria-label={`Hapus ${row.name}`}
-                            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition-colors hover:border-rose-300 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-rose-500/20 sm:flex dark:border-rose-800/70 dark:bg-rose-950/40 dark:text-rose-300"
-                          >
-                            <Trash2 className="h-4 w-4" strokeWidth={2.5} />
-                          </button>
-                        </div>
+                        <span className="inline-flex justify-center">
+                          <ActionDropdown
+                            onView={() => setDetailUnit(row)}
+                            onEdit={canUpdate ? () => openEditModal(row) : undefined}
+                            onDelete={canDelete ? () => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) } : undefined}
+                          />
+                        </span>
                       </td>
                     </tr>
                   )
@@ -613,78 +624,15 @@ export default function EducationUnitsPage() {
               )}
             </tbody>
           </table>
-        </div>
-          )}
-
-        {/* Pagination Footer */}
-        <div className="flex flex-col gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-500">
-          <div>
-            Menampilkan <span className="font-semibold">{paginationInfo.from}</span> sampai{' '}
-            <span className="font-semibold">{paginationInfo.to}</span> dari{' '}
-            <span className="font-semibold">{paginationInfo.total}</span> data
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 font-medium hover:bg-slate-50 disabled:opacity-50"
-            >
-              Sebelumnya
-            </button>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-800 font-bold text-white">
-              {page}
-            </span>
-            <button
-              disabled={page >= paginationInfo.last_page}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 font-medium hover:bg-slate-50 disabled:opacity-50"
-            >
-              Selanjutnya
-            </button>
-          </div>
-        </div>
-        </section>
+        )}
 
-        <aside className="space-y-4 xl:sticky xl:top-5" aria-label="Ringkasan unit pendidikan">
-          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"><Building2 className="h-5 w-5" /></div>
-              <div><h2 className="text-sm font-bold text-slate-900 dark:text-white">Ringkasan Unit</h2><p className="text-xs text-slate-500 dark:text-slate-400">Data halaman aktif</p></div>
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-700">
-              {[
-                ['Total Unit', paginationInfo.total, Building2, 'text-emerald-700 bg-emerald-50'],
-                ['Unit Aktif', items.filter((item) => item.is_active).length, CheckCircle2, 'text-emerald-700 bg-emerald-50'],
-                ['SD/MI', items.filter((item) => ['SDIT', 'MIT'].includes(item.unit_type)).length, School, 'text-emerald-700 bg-emerald-50'],
-                ['Tenaga Pendidik', items.reduce((total, item) => total + (item.total_guru || 0), 0), UsersRound, 'text-blue-700 bg-blue-50'],
-                ['Total Siswa', items.reduce((total, item) => total + (item.total_siswa || 0), 0), GraduationCap, 'text-blue-700 bg-blue-50'],
-              ].map(([label, value, Icon, color]) => (
-                <div key={label} className="flex items-center gap-3 py-3">
-                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-500 dark:text-slate-300">{label}</span>
-                  <strong className="text-sm font-black tabular-nums text-slate-900 dark:text-white">{Number(value).toLocaleString('id-ID')}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Aksi Cepat</h2>
-            <div className="mt-3 grid gap-2">
-              {[
-                ['Tambah Unit Pendidikan', Plus, openAddModal, 'text-emerald-700 bg-emerald-50'],
-                ['Import Data Unit', Upload, () => setShowImportModal(true), 'text-blue-700 bg-blue-50'],
-                ['Export Excel', FileSpreadsheet, handleExportExcel, 'text-emerald-700 bg-emerald-50'],
-                ['Export PDF', FileText, () => { setExportFormat('pdf'); setShowExportModal(true) }, 'text-rose-600 bg-rose-50'],
-                ['Lihat Statistik', GraduationCap, () => setShowStatisticsModal(true), 'text-violet-700 bg-violet-50'],
-              ].map(([label, Icon, action, color]) => (
-                <button key={label} type="button" onClick={action} className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-emerald-950/40">
-                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>{label}
-                </button>
-              ))}
-            </div>
-          </section>
-        </aside>
-      </div>
+        {!isError && (
+          <div className="golden-unit-pagination px-4 pb-4">
+            <MasterPagination meta={paginationInfo} page={page} onPageChange={setPage} />
+          </div>
+        )}
+      </section>
 
       {showStatisticsModal && (
         <div
@@ -704,7 +652,7 @@ export default function EducationUnitsPage() {
                 </span>
                 <div>
                   <h2 id="unit-statistics-title" className="text-base font-bold text-slate-900 dark:text-white">Statistik Unit Pendidikan</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Ringkasan berdasarkan data dan filter yang sedang aktif.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Ringkasan data sesuai kewenangan pengguna.</p>
                 </div>
               </div>
               <button type="button" onClick={() => setShowStatisticsModal(false)} aria-label="Tutup statistik" className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -714,10 +662,10 @@ export default function EducationUnitsPage() {
 
             <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                ['Total Unit', paginationInfo.total, Building2, 'bg-emerald-50 text-emerald-700'],
-                ['Unit Aktif', items.filter((item) => item.is_active).length, CheckCircle2, 'bg-blue-50 text-blue-700'],
-                ['Total Siswa', items.reduce((total, item) => total + (item.total_siswa || 0), 0), GraduationCap, 'bg-amber-50 text-amber-700'],
-                ['Tenaga Pendidik', items.reduce((total, item) => total + (item.total_guru || 0), 0), UsersRound, 'bg-violet-50 text-violet-700'],
+                ['Total Unit', statistics.total_unit ?? 0, Building2, 'bg-emerald-50 text-emerald-700'],
+                ['Unit Aktif', statistics.total_unit_aktif ?? 0, CheckCircle2, 'bg-blue-50 text-blue-700'],
+                ['Total Siswa', statistics.total_siswa ?? 0, GraduationCap, 'bg-amber-50 text-amber-700'],
+                ['Tenaga Pendidik', statistics.total_tenaga_pendidik ?? 0, UsersRound, 'bg-violet-50 text-violet-700'],
               ].map(([label, value, Icon, color]) => (
                 <article key={label} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
                   <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${color}`}><Icon className="h-4 w-4" /></span>
@@ -730,10 +678,10 @@ export default function EducationUnitsPage() {
             <div className="px-5 pb-5">
               <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
                 <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70">
-                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Distribusi Jenis Unit</h3>
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Distribusi Jenis pada Halaman Ini</h3>
                 </div>
                 <div className="grid gap-3 p-4 sm:grid-cols-2">
-                  {UNIT_TYPES.map((type) => {
+                  {typeOptions.map((type) => {
                     const total = items.filter((item) => item.unit_type === type).length
                     const percentage = items.length ? Math.round((total / items.length) * 100) : 0
                     return (
@@ -755,57 +703,6 @@ export default function EducationUnitsPage() {
             <footer className="flex justify-end border-t border-slate-100 px-5 py-4 dark:border-slate-700">
               <button type="button" onClick={() => setShowStatisticsModal(false)} className="h-10 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white transition hover:bg-emerald-900">Tutup</button>
             </footer>
-          </section>
-        </div>
-      )}
-
-      {/* Tombol aksi tengah untuk tablet dan mobile */}
-      <div className="fixed bottom-20 left-1/2 z-40 -translate-x-1/2 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setShowMobileActions(true)}
-          aria-label="Buka aksi Unit Pendidikan"
-          className="flex h-14 min-w-14 items-center justify-center gap-2 rounded-full bg-emerald-800 px-4 text-xs font-bold text-white shadow-xl shadow-emerald-950/25 transition active:scale-95"
-        >
-          <Menu className="h-5 w-5" />
-          <span>Aksi</span>
-        </button>
-      </div>
-
-      {showMobileActions && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/55 backdrop-blur-sm lg:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-unit-actions-title">
-          <section className="w-full rounded-t-2xl border-t border-slate-200 bg-white p-4 pb-7 shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 id="mobile-unit-actions-title" className="text-sm font-bold text-slate-900 dark:text-white">Aksi Unit Pendidikan</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Pilih tindakan yang ingin dilakukan.</p>
-              </div>
-              <button type="button" onClick={() => setShowMobileActions(false)} aria-label="Tutup menu aksi" className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button>
-            </div>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-              {[
-                { label: 'Tambah', icon: Plus, action: openAddModal },
-                { label: 'Lihat', icon: Eye, action: () => items[0] && setDetailUnit(items[0]), disabled: !items.length },
-                { label: 'Edit', icon: Pencil, action: () => items[0] && openEditModal(items[0]), disabled: !items.length },
-                { label: 'Export', icon: FileSpreadsheet, action: handleExportExcel },
-                { label: 'Import', icon: Upload, action: () => setShowImportModal(true) },
-              ].map(({ label, icon: Icon, action, disabled }) => (
-                <button
-                  key={label}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    setShowMobileActions(false)
-                    action()
-                  }}
-                  className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 text-xs font-semibold text-slate-700 transition active:scale-95 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200"
-                >
-                  <Icon className="h-5 w-5 text-emerald-700 dark:text-emerald-300" />
-                  {label}
-                </button>
-              ))}
-            </div>
-            {!!items.length && <p className="mt-3 text-center text-[11px] text-slate-500 dark:text-slate-400">Aksi Lihat dan Edit diterapkan pada unit pertama di daftar aktif.</p>}
           </section>
         </div>
       )}
@@ -929,7 +826,7 @@ export default function EducationUnitsPage() {
                         className="w-full rounded-xl border border-slate-200/90 px-4 py-2.5 text-sm text-slate-800 focus:border-[#054e3b] focus:ring-2 focus:ring-[#054e3b]/10 focus:outline-none transition-all"
                       >
                         <option value="">Pilih Jenis Unit</option>
-                        {UNIT_TYPES.map((t) => (
+                        {typeOptions.map((t) => (
                           <option key={t} value={t}>
                             {t}
                           </option>
@@ -1162,16 +1059,18 @@ export default function EducationUnitsPage() {
             <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Detail Unit Pendidikan</h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const target = detailUnit
-                    setDetailUnit(null)
-                    openEditModal(target)
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
-                >
-                  <Pencil /> Edit
-                </button>
+                {canUpdate && (
+                  <button
+                    onClick={() => {
+                      const target = detailUnit
+                      setDetailUnit(null)
+                      openEditModal(target)
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <Pencil /> Edit
+                  </button>
+                )}
                 <button
                   onClick={() => { setExportFormat('pdf'); setShowExportModal(true) }}
                   className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
@@ -1206,12 +1105,12 @@ export default function EducationUnitsPage() {
                   <div className="flex items-center gap-2">
                     <h2 id="education-unit-detail-title" className="text-xl font-black text-slate-900">{detailUnit.name}</h2>
                     <span className="rounded-md bg-blue-600 px-2 py-0.5 text-xs font-bold text-white">
-                      {detailUnit.unit_type || 'SDIT'}
+                      {detailUnit.unit_type || '—'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-medium text-emerald-700">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    Status : <span className="font-bold">Aktif</span>
+                  <div className={`flex items-center gap-2 text-xs font-medium ${detailUnit.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    <span className={`h-2 w-2 rounded-full ${detailUnit.is_active ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                    Status : <span className="font-bold">{detailUnit.is_active ? 'Aktif' : 'Nonaktif'}</span>
                   </div>
                   <p className="flex items-start gap-1.5 text-xs text-slate-500">
                     <MapPin className="mt-0.5 shrink-0 text-slate-400" />
@@ -1252,7 +1151,7 @@ export default function EducationUnitsPage() {
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">Tahun Berdiri</span>
-                        <span className="font-bold text-slate-800">{detailUnit.established_year}</span>
+                        <span className="font-bold text-slate-800">{detailUnit.established_year || '—'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">NPSN</span>
@@ -1260,7 +1159,7 @@ export default function EducationUnitsPage() {
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">Status Akreditasi</span>
-                        <span className="font-bold text-slate-800">{detailUnit.accreditation || 'A'}</span>
+                        <span className="font-bold text-slate-800">{detailUnit.accreditation || '—'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">Email</span>
@@ -1345,15 +1244,8 @@ export default function EducationUnitsPage() {
 
               {/* Danger Warning Alert Box */}
               <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900 space-y-2">
-                <p className="font-bold">Semua data yang terkait dengan unit ini akan terhapus permanen, termasuk:</p>
-                <div className="grid grid-cols-2 gap-2 text-amber-800 font-medium">
-                  <div className="flex items-center gap-1.5"><GraduationCap className="h-4 w-4" /> Data Siswa</div>
-                  <div className="flex items-center gap-1.5"><UsersRound className="h-4 w-4" /> Data Guru</div>
-                  <div className="flex items-center gap-1.5"><School className="h-4 w-4" /> Data Kelas</div>
-                  <div className="flex items-center gap-1.5"><FolderOpen className="h-4 w-4" /> Laporan & Dokumen</div>
-                  <div className="flex items-center gap-1.5"><CalendarDays className="h-4 w-4" /> Absensi</div>
-                  <div className="flex items-center gap-1.5"><WalletCards className="h-4 w-4" /> Data Keuangan</div>
-                </div>
+                <p className="font-bold">Unit akan dihapus dari daftar aktif.</p>
+                <p className="leading-5 text-amber-800">Penghapusan mengikuti mekanisme soft delete yang sudah berlaku. Data terkait tidak dihapus permanen oleh tindakan ini.</p>
               </div>
 
               {/* Confirmation Checkbox */}
@@ -1364,7 +1256,7 @@ export default function EducationUnitsPage() {
                   onChange={(e) => setHasConfirmedDeleteCheck(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-300 text-emerald-800 focus:ring-emerald-600"
                 />
-                Saya memahami bahwa data tidak dapat dikembalikan.
+                Saya memahami tindakan penghapusan unit ini.
               </label>
             </div>
 
@@ -1381,7 +1273,7 @@ export default function EducationUnitsPage() {
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
                 className="rounded-lg bg-red-600 px-5 py-2 text-xs font-bold text-white shadow hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
-                {deleteMutation.isPending ? 'Menghapus...' : 'Hapus Permanen'}
+                {deleteMutation.isPending ? 'Menghapus...' : 'Hapus Unit'}
               </button>
             </div>
           </div>

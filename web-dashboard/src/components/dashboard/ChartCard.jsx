@@ -19,7 +19,7 @@ export default function ChartCard({
       description={subtitle}
       actions={action}
       className={className}
-      contentClassName="flex min-h-[260px] items-center justify-center"
+      contentClassName="dashboard-chart-content flex min-h-[220px] items-center justify-center"
     >
         {loading ? (
           <AppSkeleton variant="line" rows={6} className="w-full" />

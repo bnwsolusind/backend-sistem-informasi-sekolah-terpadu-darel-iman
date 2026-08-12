@@ -20,6 +20,7 @@ import {
   Eye,
 } from 'lucide-react'
 import Swal from 'sweetalert2'
+import ActionDropdown from '../components/app/ActionDropdown'
 import { equranService } from '../services/equranService'
 
 const emptySurah = {
@@ -456,34 +457,12 @@ export default function MasterQuranSurahPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {/* Dedicated Lihat Ayat Button in Aksi Column */}
-                        <button
-                          onClick={() => handleOpenAyatDetail(s)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition-all flex items-center gap-1 border border-emerald-300 shadow-sm active:scale-95"
-                          title="Lihat Rincian Ayat Surah"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Lihat Ayat</span>
-                        </button>
-
-                        {/* Edit Button */}
-                        <button
-                          onClick={(e) => handleOpenEdit(s, e)}
-                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-200"
-                          title="Edit Data Surah"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-
-                        {/* Hapus Button */}
-                        <button
-                          onClick={(e) => handleDelete(s, e)}
-                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-200"
-                          title="Hapus Surah"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="flex justify-center">
+                        <ActionDropdown
+                          onView={() => handleOpenAyatDetail(s)}
+                          onEdit={(e) => handleOpenEdit(s, e)}
+                          onDelete={(e) => handleDelete(s, e)}
+                        />
                       </div>
                     </td>
                   </tr>

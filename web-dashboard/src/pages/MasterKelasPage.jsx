@@ -3,47 +3,27 @@ import Swal from 'sweetalert2'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   School,
-  GraduationCap,
   Users,
   UserCheck,
   Plus,
-  Search,
-  Filter,
-  Pencil,
-  Trash2,
-  Eye,
   FileSpreadsheet,
-  FileInput,
   ChevronRight,
   ChevronLeft,
   CheckCircle2,
-  AlertTriangle,
-  X,
-  RefreshCcw,
-  Building2,
-  DoorOpen,
 } from 'lucide-react'
 import { kelasService } from '../services/kelasService'
+import { ActionDropdown, AppBadge, PersonIdentityCell } from '../components/app'
 import {
+  MasterActionButton,
+  MasterDataSection,
   MasterDataPage,
   MasterPageHeader,
   MasterStatsGrid,
   MasterStatCard,
-  MasterFilterBar,
-  MasterSearchInput,
   MasterFilterSelect,
-  MasterDataTable,
-  MasterBadge,
-  MasterStatusBadge,
-  MasterActionGroup,
-  MasterActionIconButton,
-  MasterPagination,
   MasterFormModal,
   MasterDetailModal,
   MasterDeleteDialog,
-  MasterLoadingState,
-  MasterEmptyState,
-  MasterErrorState,
 } from '../components/master-data'
 
 const UNIT_COLORS = {
@@ -57,6 +37,10 @@ const UNIT_COLORS = {
   PONPES: { bg: 'bg-emerald-900', text: 'text-white', border: 'border-emerald-800' },
   Mahad: { bg: 'bg-amber-800', text: 'text-white', border: 'border-amber-700' },
 }
+
+const EMPTY_OPTIONS = []
+const DEFAULT_JENJANG = ['TKIT', 'SDIT', 'SMPIT', 'SMAIT', 'MIT', 'MA']
+const DEFAULT_TINGKAT = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 
 function getUnitBadgeStyle(type) {
   return (
@@ -110,24 +94,18 @@ export default function MasterKelasPage() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
-  // Import Modal
-  const [showImportModal, setShowImportModal] = useState(false)
-  const [importFile, setImportFile] = useState(null)
-  const [importPreview, setImportPreview] = useState([])
-  const [isImporting, setIsImporting] = useState(false)
-
   // Options Query
   const { data: optionsData } = useQuery({
     queryKey: ['kelas-options'],
     queryFn: () => kelasService.getOptions(),
   })
 
-  const masterUnits = optionsData?.units || []
-  const masterTahunAjaran = optionsData?.tahun_ajaran || []
-  const masterSemesters = optionsData?.semesters || []
-  const masterEmployees = optionsData?.employees || optionsData?.guru || []
-  const masterJenjang = optionsData?.jenjang || ['TKIT', 'SDIT', 'SMPIT', 'SMAIT', 'MIT', 'MA']
-  const masterTingkat = optionsData?.tingkat || ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+  const masterUnits = optionsData?.units || EMPTY_OPTIONS
+  const masterTahunAjaran = optionsData?.tahun_ajaran || EMPTY_OPTIONS
+  const masterSemesters = optionsData?.semesters || EMPTY_OPTIONS
+  const masterEmployees = optionsData?.employees || optionsData?.guru || EMPTY_OPTIONS
+  const masterJenjang = optionsData?.jenjang || DEFAULT_JENJANG
+  const masterTingkat = optionsData?.tingkat || DEFAULT_TINGKAT
 
   const availableSemestersForm = useMemo(() => {
     if (!formData.tahun_ajaran_id) return masterSemesters
@@ -171,10 +149,10 @@ export default function MasterKelasPage() {
 
   const rawList = classData?.data || []
   const stats = classData?.statistik || {
-    total_kelas: rawList.length,
-    total_aktif: rawList.filter((r) => r.status === 'Aktif').length,
-    wali_terisi: rawList.filter((r) => r.wali_kelas_id).length,
-    total_kapasitas: rawList.reduce((a, b) => a + (b.kapasitas || 0), 0),
+    total_kelas: 0,
+    total_aktif: 0,
+    wali_terisi: 0,
+    total_kapasitas: 0,
   }
 
   const paginationInfo = {
@@ -183,6 +161,7 @@ export default function MasterKelasPage() {
     to: classData?.meta?.to || rawList.length,
     last_page: classData?.meta?.last_page || 1,
     current_page: classData?.meta?.current_page || 1,
+    per_page: classData?.meta?.per_page || 10,
   }
 
   // Mutations
@@ -318,75 +297,87 @@ export default function MasterKelasPage() {
     URL.revokeObjectURL(url)
   }
 
+  const resetFilters = () => {
+    setSearch('')
+    setSelectedUnitFilter('')
+    setSelectedTahunFilter('')
+    setSelectedSemesterFilter('')
+    setSelectedJenjangFilter('')
+    setSelectedStatusFilter('')
+    setPage(1)
+  }
+
   return (
     <MasterDataPage className="education-unit-page" hideBreadcrumb>
       {/* Header Banner */}
       <MasterPageHeader
-        tone="brand"
         icon={School}
         title="Data Kelas & Rombongan Belajar"
         description="Kelola seluruh rombongan belajar, penugasan wali kelas, alokasi ruangan, dan kapasitas siswa di lingkungan Yayasan."
         actions={
           <>
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-700" /> Export Excel
-            </button>
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-emerald-800 px-5 text-xs font-semibold text-white shadow-lg shadow-emerald-800/20 transition hover:bg-emerald-900"
-            >
-              <Plus className="h-4 w-4" /> Tambah Kelas Baru
-            </button>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>Export</MasterActionButton>
+            <MasterActionButton icon={Plus} onClick={openCreateModal}>Tambah Kelas</MasterActionButton>
           </>
         }
       />
 
       {/* Ringkasan Stats */}
       <MasterStatsGrid className="education-unit-kpis">
-        <MasterStatCard icon={School} label="TOTAL KELAS" value={stats.total_kelas} description="Rombongan belajar terdaftar" variant="success" />
-        <MasterStatCard icon={CheckCircle2} label="KELAS AKTIF" value={stats.total_aktif} description="Status operasional aktif" variant="info" />
-        <MasterStatCard icon={UserCheck} label="WALI KELAS TERISI" value={stats.wali_terisi} description="Memiliki wali kelas" variant="warning" />
-        <MasterStatCard icon={Users} label="TOTAL KAPASITAS" value={stats.total_kapasitas} description="Total kuota tempat duduk" variant="neutral" />
+        <MasterStatCard icon={School} label="TOTAL KELAS" value={stats.total_kelas} description="Rombongan belajar terdaftar" variant="success" loading={isLoading} />
+        <MasterStatCard icon={CheckCircle2} label="KELAS AKTIF" value={stats.total_aktif} description="Status operasional aktif" variant="info" loading={isLoading} />
+        <MasterStatCard icon={UserCheck} label="WALI KELAS TERISI" value={stats.wali_terisi} description="Memiliki wali kelas" variant="warning" loading={isLoading} />
+        <MasterStatCard icon={Users} label="TOTAL KAPASITAS" value={stats.total_kapasitas} description="Total kuota tempat duduk" variant="neutral" loading={isLoading} />
       </MasterStatsGrid>
 
-      {/* Filter Bar */}
-      <MasterFilterBar
-        search={
-          <MasterSearchInput
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Cari kode kelas, nama kelas, atau nama wali kelas..."
-          />
-        }
+      <MasterDataSection
+        title="Daftar Kelas & Rombel"
+        description="Data kelas sesuai periode, unit, jenjang, dan status yang dipilih."
+        countLabel={`${Number(paginationInfo.total).toLocaleString('id-ID')} kelas`}
+        search={{
+          value: search,
+          onValueChange: (value) => { setSearch(value); setPage(1) },
+          placeholder: 'Cari kode kelas, nama kelas, atau nama wali kelas...',
+          'aria-label': 'Cari kelas atau rombongan belajar',
+        }}
         filters={
           <>
-            <MasterFilterSelect value={selectedUnitFilter} onChange={(e) => setSelectedUnitFilter(e.target.value)}>
+            <MasterFilterSelect aria-label="Filter unit pendidikan" value={selectedUnitFilter} onChange={(e) => { setSelectedUnitFilter(e.target.value); setPage(1) }}>
               <option value="">Semua Unit Pendidikan</option>
               {masterUnits.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
             </MasterFilterSelect>
-            <MasterFilterSelect value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value)}>
+            <MasterFilterSelect aria-label="Filter tahun ajaran" value={selectedTahunFilter} onChange={(e) => { setSelectedTahunFilter(e.target.value); setSelectedSemesterFilter(''); setPage(1) }}>
+              <option value="">Semua Tahun Ajaran</option>
+              {masterTahunAjaran.map((tahun) => (<option key={tahun.id} value={tahun.id}>{tahun.name}</option>))}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter semester" value={selectedSemesterFilter} onChange={(e) => { setSelectedSemesterFilter(e.target.value); setPage(1) }}>
+              <option value="">Semua Semester</option>
+              {masterSemesters
+                .filter((semester) => !selectedTahunFilter || semester.academic_year_id === selectedTahunFilter)
+                .map((semester) => (<option key={semester.id} value={semester.id}>{semester.name}</option>))}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter jenjang" value={selectedJenjangFilter} onChange={(e) => { setSelectedJenjangFilter(e.target.value); setPage(1) }}>
+              <option value="">Semua Jenjang</option>
+              {masterJenjang.map((jenjang) => (<option key={jenjang} value={jenjang}>{jenjang}</option>))}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter status" value={selectedStatusFilter} onChange={(e) => { setSelectedStatusFilter(e.target.value); setPage(1) }}>
               <option value="">Semua Status</option>
               <option value="Aktif">Aktif</option>
               <option value="Tidak Aktif">Tidak Aktif</option>
             </MasterFilterSelect>
           </>
         }
-      />
-
-      {/* Table Data */}
-      {isLoading ? (
-        <MasterLoadingState label="Memuat daftar rombongan belajar..." />
-      ) : isError ? (
-        <MasterErrorState onRetry={refetch} />
-      ) : rawList.length === 0 ? (
-        <MasterEmptyState title="Data Kelas Tidak Ditemukan" description="Belum ada data rombongan belajar yang sesuai dengan kriteria filter Anda." />
-      ) : (
-        <MasterDataTable>
+        onReset={resetFilters}
+        resetDisabled={!search && !selectedUnitFilter && !selectedTahunFilter && !selectedSemesterFilter && !selectedJenjangFilter && !selectedStatusFilter}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
+        isEmpty={!isLoading && !isError && rawList.length === 0}
+        emptyTitle="Data Kelas Tidak Ditemukan"
+        emptyDescription="Belum ada data rombongan belajar yang sesuai dengan kriteria filter Anda."
+        pagination={{ meta: paginationInfo, page, onPageChange: setPage }}
+        ariaLabel="Data kelas dan rombongan belajar"
+      >
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#F7F4EB] dark:bg-slate-900/80 text-gray-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-800">
@@ -440,10 +431,11 @@ export default function MasterKelasPage() {
 
                     {/* WALI KELAS */}
                     <td className="py-4 px-4">
-                      <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-                        <UserCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                        <span>{item.wali_kelas?.nama_tampil || item.wali_kelas?.name || 'Belum diatur'}</span>
-                      </div>
+                      <PersonIdentityCell
+                        src={item.wali_kelas?.photo_url || item.wali_kelas?.avatar_url || item.wali_kelas?.foto}
+                        name={item.wali_kelas?.nama_tampil || item.wali_kelas?.name || 'Belum diatur'}
+                        subtitle={item.wali_kelas?.niy ? `NIY ${item.wali_kelas.niy}` : 'Wali kelas'}
+                      />
                     </td>
 
                     {/* KAPASITAS & RUANGAN */}
@@ -454,61 +446,27 @@ export default function MasterKelasPage() {
 
                     {/* STATUS */}
                     <td className="py-4 px-4 text-center">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                          item.status === 'Aktif'
-                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
-                            : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                        }`}
-                      >
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            item.status === 'Aktif' ? 'bg-emerald-500' : 'bg-slate-400'
-                          }`}
-                        ></span>
+                      <AppBadge variant={item.status === 'Aktif' ? 'success' : 'neutral'} dot>
                         {item.status || 'Tidak Aktif'}
-                      </span>
+                      </AppBadge>
                     </td>
 
                     {/* AKSI */}
                     <td className="py-4 px-4 text-center">
-                      <div className="inline-flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => { setDetailKelas(item); setIsDetailModalOpen(true) }}
-                          className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-900 transition-all border border-blue-100 dark:border-blue-900"
-                          title="Detail Kelas"
-                          aria-label="Detail Kelas"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(item)}
-                          className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900 transition-all border border-amber-100 dark:border-amber-900"
-                          title="Edit Kelas"
-                          aria-label="Edit Kelas"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => { setDeleteTarget(item); setIsDeleteModalOpen(true) }}
-                          className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 dark:hover:bg-rose-900 transition-all border border-rose-100 dark:border-rose-900"
-                          title="Hapus Kelas"
-                          aria-label="Hapus Kelas"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <span className="inline-flex justify-center">
+                        <ActionDropdown
+                          onView={() => { setDetailKelas(item); setIsDetailModalOpen(true) }}
+                          onEdit={() => openEditModal(item)}
+                          onDelete={() => { setDeleteTarget(item); setIsDeleteModalOpen(true) }}
+                        />
+                      </span>
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-        </MasterDataTable>
-      )}
-
-      {/* Pagination */}
-      <MasterPagination meta={paginationInfo} page={page} onPageChange={(p) => setPage(p)} label="kelas" />
+      </MasterDataSection>
 
       {/* Form Modal Wizard */}
       <MasterFormModal

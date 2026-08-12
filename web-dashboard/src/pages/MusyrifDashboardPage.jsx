@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   BookOpen,
   CheckCircle2,
@@ -31,6 +32,7 @@ import ModalErrorBoundary from '../components/common/ModalErrorBoundary'
 import { managementDashboardService } from '../services/managementDashboardService'
 
 export default function MusyrifDashboardPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
@@ -72,19 +74,19 @@ export default function MusyrifDashboardPage() {
     {
       label: 'Presensi Ibadah Santri',
       icon: CalendarCheck,
-      onClick: () => (window.location.href = '/dashboard/absensi-ibadah'),
+      onClick: () => navigate('/dashboard/absensi-ibadah'),
       permissions: ['worship_attendance.view'],
     },
     {
       label: 'Mutabaah Harian Santri',
       icon: Activity,
-      onClick: () => (window.location.href = '/dashboard/mutabaah'),
+      onClick: () => navigate('/dashboard/mutabaah'),
       permissions: ['mutabaah.view'],
     },
     {
       label: 'Setoran Tahfizh Asrama',
       icon: BookOpen,
-       onClick: () => (window.location.href = '/portal-guru/workspace?tab=tahfizh'),
+      onClick: () => navigate('/portal-guru/workspace?tab=tahfizh'),
       permissions: ['tahfizh.monitoring_target'],
     },
   ]

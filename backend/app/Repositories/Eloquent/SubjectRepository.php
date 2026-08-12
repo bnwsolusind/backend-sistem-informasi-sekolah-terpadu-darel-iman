@@ -42,7 +42,18 @@ class SubjectRepository implements SubjectRepositoryInterface
         $rombelIds = $data['rombel_ids'] ?? null;
         unset($data['teacher_ids'], $data['kelas_ids'], $data['rombel_ids']);
 
-        $subject = Subject::create($data);
+        $subject = null;
+        $code = $data['code'] ?? $data['kode_mapel'] ?? null;
+        if ($code) {
+            $existing = Subject::withTrashed()->where('code', $code)->first();
+            if ($existing?->trashed()) {
+                $existing->restore();
+                $existing->update($data);
+                $subject = $existing;
+            }
+        }
+
+        $subject ??= Subject::create($data);
 
         if ($teacherIds && is_array($teacherIds)) {
             $subject->teachers()->sync($teacherIds);
@@ -125,9 +136,20 @@ class SubjectRepository implements SubjectRepositoryInterface
         ];
     }
 
-    public function getDropdownOptions(): Collection
+    public function getDropdownOptions(array $filters = []): Collection
     {
         return Subject::where('status', true)
+            ->when($filters['unit_pendidikan_id'] ?? null, fn ($query, $unitId) => $query->where('unit_pendidikan_id', $unitId))
+            ->when($filters['kurikulum_id'] ?? null, fn ($query, $kurikulumId) => $query->where('kurikulum_id', $kurikulumId))
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $like = $query->getModel()->getConnection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+                $query->where(function ($subQuery) use ($search, $like) {
+                    $subQuery->where('kode_mapel', $like, "%{$search}%")
+                        ->orWhere('nama_mapel', $like, "%{$search}%")
+                        ->orWhere('code', $like, "%{$search}%")
+                        ->orWhere('name', $like, "%{$search}%");
+                });
+            })
             ->with(['kurikulum:id,kode_kurikulum,nama_kurikulum,jenis_kurikulum'])
             ->orderBy('nama_mapel', 'asc')
             ->get(['id', 'unit_pendidikan_id', 'kurikulum_id', 'kode_mapel', 'nama_mapel', 'code', 'name', 'kelompok_mapel', 'kategori', 'guru_pengampu_id']);

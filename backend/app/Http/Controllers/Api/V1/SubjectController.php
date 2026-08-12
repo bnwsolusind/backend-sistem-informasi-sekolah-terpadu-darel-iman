@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\SimpanSubjectRequest;
 use App\Http\Requests\V1\UbahSubjectRequest;
 use App\Http\Resources\V1\SubjectResource;
+use App\Exports\SubjectExport;
 use App\Services\SubjectService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * Class SubjectController
@@ -62,9 +65,11 @@ class SubjectController extends Controller
     /**
      * Dapatkan opsi dropdown master mata pelajaran.
      */
-    public function dropdown(): JsonResponse
+    public function dropdown(Request $request): JsonResponse
     {
-        $options = $this->subjectService->dapatkanOpsiDropdown();
+        $options = $this->subjectService->dapatkanOpsiDropdown($request->only([
+            'search', 'unit_pendidikan_id', 'kurikulum_id',
+        ]));
 
         return response()->json([
             'status' => 'success',
@@ -224,7 +229,7 @@ class SubjectController extends Controller
     /**
      * Ekspor data mata pelajaran ke format Excel / CSV.
      */
-    public function exportExcel(Request $request): JsonResponse
+    public function exportExcel(Request $request)
     {
         $filters = $request->only(['search', 'unit_pendidikan_id', 'kurikulum_id', 'kelompok_mapel', 'kategori', 'jenjang', 'status']);
         $subjects = $this->subjectService->dapatkanDataEkspor($filters);
@@ -248,30 +253,20 @@ class SubjectController extends Controller
             ];
         });
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Data ekspor mata pelajaran berhasil dibuat.',
-            'filename' => 'master_mata_pelajaran_'.date('Ymd_His').'.json',
-            'total_rows' => $data->count(),
-            'data' => $data,
-        ]);
+        return Excel::download(new SubjectExport($subjects), 'master_mata_pelajaran_'.date('Ymd_His').'.xlsx');
     }
 
     /**
      * Ekspor data mata pelajaran ke format PDF.
      */
-    public function exportPdf(Request $request): JsonResponse
+    public function exportPdf(Request $request)
     {
         $filters = $request->only(['search', 'unit_pendidikan_id', 'kurikulum_id', 'kelompok_mapel', 'kategori', 'jenjang', 'status']);
         $subjects = $this->subjectService->dapatkanDataEkspor($filters);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Laporan PDF Master Mata Pelajaran siap dicetak.',
-            'filename' => 'laporan_master_mata_pelajaran_'.date('Ymd_His').'.pdf',
-            'total_items' => $subjects->count(),
-            'data' => SubjectResource::collection($subjects),
-        ]);
+        return Pdf::loadView('exports.subjects', ['subjects' => $subjects])
+            ->setPaper('a4', 'landscape')
+            ->download('laporan_master_mata_pelajaran_'.date('Ymd_His').'.pdf');
     }
 
     /**
@@ -283,10 +278,16 @@ class SubjectController extends Controller
             'file' => ['required', 'file', 'mimes:xlsx,xls,csv,json'],
         ]);
 
+        $sheet = Excel::toCollection(null, $request->file('file'))->first();
+        abort_if(! $sheet || $sheet->isEmpty(), 422, 'File tidak memiliki data mata pelajaran.');
+        $headings = $sheet->shift()->map(fn ($value) => str($value)->trim()->snake()->value())->all();
+        $rows = $sheet->map(fn ($row) => array_filter(array_combine($headings, $row->all()), fn ($value) => $value !== null && $value !== ''))->all();
+        $result = $this->subjectService->prosesImport($rows, $request->user()?->id);
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Data mata pelajaran berhasil diimpor.',
-            'imported_rows' => 0,
+            'message' => "Impor selesai. {$result['imported_rows']} data berhasil diproses.",
+            'data' => $result,
         ]);
     }
 }

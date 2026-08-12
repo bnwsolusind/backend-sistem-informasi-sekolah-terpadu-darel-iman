@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import ActionDropdown from '../components/app/ActionDropdown'
 import {
   CalendarDays,
   ChevronLeft,
@@ -294,18 +295,14 @@ export default function LaporanAbsensiPage() {
                         <td><span className={`attendance-status status-${status}`}>{statusLabel[status] || row.status_hadir || '-'}</span></td>
                         <td>{row.catatan || '-'}</td>
                         <td>
-                          <div className="table-actions">
-                            <button type="button" title="Lihat detail" onClick={() => { setSelectedRow(row); setOpenMenuId(null) }}><Eye size={16} /></button>
-                            <div className="row-action-menu-wrap">
-                              <button type="button" title="Menu" aria-expanded={openMenuId === (row.id || index)} onClick={() => setOpenMenuId((current) => current === (row.id || index) ? null : (row.id || index))}><MoreVertical size={16} /></button>
-                              {openMenuId === (row.id || index) && (
-                                <div className="row-action-menu">
-                                  <button type="button" onClick={() => { setSelectedRow(row); setOpenMenuId(null) }}><Eye size={14} /> Lihat detail</button>
-                                  <button type="button" onClick={() => { downloadRows([row], `absensi-${row.siswa?.nis || row.id || 'siswa'}.csv`); setOpenMenuId(null) }}><Download size={14} /> Unduh data</button>
-                                  <button type="button" onClick={printReport}><Printer size={14} /> Cetak laporan</button>
-                                </div>
-                              )}
-                            </div>
+                          <div className="flex justify-center">
+                            <ActionDropdown
+                              onView={() => setSelectedRow(row)}
+                              extraItems={[
+                                { label: 'Unduh data', icon: <Download className="h-4 w-4 text-emerald-600" />, onClick: () => downloadRows([row], `absensi-${row.siswa?.nis || row.id || 'siswa'}.csv`) },
+                                { label: 'Cetak laporan', icon: <Printer className="h-4 w-4 text-slate-500" />, onClick: printReport },
+                              ]}
+                            />
                           </div>
                         </td>
                       </tr>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Award, FileSpreadsheet, RefreshCcw, ShieldAlert, Sparkles, UserRound, UserCheck } from 'lucide-react'
+import { Award, FileSpreadsheet, GraduationCap, RefreshCcw, ShieldAlert, Sparkles, UserCheck, UserRound, Users } from 'lucide-react'
+import ActionDropdown from '../../components/app/ActionDropdown'
 import api from '../../services/api'
 import {
   MasterActionButton,
@@ -232,7 +233,9 @@ export function FoundationGraduationAlumniPage() {
                           <MasterBadge variant={activeTab === 'alumni' ? 'info' : 'success'}>{activeTab === 'alumni' ? 'Alumni Lulus' : 'Lulus'}</MasterBadge>
                         </td>
                         <td className="px-2 py-3 text-center">
-                          <MasterActionIconButton variant="view" onClick={() => setSelectedAlumniId(a.id)} label={`Lihat detail ${a.full_name || a.nama}`} />
+                          <div className="flex justify-center">
+                            <ActionDropdown onView={() => setSelectedAlumniId(a.id)} />
+                          </div>
                         </td>
                       </tr>
                     )

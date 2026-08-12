@@ -80,25 +80,25 @@ export default function KepalaSekolahDashboardPage() {
     {
       label: 'Monitoring Divisi',
       icon: FileText,
-      onClick: () => window.location.href = '/dashboard/pemantauan',
+       onClick: () => navigate('/dashboard/pemantauan'),
       permissions: ['dashboard.pemantauan.lihat']
     },
     {
       label: 'Rekap Kehadiran',
       icon: CheckCircle2,
-      onClick: () => window.location.href = '/absensi/rekap-kehadiran',
+       onClick: () => navigate('/absensi/rekap-kehadiran'),
       permissions: ['kehadiran.siswa.monitoring']
     },
     {
       label: 'Monitoring Tahfizh',
       icon: BookOpen,
-      onClick: () => window.location.href = '/dashboard/tahfizh',
+       onClick: () => navigate('/dashboard/tahfizh'),
       permissions: ['tahfizh.monitoring_target']
     },
     {
       label: 'Verifikasi Prestasi',
       icon: Award,
-      onClick: () => window.location.href = '/dashboard/pemantauan',
+       onClick: () => navigate('/dashboard/pemantauan'),
       permissions: ['kesiswaan.rekap_prestasi']
     }
   ]

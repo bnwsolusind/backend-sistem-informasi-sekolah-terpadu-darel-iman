@@ -56,13 +56,13 @@ class JabatanService
      */
     public function dapatkanOpsiMaster(): array
     {
-        $units = EducationUnit::select('id', 'nama_unit', 'kode_unit', 'jenjang')
-            ->orderBy('nama_unit')
+        $units = EducationUnit::select('id', 'name', 'code', 'level')
+            ->orderBy('name')
             ->get()
             ->map(fn ($u) => [
                 'id' => $u->id,
-                'nama' => $u->nama_unit ?? $u->name,
-                'kode' => $u->kode_unit ?? $u->code,
+                'nama' => $u->name,
+                'kode' => $u->code,
             ]);
 
         // Atasan langsung diambil dari tabel pegawai
@@ -326,7 +326,7 @@ class JabatanService
                     'satuan_kerja' => $j->satuan_kerja ?? '-',
                     'level_jabatan' => $j->level_jabatan,
                     'level_label' => Position::LEVEL_JABATAN_MAP[$j->level_jabatan] ?? "Level {$j->level_jabatan}",
-                    'unit_sekolah' => $j->unitSekolah?->nama_unit ?? '-',
+                    'unit_sekolah' => $j->unitSekolah?->name ?? '-',
                     'atasan_langsung' => $j->atasanPegawai?->nama_lengkap ?? $j->atasanLangsung?->name ?? '-',
                     'role_sistem' => $j->roleSistem?->name ?? '-',
                     'scope_akses' => $j->scope_akses ?? '-',

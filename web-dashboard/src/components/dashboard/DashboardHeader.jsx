@@ -1,6 +1,7 @@
 import React from 'react'
 import { Calendar, School } from 'lucide-react'
 import { AppHero } from '../app'
+import { useAuthStore } from '../../stores/authStore'
 
 export default function DashboardHeader({
   title,
@@ -11,6 +12,8 @@ export default function DashboardHeader({
   semester,
   action
 }) {
+  const userName = useAuthStore((state) => state.user?.name)
+  const showWelcome = Boolean(userName) && !/^(assalamu|selamat)/i.test(title || '')
   const chips = []
   if (unitName) {
     chips.push(
@@ -37,6 +40,7 @@ export default function DashboardHeader({
       eyebrow={roleName}
       chips={chips}
       actions={action}
+      welcomeName={showWelcome ? userName : null}
     />
   )
 }

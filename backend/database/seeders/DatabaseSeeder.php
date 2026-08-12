@@ -53,6 +53,7 @@ class DatabaseSeeder extends Seeder
             // Akun role dibuat setelah unit, pegawai, tahun ajaran, semester,
             // dan kelas tersedia agar setiap login mempunyai relasi scope utuh.
             DefaultRoleUserSeeder::class,
+            QrCredentialSeeder::class,
         ]);
 
         // 5. LMS Core & Content

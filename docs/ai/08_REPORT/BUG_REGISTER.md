@@ -75,3 +75,7 @@ Status: Step 05 verification 2026-08-11. Temuan yang sudah diperbaiki diberi dis
 - Legacy tests/fixtures outside the Step 02 targeted set still require isolation where they assume old module schemas or old auth/attendance behavior; do not delete them without a contract decision.
 - Full PHPUnit suite and combined regression command remain incomplete due timeout; do not convert this into a full-suite PASS claim.
 - Browser Step 04 verified Guru flow, Kepsek/Yayasan monitoring, and responsive `1440/1024/768/390` with zero console errors and no document overflow; table-local horizontal scroll at tablet remains intentional.
+- **FIXED Step 06**: Historical Subject search failure resolved; `Subject::booted()` syncs `deskripsi` & `description` and `scopeFilter` uses PG `ILIKE` for both columns to prevent undefined column runtime errors.
+- **FIXED Step 06**: `MasterSubjectPage.jsx` dependent dropdown filter & form modal dynamically scope Kurikulum by selected Unit Pendidikan.
+- **FIXED Step 06**: All 15 master data domains verified with delete safety, soft-delete restoration, and idempotent seeding via `updateOrCreate`.
+

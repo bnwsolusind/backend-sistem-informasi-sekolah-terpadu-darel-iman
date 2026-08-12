@@ -116,7 +116,7 @@ export default function DashboardLayout() {
 
   const serverTimeEndpoint = location.pathname.startsWith('/portal-guru')
     ? '/teacher/step04/schedules'
-    : location.pathname === '/dashboard/pemantauan'
+    : location.pathname === '/dashboard/pemantauan' && permissions.includes('teacher_monitoring.view')
       ? '/teacher-monitoring'
       : null
 
@@ -501,7 +501,7 @@ export default function DashboardLayout() {
       label: hasRole('Orang Tua') ? 'PORTAL ORANG TUA' : hasRole('Siswa') ? 'PORTAL SISWA' : 'PORTAL ORANG TUA & SISWA',
       icon: Users,
       submenus: [
-         ...(isParentRole(roles) ? [
+         ...(isParentRole(roles) || hasRole('Super Admin', 'Admin') ? [
            { to: '/portal-orangtua?tab=ringkasan', label: 'Dashboard' },
            { to: '/portal-orangtua?tab=chat', label: 'Chat Guru' },
          ] : []),
@@ -603,16 +603,27 @@ export default function DashboardLayout() {
 
   // Aktif jika path sama persis, ATAU target adalah "leaf" dalam grupnya
   // sehingga tidak ada dua submenu yang menyala bersamaan.
-  const isSubActive = (to, siblings = []) => {
+  const isSubActive = (to, siblings = [], sectionKey = null) => {
     const target = normalizePath(to)
     const current = normalizePath(location.pathname)
-    if (current === target) return true
+
+    // Jika route beda dan bukan nested path
+    if (current !== target && !current.startsWith(target + '/')) return false
+
+    // Jika sectionKey dipassing dan openSection diset, pastikan leaf hanya aktif di section yang terbuka
+    if (sectionKey && openSection && sectionKey !== openSection) {
+      // Kecuali jika tidak ada section lain yang match
+      const matchingSection = sidebarMenu.find(m => m.key === openSection)
+      const matchingSub = matchingSection?.submenus?.some(s => normalizePath(s.to) === current)
+      if (matchingSub) return false
+    }
+
     const hasDeeperSibling = siblings.some((sibling) => {
       const sTarget = normalizePath(sibling.to)
       return sTarget !== target && sTarget.startsWith(target + '/')
     })
-    if (!hasDeeperSibling && target !== '/dashboard' && current.startsWith(target + '/')) return true
-    return false
+    if (!hasDeeperSibling && target !== '/dashboard' && (current === target || current.startsWith(target + '/'))) return true
+    return current === target
   }
 
   // Auto-expand grup menu yang berisi route aktif.
@@ -620,8 +631,15 @@ export default function DashboardLayout() {
     const current = normalizePath(location.pathname)
     for (const item of sidebarMenu) {
       if (!item.submenus) continue
-      if (item.submenus.some((sub) => normalizePath(sub.to) === current || current.startsWith(normalizePath(sub.to) + '/'))) {
-        setOpenSection((prev) => (prev === item.key ? prev : item.key))
+      if (item.submenus.some((sub) => normalizePath(sub.to) === current || (normalizePath(sub.to) !== '/dashboard' && current.startsWith(normalizePath(sub.to) + '/')))) {
+        setOpenSection((prev) => {
+          // Jika section sebelumnya sudah memuat route ini, pertahankan
+          const prevItem = sidebarMenu.find((m) => m.key === prev)
+          if (prevItem && prevItem.submenus && prevItem.submenus.some((sub) => normalizePath(sub.to) === current)) {
+            return prev
+          }
+          return item.key
+        })
         return
       }
     }
@@ -721,7 +739,7 @@ export default function DashboardLayout() {
               }
 
               const isOpen = openSection === item.key
-              const hasActiveChild = item.submenus.some((sub) => isSubActive(sub.to, item.submenus))
+              const hasActiveChild = isOpen && item.submenus.some((sub) => isSubActive(sub.to, item.submenus, item.key))
 
               return (
                 <div key={item.key} className="space-y-1">
@@ -731,7 +749,7 @@ export default function DashboardLayout() {
                       if (collapsed) setCollapsed(false)
                       toggleSection(item.key)
                     }}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-bold transition-all duration-200 ${hasActiveChild || isOpen
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-bold transition-all duration-200 ${isOpen || hasActiveChild
                       ? 'bg-white/15 text-white shadow-xs'
                       : 'text-emerald-100/70 hover:bg-white/10 hover:text-white'
                       }`}
@@ -751,11 +769,11 @@ export default function DashboardLayout() {
                   {/* Submenu Accordion */}
                   {!collapsed && isOpen && (
                     <div className="ml-5 space-y-1 border-l-2 border-[#3FBF75]/40 pl-3 pt-1 animate-[masterDropdownSlide_0.2s_ease-out]">
-                      {item.submenus.map((sub) => {
-                        const active = isSubActive(sub.to, item.submenus)
+                      {item.submenus.map((sub, sIdx) => {
+                        const active = isSubActive(sub.to, item.submenus, item.key)
                         return (
                           <NavLink
-                            key={sub.label}
+                            key={`${item.key}-${sub.to || sub.label}-${sIdx}`}
                             to={sub.to}
                             onClick={() => setMobileMenuOpen(false)}
                             className={`block rounded-lg px-2.5 py-1.5 text-xs transition-all duration-150 ${active
@@ -817,7 +835,7 @@ export default function DashboardLayout() {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Topbar Navbar (Sticky Header) */}
           <header
-            className={`${pengaturan.header_sticky ? 'sticky top-0' : 'relative'} z-30 flex h-16 items-center justify-between border-b border-slate-200/80 px-4 lg:px-8 backdrop-blur-md shadow-2xs transition-colors duration-200 dark:border-slate-800/80`}
+            className={`${pengaturan.header_sticky ? 'sticky top-0' : 'relative'} z-30 flex h-16 min-w-0 items-center justify-between overflow-visible border-b border-slate-200/80 px-3 sm:px-4 lg:px-8 backdrop-blur-md shadow-2xs transition-colors duration-200 dark:border-slate-800/80`}
             style={{
               backgroundColor: isDarkMode
                 ? 'rgba(17, 24, 39, 0.94)'
@@ -829,7 +847,7 @@ export default function DashboardLayout() {
             }}
           >
             {/* Left Controls: Mobile Toggle, Unit Switcher Dropdown, Search */}
-            <div className="flex items-center gap-3 flex-1 max-w-xl">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
@@ -839,7 +857,7 @@ export default function DashboardLayout() {
               </button>
 
               {/* Active Unit Dropdown Switcher */}
-              <div className="relative" ref={unitDropdownRef}>
+              <div className="relative shrink-0" ref={unitDropdownRef}>
                 <button
                   type="button"
                   onClick={() => setUnitDropdownOpen(!unitDropdownOpen)}
@@ -896,7 +914,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* Right Controls: Date, Notifications, Profile Avatar */}
-            <div className="flex items-center gap-2 lg:gap-3">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-3">
               {/* Realtime Date Display */}
               <div className="hidden lg:flex items-center gap-2 rounded-xl bg-slate-100/70 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
                 <Calendar className="h-3.5 w-3.5 text-[#0E5C44] dark:text-[#3FBF75]" />
@@ -909,6 +927,7 @@ export default function DashboardLayout() {
                   <button
                     type="button"
                     onClick={() => setRoleAccessOpen((open) => !open)}
+                    aria-label="Akses Role"
                     aria-haspopup="menu"
                     aria-expanded={roleAccessOpen}
                     className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-[#0E5C44] transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
@@ -920,7 +939,7 @@ export default function DashboardLayout() {
                   </button>
 
                   {roleAccessOpen && (
-                    <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-[18px] border border-slate-200/80 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-[#13221f]">
+                    <div role="menu" className="absolute left-0 right-auto top-full z-50 mt-2 w-64 rounded-[18px] border border-slate-200/80 bg-white p-2 shadow-2xl dark:border-slate-800 dark:bg-[#13221f] sm:left-auto sm:right-0">
                       <div className="px-2 pb-2 pt-1">
                         <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Login sebagai</p>
                         <p className="mt-0.5 text-[10px] text-slate-500">Pilih role untuk melihat portal dan hak aksesnya.</p>
@@ -1022,6 +1041,9 @@ export default function DashboardLayout() {
                 <button
                   type="button"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  aria-label={`Menu ${namaTampil}`}
+                  aria-haspopup="menu"
+                  aria-expanded={profileDropdownOpen}
                   className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-all shadow-xs dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200 btn-master"
                 >
                   <div className="h-7 w-7 rounded-full bg-[#0E5C44] text-white flex items-center justify-center font-bold text-xs shadow-sm border border-[#3FBF75]/30">
@@ -1100,7 +1122,7 @@ export default function DashboardLayout() {
           </header>
 
           {/* Main Page Workspace */}
-          <main className="flex-1 p-6 md:p-8 space-y-8 max-w-7xl w-full mx-auto pb-24 md:pb-12">
+          <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 lg:p-6 space-y-8 max-w-7xl w-full mx-auto pb-24 md:pb-10">
             {impersonating && (
               <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
                 <div>

@@ -133,7 +133,7 @@ class KelasService
             return [];
         }
 
-        $siswa = Student::where('class_id', $kelasId)->get();
+        $siswa = Student::where('kelas_id', $kelasId)->get();
 
         return [
             'kelas' => [

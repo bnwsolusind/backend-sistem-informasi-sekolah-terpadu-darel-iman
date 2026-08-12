@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import ActionDropdown from '../components/app/ActionDropdown'
+import AppBadge from '../components/app/AppBadge'
 import Swal from 'sweetalert2'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
@@ -6,11 +8,8 @@ import {
   BadgeCheck,
   BriefcaseBusiness,
   Building2,
-  CalendarDays,
   Download,
   Eye,
-  FileSpreadsheet,
-  FileText,
   Info,
   IdCard,
   Mail,
@@ -21,8 +20,6 @@ import {
   Search,
   SlidersHorizontal,
   Trash2,
-  Upload,
-  UserRound,
   UsersRound,
 } from 'lucide-react'
 import {
@@ -53,6 +50,8 @@ import {
 import {
   MasterActionButton,
   MasterDataPage,
+  MasterDataSection,
+  MasterFilterSelect,
   MasterEmptyState,
   MasterErrorState,
   MasterPageHeader,
@@ -62,6 +61,7 @@ import {
 import { employeeService } from '../services/employeeService'
 import { educationUnitService } from '../services/educationUnitService'
 import PersonAvatar from '../components/ui/PersonAvatar'
+import PersonIdentityCell from '../components/ui/PersonIdentityCell'
 import { usePengaturanStore } from '../stores/pengaturanStore'
 
 const STATUS_PEGAWAI_OPTIONS = ['Tetap', 'Kontrak', 'Honorer', 'Magang']
@@ -169,25 +169,25 @@ function parseFromApi(item) {
     gelar_depan: item?.gelar_depan || '',
     gelar_belakang: item?.gelar_belakang || '',
     jenis_kelamin: item?.jenis_kelamin || 'L',
-    tempat_lahir: item?.tempat_lahir || 'Padang',
+    tempat_lahir: item?.tempat_lahir || '',
     tanggal_lahir: item?.tanggal_lahir ? item.tanggal_lahir.split('T')[0] : '',
-    agama: item?.agama || 'Islam',
+    agama: item?.agama || '',
     foto: item?.foto || '',
 
     unit_id: item?.unit_id || '',
-    unit_name: item?.unit?.name || 'Yayasan Pusat',
+    unit_name: item?.unit?.name || '',
     jabatan_id: item?.jabatan_id || '',
-    jabatan_name: item?.position?.name || 'Staf / Guru',
-    status_pegawai: item?.status_pegawai || 'Tetap',
+    jabatan_name: item?.position?.name || '',
+    status_pegawai: item?.status_pegawai || '',
     tanggal_masuk: item?.tanggal_masuk ? item.tanggal_masuk.split('T')[0] : '',
     tanggal_keluar: item?.tanggal_keluar ? item.tanggal_keluar.split('T')[0] : '',
-    status: item?.status || 'Aktif',
+    status: item?.status || (item?.is_active === true ? 'Aktif' : item?.is_active === false ? 'Nonaktif' : ''),
 
     no_hp: item?.no_hp || '',
     email: item?.email || '',
     alamat: item?.alamat || '',
-    provinsi: item?.provinsi || 'Sumatera Barat',
-    kota: item?.kota || 'Padang',
+    provinsi: item?.provinsi || '',
+    kota: item?.kota || '',
     kecamatan: item?.kecamatan || '',
     kelurahan: item?.kelurahan || '',
     kode_pos: item?.kode_pos || '',
@@ -195,20 +195,10 @@ function parseFromApi(item) {
     user_id: item?.user_id || '',
     role_id: item?.role_id || '',
     teachings: item?.teachings || meta.teachings || [],
-    position_history: meta.position_history || [
-      { jabatan: item?.position?.name || 'Staf', tgl_mulai: item?.tanggal_masuk || '2022-01-01', keterangan: 'Pengangkatan Pertama' },
-    ],
-    certifications: meta.certifications || [
-      { nama: 'Sertifikat Pendidik (Serdik)', penerbit: 'Kemdikbudristek', tahun: '2023', no_sertifikat: '1234567890' },
-    ],
-    documents: meta.documents || [
-      { nama: 'KTP Pegawai', file_name: 'ktp_pegawai.pdf', tanggal: '2024-01-10' },
-      { nama: 'Ijazah Terakhir', file_name: 'ijazah_s1.pdf', tanggal: '2024-01-10' },
-    ],
-    attendances: meta.attendances || [
-      { tanggal: '2026-07-25', jam_masuk: '07:15', jam_pulang: '16:00', status: 'Hadir' },
-      { tanggal: '2026-07-24', jam_masuk: '07:20', jam_pulang: '16:05', status: 'Hadir' },
-    ],
+    position_history: meta.position_history || [],
+    certifications: meta.certifications || [],
+    documents: meta.documents || [],
+    attendances: meta.attendances || [],
   }
 }
 
@@ -270,8 +260,6 @@ export default function EmployeesPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState(initialFormState())
   const [showImportModal, setShowImportModal] = useState(false)
-  const [showExportModal, setShowExportModal] = useState(false)
-  const [exportFormat, setExportFormat] = useState('xlsx')
   const [notifications, setNotifications] = useState([])
   const [showIdCardModal, setShowIdCardModal] = useState(null)
   const [selectedIdCardTemplate, setSelectedIdCardTemplate] = useState('green')
@@ -285,7 +273,7 @@ export default function EmployeesPage() {
   // Import Data States
   const [importFile, setImportFile] = useState(null)
   const [importPreviewData, setImportPreviewData] = useState([])
-  const [isImporting, setIsImporting] = useState(false)
+  const isImporting = false
 
   // Detail Modal State
   const [detailEmployee, setDetailEmployee] = useState(null)
@@ -339,21 +327,18 @@ export default function EmployeesPage() {
     queryFn: () => employeeService.getPositions(),
   })
 
+  const { data: dashboardData, isLoading: isSummaryLoading } = useQuery({
+    queryKey: ['employees-dashboard'],
+    queryFn: employeeService.getDashboard,
+  })
+
   const { data: unitsData } = useQuery({
     queryKey: ['education-units-list'],
     queryFn: () => educationUnitService.getDaftar({ per_page: 100 }),
   })
 
-  const positionsList = positionsData?.data || [
-    { id: '1', name: 'Kepala Sekolah' },
-    { id: '2', name: 'Wakil Kepala Sekolah' },
-    { id: '3', name: 'Guru Kelas' },
-    { id: '4', name: 'Guru Mata Pelajaran' },
-    { id: '5', name: 'Tata Usaha (TU)' },
-    { id: '6', name: 'Operator Sekolah' },
-    { id: '7', name: 'Divisi Pendidikan' },
-    { id: '8', name: 'Ketua Yayasan' },
-  ]
+  const positionsList = positionsData?.data || []
+  const employeeStats = dashboardData?.data || {}
 
   const unitsList = unitsData?.data || []
 
@@ -397,26 +382,6 @@ export default function EmployeesPage() {
     return list
   }, [rawList, search, selectedUnitFilter, selectedJabatanFilter, selectedStatusPegawaiFilter, selectedStatusFilter, selectedGenderFilter])
 
-  const employeeSummary = useMemo(() => {
-    const active = items.filter((item) => item.status === 'Aktif').length
-    const inactive = items.length - active
-    const male = items.filter((item) => item.jenis_kelamin === 'L').length
-    const female = items.filter((item) => item.jenis_kelamin === 'P').length
-    const units = new Set(items.map((item) => item.unit_id || item.unit_name).filter(Boolean)).size
-    const ages = items
-      .map((item) => item.tanggal_lahir && Math.floor((Date.now() - new Date(item.tanggal_lahir).getTime()) / 31557600000))
-      .filter((age) => Number.isFinite(age) && age > 0)
-    return {
-      total: data?.total || items.length,
-      active,
-      inactive,
-      male,
-      female,
-      units,
-      averageAge: ages.length ? (ages.reduce((sum, age) => sum + age, 0) / ages.length).toFixed(1) : '—',
-    }
-  }, [items, data?.total])
-
   const paginationInfo = {
     total: data?.total || items.length,
     from: data?.from || (items.length > 0 ? 1 : 0),
@@ -452,22 +417,12 @@ export default function EmployeesPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setImportFile(file)
-    setImportPreviewData([
-      { niy: 'NIY-2026002', nama: 'Ust. Muhammad Rizky, M.Pd', jabatan: 'Guru Mapel', status_pegawai: 'Tetap', status: 'Valid' },
-      { niy: 'NIY-2026003', nama: 'Ustadzah Siti Fatimah, S.T', jabatan: 'Tata Usaha (TU)', status_pegawai: 'Kontrak', status: 'Valid' },
-    ])
+    setImportPreviewData([])
   }
 
   const handleProcessImport = () => {
     if (!importFile) return
-    setIsImporting(true)
-    setTimeout(() => {
-      setIsImporting(false)
-      setShowImportModal(false)
-      setImportFile(null)
-      setImportPreviewData([])
-      pushNotification('Import Berhasil', 'Data pegawai berhasil diimpor ke sistem.', 'info')
-    }, 1200)
+    pushNotification('Import Belum Tersedia', 'Endpoint pegawai belum memproses isi file. Tidak ada data yang diubah.', 'warning')
   }
 
   // Mutations
@@ -553,8 +508,18 @@ export default function EmployeesPage() {
 
   // Export Excel Modal Handler
   const handleExportExcel = () => {
-    setExportFormat('xlsx')
-    setShowExportModal(true)
+    const rows = [
+      ['NIY', 'NIK', 'Nama Lengkap', 'Jabatan', 'Unit Kerja', 'Status Pegawai', 'Status', 'No. HP', 'Email'],
+      ...items.map((item) => [item.niy, item.nik, item.nama_lengkap, item.jabatan_name, item.unit_name, item.status_pegawai, item.status, item.no_hp, item.email]),
+    ]
+    const csv = rows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `pegawai-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+    pushNotification('Export Berhasil', `${items.length} data pegawai pada halaman ini berhasil diekspor.`, 'info')
   }
 
   // Add Teaching Assignment to Detail Pegawai
@@ -599,222 +564,161 @@ export default function EmployeesPage() {
   return (
     <MasterDataPage className="employee-master-page education-unit-page" hideBreadcrumb>
       <MasterPageHeader
-        tone="brand"
         icon={UsersRound}
         title="Master Data Pegawai"
         description="Kelola seluruh data pegawai, profil, jabatan, unit kerja, dan informasi kepegawaian dengan mudah."
-        actions={
-          <MasterActionButton className="employee-hero__action" icon={Plus} onClick={openAddModal}>
-            Tambah Pegawai
-          </MasterActionButton>
-        }
+        actions={<>
+          <MasterActionButton variant="export" icon={Download} onClick={handleExportExcel}>Export CSV</MasterActionButton>
+          <MasterActionButton icon={Plus} onClick={openAddModal}>Tambah Pegawai</MasterActionButton>
+        </>}
       />
 
-      <MasterStatsGrid className="education-unit-kpis employee-kpis lg:grid-cols-5">
-        <MasterStatCard icon={UsersRound} label="Total Pegawai" value={employeeSummary.total} description="Terdaftar di sistem" variant="success" />
-        <MasterStatCard icon={BriefcaseBusiness} label="Pegawai Aktif" value={employeeSummary.active} description={`${employeeSummary.total ? ((employeeSummary.active / employeeSummary.total) * 100).toFixed(1) : 0}% dari total pegawai`} variant="success" delay={50} />
-        <MasterStatCard icon={IdCard} label="Pegawai Nonaktif" value={employeeSummary.inactive} description={`${employeeSummary.total ? ((employeeSummary.inactive / employeeSummary.total) * 100).toFixed(1) : 0}% dari total pegawai`} variant="warning" delay={100} />
-        <MasterStatCard icon={Building2} label="Total Unit Kerja" value={employeeSummary.units} description="Unit pendidikan" variant="info" delay={150} />
-        <MasterStatCard icon={CalendarDays} label="Rata-rata Usia" value={employeeSummary.averageAge} description="Tahun" variant="neutral" delay={200} />
+      <MasterStatsGrid className="education-unit-kpis employee-kpis">
+        <MasterStatCard loading={isSummaryLoading} icon={UsersRound} label="Total Pegawai" value={employeeStats.total_pegawai ?? 0} description="Terdaftar di sistem" variant="success" />
+        <MasterStatCard loading={isSummaryLoading} icon={BriefcaseBusiness} label="Pegawai Aktif" value={employeeStats.total_aktif ?? 0} description="Berstatus aktif" variant="info" delay={50} />
+        <MasterStatCard loading={isSummaryLoading} icon={IdCard} label="Guru" value={employeeStats.total_guru ?? 0} description="Jabatan tenaga pendidik" variant="warning" delay={100} />
+        <MasterStatCard loading={isSummaryLoading} icon={Building2} label="TU & Operator" value={employeeStats.total_tu_operator ?? 0} description="Tenaga kependidikan" variant="neutral" delay={150} />
       </MasterStatsGrid>
 
-      <section className="edu-enter rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-label="Pencarian dan filter pegawai">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <label className="relative min-w-0 flex-1">
-                <span className="sr-only">Cari pegawai</span>
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="search"
-                  placeholder="Cari pegawai, NIY, NIK, jabatan, atau unit kerja..."
-                  value={search}
-                  onChange={(event) => { setSearch(event.target.value); setPage(1) }}
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-100"
-                />
-              </label>
-              <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="import" icon={Upload} onClick={() => setShowImportModal(true)}>Import Excel</MasterActionButton>
-                <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="export" icon={Download} onClick={handleExportExcel}>Export Excel</MasterActionButton>
-                <MasterActionButton className="!h-11 !rounded-xl !px-3.5" icon={Plus} onClick={openAddModal}>Tambah Pegawai</MasterActionButton>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500 dark:border-slate-700 dark:text-slate-300">
-                <SlidersHorizontal className="h-4 w-4 text-emerald-700" /> Filter
-              </span>
-              {[
-                { label: 'Semua Unit Kerja', value: selectedUnitFilter, setter: setSelectedUnitFilter, options: unitsList.map((unit) => ({ value: unit.id, label: unit.name })) },
-                { label: 'Semua Jabatan', value: selectedJabatanFilter, setter: setSelectedJabatanFilter, options: positionsList.map((position) => ({ value: position.id, label: position.name })) },
-                { label: 'Semua Status', value: selectedStatusFilter, setter: setSelectedStatusFilter, options: STATUS_OPTIONS.map((status) => ({ value: status, label: status })) },
-                { label: 'Semua Jenis Kelamin', value: selectedGenderFilter, setter: setSelectedGenderFilter, options: [{ value: 'L', label: 'Laki-laki' }, { value: 'P', label: 'Perempuan' }] },
-              ].map((filter) => (
-                <select
-                  key={filter.label}
-                  aria-label={filter.label}
-                  value={filter.value}
-                  onChange={(event) => { filter.setter(event.target.value); setPage(1) }}
-                  className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200"
-                >
-                  <option value="">{filter.label}</option>
-                  {filter.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedUnitFilter('')
-                  setSelectedJabatanFilter('')
-                  setSelectedStatusPegawaiFilter('')
-                  setSelectedStatusFilter('')
-                  setSelectedGenderFilter('')
-                  setSearch('')
-                  setPage(1)
-                }}
-                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-emerald-950/40"
-              >
-                <RefreshCcw className="h-4 w-4" /> Reset
-              </button>
-            </div>
-      </section>
-
-      <div className="employee-workspace grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <main className="min-w-0 space-y-5">
-          {isError ? (
-            <MasterErrorState description="Data pegawai tidak dapat diambil dari server." onRetry={refetch} />
-          ) : (
-            <section className="employee-table-card overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]">
-              <header className="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Daftar Pegawai</h2>
-                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Menampilkan data sesuai filter dan kewenangan Anda.</p>
-                </div>
-                <span className="shrink-0 text-xs font-semibold text-slate-500">{paginationInfo.total} pegawai</span>
-              </header>
-              {isLoading || isFetching ? (
-                <div className="space-y-3 p-5" aria-label="Memuat data pegawai">
-                  {[1, 2, 3, 4, 5].map((row) => <div key={row} className="h-14 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />)}
-                </div>
-              ) : items.length === 0 ? (
-                <MasterEmptyState title="Pegawai tidak ditemukan" description="Ubah kata pencarian atau filter untuk melihat data lainnya." />
-              ) : (
-                <div className="employee-table-wrap">
-                  <table className="employee-table w-full table-fixed text-left">
-                    <thead>
-                      <tr>
-                        <th className="employee-col-number text-center">No</th>
-                        <th className="employee-col-photo text-center">Foto</th>
-                        <th className="employee-col-identity">Nama Pegawai <span>NIY</span></th>
-                        <th className="employee-col-position">Jabatan <span>Unit Kerja</span></th>
-                        <th className="employee-col-contact">Kontak</th>
-                        <th className="employee-col-status text-center">Status</th>
-                        <th className="employee-col-date">Tgl Bergabung</th>
-                        <th className="employee-col-actions text-center">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((row, index) => {
-                        const fullName = `${row.gelar_depan ? `${row.gelar_depan} ` : ''}${row.nama_lengkap}${row.gelar_belakang ? `, ${row.gelar_belakang}` : ''}`
-                        return (
-                          <tr key={row.id || index}>
-                            <td className="text-center font-semibold text-slate-400">{paginationInfo.from + index}</td>
-                            <td className="text-center">
-                              <PersonAvatar
-                                src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
-                                name={fullName}
-                                size="table"
-                                className="mx-auto border-slate-200 dark:border-slate-700"
-                              />
-                            </td>
-                            <td>
-                              <p className="truncate font-bold text-slate-900 dark:text-white">{fullName}</p>
-                              <p className="truncate text-xs text-slate-500">{row.niy || 'NIY belum tersedia'}</p>
-                            </td>
-                            <td>
-                              <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{row.jabatan_name || '—'}</p>
-                              <p className="truncate text-xs text-slate-500">{row.unit_name || 'Belum ditentukan'}</p>
-                            </td>
-                            <td>
-                              <p className="flex items-center gap-2 truncate text-xs text-slate-700 dark:text-slate-300"><Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />{row.no_hp || '—'}</p>
-                              <p className="mt-1 flex items-center gap-2 truncate text-xs text-slate-500"><Mail className="h-3.5 w-3.5 shrink-0" />{row.email || '—'}</p>
-                            </td>
-                            <td className="text-center">
-                              <button type="button" onClick={() => toggleEmployeeStatus(row)} title="Ubah status pegawai" className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${row.status === 'Aktif' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${row.status === 'Aktif' ? 'bg-emerald-500' : 'bg-amber-500'}`} />{row.status}
-                              </button>
-                            </td>
-                            <td>
-                              <p className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
-                                {row.tanggal_masuk
-                                  ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(row.tanggal_masuk))
-                                  : '—'}
-                              </p>
-                            </td>
-                            <td>
-                              <div className="flex justify-center gap-1.5">
-                                <button type="button" onClick={() => { setDetailEmployee(row); setActiveDetailTab('Identitas') }} title="Lihat detail" aria-label={`Lihat ${row.nama_lengkap}`} className="employee-row-action employee-row-action--view"><Eye /></button>
-                                <button type="button" onClick={() => openEditModal(row)} title="Edit pegawai" aria-label={`Edit ${row.nama_lengkap}`} className="employee-row-action employee-row-action--edit"><Pencil /></button>
-                                <button type="button" onClick={() => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) }} title="Hapus pegawai" aria-label={`Hapus ${row.nama_lengkap}`} className="employee-row-action employee-row-action--delete"><Trash2 /></button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {paginationInfo.total > 0 && (
-                <footer className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 text-xs text-slate-500 sm:flex-row dark:border-slate-700">
-                  <p>Menampilkan {paginationInfo.from}–{paginationInfo.to} dari {paginationInfo.total} data</p>
-                  <div className="flex items-center gap-2">
-                    <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="employee-page-button" aria-label="Halaman sebelumnya">‹</button>
-                    <span className="employee-page-button employee-page-button--active">{page}</span>
-                    <button type="button" disabled={page >= paginationInfo.last_page} onClick={() => setPage((current) => current + 1)} className="employee-page-button" aria-label="Halaman berikutnya">›</button>
-                  </div>
-                </footer>
-              )}
-            </section>
-          )}
-        </main>
-
-        <aside className="space-y-4 xl:sticky xl:top-5" aria-label="Ringkasan pegawai">
-          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"><UsersRound className="h-5 w-5" /></div>
-              <div><h2 className="text-sm font-bold text-slate-900 dark:text-white">Ringkasan Pegawai</h2><p className="text-xs text-slate-500 dark:text-slate-400">Data halaman aktif</p></div>
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-700">
-              {[
-                ['Total Pegawai', employeeSummary.total, UsersRound, 'text-emerald-700 bg-emerald-50'],
-                ['Pegawai Aktif', employeeSummary.active, BadgeCheck, 'text-emerald-700 bg-emerald-50'],
-                ['Pegawai Nonaktif', employeeSummary.inactive, IdCard, 'text-amber-700 bg-amber-50'],
-                ['Laki-laki', employeeSummary.male, UserRound, 'text-blue-700 bg-blue-50'],
-                ['Perempuan', employeeSummary.female, UserRound, 'text-violet-700 bg-violet-50'],
-              ].map(([label, value, Icon, color]) => (
-                <div key={label} className="flex items-center gap-3 py-3">
-                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1 text-[11px] font-semibold text-slate-500 dark:text-slate-300">{label}</span>
-                  <strong className="text-sm font-black tabular-nums text-slate-900 dark:text-white">{Number(value).toLocaleString('id-ID')}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="edu-card rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Aksi Cepat</h2>
-            <div className="mt-3 grid gap-2">
-              {[
-                ['Tambah Pegawai Baru', Plus, openAddModal, 'text-emerald-700 bg-emerald-50'],
-                ['Import Data Pegawai', Upload, () => setShowImportModal(true), 'text-blue-700 bg-blue-50'],
-                ['Export Excel', FileSpreadsheet, handleExportExcel, 'text-emerald-700 bg-emerald-50'],
-                ['Cetak Daftar Pegawai', FileText, () => window.print(), 'text-rose-600 bg-rose-50'],
-              ].map(([label, Icon, action, color]) => (
-                <button key={label} type="button" onClick={action} className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50/60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-emerald-950/40">
-                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>{label}
-                </button>
-              ))}
-            </div>
-          </section>
-        </aside>
-      </div>
+      <MasterDataSection
+        title="Daftar Pegawai"
+        description="Menampilkan data sesuai filter dan kewenangan Anda."
+        countLabel={`${Number(paginationInfo.total).toLocaleString('id-ID')} pegawai`}
+        search={{
+          value: search,
+          onValueChange: (value) => { setSearch(value); setPage(1) },
+          placeholder: 'Cari pegawai, NIY, NIK, jabatan, atau unit kerja...',
+          'aria-label': 'Cari pegawai',
+        }}
+        filters={
+          <>
+            <MasterFilterSelect
+              aria-label="Filter unit kerja"
+              value={selectedUnitFilter}
+              onChange={(e) => { setSelectedUnitFilter(e.target.value); setPage(1) }}
+            >
+              <option value="">Semua Unit Kerja</option>
+              {unitsList.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect
+              aria-label="Filter jabatan"
+              value={selectedJabatanFilter}
+              onChange={(e) => { setSelectedJabatanFilter(e.target.value); setPage(1) }}
+            >
+              <option value="">Semua Jabatan</option>
+              {positionsList.map((pos) => <option key={pos.id} value={pos.id}>{pos.name}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect
+              aria-label="Filter status pegawai"
+              value={selectedStatusFilter}
+              onChange={(e) => { setSelectedStatusFilter(e.target.value); setPage(1) }}
+            >
+              <option value="">Semua Status</option>
+              {STATUS_OPTIONS.map((st) => <option key={st} value={st}>{st}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect
+              aria-label="Filter jenis kelamin"
+              value={selectedGenderFilter}
+              onChange={(e) => { setSelectedGenderFilter(e.target.value); setPage(1) }}
+            >
+              <option value="">Semua Jenis Kelamin</option>
+              <option value="L">Laki-laki</option>
+              <option value="P">Perempuan</option>
+            </MasterFilterSelect>
+          </>
+        }
+        onReset={() => {
+          setSelectedUnitFilter('')
+          setSelectedJabatanFilter('')
+          setSelectedStatusPegawaiFilter('')
+          setSelectedStatusFilter('')
+          setSelectedGenderFilter('')
+          setSearch('')
+          setPage(1)
+        }}
+        resetDisabled={!search && !selectedUnitFilter && !selectedJabatanFilter && !selectedStatusFilter && !selectedGenderFilter}
+        isLoading={isLoading || isFetching}
+        isError={isError}
+        errorTitle="Data pegawai gagal dimuat"
+        errorMessage="Terjadi kesalahan saat mengambil data pegawai dari server."
+        onRetry={refetch}
+        isEmpty={!isLoading && !isFetching && !isError && items.length === 0}
+        emptyTitle="Pegawai tidak ditemukan"
+        emptyDescription="Ubah kata pencarian atau filter untuk melihat data lainnya."
+        pagination={{
+          meta: {
+            total: paginationInfo.total,
+            from: paginationInfo.from,
+            to: paginationInfo.to,
+            last_page: paginationInfo.last_page,
+            current_page: page,
+          },
+          page,
+          onPageChange: setPage,
+        }}
+      >
+        <div className="employee-table-wrap">
+          <table className="employee-table w-full table-fixed text-left">
+            <thead>
+              <tr>
+                <th className="employee-col-number text-center">No</th>
+                <th className="employee-col-identity" colSpan={2}>Nama Pegawai <span>NIY</span></th>
+                <th className="employee-col-position">Jabatan <span>Unit Kerja</span></th>
+                <th className="employee-col-contact">Kontak</th>
+                <th className="employee-col-status text-center">Status</th>
+                <th className="employee-col-date">Tgl Bergabung</th>
+                <th className="employee-col-actions text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((row, index) => {
+                const fullName = `${row.gelar_depan ? `${row.gelar_depan} ` : ''}${row.nama_lengkap}${row.gelar_belakang ? `, ${row.gelar_belakang}` : ''}`
+                return (
+                  <tr key={row.id || index}>
+                    <td className="text-center font-semibold text-slate-400">{paginationInfo.from + index}</td>
+                    <td colSpan={2}>
+                      <PersonIdentityCell
+                        src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
+                        name={fullName}
+                        subtitle={row.niy ? `NIY ${row.niy}` : 'NIY belum tersedia'}
+                      />
+                    </td>
+                    <td>
+                      <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{row.jabatan_name || '—'}</p>
+                      <p className="truncate text-xs text-slate-500">{row.unit_name || 'Belum ditentukan'}</p>
+                    </td>
+                    <td>
+                      <p className="flex items-center gap-2 truncate text-xs text-slate-700 dark:text-slate-300"><Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />{row.no_hp || '—'}</p>
+                      <p className="mt-1 flex items-center gap-2 truncate text-xs text-slate-500"><Mail className="h-3.5 w-3.5 shrink-0" />{row.email || '—'}</p>
+                    </td>
+                    <td className="text-center">
+                      <button type="button" onClick={() => toggleEmployeeStatus(row)} title="Ubah status pegawai">
+                        <AppBadge variant={row.status === 'Aktif' ? 'success' : 'warning'} dot>{row.status || 'Belum ditetapkan'}</AppBadge>
+                      </button>
+                    </td>
+                    <td>
+                      <p className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
+                        {row.tanggal_masuk
+                          ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(row.tanggal_masuk))
+                          : '—'}
+                      </p>
+                    </td>
+                    <td>
+                      <div className="flex justify-center">
+                        <ActionDropdown
+                          onView={() => { setDetailEmployee(row); setActiveDetailTab('Identitas') }}
+                          onEdit={() => openEditModal(row)}
+                          onDelete={() => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) }}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </MasterDataSection>
 
       <div className="hidden" aria-hidden="true">
       {/* 1. Header Banner */}
@@ -2091,47 +1995,6 @@ export default function EmployeesPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {showExportModal && (
-        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-export-title">
-          <section className="employee-export-modal w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1B2433]">
-            <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
-              <h2 id="employee-export-title" className="text-base font-bold text-slate-900 dark:text-white">Export Data Pegawai</h2>
-              <button type="button" onClick={() => setShowExportModal(false)} aria-label="Tutup modal export" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><FaTimes /></button>
-            </header>
-            <div className="space-y-5 p-5">
-              <div>
-                <p className="mb-3 text-xs font-bold text-slate-700 dark:text-slate-200">Pilih Format Export</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    ['xlsx', 'Excel (.xlsx)', 'Format Excel untuk pengolahan data lanjutan', FaFileExcel],
-                    ['csv', 'CSV (.csv)', 'Format CSV untuk kompatibilitas sistem lain', FileText],
-                  ].map(([format, label, description, Icon]) => (
-                    <button key={format} type="button" onClick={() => setExportFormat(format)} className={`relative min-h-28 rounded-xl border p-4 text-left transition ${exportFormat === format ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-600/10 dark:bg-emerald-950/30' : 'border-slate-200 hover:border-emerald-300 dark:border-slate-700'}`}>
-                      <Icon className={`mb-3 h-6 w-6 ${exportFormat === format ? 'text-emerald-700' : 'text-slate-500'}`} />
-                      <strong className="block text-xs text-slate-900 dark:text-white">{label}</strong>
-                      <span className="mt-1 block text-[10px] leading-relaxed text-slate-500">{description}</span>
-                      {exportFormat === format && <span className="absolute right-3 top-3 text-sm font-black text-emerald-700">✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-2 text-xs font-bold text-slate-700 dark:text-slate-200">Opsi Export</p>
-                <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                  <label className="flex items-center gap-2"><input type="checkbox" defaultChecked className="accent-emerald-700" /> Export semua data</label>
-                  <label className="flex items-center gap-2"><input type="checkbox" defaultChecked className="accent-emerald-700" /> Export sesuai filter aktif</label>
-                  <label className="flex items-center gap-2"><input type="checkbox" className="accent-emerald-700" /> Hanya data pegawai aktif</label>
-                </div>
-              </div>
-            </div>
-            <footer className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-700 dark:bg-slate-900/40">
-              <button type="button" onClick={() => setShowExportModal(false)} className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Batal</button>
-              <button type="button" onClick={() => { setShowExportModal(false); pushNotification('Export Berhasil', `Data pegawai berhasil disiapkan dalam format ${exportFormat === 'xlsx' ? 'Excel' : 'CSV'}.`, 'info') }} className="h-10 rounded-xl bg-emerald-800 px-6 text-xs font-bold text-white shadow-lg shadow-emerald-900/15 hover:bg-emerald-900">Export</button>
-            </footer>
-          </section>
         </div>
       )}
 

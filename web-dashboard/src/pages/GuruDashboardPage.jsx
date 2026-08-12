@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Calendar,
   Users,
@@ -31,6 +32,7 @@ import ModalErrorBoundary from '../components/common/ModalErrorBoundary'
 import api from '../services/api'
 
 export default function GuruDashboardPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
@@ -75,31 +77,31 @@ export default function GuruDashboardPage() {
     {
       label: 'Input Presensi',
       icon: CheckCircle2,
-      onClick: () => window.location.href = '/portal-guru/presensi-pembelajaran',
+       onClick: () => navigate('/portal-guru/presensi-pembelajaran'),
       permissions: ['teacher.attendance.create']
     },
     {
       label: 'Tambah Materi',
       icon: FilePlus,
-      onClick: () => window.location.href = '/portal-guru/materi',
+       onClick: () => navigate('/portal-guru/materi'),
       permissions: ['teacher.material.create']
     },
     {
       label: 'Buat Tugas',
       icon: BookPlusIcon,
-      onClick: () => window.location.href = '/portal-guru/penugasan',
+       onClick: () => navigate('/portal-guru/penugasan'),
       permissions: ['teacher.assignment.create']
     },
     {
       label: 'Nilai Tugas',
       icon: FileCheck,
-      onClick: () => window.location.href = '/portal-guru/pengumpulan-tugas',
+       onClick: () => navigate('/portal-guru/pengumpulan-tugas'),
       permissions: ['teacher.grade.create']
     },
     {
       label: 'Lihat Jadwal',
       icon: CalendarDays,
-      onClick: () => window.location.href = '/portal-guru/jadwal',
+       onClick: () => navigate('/portal-guru/jadwal'),
       permissions: ['teacher.schedule.view']
     }
   ]
@@ -242,7 +244,7 @@ export default function GuruDashboardPage() {
             <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => window.location.href = `/portal-guru/presensi-pembelajaran?schedule_id=${selectedScheduleDetail.id}`}
+                 onClick={() => navigate(`/portal-guru/presensi-pembelajaran?schedule_id=${selectedScheduleDetail.id}`)}
                 className="px-4 py-2 rounded-xl bg-[#0E5C44] text-white text-xs font-semibold hover:bg-[#1E8E5A] transition-colors"
               >
                 Input Presensi Pembelajaran

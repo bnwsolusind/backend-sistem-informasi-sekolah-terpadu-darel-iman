@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\V1;
 
+use App\Models\MasterKurikulum;
+use App\Models\Subject;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Class UbahSubjectRequest
@@ -59,7 +62,7 @@ class UbahSubjectRequest extends FormRequest
             'jenjang' => ['sometimes', 'required', 'string', 'max:20'],
             'tingkat_kelas' => ['nullable', 'string', 'max:50'],
             'jam_pelajaran' => ['sometimes', 'required', 'integer', 'min:1', 'max:40'],
-            'guru_pengampu_id' => ['nullable', 'uuid'],
+            'guru_pengampu_id' => ['nullable', 'uuid', 'exists:employees,id'],
             'kkm' => ['sometimes', 'required', 'numeric', 'min:0', 'max:100'],
             'bobot_pengetahuan' => ['nullable', 'integer', 'min:0', 'max:100'],
             'bobot_keterampilan' => ['nullable', 'integer', 'min:0', 'max:100'],
@@ -71,11 +74,28 @@ class UbahSubjectRequest extends FormRequest
             'status' => ['sometimes', 'required', 'boolean'],
             'deskripsi' => ['nullable', 'string', 'max:1000'],
             'teacher_ids' => ['nullable', 'array'],
-            'teacher_ids.*' => ['uuid'],
+            'teacher_ids.*' => ['uuid', 'exists:employees,id'],
             'kelas_ids' => ['nullable', 'array'],
-            'kelas_ids.*' => ['uuid'],
+            'kelas_ids.*' => ['uuid', 'exists:tbl_kelas,id'],
             'rombel_ids' => ['nullable', 'array'],
-            'rombel_ids.*' => ['uuid'],
+            'rombel_ids.*' => ['uuid', 'exists:tbl_kelas,id'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $subjectId = $this->route('subject') ?? $this->route('id');
+            $current = $subjectId ? Subject::withTrashed()->find($subjectId) : null;
+            $unitId = $this->input('unit_pendidikan_id', $current?->unit_pendidikan_id);
+            $kurikulumId = $this->input('kurikulum_id', $current?->kurikulum_id);
+
+            if ($unitId && $kurikulumId && ! MasterKurikulum::query()
+                ->whereKey($kurikulumId)
+                ->where('unit_pendidikan_id', $unitId)
+                ->exists()) {
+                $validator->errors()->add('kurikulum_id', 'Kurikulum harus berasal dari unit pendidikan yang dipilih.');
+            }
+        });
     }
 }

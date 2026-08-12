@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\EducationUnit;
+use App\Models\Employee;
+use App\Models\EmployeeTeaching;
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -16,7 +19,9 @@ class EducationUnitTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
         $this->user = User::factory()->create();
+        $this->user->assignRole('Super Admin');
     }
 
     public function test_dapat_mengambil_daftar_unit_pendidikan(): void
@@ -43,7 +48,34 @@ class EducationUnitTest extends TestCase
                 ],
                 'current_page',
                 'total',
+                'statistics' => ['total_unit', 'total_siswa', 'total_tenaga_pendidik', 'total_unit_aktif'],
+                'filter_options' => ['levels', 'cities', 'provinces'],
             ]);
+    }
+
+    public function test_statistik_unit_berasal_dari_relasi_database_bukan_metadata(): void
+    {
+        $unit = EducationUnit::query()->create([
+            'code' => 'REAL-01',
+            'name' => 'Unit Real',
+            'level' => 'SDIT',
+            'is_active' => true,
+            'metadata' => ['total_siswa' => 8420, 'total_guru' => 609, 'city' => 'Padang'],
+        ]);
+
+        Student::factory()->create(['unit_id' => $unit->id]);
+        $employee = Employee::factory()->create(['unit_id' => $unit->id]);
+        EmployeeTeaching::query()->create(['employee_id' => $employee->id, 'aktif' => true]);
+
+        $response = $this->actingAs($this->user)->getJson('/api/education-units');
+
+        $response->assertOk()
+            ->assertJsonPath('statistics.total_unit', 1)
+            ->assertJsonPath('statistics.total_siswa', 1)
+            ->assertJsonPath('statistics.total_tenaga_pendidik', 1)
+            ->assertJsonPath('statistics.total_unit_aktif', 1)
+            ->assertJsonPath('data.0.total_siswa', 1)
+            ->assertJsonPath('data.0.total_guru', 1);
     }
 
     public function test_dapat_menambah_unit_pendidikan_baru(): void

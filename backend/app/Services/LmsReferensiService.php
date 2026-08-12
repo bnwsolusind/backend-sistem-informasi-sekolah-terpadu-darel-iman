@@ -102,7 +102,7 @@ class LmsReferensiService
     public function opsi(): array
     {
         $modulAjarList = LmsModulAjar::select('id', 'judul_modul', 'kode_modul', 'mata_pelajaran_id')
-            ->with(['subject:id,name,code,nama'])
+            ->with(['subject:id,name,code'])
             ->orderBy('created_at', 'desc')
             ->get();
 

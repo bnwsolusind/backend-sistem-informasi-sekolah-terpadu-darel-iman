@@ -15,6 +15,10 @@ export default function DashboardFilter({
   onReset,
   extraFilters
 }) {
+  const hasFilters = units.length > 0 || academicYears.length > 0 || semesters.length > 0 || Boolean(extraFilters)
+
+  if (!hasFilters) return null
+
   return (
     <AppFilterBar label="Filter Data" className="justify-between">
       <div className="flex flex-wrap items-center gap-3">

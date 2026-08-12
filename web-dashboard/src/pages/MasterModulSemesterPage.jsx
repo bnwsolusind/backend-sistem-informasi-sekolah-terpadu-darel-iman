@@ -8,34 +8,25 @@ import {
   Layers,
   GraduationCap,
   Plus,
-  Search,
-  Filter,
   FileSpreadsheet,
   Upload,
   Pencil,
   Trash2,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
   Copy,
-  Link,
   Save,
-  CheckCircle,
   AlertTriangle,
-  X,
 } from 'lucide-react'
 import { modulSemesterService } from '../services/modulSemesterService'
 import CsvImportModal from '../components/master-data/CsvImportModal'
+import { ActionDropdown, AppBadge, AppDrawer, AppModal, PersonIdentityCell } from '../components/app'
 import {
+  MasterActionButton,
+  MasterDataSection,
   MasterDataPage,
   MasterPageHeader,
   MasterStatsGrid,
   MasterStatCard,
-  MasterFilterBar,
-  MasterSearchInput,
   MasterFilterSelect,
-  MasterPagination,
-  MasterStatusBadge,
 } from '../components/master-data'
 
 const UNIT_BADGES = {
@@ -143,7 +134,7 @@ export default function MasterModulSemesterPage() {
   const [filterGuru, setFilterGuru] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(15)
+  const [perPage] = useState(15)
 
   // Form Modal & Drawer
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -158,7 +149,7 @@ export default function MasterModulSemesterPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   // Query Data List
-  const { data: responseData, isLoading } = useQuery({
+  const { data: responseData, isLoading, isError, refetch } = useQuery({
     queryKey: [
       'modul-semester',
       page,
@@ -193,7 +184,7 @@ export default function MasterModulSemesterPage() {
   })
 
   // Query Stats
-  const { data: statsData } = useQuery({
+  const { data: statsData, isLoading: isStatsLoading } = useQuery({
     queryKey: ['modul-semester-stats'],
     queryFn: () => modulSemesterService.getStats(),
   })
@@ -520,31 +511,28 @@ export default function MasterModulSemesterPage() {
     await Swal.fire({ icon: failures.length ? 'warning' : 'success', title: 'Import selesai', text: `${success} modul berhasil, ${failures.length} gagal.${failures.length ? ` ${failures.slice(0, 3).join('; ')}` : ''}`, confirmColor: '#0E5C44' })
   }
 
+  const resetFilters = () => {
+    setSearch('')
+    setFilterTahun('')
+    setFilterUnit('')
+    setFilterSemester('')
+    setFilterKelas('')
+    setFilterGuru('')
+    setFilterStatus('')
+    setPage(1)
+  }
+
   return (
     <MasterDataPage className="education-unit-page" hideBreadcrumb>
-      {/* HEADER BANNER */}
       <MasterPageHeader
-        tone="brand"
         icon={BookOpen}
         title="Data Modul Semester"
         description="Kelola seluruh modul semester di lingkungan Yayasan sebagai acuan pembelajaran terpadu."
         actions={
           <>
-            <button type="button" onClick={() => setImportOpen(true)} className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-emerald-200 bg-white px-4 text-xs font-semibold text-emerald-800 shadow-sm transition hover:bg-emerald-50"><Upload className="h-4 w-4" /> Import CSV</button>
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="inline-flex h-12 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-700" /> Export Excel
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenTambahModal}
-              className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-emerald-800 px-5 text-xs font-semibold text-white shadow-lg shadow-emerald-800/20 transition hover:bg-emerald-900"
-            >
-              <Plus className="h-4 w-4" /> Tambah Modul
-            </button>
+            <MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportCSV}>Export CSV</MasterActionButton>
+            <MasterActionButton icon={Plus} onClick={handleOpenTambahModal}>Tambah Modul</MasterActionButton>
           </>
         }
       />
@@ -554,108 +542,89 @@ export default function MasterModulSemesterPage() {
         { key: 'kode_modul', example: 'MOD-MTK-01' }, { key: 'nama_modul', required: true, example: 'Matematika Semester 1' }, { key: 'kurikulum', example: 'Kurikulum Merdeka' }, { key: 'status', example: 'Aktif' }, { key: 'alokasi_jam', example: '36' }, { key: 'jumlah_pertemuan', example: '18' },
       ]} />
 
-      {/* STATS GRID */}
       <MasterStatsGrid className="education-unit-kpis">
-        <MasterStatCard icon={Book} label="TOTAL MODUL SEMESTER" value={stats.total_modul ?? 0} description="Terdaftar di sistem" variant="success" />
-        <MasterStatCard icon={CheckCircle2} label="MODUL AKTIF" value={stats.total_aktif ?? 0} description="Beroperasi secara penuh" variant="info" />
-        <MasterStatCard icon={Layers} label="TOTAL ALOKASI JAM" value={`${stats.total_jam ?? 0} JP`} description="Dari semua unit" variant="warning" />
-        <MasterStatCard icon={GraduationCap} label="TOTAL RINCIAN MATERI" value={stats.total_materi ?? 0} description="Materi mingguan terpadu" variant="neutral" />
+        <MasterStatCard icon={Book} label="TOTAL MODUL SEMESTER" value={stats.total_modul ?? 0} description="Terdaftar di sistem" variant="success" loading={isStatsLoading} />
+        <MasterStatCard icon={CheckCircle2} label="MODUL AKTIF" value={stats.total_aktif ?? 0} description="Beroperasi secara penuh" variant="info" loading={isStatsLoading} />
+        <MasterStatCard icon={Layers} label="TOTAL ALOKASI JAM" value={`${stats.total_jam ?? 0} JP`} description="Dari semua unit" variant="warning" loading={isStatsLoading} />
+        <MasterStatCard icon={GraduationCap} label="TOTAL RINCIAN MATERI" value={stats.total_materi ?? 0} description="Materi mingguan terpadu" variant="neutral" loading={isStatsLoading} />
       </MasterStatsGrid>
 
-      {/* SEARCH & FILTER BAR (IDENTIK REFERENSI) */}
-      <div className="bg-white dark:bg-[#1B2433] p-4 rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search Box */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            placeholder="Cari kode modul, nama modul, mapel, atau guru..."
-            className="w-full pl-10 pr-16 py-2.5 rounded-xl bg-gray-50/80 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 transition-colors"
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400 bg-gray-200/70 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-gray-300/60 dark:border-slate-700">
-            Ctrl + K
-          </span>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="flex items-center gap-1.5 font-bold text-gray-600 dark:text-slate-300">
-            <Filter className="w-3.5 h-3.5 text-emerald-600" />
-            Filter:
-          </span>
-
-          <select
-            value={filterTahun}
-            onChange={(e) => {
-              setFilterTahun(e.target.value)
-              setPage(1)
-            }}
-            className="px-3.5 py-2 rounded-xl bg-gray-50/80 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 font-medium text-gray-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="">Semua Thn Ajaran</option>
-            {options.tahun_ajaran?.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterUnit}
-            onChange={(e) => {
-              setFilterUnit(e.target.value)
-              setPage(1)
-            }}
-            className="px-3.5 py-2 rounded-xl bg-gray-50/80 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 font-medium text-gray-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="">Semua Unit</option>
-            {options.unit_pendidikan?.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterSemester}
-            onChange={(e) => {
-              setFilterSemester(e.target.value)
-              setPage(1)
-            }}
-            className="px-3.5 py-2 rounded-xl bg-gray-50/80 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 font-medium text-gray-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="">Semua Semester</option>
-            {options.semesters?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={filterStatus}
-            onChange={(e) => {
-              setFilterStatus(e.target.value)
-              setPage(1)
-            }}
-            className="px-3.5 py-2 rounded-xl bg-gray-50/80 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 font-medium text-gray-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="">Semua Status</option>
-            <option value="Aktif">Aktif</option>
-            <option value="Nonaktif">Nonaktif</option>
-            <option value="Arsip">Arsip</option>
-          </select>
-        </div>
-      </div>
-
-      {/* TABLE CONTAINER - IDENTIK REFERENSI (HEADER KREM/LIGHT BEIGE & BADGES) */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-2xl shadow-sm border border-emerald-100 dark:border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
+      <MasterDataSection
+        title="Daftar Modul Semester"
+        description="Modul sesuai periode, unit, kelas, guru, dan status yang dipilih."
+        countLabel={`${Number(meta.total ?? 0).toLocaleString('id-ID')} modul`}
+        search={{
+          value: search,
+          onValueChange: (value) => { setSearch(value); setPage(1) },
+          placeholder: 'Cari kode modul, nama modul, mapel, atau guru...',
+          'aria-label': 'Cari modul semester',
+        }}
+        filters={(
+          <>
+            <MasterFilterSelect
+              aria-label="Filter tahun ajaran"
+              value={filterTahun}
+              onChange={(event) => {
+                setFilterTahun(event.target.value)
+                setFilterSemester('')
+                setFilterKelas('')
+                setPage(1)
+              }}
+            >
+              <option value="">Semua Tahun Ajaran</option>
+              {(options.tahun_ajaran || []).map((tahun) => <option key={tahun.id} value={tahun.id}>{tahun.name}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect
+              aria-label="Filter unit pendidikan"
+              value={filterUnit}
+              onChange={(event) => {
+                setFilterUnit(event.target.value)
+                setFilterKelas('')
+                setFilterGuru('')
+                setPage(1)
+              }}
+            >
+              <option value="">Semua Unit</option>
+              {(options.unit_pendidikan || []).map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter semester" value={filterSemester} onChange={(event) => { setFilterSemester(event.target.value); setPage(1) }}>
+              <option value="">Semua Semester</option>
+              {(options.semesters || [])
+                .filter((semester) => !filterTahun || semester.academic_year_id === filterTahun)
+                .map((semester) => <option key={semester.id} value={semester.id}>{semester.name}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter kelas" value={filterKelas} onChange={(event) => { setFilterKelas(event.target.value); setPage(1) }}>
+              <option value="">Semua Kelas</option>
+              {(options.kelas || [])
+                .filter((kelas) => !filterTahun || kelas.tahun_ajaran_id === filterTahun)
+                .filter((kelas) => !filterUnit || kelas.unit_pendidikan_id === filterUnit)
+                .map((kelas) => <option key={kelas.id} value={kelas.id}>{kelas.nama_kelas}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter guru" value={filterGuru} onChange={(event) => { setFilterGuru(event.target.value); setPage(1) }}>
+              <option value="">Semua Guru</option>
+              {(options.guru || [])
+                .filter((guru) => !filterUnit || guru.unit_id === filterUnit)
+                .map((guru) => <option key={guru.id} value={guru.id}>{guru.nama_lengkap}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter status" value={filterStatus} onChange={(event) => { setFilterStatus(event.target.value); setPage(1) }}>
+              <option value="">Semua Status</option>
+              <option value="Aktif">Aktif</option>
+              <option value="Nonaktif">Nonaktif</option>
+              <option value="Arsip">Arsip</option>
+            </MasterFilterSelect>
+          </>
+        )}
+        onReset={resetFilters}
+        resetDisabled={!search && !filterTahun && !filterUnit && !filterSemester && !filterKelas && !filterGuru && !filterStatus}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
+        isEmpty={!isLoading && !isError && modulList.length === 0}
+        emptyTitle="Modul semester tidak ditemukan"
+        emptyDescription="Ubah pencarian atau reset filter untuk melihat data lainnya."
+        pagination={{ meta, page, onPageChange: setPage }}
+        ariaLabel="Data modul semester"
+      >
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#F7F4EB] dark:bg-slate-900/80 text-gray-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-800">
@@ -670,52 +639,7 @@ export default function MasterModulSemesterPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-sm">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={idx} className="animate-pulse">
-                    <td className="py-4 px-4 text-center">
-                      <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-6 mx-auto"></div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="w-8 h-8 bg-gray-200 dark:bg-slate-700 rounded-full mx-auto"></div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-48 mb-1"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-24"></div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-28"></div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-32"></div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-20 mx-auto"></div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="h-6 bg-gray-200 dark:bg-slate-700 rounded-full w-16 mx-auto"></div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="h-8 bg-gray-200 dark:bg-slate-700 rounded-xl w-24 mx-auto"></div>
-                    </td>
-                  </tr>
-                ))
-              ) : modulList.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400 dark:text-slate-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <BookOpen className="w-10 h-10 text-gray-300 dark:text-slate-600 mb-1" />
-                      <p className="font-bold text-gray-700 dark:text-slate-300 text-sm">
-                        Belum Ada Data Master Modul Semester
-                      </p>
-                      <p className="text-xs">
-                        Silakan buat modul semester baru dengan mengklik tombol &ldquo;➕ Tambah Modul&rdquo;.
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                modulList.map((item, index) => {
+              {modulList.map((item, index) => {
                   const badgeStyle = getUnitBadgeStyle(item.unit_pendidikan?.code || item.jenjang)
                   const recordNo = ((meta.current_page || 1) - 1) * (meta.per_page || 15) + index + 1
 
@@ -760,13 +684,11 @@ export default function MasterModulSemesterPage() {
 
                       {/* MAPEL & GURU */}
                       <td className="py-4 px-4">
-                        <div className="font-bold text-gray-800 dark:text-slate-200">
-                          {item.mata_pelajaran?.name || '-'}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                          <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>{item.guru?.nama_lengkap || '-'}</span>
-                        </div>
+                        <PersonIdentityCell
+                          src={item.guru?.photo_url || item.guru?.avatar_url || item.guru?.foto}
+                          name={item.guru?.nama_lengkap || '-'}
+                          subtitle={`${item.mata_pelajaran?.name || 'Mata pelajaran'}${item.guru?.niy ? ` · NIY ${item.guru.niy}` : ''}`}
+                        />
                       </td>
 
                       {/* PERTEMUAN / JP */}
@@ -779,125 +701,43 @@ export default function MasterModulSemesterPage() {
                         </div>
                       </td>
 
-                      {/* STATUS (IDENTIK REFERENSI PILL BORDER) */}
                       <td className="py-4 px-4 text-center">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                            item.status === 'Aktif'
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
-                              : item.status === 'Nonaktif'
-                              ? 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                              : 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300'
-                          }`}
-                        >
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              item.status === 'Aktif'
-                                ? 'bg-emerald-500'
-                                : item.status === 'Nonaktif'
-                                ? 'bg-slate-400'
-                                : 'bg-amber-500'
-                            }`}
-                          ></span>
-                          {item.status}
-                        </span>
+                        <AppBadge variant={item.status === 'Aktif' ? 'success' : item.status === 'Arsip' ? 'warning' : 'neutral'} dot>
+                          {item.status || 'Nonaktif'}
+                        </AppBadge>
                       </td>
 
-                      {/* AKSI (SQUARE BUTTONS IDENTIK REFERENSI GAMBAR) */}
                       <td className="py-4 px-4 text-center">
-                        <div className="inline-flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => handleOpenDetailDrawer(item)}
-                            title="Detail Modul"
-                            className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-900 transition-all border border-blue-100 dark:border-blue-900"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditModal(item)}
-                            title="Edit Modul"
-                            className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900 transition-all border border-amber-100 dark:border-amber-900"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleConfirmDuplikasi(item)}
-                            title="Duplikasi Modul"
-                            className="p-2 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-950/50 dark:text-purple-400 dark:hover:bg-purple-900 transition-all border border-purple-100 dark:border-purple-900"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleConfirmHapus(item)}
-                            title="Hapus Modul"
-                            className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 dark:hover:bg-rose-900 transition-all border border-rose-100 dark:border-rose-900"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        <span className="inline-flex justify-center">
+                          <ActionDropdown
+                            onView={() => handleOpenDetailDrawer(item)}
+                            onEdit={() => handleOpenEditModal(item)}
+                            extraItems={[{
+                              label: 'Duplikasi Modul',
+                              icon: <Copy className="h-4 w-4 text-violet-500" />,
+                              onClick: () => handleConfirmDuplikasi(item),
+                            }]}
+                            onDelete={() => handleConfirmHapus(item)}
+                          />
+                        </span>
                       </td>
                     </tr>
                   )
-                })
-              )}
+                })}
             </tbody>
           </table>
-        </div>
-
-        {/* PAGINATION FOOTER */}
-        {meta.last_page > 1 && (
-          <div className="px-6 py-4 bg-gray-50/80 dark:bg-slate-900/80 border-t border-gray-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-            <p className="text-gray-500 dark:text-slate-400 font-medium">
-              Menampilkan <span className="font-bold text-gray-900 dark:text-white">{meta.from || 0}</span> sampai{' '}
-              <span className="font-bold text-gray-900 dark:text-white">{meta.to || 0}</span> dari{' '}
-              <span className="font-bold text-gray-900 dark:text-white">{meta.total || 0}</span> modul
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                className="px-3.5 py-2 border border-gray-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 font-bold text-gray-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700 transition flex items-center gap-1"
-              >
-                <ChevronLeft className="w-3 h-3" /> Sebelumnya
-              </button>
-              <span className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold rounded-xl border border-emerald-200 dark:border-emerald-800">
-                {meta.current_page} / {meta.last_page}
-              </span>
-              <button
-                disabled={page >= meta.last_page}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-3.5 py-2 border border-gray-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 font-bold text-gray-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-slate-700 transition flex items-center gap-1"
-              >
-                Selanjutnya <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      </MasterDataSection>
 
       {/* CRUD MODAL FORM */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="relative w-full max-w-4xl bg-white dark:bg-[#1B2433] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-emerald-900 to-emerald-800 text-white flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <BookOpen className="text-emerald-300 h-5 w-5" />
-                  {isEditMode ? 'Edit Master Modul Semester' : 'Tambah Master Modul Semester'}
-                </h3>
-                <p className="text-xs text-emerald-100/90">
-                  Isi formulir lengkap sesuai standar kurikulum dan bobot penilaian semester.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 text-white/80 hover:text-white rounded-lg transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+      <AppModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        icon={BookOpen}
+        title={isEditMode ? 'Edit Master Modul Semester' : 'Tambah Master Modul Semester'}
+        description="Isi formulir lengkap sesuai standar kurikulum dan bobot penilaian semester."
+        maxWidth="max-w-4xl"
+      >
+        <div className="-m-6">
             {/* Navigation Tabs */}
             <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/50 px-6 gap-2 text-xs font-bold overflow-x-auto">
               {[
@@ -1602,33 +1442,39 @@ export default function MasterModulSemesterPage() {
                 </div>
               </div>
             </form>
-          </div>
         </div>
-      )}
+      </AppModal>
 
       {/* DETAIL DRAWER */}
-      {isDrawerOpen && detailModul && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-xs">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#1B2433] h-full shadow-2xl overflow-y-auto border-l border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-6">
-                <div className="flex items-center gap-2.5">
-                  <BookOpen className="text-emerald-600 text-xl h-5 w-5" />
-                  <div>
-                    <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">{detailModul.nama_modul}</h3>
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">
-                      {detailModul.kode_modul} &bull; {detailModul.kurikulum}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsDrawerOpen(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg transition"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
+      {detailModul && (
+        <AppDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          icon={BookOpen}
+          title={detailModul.nama_modul}
+          description={`${detailModul.kode_modul || '-'} · ${detailModul.kurikulum || '-'}`}
+          footer={(
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => setIsDrawerOpen(false)}
+                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDrawerOpen(false)
+                  handleOpenEditModal(detailModul)
+                }}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-1.5 shadow"
+              >
+                <Pencil className="h-4 w-4" /> Edit Modul Ini
+              </button>
+            </div>
+          )}
+        >
               <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl mb-6 text-xs">
                 <div>
                   <p className="text-slate-400 font-medium">Mata Pelajaran</p>
@@ -1674,27 +1520,7 @@ export default function MasterModulSemesterPage() {
                   </table>
                 </div>
               </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-              <button
-                onClick={() => setIsDrawerOpen(false)}
-                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl"
-              >
-                Tutup Drawer
-              </button>
-              <button
-                onClick={() => {
-                  setIsDrawerOpen(false)
-                  handleOpenEditModal(detailModul)
-                }}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-1.5 shadow"
-              >
-                <Pencil className="h-4 w-4" /> Edit Modul Ini
-              </button>
-            </div>
-          </div>
-        </div>
+        </AppDrawer>
       )}
     </MasterDataPage>
   )

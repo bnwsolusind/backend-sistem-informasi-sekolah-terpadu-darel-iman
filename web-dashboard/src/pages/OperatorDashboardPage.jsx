@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Database,
   Users,
@@ -34,6 +35,7 @@ import ModalErrorBoundary from '../components/common/ModalErrorBoundary'
 import { managementDashboardService } from '../services/managementDashboardService'
 
 export default function OperatorDashboardPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
@@ -75,25 +77,25 @@ export default function OperatorDashboardPage() {
     {
       label: 'Kelola Master Data',
       icon: Database,
-      onClick: () => (window.location.href = '/dashboard/students'),
+      onClick: () => navigate('/dashboard/students'),
       permissions: ['sistem.master_data'],
     },
     {
       label: 'Pengaturan Sistem',
       icon: Settings,
-      onClick: () => (window.location.href = '/dashboard/pengaturan'),
+      onClick: () => navigate('/dashboard/pengaturan'),
       permissions: ['sistem.pengaturan'],
     },
     {
       label: 'Hak Akses & Role',
       icon: ShieldCheck,
-      onClick: () => (window.location.href = '/dashboard/hak-akses'),
+      onClick: () => navigate('/dashboard/hak-akses'),
       permissions: ['sistem.hak_akses'],
     },
     {
       label: 'Audit Notifikasi',
       icon: Activity,
-      onClick: () => (window.location.href = '/dashboard/notifications'),
+      onClick: () => navigate('/dashboard/notifications'),
       permissions: ['sistem.master_data'],
     },
   ]

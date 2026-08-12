@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ActionDropdown from '../app/ActionDropdown'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Swal from 'sweetalert2'
 import { FaEdit, FaKey, FaPlus, FaSearch, FaTimes, FaTrash, FaUserCheck, FaUserTimes } from 'react-icons/fa'
@@ -169,10 +170,14 @@ export default function UserAccountManagement({ roles }) {
                 <td className="px-4 py-3"><span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{user.roles?.[0] || 'Tanpa role'}</span></td>
                 <td className="px-4 py-3">{user.is_active ? <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700"><FaUserCheck /> Aktif</span> : <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600"><FaUserTimes /> Nonaktif</span>}</td>
                 <td className="px-4 py-3 text-xs text-slate-500">{user.must_change_password ? 'Wajib diganti' : 'Sudah diatur'}</td>
-                <td className="px-4 py-3"><div className="flex justify-center gap-1">
-                  <button title="Edit akun" onClick={() => { setSelected(user); setModalOpen(true) }} className="rounded-lg p-2 text-blue-700 hover:bg-blue-50"><FaEdit /></button>
-                  <button title="Reset password" onClick={() => resetPassword(user)} className="rounded-lg p-2 text-amber-700 hover:bg-amber-50"><FaKey /></button>
-                  <button title="Hapus akun" onClick={() => deleteUser(user)} className="rounded-lg p-2 text-rose-700 hover:bg-rose-50"><FaTrash /></button>
+                <td className="px-4 py-3"><div className="flex justify-center">
+                  <ActionDropdown
+                    onEdit={() => { setSelected(user); setModalOpen(true) }}
+                    onDelete={() => deleteUser(user)}
+                    extraItems={[
+                      { label: 'Reset Password', icon: <FaKey className="h-4 w-4 text-amber-500" />, onClick: () => resetPassword(user) }
+                    ]}
+                  />
                 </div></td>
               </tr>)}
           </tbody>

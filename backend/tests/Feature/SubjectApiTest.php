@@ -8,6 +8,7 @@ use App\Models\MasterKurikulum;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class SubjectApiTest extends TestCase
@@ -226,5 +227,74 @@ class SubjectApiTest extends TestCase
             'id' => $subject->id,
             'deleted_at' => null,
         ]);
+    }
+
+    public function test_menolak_kurikulum_dari_unit_pendidikan_lain(): void
+    {
+        $otherUnit = EducationUnit::create([
+            'name' => 'Unit Lain',
+            'code' => 'UNIT-OTHER',
+            'level' => 'SMP',
+            'is_active' => true,
+        ]);
+        $otherYear = AcademicYear::create([
+            'name' => '2026/2027',
+            'start_date' => '2026-07-01',
+            'end_date' => '2027-06-30',
+            'is_active' => false,
+        ]);
+        $otherKurikulum = MasterKurikulum::create([
+            'kode_kurikulum' => 'KUR-OTHER',
+            'nama_kurikulum' => 'Kurikulum Unit Lain',
+            'jenis_kurikulum' => 'Merdeka',
+            'unit_pendidikan_id' => $otherUnit->id,
+            'jenjang' => 'SMP',
+            'tahun_ajaran_id' => $otherYear->id,
+            'tanggal_mulai' => '2026-07-01',
+            'status' => true,
+        ]);
+
+        $this->actingAs($this->user)
+            ->postJson('/api/master/subjects', [
+                'unit_pendidikan_id' => $this->unit->id,
+                'kurikulum_id' => $otherKurikulum->id,
+                'kode_mapel' => 'MP-CROSS-UNIT',
+                'nama_mapel' => 'Mapel Lintas Unit',
+                'kelompok_mapel' => 'Kelompok A',
+                'kategori' => 'Wajib',
+                'jenjang' => 'SMP',
+                'jam_pelajaran' => 2,
+                'kkm' => 75,
+                'status' => true,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['kurikulum_id']);
+    }
+
+    public function test_import_mata_pelajaran_menyimpan_data_dan_export_menghasilkan_file(): void
+    {
+        $csv = implode("\n", [
+            'unit_pendidikan_id,kurikulum_id,kode_mapel,nama_mapel,jenjang,jam_pelajaran,kkm,status',
+            "{$this->unit->id},{$this->kurikulum->id},MP-IMPORT,Mapel Import,SMP,3,75,aktif",
+        ]);
+
+        $import = $this->actingAs($this->user)
+            ->post('/api/master/subjects/import', [
+                'file' => UploadedFile::fake()->createWithContent('subjects.csv', $csv),
+            ])
+            ->assertOk();
+
+        $import->assertJsonPath('data.imported_rows', 1);
+        $this->assertDatabaseHas('subjects', ['kode_mapel' => 'MP-IMPORT']);
+
+        $this->actingAs($this->user)
+            ->get('/api/master/subjects/export/excel')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $this->actingAs($this->user)
+            ->get('/api/master/subjects/export/pdf')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
     }
 }

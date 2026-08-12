@@ -48,12 +48,12 @@ class MasterOptionsLookupAuditTest extends TestCase
         );
 
         $this->academicYear = AcademicYear::firstOrCreate(
-            ['code' => '2025/2026'],
+            ['name' => '2025/2026'],
             ['name' => '2025/2026', 'is_active' => true, 'start_date' => '2025-07-01', 'end_date' => '2026-06-30']
         );
 
         $this->semester = Semester::firstOrCreate(
-            ['academic_year_id' => $this->academicYear->id, 'semester_code' => 'GANJIL-2025'],
+            ['academic_year_id' => $this->academicYear->id, 'name' => 'Semester Ganjil'],
             ['name' => 'Semester Ganjil', 'sequence' => 1, 'is_active' => true]
         );
 
@@ -88,8 +88,15 @@ class MasterOptionsLookupAuditTest extends TestCase
         );
 
         $this->subject = Subject::firstOrCreate(
-            ['code' => 'MAT-1'],
-            ['name' => 'Matematika Test', 'unit_id' => $this->unit->id, 'is_active' => true]
+            ['kode_mapel' => 'MAT-1'],
+            [
+                'code' => 'MAT-1',
+                'name' => 'Matematika Test',
+                'nama_mapel' => 'Matematika Test',
+                'unit_pendidikan_id' => $this->unit->id,
+                'kurikulum_id' => null,
+                'status' => true,
+            ]
         );
     }
 
@@ -244,8 +251,10 @@ class MasterOptionsLookupAuditTest extends TestCase
         $delSubject = Subject::create([
             'code' => 'DEL-SUBJ-1',
             'name' => 'Mata Pelajaran Terhapus',
-            'unit_id' => $this->unit->id,
-            'is_active' => true,
+            'kode_mapel' => 'DEL-SUBJ-1',
+            'nama_mapel' => 'Mata Pelajaran Terhapus',
+            'unit_pendidikan_id' => $this->unit->id,
+            'status' => true,
         ]);
 
         $delSubject->delete();

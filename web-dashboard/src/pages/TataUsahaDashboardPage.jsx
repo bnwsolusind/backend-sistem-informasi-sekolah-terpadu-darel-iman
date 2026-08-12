@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react'
-import { Users, UserCheck, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, UserCheck, AlertTriangle, CheckCircle2, FileSpreadsheet } from 'lucide-react'
 
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import DashboardFilter from '../components/dashboard/DashboardFilter'
 import KpiCardGrid from '../components/dashboard/KpiCardGrid'
 import KpiCard from '../components/dashboard/KpiCard'
+import QuickActionCard from '../components/dashboard/QuickActionCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
 
 import { managementDashboardService } from '../services/managementDashboardService'
 
 export default function TataUsahaDashboardPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
@@ -45,6 +48,33 @@ export default function TataUsahaDashboardPage() {
 
   const formatNumber = (num) => (num !== undefined && num !== null ? Number(num).toLocaleString('id-ID') : '0')
 
+  const quickActions = [
+    {
+      label: 'Kelola Master Siswa',
+      icon: Users,
+      onClick: () => navigate('/dashboard/students'),
+      permissions: ['kesiswaan.data_lengkap_siswa'],
+    },
+    {
+      label: 'Kelola Master Pegawai',
+      icon: UserCheck,
+      onClick: () => navigate('/dashboard/employees'),
+      permissions: ['sistem.master_data'],
+    },
+    {
+      label: 'Rekap Absensi Gerbang',
+      icon: CheckCircle2,
+      onClick: () => navigate('/dashboard/rekap-absensi-gerbang'),
+      permissions: ['presensi.absensi_gerbang.view'],
+    },
+    {
+      label: 'Cetak Laporan Siswa',
+      icon: FileSpreadsheet,
+      onClick: () => navigate('/dashboard/laporan-siswa'),
+      permissions: ['laporan.siswa.view'],
+    },
+  ]
+
   return (
     <div className="space-y-6 pb-12">
       <DashboardHeader
@@ -57,7 +87,7 @@ export default function TataUsahaDashboardPage() {
 
       <DashboardFilter onReset={fetchDashboard} />
 
-      <KpiCardGrid cols={3}>
+      <KpiCardGrid cols={5}>
         <KpiCard
           title="Total Siswa Aktif"
           value={formatNumber(kpis.total_siswa?.total)}
@@ -73,22 +103,23 @@ export default function TataUsahaDashboardPage() {
           value={formatNumber(kpis.absensi_hari_ini?.total)}
           icon={CheckCircle2}
         />
-      </KpiCardGrid>
-
-      <KpiCardGrid cols={2}>
         <KpiCard
           title="Data Siswa Belum Lengkap"
           value={formatNumber(kpis.siswa_incomplete?.total)}
           icon={AlertTriangle}
           subtitle="Siswa dengan NISN, tanggal lahir, atau data ortu belum terisi"
+          colorScheme="amber"
         />
         <KpiCard
           title="Data Pegawai Belum Lengkap"
           value={formatNumber(kpis.pegawai_incomplete?.total)}
           icon={AlertTriangle}
           subtitle="Pegawai dengan NIY atau NIK belum terisi"
+          colorScheme="amber"
         />
       </KpiCardGrid>
+
+      <QuickActionCard title="Aksi Cepat Tata Usaha" actions={quickActions} />
     </div>
   )
 }

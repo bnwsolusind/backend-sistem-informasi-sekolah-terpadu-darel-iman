@@ -1,20 +1,15 @@
 import React from 'react'
 import {
-  Eye,
-  Edit,
-  Trash2,
   RotateCcw,
-  BookOpen,
   Calendar,
   Building2,
-  CheckCircle,
-  XCircle,
   Tag,
 } from 'lucide-react'
+import ActionDropdown from '../app/ActionDropdown'
+import AppBadge from '../app/AppBadge'
 
 export default function KurikulumTable({
   data = [],
-  isLoading = false,
   page = 1,
   perPage = 15,
   onDetail,
@@ -22,33 +17,6 @@ export default function KurikulumTable({
   onDelete,
   onRestore,
 }) {
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-2xl border border-emerald-100 p-6 shadow-xs overflow-hidden">
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-slate-100 rounded-xl w-full"></div>
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-14 bg-slate-50 rounded-xl w-full"></div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl border border-emerald-100 p-12 text-center shadow-xs">
-        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto text-emerald-600 mb-4 border border-emerald-100">
-          <BookOpen className="w-8 h-8" />
-        </div>
-        <h3 className="text-lg font-bold text-slate-800">Data Master Kurikulum Tidak Ditemukan</h3>
-        <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-          Belum ada data kurikulum yang tersimpan atau data yang Anda cari tidak cocok dengan filter.
-        </p>
-      </div>
-    )
-  }
-
   const getJenisBadgeColor = (jenis) => {
     switch (jenis) {
       case 'SIT':
@@ -67,9 +35,7 @@ export default function KurikulumTable({
   }
 
   return (
-    <div className="bg-white dark:bg-[#1B2433] rounded-2xl border border-emerald-100 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+    <table className="w-full min-w-245 text-left border-collapse" aria-label="Daftar kurikulum">
           <thead>
             <tr className="bg-[#F7F4EB] dark:bg-slate-900/80 text-gray-700 dark:text-slate-300 font-bold text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-800">
               <th className="py-4 px-4 w-12 text-center">NO</th>
@@ -78,7 +44,7 @@ export default function KurikulumTable({
               <th className="py-4 px-4">JENIS & JENJANG</th>
               <th className="py-4 px-4">UNIT & TAHUN AJARAN</th>
               <th className="py-4 px-4 text-center">STATUS</th>
-              <th className="py-4 px-4 text-center w-36">AKSI</th>
+              <th className="py-4 px-4 text-center w-20">AKSI</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-xs font-medium">
@@ -149,75 +115,30 @@ export default function KurikulumTable({
 
                   {/* Status */}
                   <td className="py-4 px-4 text-center">
-                    {isTerhapus ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
-                        <span className="w-2 h-2 rounded-full bg-rose-500"></span> Terhapus
-                      </span>
-                    ) : item.status ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Aktif
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800">
-                        <span className="w-2 h-2 rounded-full bg-amber-500"></span> Nonaktif
-                      </span>
-                    )}
+                    <AppBadge variant={isTerhapus ? 'danger' : item.status ? 'success' : 'warning'} dot>
+                      {isTerhapus ? 'Terhapus' : item.status ? 'Aktif' : 'Nonaktif'}
+                    </AppBadge>
                   </td>
 
                   {/* Action Buttons */}
                   <td className="py-4 px-4 text-center">
-                    <div className="inline-flex items-center justify-center gap-1.5">
-                      {/* Detail */}
-                      <button
-                        onClick={() => onDetail(item)}
-                        className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:hover:bg-blue-900 transition-all border border-blue-100 dark:border-blue-900"
-                        title="Detail Kurikulum"
-                        aria-label="Detail Kurikulum"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-
-                      {!isTerhapus ? (
-                        <>
-                          {/* Edit */}
-                          <button
-                            onClick={() => onEdit(item)}
-                            className="p-2 rounded-xl bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900 transition-all border border-amber-100 dark:border-amber-900"
-                            title="Edit Kurikulum"
-                            aria-label="Edit Kurikulum"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Hapus */}
-                          <button
-                            onClick={() => onDelete(item)}
-                            className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 dark:hover:bg-rose-900 transition-all border border-rose-100 dark:border-rose-900"
-                            title="Hapus Kurikulum"
-                            aria-label="Hapus Kurikulum"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      ) : (
-                        /* Pulihkan */
-                        <button
-                          onClick={() => onRestore(item)}
-                          className="p-2 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900 transition-all border border-emerald-100 dark:border-emerald-900"
-                          title="Pulihkan Kurikulum"
-                          aria-label="Pulihkan Kurikulum"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                    <div className="inline-flex items-center justify-center">
+                      <ActionDropdown
+                        onView={() => onDetail(item)}
+                        onEdit={!isTerhapus ? () => onEdit(item) : undefined}
+                        onDelete={!isTerhapus ? () => onDelete(item) : undefined}
+                        extraItems={isTerhapus ? [{
+                          label: 'Pulihkan',
+                          icon: <RotateCcw className="h-4 w-4 text-emerald-600" />,
+                          onClick: () => onRestore(item),
+                        }] : []}
+                      />
                     </div>
                   </td>
                 </tr>
               )
             })}
           </tbody>
-        </table>
-      </div>
-    </div>
+    </table>
   )
 }

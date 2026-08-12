@@ -21,15 +21,20 @@ import ActionDropdown from './ActionDropdown'
  *  - Loading skeleton, Empty, Error state
  *  - Selected row
  *  - Kolom aksi (View/Edit/Delete/History) via ActionDropdown
+ *  - Raw table mode via `children`/`renderTable` for a shared outer shell
+ *  - `serverControlled` prevents filtering/sorting one server-paginated slice
  *
  * columns: [{ key, label, render(row), className, hideOnMobile }]
  */
 export default function AppDataTable({
+  children,
+  renderTable,
   columns = [],
   data = [],
   keyField = 'id',
   isLoading = false,
   isError = false,
+  errorTitle = 'Data Gagal Dimuat',
   errorMessage,
   onRetry,
   searchableKeys,
@@ -41,6 +46,7 @@ export default function AppDataTable({
   title,
   description,
   bulkActions,
+  serverControlled = false,
   clientPagination = false,
   clientPageSize = 10,
   page,
@@ -57,23 +63,29 @@ export default function AppDataTable({
   emptyDescription,
   emptyActionLabel,
   emptyActionOnClick,
+  isEmpty,
   onView,
   onEdit,
   onDelete,
   onHistory,
   extraActions,
+  embedded = false,
+  showToolbar = true,
+  showPagination = true,
   toolbarClassName = '',
+  tableContainerClassName = '',
   className = '',
 }) {
-  const [internalSearch, setInternalSearch] = useState(search)
+  const [internalSearch, setInternalSearch] = useState(search ?? '')
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
   const [clientPage, setClientPage] = useState(1)
 
-  const searchValue = onSearchChange ? search : internalSearch
+  const hasCustomTable = typeof renderTable === 'function' || children !== undefined
+  const searchValue = onSearchChange ? (search ?? '') : internalSearch
 
   useEffect(() => {
-    setInternalSearch(search)
+    setInternalSearch(search ?? '')
   }, [search])
 
   useEffect(() => {
@@ -87,9 +99,10 @@ export default function AppDataTable({
   }
 
   const filteredData = useMemo(() => {
+    if (serverControlled || hasCustomTable) return data
     if (!searchValue) return data
     const keys = searchableKeys || columns.map((c) => c.key).filter(Boolean)
-    const term = searchValue.toLowerCase()
+    const term = String(searchValue).toLowerCase()
     return data.filter((row) =>
       keys.some((key) => {
         const val = row?.[key]
@@ -97,10 +110,10 @@ export default function AppDataTable({
         return String(val).toLowerCase().includes(term)
       })
     )
-  }, [data, searchValue, searchableKeys, columns])
+  }, [data, searchValue, searchableKeys, columns, serverControlled, hasCustomTable])
 
   const sortedData = useMemo(() => {
-    if (!sortKey) return filteredData
+    if (serverControlled || !sortKey) return filteredData
     const dir = sortDir === 'asc' ? 1 : -1
     return [...filteredData].sort((a, b) => {
       const av = a?.[sortKey]
@@ -110,7 +123,7 @@ export default function AppDataTable({
       if (bv === null || bv === undefined) return -1
       return String(av).localeCompare(String(bv), 'id', { numeric: true }) * dir
     })
-  }, [filteredData, sortKey, sortDir])
+  }, [filteredData, sortKey, sortDir, serverControlled])
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -130,11 +143,21 @@ export default function AppDataTable({
   const visibleData = clientPagination
     ? sortedData.slice((resolvedClientPage - 1) * clientPageSize, resolvedClientPage * clientPageSize)
     : sortedData
+  const resolvedIsEmpty = typeof isEmpty === 'boolean' ? isEmpty : !hasCustomTable && sortedData.length === 0
+  const customTable = typeof renderTable === 'function'
+    ? renderTable({ data: visibleData, sortKey, sortDir })
+    : children
 
   return (
-    <div className={cn('overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]', className)}>
+    <div className={cn(
+      'app-data-table min-w-0',
+      embedded
+        ? 'app-data-table--embedded'
+        : 'overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]',
+      className
+    )}>
       {/* Toolbar: search + filter + action */}
-      {(onSearchChange || search !== undefined || hasFilters || actions) && (
+      {showToolbar && (onSearchChange || search !== undefined || hasFilters || actions) && (
         <div className={cn('flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-slate-800', toolbarClassName)}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {(title || description) && (
@@ -167,22 +190,26 @@ export default function AppDataTable({
 
       {/* Body states */}
       {isLoading ? (
-        <div className="p-4">
-          <AppSkeleton variant="table" rows={6} cols={columns.length} />
+        <div className="app-data-table__state p-4">
+          <AppSkeleton variant="table" rows={6} cols={Math.max(columns.length, 4)} />
         </div>
       ) : isError ? (
-        <div className="p-4">
-          <AppErrorState title="Data Gagal Dimuat" description={errorMessage} onRetry={onRetry} compact />
+        <div className="app-data-table__state p-4">
+          <AppErrorState title={errorTitle} description={errorMessage} onRetry={onRetry} compact />
         </div>
-      ) : sortedData.length === 0 ? (
+      ) : resolvedIsEmpty ? (
         <AppEmptyState
           title={emptyTitle || 'Data Tidak Ditemukan'}
           description={emptyDescription || 'Belum ada data yang sesuai dengan kriteria.'}
           actionLabel={emptyActionLabel}
           onAction={emptyActionOnClick}
         />
+      ) : hasCustomTable ? (
+        <div className={cn('app-data-table__viewport min-w-0 overflow-x-auto', tableContainerClassName)}>
+          {customTable}
+        </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className={cn('app-data-table__viewport min-w-0 overflow-x-auto', tableContainerClassName)}>
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -204,7 +231,7 @@ export default function AppDataTable({
                   </TableHead>
                 )}
                 {columns.map((col) => (
-                  <TableHead key={col.key || col.label} className={cn('whitespace-nowrap', col.hideOnMobile && 'hidden lg:table-cell')}>
+                  <TableHead key={col.key || col.label} className={cn('whitespace-nowrap', col.hideOnMobile && 'hidden lg:table-cell', col.className)}>
                     {col.sortable ? (
                       <button
                         type="button"
@@ -220,9 +247,8 @@ export default function AppDataTable({
                   </TableHead>
                 ))}
                 {hasActionColumn && (
-                  <TableHead className="sticky right-0 z-10 whitespace-nowrap bg-inherit text-right" style={{ background: 'inherit' }}>
-                    <span className="sr-only">Aksi</span>
-                    <ChevronDown className="h-3 w-3 opacity-0" />
+                  <TableHead className="w-[80px] min-w-[80px] text-center font-bold uppercase tracking-wider">
+                    AKSI
                   </TableHead>
                 )}
               </TableRow>
@@ -255,13 +281,13 @@ export default function AppDataTable({
                       </TableCell>
                     )}
                     {columns.map((col) => (
-                      <TableCell key={col.key || col.label} className={cn(rowPadding, 'whitespace-nowrap', col.hideOnMobile && 'hidden lg:table-cell')}>
+                      <TableCell key={col.key || col.label} className={cn(rowPadding, 'whitespace-nowrap', col.hideOnMobile && 'hidden lg:table-cell', col.className)}>
                         {col.render ? col.render(row, rowIdx) : row?.[col.key] ?? '—'}
                       </TableCell>
                     ))}
                     {hasActionColumn && (
-                      <TableCell className={cn('sticky right-0 z-10', rowPadding)} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
+                      <TableCell className={cn('w-[80px] min-w-[80px] text-center', rowPadding)} onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1.5">
                           {extraActions?.({ row, rowIdx })}
                           {hasActionColumn && (
                             <ActionDropdown
@@ -283,7 +309,7 @@ export default function AppDataTable({
       )}
 
       {/* Pagination */}
-      {!isLoading && !isError && sortedData.length > 0 && (
+      {showPagination && !isLoading && !isError && !resolvedIsEmpty && (
         <div className="px-4 pb-4 pt-3">
           <AppPagination
             currentPage={clientPagination ? resolvedClientPage : page}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import ActionDropdown from '../components/app/ActionDropdown'
 import {
   Building2, ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileText,
   GraduationCap, MoreVertical, Printer, RefreshCw, Search, UserCheck,
@@ -191,7 +192,7 @@ export default function LaporanSiswaPage() {
           <Kartu title="Rincian Data Siswa" className="ls-table-card">
             <div className="ls-table-tools"><div className="ls-search"><Search size={16} /><input value={pencarian} onChange={(e) => setPencarian(e.target.value)} placeholder="Cari NIS, nama, kelas..." /></div></div>
             <div className="ls-table-scroll"><table><thead><tr><th>No</th><th>NIS</th><th>Nama Siswa</th><th>Unit Pendidikan</th><th>Kelas / Rombel</th><th>JK</th><th>Status</th><th>Aksi</th></tr></thead>
-              <tbody>{baris.length ? baris.map((item, i) => <tr key={item.id}><td>{(halaman - 1) * perHalaman + i + 1}</td><td>{item.nis || '-'}</td><td><b>{item.nama}</b></td><td>{item.unit || '-'}</td><td>{item.kelas || '-'}</td><td>{item.jenis_kelamin || '-'}</td><td><span className={`ls-badge ${item.aktif ? 'aktif' : 'nonaktif'}`}>{item.aktif ? 'Aktif' : 'Non Aktif'}</span></td><td><button className="ls-icon-button" title="Menu siswa"><MoreVertical size={16} /></button></td></tr>) : <tr><td colSpan="8" className="ls-empty">Tidak ada data sesuai filter.</td></tr>}</tbody>
+              <tbody>{baris.length ? baris.map((item, i) => <tr key={item.id}><td>{(halaman - 1) * perHalaman + i + 1}</td><td>{item.nis || '-'}</td><td><b>{item.nama}</b></td><td>{item.unit || '-'}</td><td>{item.kelas || '-'}</td><td>{item.jenis_kelamin || '-'}</td><td><span className={`ls-badge ${item.aktif ? 'aktif' : 'nonaktif'}`}>{item.aktif ? 'Aktif' : 'Non Aktif'}</span></td><td><ActionDropdown extraItems={[{ label: 'Export Data', icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600" />, onClick: () => exportCsv(`siswa-${item.nis || item.id}.csv`, kolomCsv, [item]) }, { label: 'Cetak Laporan', icon: <Printer className="h-4 w-4 text-slate-500" />, onClick: () => window.print() }]} /></td></tr>) : <tr><td colSpan="8" className="ls-empty">Tidak ada data sesuai filter.</td></tr>}</tbody>
             </table></div>
             <footer className="ls-table-footer"><span>Menampilkan {baris.length ? (halaman - 1) * perHalaman + 1 : 0} sampai {Math.min(halaman * perHalaman, hasilFilter.length)} dari {angka(hasilFilter.length)} data</span>
               <div><button disabled={halaman === 1} onClick={() => setHalaman((v) => v - 1)}><ChevronLeft size={16} /></button><b>{halaman}</b><button disabled={halaman === totalHalaman} onClick={() => setHalaman((v) => v + 1)}><ChevronRight size={16} /></button><select value={perHalaman} onChange={(e) => setPerHalaman(Number(e.target.value))}><option value="10">10 / halaman</option><option value="25">25 / halaman</option><option value="50">50 / halaman</option></select></div>

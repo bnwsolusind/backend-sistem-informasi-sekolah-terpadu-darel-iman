@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import Swal from 'sweetalert2'
+import ActionDropdown from '../components/app/ActionDropdown'
 import { equranService } from '../services/equranService'
 
 const emptyDoa = {
@@ -457,31 +458,12 @@ export default function MasterDoaPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenDetail(doa)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold transition-all flex items-center gap-1 border border-emerald-300 shadow-sm active:scale-95"
-                          title="Lihat Detail Doa Complete"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Detail</span>
-                        </button>
-
-                        <button
-                          onClick={(e) => handleOpenEdit(doa, e)}
-                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-200"
-                          title="Edit Data Doa"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          onClick={(e) => handleDelete(doa, e)}
-                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-200"
-                          title="Hapus Doa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="flex justify-center">
+                        <ActionDropdown
+                          onView={() => handleOpenDetail(doa)}
+                          onEdit={(e) => handleOpenEdit(doa, e)}
+                          onDelete={(e) => handleDelete(doa, e)}
+                        />
                       </div>
                     </td>
                   </tr>

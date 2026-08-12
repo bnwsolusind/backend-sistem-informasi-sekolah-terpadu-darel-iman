@@ -2,20 +2,14 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Swal from 'sweetalert2'
 import {
-  BarChart3,
   CheckCircle2,
   Download,
-  Eye,
   FileSpreadsheet,
   FileText,
   GraduationCap,
-  Menu,
   Plus,
-  RefreshCcw,
   RotateCcw,
   School,
-  Search,
-  SlidersHorizontal,
   Trash2,
   Upload,
   X,
@@ -28,6 +22,8 @@ import JenisUnitImportModal from '../components/jenis-unit/JenisUnitImportModal'
 import {
   MasterActionButton,
   MasterDataPage,
+  MasterDataSection,
+  MasterFilterSelect,
   MasterPageHeader,
   MasterStatCard,
   MasterStatsGrid,
@@ -49,8 +45,6 @@ export default function MasterJenisUnitPendidikanPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [importResult, setImportResult] = useState(null)
   const [showExportModal, setShowExportModal] = useState(false)
-  const [showStatisticsModal, setShowStatisticsModal] = useState(false)
-  const [showMobileActions, setShowMobileActions] = useState(false)
   const [exportFormat, setExportFormat] = useState('xlsx')
   const [isExporting, setIsExporting] = useState(false)
   const [notifications, setNotifications] = useState([])
@@ -179,6 +173,14 @@ export default function MasterJenisUnitPendidikanPage() {
     }
   }
 
+  const resetFilters = () => {
+    setSearch('')
+    setSelectedStatusFilter('')
+    setSelectedJenjangFilter('')
+    setDenganSampahFilter('')
+    setPage(1)
+  }
+
   const handleProcessExport = async () => {
     setIsExporting(true)
     try {
@@ -222,153 +224,92 @@ export default function MasterJenisUnitPendidikanPage() {
     }
   }
 
-  const activeCount = stats.aktif ?? listData.filter((item) => item.status && !item.is_deleted).length
-  const inactiveCount = stats.tidak_aktif ?? listData.filter((item) => !item.status && !item.is_deleted).length
-  const totalCount = stats.total ?? meta.total ?? listData.length
+  const activeCount = stats.aktif ?? 0
+  const inactiveCount = stats.tidak_aktif ?? 0
+  const deletedCount = stats.terhapus ?? 0
+  const totalCount = stats.total ?? 0
+  const statsValue = (value) => (isError ? '—' : value)
+  const tableIsLoading = isLoading || isFetching
+  const filtersAreClear = !search && !selectedStatusFilter && !selectedJenjangFilter && !denganSampahFilter
 
   return (
     <MasterDataPage className="education-unit-page jenis-unit-page" hideBreadcrumb>
       <MasterPageHeader
         title="Master Jenis Unit Pendidikan"
         description="Kelola klasifikasi, jenjang, identitas visual, dan status jenis unit pendidikan Dar el-Iman."
-        tone="brand"
         icon={GraduationCap}
-        actions={<MasterActionButton className="education-unit-hero__action !h-11 !rounded-xl !border-white !bg-white !px-5 !text-xs !text-emerald-800 !shadow-none hover:!bg-emerald-50" onClick={handleOpenFormTambah}>Tambah Jenis Unit</MasterActionButton>}
+        actions={(
+          <>
+            <MasterActionButton variant="import" icon={Upload} onClick={() => { setImportResult(null); setIsImportModalOpen(true) }}>Import</MasterActionButton>
+            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={() => setShowExportModal(true)}>Export</MasterActionButton>
+            <MasterActionButton icon={Plus} onClick={handleOpenFormTambah}>Tambah Jenis Unit</MasterActionButton>
+          </>
+        )}
       />
 
       <MasterStatsGrid className="education-unit-kpis">
-        <MasterStatCard icon={School} label="Total Jenis Unit" value={totalCount} description="Terdaftar di sistem" variant="success" delay={40} />
-        <MasterStatCard icon={CheckCircle2} label="Jenis Aktif" value={activeCount} description="Dapat digunakan" variant="info" delay={80} />
-        <MasterStatCard icon={RotateCcw} label="Tidak Aktif" value={inactiveCount} description="Dinonaktifkan" variant="warning" delay={120} />
-        <MasterStatCard icon={GraduationCap} label="Cakupan Jenjang" value={JENJANG_LIST.length} description="Jenjang pendidikan" variant="neutral" delay={160} />
+        <MasterStatCard icon={School} label="Total Jenis Unit" value={statsValue(totalCount)} description="Terdaftar di sistem" variant="success" delay={40} loading={isLoading} />
+        <MasterStatCard icon={CheckCircle2} label="Jenis Aktif" value={statsValue(activeCount)} description="Dapat digunakan" variant="info" delay={80} loading={isLoading} />
+        <MasterStatCard icon={RotateCcw} label="Tidak Aktif" value={statsValue(inactiveCount)} description="Dinonaktifkan" variant="warning" delay={120} loading={isLoading} />
+        <MasterStatCard icon={Trash2} label="Data Terhapus" value={statsValue(deletedCount)} description="Tersimpan di arsip" variant="neutral" delay={160} loading={isLoading} />
       </MasterStatsGrid>
 
-      <section className="ui-enter rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-label="Pencarian dan filter jenis unit">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Cari jenis unit pendidikan</span>
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => { setSearch(event.target.value); setPage(1) }}
-              placeholder="Cari kode, nama jenis unit, atau singkatan..."
-              className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-emerald-700 focus:ring-3 focus:ring-emerald-700/15 dark:border-slate-700 dark:bg-[#111827] dark:text-white"
-            />
-          </label>
-          <div className="hidden shrink-0 items-center gap-2 lg:flex">
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="import" icon={Upload} onClick={() => { setImportResult(null); setIsImportModalOpen(true) }}>Import</MasterActionButton>
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" variant="export" icon={FileSpreadsheet} onClick={() => setShowExportModal(true)}>Export Excel</MasterActionButton>
-            <MasterActionButton className="!h-11 !rounded-xl !px-3.5" onClick={handleOpenFormTambah}>Tambah Jenis</MasterActionButton>
-          </div>
-        </div>
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-          <span className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500 dark:border-slate-700 dark:text-slate-300"><SlidersHorizontal className="h-4 w-4 text-emerald-700" />Filter</span>
-          <select value={selectedStatusFilter} onChange={(event) => { setSelectedStatusFilter(event.target.value); setPage(1) }} className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827]">
-            <option value="">Semua Status</option><option value="true">Aktif</option><option value="false">Tidak Aktif</option>
-          </select>
-          <select value={selectedJenjangFilter} onChange={(event) => { setSelectedJenjangFilter(event.target.value); setPage(1) }} className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827]">
-            <option value="">Semua Jenjang</option>{JENJANG_LIST.map((jenjang) => <option key={jenjang} value={jenjang}>{jenjang}</option>)}
-          </select>
-          <select value={denganSampahFilter} onChange={(event) => { setDenganSampahFilter(event.target.value); setPage(1) }} className="h-11 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold dark:border-slate-700 dark:bg-[#111827]">
-            <option value="">Data Aktif</option><option value="true">Termasuk Terhapus</option>
-          </select>
-          <button type="button" onClick={() => refetch()} aria-label="Muat ulang data" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-emerald-50 dark:border-slate-700 dark:text-slate-300"><RefreshCcw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /></button>
-        </div>
-      </section>
-
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <section className="min-w-0">
-          <div className="mb-0 flex items-center justify-between rounded-t-[var(--master-card-radius)] border border-b-0 border-slate-200/80 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
-            <div><h2 className="text-base font-bold text-slate-900 dark:text-white">Daftar Jenis Unit Pendidikan</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data sesuai filter dan kewenangan pengguna.</p></div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{meta.total ?? listData.length} jenis</span>
-          </div>
-          {isError ? (
-            <div className="rounded-b-2xl border border-slate-200 bg-white p-10 text-center dark:border-slate-700 dark:bg-[#1B2433]">
-              <p className="text-sm font-bold text-rose-700">Data jenis unit gagal dimuat.</p>
-              <button type="button" onClick={() => refetch()} className="mt-3 h-10 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white">Coba Lagi</button>
-            </div>
-          ) : (
-            <JenisUnitTable data={listData} isLoading={isLoading || isFetching} page={page} perPage={perPage} onDetail={handleOpenDetail} onEdit={handleOpenFormEdit} onDelete={handleConfirmDelete} onRestore={(item) => pulihkanMutation.mutate(item.id || item.uuid)} />
-          )}
-          {meta.total > 0 && (
-            <footer className="flex flex-col justify-between gap-3 rounded-b-2xl border border-t-0 border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-[#1B2433]">
-              <span>Menampilkan <strong>{meta.from || 0}</strong>–<strong>{meta.to || 0}</strong> dari <strong>{meta.total}</strong> data</span>
-              <div className="flex items-center gap-2">
-                <button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="h-9 rounded-lg border border-slate-200 px-3 disabled:opacity-40 dark:border-slate-700">Sebelumnya</button>
-                <span className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-emerald-800 px-2 font-bold text-white">{page}</span>
-                <button type="button" disabled={page >= (meta.last_page || 1)} onClick={() => setPage((current) => current + 1)} className="h-9 rounded-lg border border-slate-200 px-3 disabled:opacity-40 dark:border-slate-700">Selanjutnya</button>
-              </div>
-            </footer>
-          )}
-        </section>
-
-        <aside className="space-y-4 xl:sticky xl:top-5">
-          <section className="rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Ringkasan Jenis Unit</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Data halaman aktif</p>
-            <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-700">
-              {[
-                ['Total Jenis', totalCount, School, 'bg-emerald-50 text-emerald-700'],
-                ['Jenis Aktif', activeCount, CheckCircle2, 'bg-emerald-50 text-emerald-700'],
-                ['Tidak Aktif', inactiveCount, RotateCcw, 'bg-amber-50 text-amber-700'],
-                ['Cakupan Jenjang', JENJANG_LIST.length, GraduationCap, 'bg-blue-50 text-blue-700'],
-              ].map(([label, value, Icon, color]) => (
-                <div key={label} className="flex items-center gap-3 py-3"><span className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span><span className="flex-1 text-[11px] font-semibold text-slate-500 dark:text-slate-300">{label}</span><strong className="text-sm text-slate-900 dark:text-white">{value}</strong></div>
-              ))}
-            </div>
-          </section>
-          <section className="rounded-[var(--master-card-radius)] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Aksi Cepat</h2>
-            <div className="mt-3 grid gap-2">
-              {[
-                ['Tambah Jenis Unit', Plus, handleOpenFormTambah, 'bg-emerald-50 text-emerald-700'],
-                ['Import Data', Upload, () => { setImportResult(null); setIsImportModalOpen(true) }, 'bg-blue-50 text-blue-700'],
-                ['Export Excel', FileSpreadsheet, () => { setExportFormat('xlsx'); setShowExportModal(true) }, 'bg-emerald-50 text-emerald-700'],
-                ['Export CSV', FileText, () => { setExportFormat('csv'); setShowExportModal(true) }, 'bg-rose-50 text-rose-600'],
-                ['Lihat Statistik', BarChart3, () => setShowStatisticsModal(true), 'bg-violet-50 text-violet-700'],
-              ].map(([label, Icon, action, color]) => (
-                <button key={label} type="button" onClick={action} className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-3 text-left text-xs font-semibold text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-slate-700 dark:text-slate-200"><span className={`flex h-7 w-7 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" /></span>{label}</button>
-              ))}
-            </div>
-          </section>
-        </aside>
-      </div>
-
-      <div className="fixed bottom-20 left-1/2 z-40 -translate-x-1/2 lg:hidden">
-        <button type="button" onClick={() => setShowMobileActions(true)} className="flex h-14 items-center gap-2 rounded-full bg-emerald-800 px-4 text-xs font-bold text-white shadow-xl"><Menu className="h-5 w-5" />Aksi</button>
-      </div>
-
-      {showMobileActions && (
-        <div className="fixed inset-0 z-50 flex items-end bg-slate-950/55 backdrop-blur-sm lg:hidden" role="dialog" aria-modal="true">
-          <section className="w-full rounded-t-2xl bg-white p-4 pb-7 dark:bg-[#1B2433]">
-            <div className="mb-3 flex items-center justify-between"><div><h2 className="text-sm font-bold dark:text-white">Aksi Jenis Unit</h2><p className="text-xs text-slate-500">Pilih tindakan yang akan dilakukan.</p></div><button type="button" onClick={() => setShowMobileActions(false)} className="h-11 w-11"><X className="mx-auto h-5 w-5" /></button></div>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-              {[
-                ['Tambah', Plus, handleOpenFormTambah, false],
-                ['Lihat', Eye, () => listData[0] && handleOpenDetail(listData[0]), !listData.length],
-                ['Edit', School, () => listData[0] && handleOpenFormEdit(listData[0]), !listData.length],
-                ['Export', Download, () => setShowExportModal(true), false],
-                ['Import', Upload, () => setIsImportModalOpen(true), false],
-              ].map(([label, Icon, action, disabled]) => <button key={label} type="button" disabled={disabled} onClick={() => { setShowMobileActions(false); action() }} className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-white"><Icon className="h-5 w-5 text-emerald-700" />{label}</button>)}
-            </div>
-          </section>
-        </div>
-      )}
+      <MasterDataSection
+        title="Daftar Jenis Unit Pendidikan"
+        description="Data sesuai filter dan kewenangan pengguna."
+        countLabel={`${Number(meta.total ?? listData.length).toLocaleString('id-ID')} jenis`}
+        search={{
+          value: search,
+          onValueChange: (value) => { setSearch(value); setPage(1) },
+          placeholder: 'Cari kode, nama jenis unit, atau singkatan...',
+          'aria-label': 'Cari jenis unit pendidikan',
+        }}
+        filters={(
+          <>
+            <MasterFilterSelect aria-label="Filter status jenis unit" value={selectedStatusFilter} onChange={(event) => { setSelectedStatusFilter(event.target.value); setPage(1) }}>
+              <option value="">Semua Status</option>
+              <option value="true">Aktif</option>
+              <option value="false">Tidak Aktif</option>
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter jenjang pendidikan" value={selectedJenjangFilter} onChange={(event) => { setSelectedJenjangFilter(event.target.value); setPage(1) }}>
+              <option value="">Semua Jenjang</option>
+              {JENJANG_LIST.map((jenjang) => <option key={jenjang} value={jenjang}>{jenjang}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect aria-label="Filter cakupan data jenis unit" value={denganSampahFilter} onChange={(event) => { setDenganSampahFilter(event.target.value); setPage(1) }}>
+              <option value="">Data Aktif</option>
+              <option value="true">Termasuk Terhapus</option>
+            </MasterFilterSelect>
+          </>
+        )}
+        onReset={resetFilters}
+        resetDisabled={filtersAreClear}
+        isLoading={tableIsLoading}
+        isError={isError}
+        errorTitle="Data jenis unit gagal dimuat"
+        errorMessage="Periksa koneksi atau coba muat ulang data."
+        onRetry={refetch}
+        isEmpty={!tableIsLoading && !isError && listData.length === 0}
+        emptyTitle="Jenis unit tidak ditemukan"
+        emptyDescription="Ubah pencarian atau filter, lalu coba kembali."
+        pagination={{
+          meta: {
+            total: meta.total ?? listData.length,
+            from: meta.from ?? (listData.length ? (page - 1) * perPage + 1 : 0),
+            to: meta.to ?? ((page - 1) * perPage + listData.length),
+            last_page: meta.last_page ?? 1,
+            current_page: meta.current_page ?? page,
+            per_page: meta.per_page ?? perPage,
+          },
+          page,
+          onPageChange: setPage,
+        }}
+      >
+        <JenisUnitTable data={listData} page={page} perPage={perPage} onDetail={handleOpenDetail} onEdit={handleOpenFormEdit} onDelete={handleConfirmDelete} onRestore={(item) => pulihkanMutation.mutate(item.id || item.uuid)} />
+      </MasterDataSection>
 
       <JenisUnitFormModal isOpen={isFormModalOpen} onClose={() => { setIsFormModalOpen(false); setSelectedForEdit(null) }} onSubmit={handleFormSubmit} initialData={selectedForEdit} isSubmitting={simpanMutation.isPending || ubahMutation.isPending} />
       <JenisUnitDetailModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} data={selectedForDetail} onEdit={() => { setIsDetailModalOpen(false); handleOpenFormEdit(selectedForDetail) }} />
       <JenisUnitImportModal isOpen={isImportModalOpen} onClose={() => { setIsImportModalOpen(false); setImportResult(null) }} onImport={(rows) => importMutation.mutate(rows)} isSubmitting={importMutation.isPending} result={importResult} />
-
-      {showStatisticsModal && (
-        <div className="education-unit-popup fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
-          <section className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
-            <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700"><div><h2 className="text-base font-bold text-slate-900 dark:text-white">Statistik Jenis Unit</h2><p className="text-[11px] text-slate-500">Distribusi data sesuai filter aktif.</p></div><button type="button" onClick={() => setShowStatisticsModal(false)}><X className="h-5 w-5" /></button></header>
-            <div className="grid gap-3 p-5 sm:grid-cols-3">{[['Total', totalCount], ['Aktif', activeCount], ['Tidak Aktif', inactiveCount]].map(([label, value]) => <article key={label} className="rounded-xl border border-slate-200 p-4 text-center dark:border-slate-700"><strong className="block text-2xl font-black text-slate-900 dark:text-white">{value}</strong><span className="text-xs text-slate-500">{label}</span></article>)}</div>
-            <div className="space-y-3 px-5 pb-5">{JENJANG_LIST.map((jenjang) => { const count = listData.filter((item) => item.jenjang === jenjang).length; const percentage = listData.length ? Math.round((count / listData.length) * 100) : 0; return <div key={jenjang}><div className="mb-1 flex justify-between text-[11px]"><span>{jenjang}</span><strong>{count} jenis</strong></div><div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${percentage}%` }} /></div></div> })}</div>
-          </section>
-        </div>
-      )}
 
       {showExportModal && (
         <div className="education-unit-popup fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">

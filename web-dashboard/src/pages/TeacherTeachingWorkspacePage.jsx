@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
+import ActionDropdown from '../components/app/ActionDropdown'
 import {
   AlertCircle,
   AlertTriangle,
@@ -1609,19 +1610,16 @@ export default function TeacherTeachingWorkspacePage() {
                         <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">{mat.subject?.name || 'Materi Pembelajaran'}</p>
                         <h4 className="mt-1 line-clamp-2 text-sm font-black text-slate-900 dark:text-white">{mat.judul}</h4>
                         <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500">{mat.ringkasan || 'Belum ada ringkasan untuk materi ini.'}</p>
-                        <div className="mt-auto flex items-center justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
-                          <button type="button" onClick={() => openMaterialDetail(mat)} title="Lihat detail" aria-label={`Lihat detail ${mat.judul}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-600 transition hover:bg-sky-100 focus-visible:ring-3 focus-visible:ring-sky-500/20"><Eye className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => openMaterialForm(mat)} title="Edit materi" aria-label={`Edit ${mat.judul}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-600 transition hover:bg-amber-100 focus-visible:ring-3 focus-visible:ring-amber-500/20"><Edit3 className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => printMaterial(mat)} title="Cetak materi" aria-label={`Cetak ${mat.judul}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 focus-visible:ring-3 focus-visible:ring-slate-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"><Printer className="h-4 w-4" /></button>
-                          <button type="button" onClick={() => printMaterial(mat, true)} title="Export PDF" aria-label={`Export PDF ${mat.judul}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100 focus-visible:ring-3 focus-visible:ring-rose-500/20"><FileText className="h-4 w-4" /></button>
-                      <button
-                            type="button"
-                        onClick={() => confirmDeleteModal('materi', mat.id, mat.judul)}
-                            title="Hapus materi" aria-label={`Hapus ${mat.judul}`}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100 focus-visible:ring-3 focus-visible:ring-rose-500/20"
-                      >
-                            <Trash2 className="h-4 w-4" />
-                      </button>
+                        <div className="mt-auto flex items-center justify-end border-t border-slate-100 pt-4 dark:border-slate-800">
+                          <ActionDropdown
+                            onView={() => openMaterialDetail(mat)}
+                            onEdit={() => openMaterialForm(mat)}
+                            onDelete={() => confirmDeleteModal('materi', mat.id, mat.judul)}
+                            extraItems={[
+                              { label: 'Cetak Materi', icon: <Printer className="h-4 w-4 text-slate-500" />, onClick: () => printMaterial(mat) },
+                              { label: 'Export PDF', icon: <FileText className="h-4 w-4 text-rose-500" />, onClick: () => printMaterial(mat, true) },
+                            ]}
+                          />
                         </div>
                     </div>
                     </article>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BookOpen, Award, CheckCircle2, UserX, Plus, FileText, Eye, Layers } from 'lucide-react'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
 
@@ -19,6 +20,7 @@ import { managementDashboardService } from '../services/managementDashboardServi
 const COLORS = ['#0E5C44', '#EF4444']
 
 export default function GuruTahfizhDashboardPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
@@ -60,19 +62,19 @@ export default function GuruTahfizhDashboardPage() {
     {
       label: 'Input Setoran',
       icon: Plus,
-       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
+      onClick: () => navigate('/portal-guru/workspace?tab=tahfizh'),
       permissions: ['tahfizh.input_setoran_harian']
     },
     {
       label: 'Monitoring Target',
       icon: BookOpen,
-       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
+      onClick: () => navigate('/portal-guru/workspace?tab=tahfizh'),
       permissions: ['tahfizh.monitoring_target']
     },
     {
       label: 'Rekap Harian',
       icon: FileText,
-       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
+      onClick: () => navigate('/portal-guru/workspace?tab=tahfizh'),
       permissions: ['tahfizh.rekap_harian']
     }
   ]

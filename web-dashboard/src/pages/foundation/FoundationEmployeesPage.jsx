@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BadgeCheck, FileSpreadsheet, RefreshCcw, ShieldAlert, Users, UserCheck, UsersRound } from 'lucide-react'
+import ActionDropdown from '../../components/app/ActionDropdown'
 import api from '../../services/api'
 import {
   MasterActionButton,
@@ -253,7 +254,7 @@ export function FoundationEmployeesPage() {
                           <MasterStatusBadge active={emp.status === 'aktif' || !emp.status} activeLabel="Aktif" inactiveLabel="Nonaktif" />
                         </td>
                         <td className="px-2 py-3 text-center">
-                          <MasterActionIconButton variant="view" onClick={() => handleOpenDetail(emp)} label={`Lihat detail ${emp.nama_lengkap || emp.nama}`} />
+                          <ActionDropdown onView={() => handleOpenDetail(emp)} />
                         </td>
                       </tr>
                     )

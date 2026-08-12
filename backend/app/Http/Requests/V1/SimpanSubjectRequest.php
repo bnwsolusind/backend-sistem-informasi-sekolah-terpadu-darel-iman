@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\V1;
 
+use App\Models\MasterKurikulum;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 use Illuminate\Validation\Rule;
 
 /**
@@ -52,7 +54,7 @@ class SimpanSubjectRequest extends FormRequest
             'jenjang' => ['required', 'string', 'max:20'],
             'tingkat_kelas' => ['nullable', 'string', 'max:50'],
             'jam_pelajaran' => ['required', 'integer', 'min:1', 'max:40'],
-            'guru_pengampu_id' => ['nullable', 'uuid'],
+            'guru_pengampu_id' => ['nullable', 'uuid', 'exists:employees,id'],
             'kkm' => ['required', 'numeric', 'min:0', 'max:100'],
             'bobot_pengetahuan' => ['nullable', 'integer', 'min:0', 'max:100'],
             'bobot_keterampilan' => ['nullable', 'integer', 'min:0', 'max:100'],
@@ -64,12 +66,27 @@ class SimpanSubjectRequest extends FormRequest
             'status' => ['required', 'boolean'],
             'deskripsi' => ['nullable', 'string', 'max:1000'],
             'teacher_ids' => ['nullable', 'array'],
-            'teacher_ids.*' => ['uuid'],
+            'teacher_ids.*' => ['uuid', 'exists:employees,id'],
             'kelas_ids' => ['nullable', 'array'],
-            'kelas_ids.*' => ['uuid'],
+            'kelas_ids.*' => ['uuid', 'exists:tbl_kelas,id'],
             'rombel_ids' => ['nullable', 'array'],
-            'rombel_ids.*' => ['uuid'],
+            'rombel_ids.*' => ['uuid', 'exists:tbl_kelas,id'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $unitId = $this->input('unit_pendidikan_id');
+            $kurikulumId = $this->input('kurikulum_id');
+
+            if ($unitId && $kurikulumId && ! MasterKurikulum::query()
+                ->whereKey($kurikulumId)
+                ->where('unit_pendidikan_id', $unitId)
+                ->exists()) {
+                $validator->errors()->add('kurikulum_id', 'Kurikulum harus berasal dari unit pendidikan yang dipilih.');
+            }
+        });
     }
 
     public function messages(): array

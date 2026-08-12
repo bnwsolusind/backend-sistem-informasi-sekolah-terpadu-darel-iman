@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Users,
   CheckCircle2,
@@ -37,6 +38,7 @@ import { waliKelasDashboardService } from '../services/waliKelasDashboardService
 const COLORS = ['#0E5C44', '#F59E0B', '#3B82F6', '#EC4899', '#EF4444']
 
 export default function WaliKelasDashboardPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
@@ -85,25 +87,25 @@ export default function WaliKelasDashboardPage() {
     {
       label: 'Presensi Rombel',
       icon: CheckCircle2,
-      onClick: () => window.location.href = '/absensi/dashboard-wali-kelas',
+       onClick: () => navigate('/absensi/dashboard-wali-kelas'),
       permissions: ['homeroom_attendance.dashboard']
     },
     {
       label: 'Input Catatan Wali',
       icon: FileText,
-      onClick: () => window.location.href = '/absensi/dashboard-wali-kelas',
+       onClick: () => navigate('/absensi/dashboard-wali-kelas'),
       permissions: ['homeroom_attendance.follow_up']
     },
     {
       label: 'Rekap Presensi',
       icon: FileCheck,
-      onClick: () => window.location.href = '/absensi/rekap-kehadiran',
+       onClick: () => navigate('/absensi/rekap-kehadiran'),
       permissions: ['homeroom_attendance.export']
     },
     {
       label: 'Rekap Tahfizh',
       icon: BookOpen,
-       onClick: () => window.location.href = '/portal-guru/workspace?tab=tahfizh',
+        onClick: () => navigate('/portal-guru/workspace?tab=tahfizh'),
       permissions: ['tahfizh.monitoring_target']
     }
   ]

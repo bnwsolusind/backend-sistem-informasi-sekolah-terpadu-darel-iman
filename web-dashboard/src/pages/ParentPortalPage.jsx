@@ -19,6 +19,7 @@ import ExamGridsWorkspace from '../components/portal/ExamGridsWorkspace'
 import CbtExamsWorkspace from '../components/portal/CbtExamsWorkspace'
 import ExamResultsWorkspace from '../components/portal/ExamResultsWorkspace'
 import ChatGuruWorkspace from '../components/portal/ChatGuruWorkspace'
+import { useAuthStore } from '../stores/authStore'
 
 const menu = [
   ['ringkasan', 'Dashboard', Sparkles],
@@ -53,6 +54,7 @@ function Empty({ text }) { return <div className="py-16 text-center text-xs text
 function Status({ value }) { const good = ['PAID', 'Hadir', 'hadir', 'verified', 'published', 'dikumpulkan'].includes(value); return <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${good ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'}`}>{value || 'Aktif'}</span> }
 
 export default function ParentPortalPage() {
+  const user = useAuthStore((state) => state.user)
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const requestedChild = searchParams.get('child') || ''
@@ -227,15 +229,14 @@ export default function ParentPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] p-4 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:p-6">
-      <div className="mx-auto max-w-7xl space-y-5">
+    <div className="portal-page min-w-0 space-y-5 pb-12 text-slate-800 dark:text-slate-100">
         {/* Banner Portal Orang Tua & Child Switcher */}
-        <section className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#187154] to-[#3FBF75] p-6 text-white shadow-lg sm:p-8">
+        <section className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#187154] to-[#3FBF75] p-5 text-white shadow-lg md:p-6">
           <HeartHandshake className="absolute -bottom-5 right-8 h-32 w-32 text-white/10" />
           <div className="relative flex flex-wrap items-end justify-between gap-5">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[.2em] text-emerald-100">Portal Orang Tua</p>
-              <h1 className="mt-2 text-2xl font-black sm:text-3xl">Pantau tumbuh kembang buah hati</h1>
+               <h1 className="mt-2 text-2xl font-black sm:text-3xl">Selamat datang, {user?.name || 'Orang Tua'}</h1>
               <p className="mt-2 max-w-xl text-xs leading-5 text-emerald-50">Informasi akademik, ibadah, kehadiran, keuangan, dan komunikasi sekolah dalam satu ruang.</p>
             </div>
             <div className="relative">
@@ -415,7 +416,6 @@ export default function ParentPortalPage() {
             )}
           </section>
         )}
-      </div>
     </div>
   )
 }

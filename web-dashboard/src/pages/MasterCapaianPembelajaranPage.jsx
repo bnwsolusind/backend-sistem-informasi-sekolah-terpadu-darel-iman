@@ -12,6 +12,7 @@ import {
   Upload,
 } from 'lucide-react'
 import CsvImportModal from '../components/master-data/CsvImportModal'
+import ActionDropdown from '../components/app/ActionDropdown'
 import { capaianPembelajaranService } from '../services/capaianPembelajaranService'
 import { educationUnitService } from '../services/educationUnitService'
 import { tahunAjaranService } from '../services/tahunAjaranService'
@@ -28,8 +29,6 @@ import {
   MasterFilterSelect,
   MasterDataTable,
   MasterStatusBadge,
-  MasterActionGroup,
-  MasterActionIconButton,
 } from '../components/master-data'
 
 export default function MasterCapaianPembelajaranPage({ embedded = false, hideBreadcrumb = false }) {
@@ -289,9 +288,9 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
 
       {/* Stats Cards */}
       <MasterStatsGrid className="education-unit-kpis">
-        <MasterStatCard icon={BookOpen} label="TOTAL CAPAIAN PEMBELAJARAN" value={stats.total_cp ?? 0} description="Terdaftar di sistem" variant="success" />
-        <MasterStatCard icon={CheckCircle} label="CP STATUS AKTIF" value={stats.total_cp_aktif ?? 0} description="Siap digunakan" variant="info" />
-        <MasterStatCard icon={AlertCircle} label="CP NONAKTIF" value={stats.total_cp_nonaktif ?? 0} description="Arsip / Nonaktif" variant="warning" />
+        <MasterStatCard icon={BookOpen} label="TOTAL CAPAIAN PEMBELAJARAN" value={stats.total_cp ?? 0} description="Terdaftar di sistem" variant="success" loading={loading} />
+        <MasterStatCard icon={CheckCircle} label="CP STATUS AKTIF" value={stats.total_cp_aktif ?? 0} description="Siap digunakan" variant="info" loading={loading} />
+        <MasterStatCard icon={AlertCircle} label="CP NONAKTIF" value={stats.total_cp_nonaktif ?? 0} description="Arsip / Nonaktif" variant="warning" loading={loading} />
       </MasterStatsGrid>
 
       {/* Notifications */}
@@ -319,8 +318,15 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
         </div>
       )}
 
-      {/* Filters Bar */}
+      <section className="overflow-hidden rounded-[var(--master-card-radius,18px)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="cp-table-title">
+      <div className="border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+        <h2 id="cp-table-title" className="text-base font-bold text-slate-900 dark:text-white">Data Capaian Pembelajaran</h2>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data sesuai filter dan kewenangan pengguna.</p>
+      </div>
+
+      {/* Canonical DataTable toolbar */}
       <MasterFilterBar
+        className="!rounded-none !border-0 !border-b !border-slate-200/80 !shadow-none dark:!border-slate-700"
         search={
           <MasterSearchInput
             value={search}
@@ -367,7 +373,7 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
       />
 
       {/* Main Table */}
-      <MasterDataTable>
+      <MasterDataTable className="!rounded-none !border-0 !shadow-none">
           <table className="w-full table-fixed text-left text-sm border-collapse">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs tracking-wider font-semibold">
@@ -437,10 +443,10 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
                     </td>
 
                     <td className="py-4 px-5 text-center">
-                      <MasterActionGroup>
-                        <MasterActionIconButton variant="edit" label="Edit CP" onClick={() => handleOpenModal(item)} />
-                        <MasterActionIconButton variant="delete" label="Hapus CP" onClick={() => handleHapus(item.id, item.kode_cp)} />
-                      </MasterActionGroup>
+                      <ActionDropdown
+                        onEdit={() => handleOpenModal(item)}
+                        onDelete={() => handleHapus(item.id, item.kode_cp)}
+                      />
                     </td>
                   </tr>
                 ))
@@ -472,6 +478,7 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
           </div>
         )}
       </MasterDataTable>
+      </section>
 
       {/* Modal Form */}
       {modalOpen && (

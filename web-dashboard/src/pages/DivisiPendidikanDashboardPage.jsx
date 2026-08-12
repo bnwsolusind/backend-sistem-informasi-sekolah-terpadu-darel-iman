@@ -60,7 +60,7 @@ export default function DivisiPendidikanDashboardPage() {
 
       <DashboardFilter onReset={fetchDashboard} />
 
-      <KpiCardGrid cols={3}>
+      <KpiCardGrid cols={6}>
         <KpiCard
           title="Unit yang Dipantau"
           value={formatNumber(kpis.unit_monitored?.total)}
@@ -76,9 +76,6 @@ export default function DivisiPendidikanDashboardPage() {
           value={formatNumber(kpis.total_guru?.total)}
           icon={GraduationCap}
         />
-      </KpiCardGrid>
-
-      <KpiCardGrid cols={3}>
         <KpiCard
           title="Laporan Bulanan Masuk"
           value={formatNumber(kpis.laporan_bulanan_masuk?.total)}

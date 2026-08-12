@@ -1,6 +1,5 @@
 import React from 'react'
 import {
-  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Database,
@@ -10,6 +9,7 @@ import {
   Home,
   Pencil,
   Plus,
+  RefreshCcw,
   Trash2,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
@@ -17,6 +17,7 @@ import {
   AppBadge,
   AppButton,
   AppCard,
+  AppDataTable,
   AppEmptyState,
   AppErrorState,
   AppFilterBar,
@@ -25,6 +26,7 @@ import {
   AppPagination,
   AppSearch,
   AppSkeleton,
+  AppToolbar,
   ConfirmDialog,
   IconButton,
   SummaryCard,
@@ -66,7 +68,7 @@ export function MasterDataPage({ children, className = '', hideBreadcrumb = fals
   )
 }
 
-export function MasterPageHeader({ title, description, actions, tone = 'default', icon: Icon }) {
+export function MasterPageHeader({ title, description, actions, tone = 'default', icon: Icon, className = '' }) {
   return (
     <AppPageHeader
       variant={tone === 'brand' ? 'brand' : 'card'}
@@ -74,12 +76,13 @@ export function MasterPageHeader({ title, description, actions, tone = 'default'
       title={title}
       description={description}
       actions={actions && <MasterHeaderActions>{actions}</MasterHeaderActions>}
+      className={`master-page-header ${className}`}
     />
   )
 }
 
 export function MasterHeaderActions({ children }) {
-  return <div className="grid grid-cols-1 gap-2.5 sm:flex sm:flex-wrap sm:items-center">{children}</div>
+  return <div className="master-header-actions grid grid-cols-1 gap-2.5 sm:flex sm:flex-wrap sm:items-center">{children}</div>
 }
 
 const actionIcons = {
@@ -105,7 +108,16 @@ export function MasterActionButton({ variant = 'primary', icon: CustomIcon, chil
 }
 
 export function MasterStatsGrid({ children, className = '' }) {
-  return <section className={`grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 ${className}`}>{children}</section>
+  const childCount = React.Children.count(children)
+
+  return (
+    <section
+      className={`master-stats-grid ${className}`}
+      data-count={childCount > 6 ? 'many' : Math.max(childCount, 1)}
+    >
+      {children}
+    </section>
+  )
 }
 
 const statSchemeMap = {
@@ -116,15 +128,17 @@ const statSchemeMap = {
   neutral: 'slate',
 }
 
-export function MasterStatCard({ icon: Icon, label, value, description, variant = 'success', delay = 0 }) {
+export function MasterStatCard({ icon: Icon, label, value, description, variant = 'success', delay = 0, loading = false, className = '' }) {
   return (
-    <div className="ui-enter" style={{ animationDelay: `${delay}ms` }}>
+    <div className="master-stat-card ui-enter" style={{ animationDelay: `${delay}ms` }}>
       <SummaryCard
         icon={Icon}
         title={label}
         value={value}
         description={description}
         colorScheme={statSchemeMap[variant] || 'emerald'}
+        loading={loading}
+        className={className}
       />
     </div>
   )
@@ -156,6 +170,140 @@ export function MasterFilterSelect({ className = '', children, ...props }) {
       <select className={`${masterStyles.control} w-full appearance-none px-3.5 pr-9`} {...props}>{children}</select>
       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
     </div>
+  )
+}
+
+/**
+ * Canonical list/CRUD data surface.
+ *
+ * `search` accepts an AppSearch element or an AppSearch props object.
+ * `pagination` accepts `{ meta, page, onPageChange }` plus manual
+ * AppPagination props. Table markup remains page-owned so migrations can keep
+ * their domain-specific responsive cells without duplicating this shell.
+ */
+export function MasterDataSection({
+  title,
+  description,
+  countLabel,
+  search,
+  filters,
+  onReset,
+  resetLabel = 'Reset',
+  resetDisabled = false,
+  actions,
+  isLoading = false,
+  isError = false,
+  errorTitle = 'Data gagal dimuat',
+  errorMessage = 'Terjadi kesalahan saat mengambil data.',
+  onRetry,
+  isEmpty,
+  emptyTitle = 'Data Tidak Ditemukan',
+  emptyDescription = 'Belum ada data yang sesuai dengan kriteria.',
+  emptyActionLabel,
+  emptyActionOnClick,
+  pagination,
+  headingId,
+  ariaLabel,
+  className = '',
+  toolbarClassName = '',
+  tableClassName = '',
+  children,
+}) {
+  const generatedHeadingId = React.useId().replaceAll(':', '')
+  const resolvedHeadingId = headingId || `master-data-section-${generatedHeadingId}`
+  const hasHeading = Boolean(title || description || (countLabel !== undefined && countLabel !== null))
+
+  let searchNode = null
+  if (React.isValidElement(search)) {
+    searchNode = React.cloneElement(search, {
+      className: `master-data-section__search ${search.props.className || ''}`,
+    })
+  } else if (search && typeof search === 'object') {
+    const { onValueChange, onChange, className: searchClassName = '', ...searchProps } = search
+    searchNode = (
+      <AppSearch
+        {...searchProps}
+        className={`master-data-section__search ${searchClassName}`}
+        onChange={onChange || (onValueChange ? (event) => onValueChange(event.target.value) : undefined)}
+      />
+    )
+  }
+
+  const filterNode = (filters || onReset) ? (
+    <div className="master-data-section__filters">
+      {filters}
+      {onReset && (
+        <AppButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          icon={RefreshCcw}
+          onClick={onReset}
+          disabled={resetDisabled}
+          className="master-data-section__reset"
+        >
+          {resetLabel}
+        </AppButton>
+      )}
+    </div>
+  ) : null
+
+  const paginationNode = React.isValidElement(pagination) ? pagination : pagination && (
+    <AppPagination
+      {...pagination}
+      currentPage={pagination.page ?? pagination.currentPage}
+      onPageChange={pagination.onPageChange}
+      meta={pagination.meta}
+    />
+  )
+
+  return (
+    <section
+      className={`master-data-section ui-enter ${className}`}
+      aria-labelledby={title ? resolvedHeadingId : undefined}
+      aria-label={!title ? ariaLabel : undefined}
+    >
+      {hasHeading && (
+        <header className="master-data-section__header">
+          <div className="min-w-0">
+            {title && <h2 id={resolvedHeadingId} className="master-data-section__title">{title}</h2>}
+            {description && <p className="master-data-section__description">{description}</p>}
+          </div>
+          {countLabel !== undefined && countLabel !== null && (
+            <AppBadge variant="success" className="master-data-section__count">{countLabel}</AppBadge>
+          )}
+        </header>
+      )}
+
+      {(searchNode || filterNode || actions) && (
+        <div className={`master-data-section__toolbar ${toolbarClassName}`}>
+          <AppToolbar search={searchNode} filters={filterNode} actions={actions} />
+        </div>
+      )}
+
+      <AppDataTable
+        embedded
+        serverControlled
+        showToolbar={false}
+        showPagination={false}
+        renderTable={() => children}
+        isLoading={isLoading}
+        isError={isError}
+        errorTitle={errorTitle}
+        errorMessage={errorMessage}
+        onRetry={onRetry}
+        isEmpty={isEmpty}
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
+        emptyActionLabel={emptyActionLabel}
+        emptyActionOnClick={emptyActionOnClick}
+        tableContainerClassName={tableClassName}
+      />
+
+      {paginationNode && !isLoading && !isError && !isEmpty && (
+        <div className="master-data-section__pagination">{paginationNode}</div>
+      )}
+    </section>
   )
 }
 

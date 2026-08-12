@@ -32,7 +32,7 @@ export default function SummaryCard({
   className = '',
 }) {
   if (loading) {
-    return <AppSkeleton variant="card" />
+    return <AppSkeleton variant="card" className={cn('summary-card', className)} />
   }
 
   const tone = colorScheme ? toneMap[colorScheme] || toneMap.emerald : null
@@ -42,26 +42,26 @@ export default function SummaryCard({
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       className={cn(
-        'flex items-center gap-4 rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 dark:border-slate-800 dark:bg-[#1B2433]',
+        'summary-card flex items-center gap-4 rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 dark:border-slate-800 dark:bg-[#1B2433]',
         onClick && 'cursor-pointer hover:-translate-y-0.5 hover:border-[#3FBF75]/40 hover:shadow-lg',
         className
       )}
     >
       {Icon && (
         <div className={cn(
-          'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl',
+          'summary-card__icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl',
           tone || (accent ? 'bg-[#0E5C44]/10 text-[#0E5C44] dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300')
         )}>
           <Icon className="h-6 w-6" />
         </div>
       )}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{title}</p>
-        <div className="mt-0.5 flex items-center gap-2">
-          <span className="text-xl font-black text-slate-900 dark:text-white">{value ?? '—'}</span>
+      <div className="summary-card__content min-w-0 flex-1">
+        <p className="summary-card__title truncate text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{title}</p>
+        <div className="summary-card__value-row mt-0.5 flex items-center gap-2">
+          <span className="summary-card__value text-xl font-black text-slate-900 dark:text-white">{value ?? '—'}</span>
           {badge && <AppBadge variant={badgeVariant}>{badge}</AppBadge>}
         </div>
-        {description && <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">{description}</p>}
+        {description && <p className="summary-card__description mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">{description}</p>}
       </div>
       {onClick && <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 dark:text-slate-600" />}
     </div>

@@ -20,6 +20,7 @@ import {
   Download,
 } from 'lucide-react'
 import { equranService } from '../services/equranService'
+import ActionDropdown from '../components/app/ActionDropdown'
 
 export default function MasterJadwalSholatPage() {
   // State for Interactive Testing Form
@@ -688,13 +689,9 @@ export default function MasterJadwalSholatPage() {
                       {row.isya}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleDeleteMaster(row.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-colors"
-                        title="Hapus rekord"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex justify-center">
+                        <ActionDropdown onDelete={() => handleDeleteMaster(row.id)} />
+                      </div>
                     </td>
                   </tr>
                 ))

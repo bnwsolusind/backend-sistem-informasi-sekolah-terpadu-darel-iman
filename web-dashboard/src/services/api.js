@@ -24,6 +24,10 @@ api.interceptors.response.use(
     const status = error?.response?.status
 
     if (status === 401) {
+      const token = localStorage.getItem('school_erp_token')
+      if (token && token.startsWith('dev-test-token')) {
+        return Promise.reject(error)
+      }
       clearAuthArtifacts()
       window.dispatchEvent(new Event('auth-session-cleared'))
 

@@ -20,6 +20,7 @@ import AttendanceWorkspace from '../components/portal/AttendanceWorkspace'
 import ExamGridsWorkspace from '../components/portal/ExamGridsWorkspace'
 import CbtExamsWorkspace from '../components/portal/CbtExamsWorkspace'
 import ExamResultsWorkspace from '../components/portal/ExamResultsWorkspace'
+import DashboardHeader from '../components/dashboard/DashboardHeader'
 
 const tabs = [
   { id: 'ringkasan', label: 'Ringkasan', icon: LayoutDashboard },
@@ -360,7 +361,7 @@ export default function StudentPortalPage({ section = 'ringkasan' }) {
 
   const finish = async (examResult) => { setSession(null); setResult(examResult); navigate(studentPortalPaths.hasil); await load() }
 
-  if (loading) return <div className="min-h-screen bg-slate-50 p-6 dark:bg-slate-950"><div className="mx-auto max-w-7xl animate-pulse space-y-5"><div className="h-40 rounded-[18px] bg-slate-200 dark:bg-slate-800" /><div className="h-12 rounded-2xl bg-slate-200 dark:bg-slate-800" /></div></div>
+  if (loading) return <div className="portal-page animate-pulse space-y-5"><div className="h-36 rounded-[18px] bg-slate-200 dark:bg-slate-800" /><div className="h-12 rounded-2xl bg-slate-200 dark:bg-slate-800" /></div>
 
   const student = lms?.student || dashboard?.student
   const dashboardCards = [
@@ -380,9 +381,14 @@ export default function StudentPortalPage({ section = 'ringkasan' }) {
   ]
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] p-4 text-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:p-6">
+    <div className="portal-page min-w-0 space-y-5 pb-12 text-slate-800 dark:text-slate-100">
       {session && <ExamWorkspace session={session} onClose={() => setSession(null)} onFinished={finish} />}
-      <div className="mx-auto max-w-7xl space-y-5">
+      <DashboardHeader
+        title={`Selamat datang, ${student?.full_name || 'Siswa'}`}
+        subtitle="Akses jadwal, tugas, materi, CBT, nilai, Tahfizh, dan Mutaba'ah dalam satu ruang belajar."
+        roleName="Siswa"
+        unitName={student?.unit?.name || student?.education_unit?.name}
+      />
         {error && (
           <div className="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950/30">
             <AlertCircle className="h-5 w-5" />
@@ -541,7 +547,6 @@ export default function StudentPortalPage({ section = 'ringkasan' }) {
         {!panelLoading && activeTab === 'hasil' && (
           <ExamResultsWorkspace resultsData={resultsData} reports={reportsRecords} loading={panelLoading} />
         )}
-      </div>
     </div>
   )
 }

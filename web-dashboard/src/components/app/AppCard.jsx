@@ -24,7 +24,7 @@ export default function AppCard({
   return (
     <Card className={cn('shadow-xs dark:bg-[#1B2433] dark:border-slate-800', className)}>
       {(title || actions || Icon) && (
-        <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 p-4 md:p-5">
           <div className="flex min-w-0 items-center gap-3">
             {Icon && (
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0E5C44]/10 text-[#0E5C44] dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]">
@@ -39,8 +39,8 @@ export default function AppCard({
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </CardHeader>
       )}
-      <CardContent className={noPadding ? 'p-0' : undefined}>
-        <div className={cn(!noPadding && 'p-4 md:p-5', contentClassName)}>{children}</div>
+      <CardContent className="p-0">
+        <div className={cn(!noPadding && 'p-4 md:p-5', noPadding && 'p-0', contentClassName)}>{children}</div>
       </CardContent>
     </Card>
   )

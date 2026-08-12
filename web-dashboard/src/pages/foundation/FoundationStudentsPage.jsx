@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import ActionDropdown from '../../components/app/ActionDropdown'
 import { FileSpreadsheet, GraduationCap, RefreshCcw, ShieldAlert, UserCheck, UserRound, UsersRound } from 'lucide-react'
 import api from '../../services/api'
 import {
@@ -244,7 +245,7 @@ export function FoundationStudentsPage() {
                           <MasterStatusBadge active={st.is_active || st.status === 'aktif'} activeLabel="Aktif" inactiveLabel="Nonaktif" />
                         </td>
                         <td className="px-2 py-3 text-center">
-                          <MasterActionIconButton variant="view" onClick={() => setSelectedStudentId(st.id)} label={`Lihat detail ${st.full_name || st.nama}`} />
+                          <ActionDropdown onView={() => setSelectedStudentId(st.id)} />
                         </td>
                       </tr>
                     )

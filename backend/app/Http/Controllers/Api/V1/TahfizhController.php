@@ -97,10 +97,10 @@ class TahfizhController extends Controller
             'tilawah_baris' => 'nullable|integer',
 
             // Hafalan Baru (Dari Master Al-Qur'an)
-            'hafalan_surah_number' => 'nullable|integer',
+            'hafalan_surah_number' => 'nullable|integer|between:1,114',
             'hafalan_surah_name' => 'nullable|string',
-            'hafalan_ayah_start' => 'nullable|integer',
-            'hafalan_ayah_end' => 'nullable|integer',
+            'hafalan_ayah_start' => 'nullable|integer|min:1',
+            'hafalan_ayah_end' => 'nullable|integer|min:1',
             'hafalan_baris' => 'nullable|integer',
 
             // Murajaah (Ortu input)
@@ -114,6 +114,33 @@ class TahfizhController extends Controller
             'signature_teacher' => 'nullable|string',
             'signature_parent' => 'nullable|string',
         ]);
+
+        if (!empty($validated['hafalan_ayah_start']) && !empty($validated['hafalan_ayah_end'])) {
+            if ((int)$validated['hafalan_ayah_start'] > (int)$validated['hafalan_ayah_end']) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Ayat awal tidak boleh lebih besar dari ayat akhir.',
+                ], 422);
+            }
+        }
+
+        if (!empty($validated['hafalan_surah_number'])) {
+            $surah = QuranSurah::where('nomor', $validated['hafalan_surah_number'])->first();
+            if ($surah) {
+                if (!empty($validated['hafalan_ayah_end']) && (int)$validated['hafalan_ayah_end'] > $surah->jumlah_ayat) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Ayat akhir melebihi jumlah ayat Surah {$surah->nama_latin} ({$surah->jumlah_ayat} ayat).",
+                    ], 422);
+                }
+                if (!empty($validated['hafalan_ayah_start']) && (int)$validated['hafalan_ayah_start'] > $surah->jumlah_ayat) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "Ayat awal melebihi jumlah ayat Surah {$surah->nama_latin} ({$surah->jumlah_ayat} ayat).",
+                    ], 422);
+                }
+            }
+        }
 
         $log = TahfizhDailyLog::updateOrCreate(
             [

@@ -5,27 +5,21 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
-  GraduationCap,
   Users,
-  X,
   Upload,
 } from 'lucide-react'
 import CsvImportModal from '../components/master-data/CsvImportModal'
 import { scheduleService } from '../services/scheduleService'
+import { ActionDropdown, AppBadge, PersonIdentityCell } from '../components/app'
 import {
   MasterDataPage,
   MasterActionButton,
+  MasterDataSection,
   MasterPageHeader,
   MasterStatsGrid,
   MasterStatCard,
-  MasterFilterBar,
-  MasterSearchInput,
   MasterFilterSelect,
-  MasterDataTable,
-  MasterStatusBadge,
-  MasterActionGroup,
-  MasterActionIconButton,
-  MasterPagination,
+  MasterFormModal,
 } from '../components/master-data'
 
 const emptyForm = {
@@ -169,6 +163,14 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
     if (result.isConfirmed) deleteMutation.mutate(item.id)
   }
 
+  const resetFilters = () => {
+    setSearch('')
+    setDay('')
+    setTeacher('')
+    setStatus('')
+    setPage(1)
+  }
+
   const importRows = async (rows) => {
     let success = 0
     const failures = []
@@ -190,10 +192,9 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
     >
       {/* Header Banner */}
       <MasterPageHeader
-        tone="brand"
         icon={CalendarDays}
-        title="Jadwal Pelajaran Sekolah"
-        description="Kelola penugasan guru, mata pelajaran, rombongan belajar, serta plot jam mengajar terstruktur."
+        title="Penugasan Guru"
+        description="Kelola penugasan guru, mata pelajaran, rombongan belajar, serta plot jam mengajar."
         actions={<><MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton><MasterActionButton onClick={openAdd}>Tambah Jadwal Pelajaran</MasterActionButton></>}
       />
 
@@ -204,44 +205,52 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
 
       {/* Ringkasan Stats */}
       <MasterStatsGrid className="education-unit-kpis">
-        <MasterStatCard icon={CalendarDays} label="TOTAL JADWAL" value={stats.total} description="Terdaftar di sistem" variant="success" />
-        <MasterStatCard icon={CheckCircle2} label="JADWAL AKTIF" value={stats.aktif} description="Siap digunakan presensi" variant="info" />
-        <MasterStatCard icon={Clock3} label="TIDAK AKTIF" value={stats.tidak_aktif} description="Nonaktif / Arsip" variant="warning" />
-        <MasterStatCard icon={Users} label="GURU TERJADWAL" value={stats.guru_terjadwal} description="Guru mengajar aktif" variant="neutral" />
+        <MasterStatCard icon={CalendarDays} label="TOTAL JADWAL" value={stats.total ?? 0} description="Terdaftar di sistem" variant="success" loading={isLoading} />
+        <MasterStatCard icon={CheckCircle2} label="JADWAL AKTIF" value={stats.aktif ?? 0} description="Siap digunakan presensi" variant="info" loading={isLoading} />
+        <MasterStatCard icon={Clock3} label="TIDAK AKTIF" value={stats.tidak_aktif ?? 0} description="Nonaktif / Arsip" variant="warning" loading={isLoading} />
+        <MasterStatCard icon={Users} label="GURU TERJADWAL" value={stats.guru_terjadwal ?? 0} description="Guru mengajar aktif" variant="neutral" loading={isLoading} />
       </MasterStatsGrid>
 
-      {/* Filter Bar */}
-      <MasterFilterBar
-        search={
-          <MasterSearchInput
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Cari nama guru, nama mapel, atau nama kelas..."
-          />
-        }
+      <MasterDataSection
+        title="Daftar Penugasan Guru"
+        description="Jadwal mengajar sesuai hari, guru, dan status yang dipilih."
+        countLabel={`${Number(meta.total ?? 0).toLocaleString('id-ID')} jadwal`}
+        search={{
+          value: search,
+          onValueChange: (value) => { setSearch(value); setPage(1) },
+          placeholder: 'Cari nama guru, nama mapel, atau nama kelas...',
+          'aria-label': 'Cari penugasan guru',
+        }}
         filters={
           <>
-            <MasterFilterSelect value={day} onChange={(e) => { setDay(e.target.value); setPage(1) }}>
+            <MasterFilterSelect aria-label="Filter hari mengajar" value={day} onChange={(e) => { setDay(e.target.value); setPage(1) }}>
               <option value="">Semua Hari</option>
               {(options.hari || []).map((item) => (<option key={item.id} value={item.id}>{item.name}</option>))}
             </MasterFilterSelect>
 
-            <MasterFilterSelect value={teacher} onChange={(e) => { setTeacher(e.target.value); setPage(1) }}>
+            <MasterFilterSelect aria-label="Filter guru" value={teacher} onChange={(e) => { setTeacher(e.target.value); setPage(1) }}>
               <option value="">Semua Guru</option>
               {(options.guru || []).map((item) => (<option key={item.id} value={item.id}>{item.nama_lengkap}</option>))}
             </MasterFilterSelect>
 
-            <MasterFilterSelect value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
+            <MasterFilterSelect aria-label="Filter status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }}>
               <option value="">Semua Status</option>
               <option value="1">Aktif</option>
               <option value="0">Tidak Aktif</option>
             </MasterFilterSelect>
           </>
         }
-      />
-
-      {/* Table Data */}
-      <MasterDataTable>
+        onReset={resetFilters}
+        resetDisabled={!search && !day && !teacher && !status}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={refetch}
+        isEmpty={!isLoading && !isError && items.length === 0}
+        emptyTitle="Belum ada penugasan guru"
+        emptyDescription="Ubah filter atau tambahkan jadwal melalui aksi utama di atas."
+        pagination={{ meta, page, onPageChange: setPage }}
+        ariaLabel="Data penugasan guru"
+      >
         <table className="w-full table-fixed text-left text-sm">
           <thead className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:border-slate-700 dark:bg-slate-800/70">
             <tr>
@@ -255,32 +264,7 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium text-slate-700 dark:divide-slate-700 dark:text-slate-200">
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, index) => (
-                <tr key={`schedule-skeleton-${index}`} aria-hidden="true">
-                  <td colSpan="7" className="p-4">
-                    <div className="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-700/70" />
-                  </td>
-                </tr>
-              ))
-            ) : isError ? (
-              <tr>
-                <td colSpan="7" className="p-10 text-center">
-                  <p className="font-bold text-slate-800 dark:text-white">Jadwal pelajaran gagal dimuat</p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Periksa koneksi lalu coba kembali.</p>
-                  <button type="button" onClick={() => refetch()} className="mt-4 h-10 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white">Coba Lagi</button>
-                </td>
-              </tr>
-            ) : items.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="p-10 text-center">
-                  <CalendarDays className="mx-auto h-8 w-8 text-slate-300" />
-                  <p className="mt-3 font-bold text-slate-800 dark:text-white">Belum ada jadwal pelajaran</p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Ubah filter atau tambahkan jadwal pertama.</p>
-                  <MasterActionButton className="mt-4" onClick={openAdd}>Tambah Jadwal</MasterActionButton>
-                </td>
-              </tr>
-            ) : items.map((item) => (
+            {items.map((item) => (
               <tr key={item.id} className="transition hover:bg-emerald-50/40 dark:hover:bg-slate-800/70">
                 <td className="p-4 font-bold text-slate-900 dark:text-white">
                   <div>{item.nama_hari}</div>
@@ -295,48 +279,50 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
                   <div className="text-xs text-slate-500">{item.kelas?.unit_pendidikan?.name || '-'}</div>
                 </td>
                 <td className="hidden p-4 lg:table-cell">
-                  <div className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-100">
-                    <GraduationCap className="h-4 w-4 text-emerald-800 shrink-0" />
-                    <span>{item.employee?.nama_lengkap || item.teacher?.name || '-'}</span>
-                  </div>
+                  <PersonIdentityCell
+                    src={item.employee?.photo_url || item.employee?.avatar_url || item.employee?.foto || item.teacher?.photo_url || item.teacher?.avatar_url}
+                    name={item.employee?.nama_lengkap || item.teacher?.name || '-'}
+                    subtitle={item.employee?.niy ? `NIY ${item.employee.niy}` : 'Guru pengampu'}
+                  />
                 </td>
                 <td className="hidden p-4 text-xs xl:table-cell">
                   <div className="font-bold text-slate-800 dark:text-slate-100">{item.academic_year?.name || '-'}</div>
                   <div className="text-slate-500">{item.semester?.name || '-'}</div>
                 </td>
                 <td className="hidden p-4 sm:table-cell">
-                  <MasterStatusBadge active={item.is_active} />
+                  <AppBadge variant={item.is_active ? 'success' : 'neutral'} dot>
+                    {item.is_active ? 'Aktif' : 'Tidak Aktif'}
+                  </AppBadge>
                 </td>
                 <td className="p-4 text-center">
-                  <MasterActionGroup>
-                    <MasterActionIconButton variant="edit" onClick={() => openEdit(item)} />
-                    <MasterActionIconButton variant="delete" onClick={() => remove(item)} />
-                  </MasterActionGroup>
+                  <span className="inline-flex justify-center">
+                    <ActionDropdown onEdit={() => openEdit(item)} onDelete={() => remove(item)} />
+                  </span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </MasterDataTable>
-
-      {/* Pagination */}
-      <MasterPagination meta={meta} page={page} onPageChange={(p) => setPage(p)} label="jadwal" />
+      </MasterDataSection>
 
       {/* Modal Form */}
-      {modal && (
-        <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
-          <form onSubmit={submit} className="ui-modal my-auto flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 p-5">
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">{editing ? 'Edit Jadwal Pelajaran' : 'Tambah Jadwal Pelajaran'}</h2>
-                <p className="text-xs text-slate-500">Lengkapi data jam mengajar dan penugasan guru.</p>
-              </div>
-              <button type="button" onClick={() => setModal(false)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="min-h-0 overflow-y-auto p-6 space-y-4 text-xs font-semibold text-slate-700">
+      <MasterFormModal
+        isOpen={modal}
+        onClose={() => setModal(false)}
+        icon={CalendarDays}
+        title={editing ? 'Edit Jadwal Pelajaran' : 'Tambah Jadwal Pelajaran'}
+        description="Lengkapi data jam mengajar dan penugasan guru."
+        maxWidth="max-w-2xl"
+        footer={(
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setModal(false)} className="h-11 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-700">Batal</button>
+            <button type="submit" form="schedule-assignment-form" disabled={saveMutation.isPending} className="h-11 rounded-xl bg-emerald-800 px-5 text-xs font-semibold text-white shadow-md shadow-emerald-800/20 hover:bg-emerald-900 disabled:opacity-50">
+              {saveMutation.isPending ? 'Menyimpan...' : 'Simpan Jadwal'}
+            </button>
+          </div>
+        )}
+      >
+          <form id="schedule-assignment-form" onSubmit={submit} className="space-y-4 p-6 text-xs font-semibold text-slate-700">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-800">Tahun Ajaran *</label>
@@ -413,17 +399,8 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
                   <span>Jadwal aktif dan dapat digunakan untuk presensi</span>
                 </label>
               </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-slate-100 p-4">
-              <button type="button" onClick={() => setModal(false)} className="h-11 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-700">Batal</button>
-              <button disabled={saveMutation.isPending} className="h-11 rounded-xl bg-emerald-800 px-5 text-xs font-semibold text-white shadow-md shadow-emerald-800/20 hover:bg-emerald-900 disabled:opacity-50">
-                {saveMutation.isPending ? 'Menyimpan...' : 'Simpan Jadwal'}
-              </button>
-            </div>
           </form>
-        </div>
-      )}
+      </MasterFormModal>
     </MasterDataPage>
   )
 }

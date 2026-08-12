@@ -231,19 +231,24 @@ class DefaultRoleUserSeeder extends Seeder
             $parent->restore();
         }
 
-        foreach (['Siswa' => 'TEST-NIS-023', 'Alumni' => 'TEST-NIS-024'] as $roleName => $nis) {
-            $studentUser = $users[$roleName];
+        $studentsToSeed = [
+            'Siswa' => ['nis' => 'TEST-NIS-023', 'name' => $users['Siswa']->name, 'is_alumni' => false, 'user_id' => $users['Siswa']->id],
+            'Alumni' => ['nis' => 'TEST-NIS-024', 'name' => $users['Alumni']->name, 'is_alumni' => true, 'user_id' => $users['Alumni']->id],
+            'SiswaKedua' => ['nis' => 'TEST-NIS-025', 'name' => 'Siswa Kedua Test', 'is_alumni' => false, 'user_id' => null],
+        ];
+
+        foreach ($studentsToSeed as $key => $sData) {
             $student = Student::withTrashed()->updateOrCreate(
-                ['nis' => $nis],
+                ['nis' => $sData['nis']],
                 [
-                    'user_id' => $studentUser->id,
+                    'user_id' => $sData['user_id'],
                     'parent_id' => $parent->id,
-                    'nisn' => 'TEST-NISN-'.($roleName === 'Alumni' ? '024' : '023'),
+                    'nisn' => 'TEST-NISN-'.substr($sData['nis'], -3),
                     'kelas_id' => $kelas?->id,
                     'unit_id' => $unit?->id,
-                    'full_name' => $studentUser->name,
-                    'gender' => 'male',
-                    'birth_date' => now()->subYears($roleName === 'Alumni' ? 19 : 12)->toDateString(),
+                    'full_name' => $sData['name'],
+                    'gender' => 'female',
+                    'birth_date' => now()->subYears($sData['is_alumni'] ? 19 : 10)->toDateString(),
                     'birth_place' => 'Padang',
                     'address' => 'Data fixture pengujian sistem',
                     'is_active' => true,
@@ -251,7 +256,7 @@ class DefaultRoleUserSeeder extends Seeder
                         'fixture' => 'canonical_role_login',
                         'academic_year_id' => $academicYear?->id,
                         'semester_id' => $semester?->id,
-                        'alumni' => $roleName === 'Alumni',
+                        'alumni' => $sData['is_alumni'],
                     ],
                 ],
             );
@@ -261,7 +266,7 @@ class DefaultRoleUserSeeder extends Seeder
 
             StudentParent::query()->updateOrCreate(
                 ['student_id' => $student->id, 'parent_id' => $parent->id],
-                ['relationship_type' => 'father', 'is_primary' => true, 'metadata' => ['fixture' => true]],
+                ['relationship_type' => 'mother', 'is_primary' => false, 'metadata' => ['fixture' => true]],
             );
         }
     }

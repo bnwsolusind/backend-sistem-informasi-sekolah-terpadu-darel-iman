@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +84,12 @@ class Subject extends Model
             if (empty($model->name) && ! empty($model->nama_mapel)) {
                 $model->name = $model->nama_mapel;
             }
+            if (empty($model->deskripsi) && ! empty($model->description)) {
+                $model->deskripsi = $model->description;
+            }
+            if (empty($model->description) && ! empty($model->deskripsi)) {
+                $model->description = $model->deskripsi;
+            }
         });
 
         static::updating(function ($model) {
@@ -94,6 +101,12 @@ class Subject extends Model
             }
             if (! empty($model->nama_mapel)) {
                 $model->name = $model->nama_mapel;
+            }
+            if (! empty($model->deskripsi)) {
+                $model->description = $model->deskripsi;
+            }
+            if (! empty($model->description)) {
+                $model->deskripsi = $model->description;
             }
         });
 
@@ -134,6 +147,11 @@ class Subject extends Model
         return $this->belongsTo(Employee::class, 'guru_pengampu_id');
     }
 
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(ClassSchedule::class, 'subject_id');
+    }
+
     public function teachers()
     {
         return $this->belongsToMany(Employee::class, 'subject_teachers', 'subject_id', 'guru_id')->withTimestamps();
@@ -154,9 +172,16 @@ class Subject extends Model
         return $this->hasMany(CapaianPembelajaran::class, 'mata_pelajaran_id');
     }
 
-    public function tujuanPembelajaran(): HasMany
+    public function tujuanPembelajaran(): HasManyThrough
     {
-        return $this->hasMany(TujuanPembelajaran::class, 'mata_pelajaran_id');
+        return $this->hasManyThrough(
+            TujuanPembelajaran::class,
+            CapaianPembelajaran::class,
+            'mata_pelajaran_id',
+            'cp_id',
+            'id',
+            'id'
+        );
     }
 
     public function modulAjar(): HasMany
@@ -184,9 +209,16 @@ class Subject extends Model
         return $this->hasMany(LmsBankSoal::class, 'mata_pelajaran_id');
     }
 
-    public function cbt(): HasMany
+    public function cbt(): HasManyThrough
     {
-        return $this->hasMany(LmsUjian::class, 'mata_pelajaran_id');
+        return $this->hasManyThrough(
+            LmsUjian::class,
+            LmsKisiKisi::class,
+            'mata_pelajaran_id',
+            'kisi_kisi_id',
+            'id',
+            'id'
+        );
     }
 
     public function penilaian(): HasMany
@@ -226,6 +258,7 @@ class Subject extends Model
                     ->orWhere('code', $likeOp, "%{$search}%")
                     ->orWhere('nama_mapel', $likeOp, "%{$search}%")
                     ->orWhere('name', $likeOp, "%{$search}%")
+                    ->orWhere('deskripsi', $likeOp, "%{$search}%")
                     ->orWhere('description', $likeOp, "%{$search}%");
             });
         });

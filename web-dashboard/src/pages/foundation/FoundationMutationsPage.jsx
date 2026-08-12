@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowRightLeft, FileSpreadsheet, RefreshCcw, ShieldAlert, UserMinus, UserPlus, UsersRound } from 'lucide-react'
+import ActionDropdown from '../../components/app/ActionDropdown'
 import api from '../../services/api'
 import {
   MasterActionButton,
@@ -250,7 +251,9 @@ export function FoundationMutationsPage() {
                           <MasterBadge variant="success">Selesai</MasterBadge>
                         </td>
                         <td className="px-2 py-3 text-center">
-                          <MasterActionIconButton variant="view" onClick={() => setSelectedStudentId(m.id)} label={`Lihat detail ${m.full_name || m.nama}`} />
+                          <div className="flex justify-center">
+                            <ActionDropdown onView={() => setSelectedStudentId(m.id)} />
+                          </div>
                         </td>
                       </tr>
                     )
