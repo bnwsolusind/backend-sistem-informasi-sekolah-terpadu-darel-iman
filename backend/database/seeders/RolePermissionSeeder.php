@@ -357,10 +357,8 @@ class RolePermissionSeeder extends Seeder
             'Kepala Sekolah' => [
                 'dashboard.view',
                 'dashboard.pemantauan.lihat',
-                'dashboard.pemantauan.kelola',
                 'employee.view',
                 'divisi.monitoring',
-                'divisi.laporan_bulanan',
                 'kehadiran.siswa.monitoring',
                 'kehadiran.siswa.absensi_digital',
                 'kehadiran.siswa.rekap_keterlambatan',
@@ -675,6 +673,87 @@ class RolePermissionSeeder extends Seeder
             )));
         }
 
+        // Portal guru tetap role-scoped, sedangkan setiap aksi dilindungi
+        // permission granular agar capability dapat dicabut tanpa mengganti role.
+        $teacherPortalCommon = [
+            'teacher.dashboard.view',
+            'teacher.schedule.view',
+            'chat.conversation.view',
+            'chat.message.view',
+            'chat.message.send',
+        ];
+        $teacherAcademicPermissions = [
+            'teacher.attendance.view', 'teacher.attendance.create', 'teacher.attendance.update',
+            'teacher.material.view', 'teacher.material.create', 'teacher.material.update', 'teacher.material.delete',
+            'teacher.assignment.view', 'teacher.assignment.create', 'teacher.assignment.update', 'teacher.assignment.delete',
+            'teacher.submission.view',
+            'teacher.grade.view', 'teacher.grade.create', 'teacher.grade.update',
+            'teacher.tahfizh.view', 'teacher.tahfizh.create', 'teacher.tahfizh.update',
+            'teacher.mutabaah.view', 'teacher.mutabaah.create', 'teacher.mutabaah.update',
+            'teacher.student_note.view', 'teacher.student_note.create', 'teacher.student_note.update',
+        ];
+
+        foreach (['Guru', 'guru', 'Guru Mata Pelajaran', 'guru_mata_pelajaran', 'Guru PAI'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                $teacherPortalCommon,
+                $teacherAcademicPermissions,
+            )));
+        }
+
+        foreach (['Wali Kelas', 'walas', 'wali_kelas'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                $teacherPortalCommon,
+                ['teacher.attendance.view', 'teacher.assignment.view', 'teacher.grade.view',
+                    'teacher.student_note.view', 'teacher.student_note.create', 'teacher.student_note.update'],
+            )));
+        }
+
+        foreach (['Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'Musyrif / Musyrifah'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                $teacherPortalCommon,
+                ['teacher.tahfizh.view', 'teacher.tahfizh.create', 'teacher.tahfizh.update',
+                    'teacher.mutabaah.view', 'teacher.mutabaah.create', 'teacher.mutabaah.update'],
+            )));
+        }
+
+        foreach (['Pembimbing'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                $teacherPortalCommon,
+                ['teacher.mutabaah.view', 'teacher.mutabaah.create', 'teacher.mutabaah.update'],
+            )));
+        }
+
+        foreach (['Guru BK', 'guru_bk'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                $teacherPortalCommon,
+                ['teacher.student_note.view', 'teacher.student_note.create', 'teacher.student_note.update'],
+            )));
+        }
+
+        foreach ([
+            'Kepala Sekolah', 'kepala_sekolah', 'kepsek',
+            'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Bidang Pendidikan',
+            'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa', 'Divisi Program Khusus',
+        ] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                ['academic.grade.view'],
+            )));
+        }
+
+        foreach (['Waka Kurikulum', 'waka_kurikulum', 'Wakil Kurikulum'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                ['academic.grade.view', 'academic.grade.create', 'academic.grade.update',
+                    'academic.grade.finalize', 'academic.grade.publish'],
+            )));
+        }
+
         foreach (['Kepala Sekolah', 'Yayasan', 'Ketua Yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan', 'Divisi Pendidikan', 'Kepala Bidang Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa', 'Divisi Program Khusus', 'Kepala Sekolah', 'Wakil Kepala Sekolah', 'Wakil Kurikulum', 'Waka Kurikulum', 'Wakil Kesiswaan', 'Waka Kesiswaan'] as $roleName) {
             $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
                 $rolePermissionMap[$roleName] ?? ['dashboard.view'],
@@ -703,7 +782,7 @@ class RolePermissionSeeder extends Seeder
             if (in_array($roleName, [...$educationLeaders, ...$unitOperators, ...$educators], true)) {
                 $generic = [...$generic, ...$genericAcademic];
             }
-            if (in_array($roleName, [...$educationLeaders, ...$unitOperators], true)) {
+            if (in_array($roleName, $unitOperators, true)) {
                 $generic = [...$generic, ...$genericManage];
             }
 
@@ -713,6 +792,22 @@ class RolePermissionSeeder extends Seeder
         foreach (['Super Admin', 'super_admin'] as $roleName) {
             $rolePermissionMap[$roleName] = $permissions;
         }
+
+        // These permissions were previously assigned through a broad leader
+        // template even though canonical leaders are monitoring-only unless a
+        // granular capability is listed above. Revoke only this known legacy
+        // overgrant; administrator-managed unrelated permissions stay intact.
+        $monitoringOnlyRevocations = [
+            ...$genericManage,
+            'dashboard.pemantauan.kelola',
+            'divisi.laporan_bulanan',
+        ];
+        $monitoringOnlyRoles = [
+            'Kepala Sekolah', 'kepala_sekolah', 'kepsek',
+            'Kepala Bidang Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan',
+            'Divisi Bahasa', 'Divisi Program Khusus', 'Wakil Kepala Sekolah',
+            'Wakil Kurikulum', 'Wakil Kesiswaan',
+        ];
 
         // Dashboard role-based access: setiap role hanya menerima permission dashboard
         // sesuai kewenangannya (sesuai DASHBOARD_ROLE_ROUTE_MATRIX).
@@ -746,7 +841,12 @@ class RolePermissionSeeder extends Seeder
             ]);
 
             if ($roleName !== 'Super Admin' && $roleName !== 'super_admin' && isset($rolePermissionMap[$roleName])) {
-                $role->syncPermissions($rolePermissionMap[$roleName]);
+                if (in_array($roleName, $monitoringOnlyRoles, true)) {
+                    $role->revokePermissionTo($monitoringOnlyRevocations);
+                }
+                // Seeder hanya memastikan baseline. Permission tambahan yang
+                // dikelola administrator/integrasi tidak boleh terhapus saat re-seed.
+                $role->givePermissionTo($rolePermissionMap[$roleName]);
             }
         }
 

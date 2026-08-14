@@ -50,5 +50,5 @@ interface KelasRepositoryInterface
     /**
      * Mengambil statistik ringkasan kelas (total kelas, aktif, wali terisi, kapasitas).
      */
-    public function dapatkanStatistik(): array;
+    public function dapatkanStatistik(?array $allowedKelasIds = null): array;
 }

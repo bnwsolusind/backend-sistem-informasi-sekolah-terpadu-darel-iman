@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
+import { printEmployeeIdCard } from '../services/idCardPrintService.jsx'
+import EmployeeIdCard from '../components/card-print/EmployeeIdCard'
 import ActionDropdown from '../components/app/ActionDropdown'
 import AppBadge from '../components/app/AppBadge'
 import Swal from 'sweetalert2'
@@ -62,6 +64,8 @@ import { employeeService } from '../services/employeeService'
 import { educationUnitService } from '../services/educationUnitService'
 import PersonAvatar from '../components/ui/PersonAvatar'
 import PersonIdentityCell from '../components/ui/PersonIdentityCell'
+import { hasAnyRole } from '../auth/portalResolver'
+import { useAuthStore } from '../stores/authStore'
 import { usePengaturanStore } from '../stores/pengaturanStore'
 
 const STATUS_PEGAWAI_OPTIONS = ['Tetap', 'Kontrak', 'Honorer', 'Magang']
@@ -72,28 +76,6 @@ const ID_CARD_TEMPLATES = [
   { id: 'purple', label: 'Ungu', description: 'Template Wakil Kepala' },
   { id: 'orange', label: 'Oranye', description: 'Template Staf TU' },
 ]
-
-function makeEmployeeQrPayload(employee) {
-  const position = (employee?.jabatan_name || '').toLowerCase()
-  const roles = [
-    'pegawai',
-    ...(position.includes('guru') ? ['guru'] : []),
-    ...(position.includes('tata usaha') || position.includes('tu') ? ['tata_usaha'] : []),
-    ...(position.includes('wali kelas') || position.includes('walas') ? ['wali_kelas'] : []),
-  ]
-
-  return JSON.stringify({
-    version: 1,
-    type: 'simsit_employee_login',
-    subject_id: employee?.id,
-    login_identifier: employee?.niy || employee?.email,
-    employee_number: employee?.niy,
-    unit_id: employee?.unit_id,
-    roles: [...new Set(roles)],
-    purpose: 'authentication_exchange',
-    issuer: 'SIMSIT_YAYASAN_DAR_EL_IMAN',
-  })
-}
 
 function formatEmployeeCardDate(value) {
   if (!value) return '—'
@@ -124,24 +106,24 @@ function initialFormState() {
     nama_panggilan: '',
     gelar_depan: '',
     gelar_belakang: '',
-    jenis_kelamin: 'L',
-    tempat_lahir: 'Padang',
+    jenis_kelamin: '',
+    tempat_lahir: '',
     tanggal_lahir: '',
-    agama: 'Islam',
+    agama: '',
     foto: '',
 
     unit_id: '',
     jabatan_id: '',
-    status_pegawai: 'Tetap',
-    tanggal_masuk: new Date().toISOString().split('T')[0],
+    status_pegawai: '',
+    tanggal_masuk: '',
     tanggal_keluar: '',
-    status: 'Aktif',
+    status: '',
 
     no_hp: '',
     email: '',
     alamat: '',
-    provinsi: 'Sumatera Barat',
-    kota: 'Padang',
+    provinsi: '',
+    kota: '',
     kecamatan: '',
     kelurahan: '',
     kode_pos: '',
@@ -168,7 +150,7 @@ function parseFromApi(item) {
     nama_panggilan: item?.nama_panggilan || '',
     gelar_depan: item?.gelar_depan || '',
     gelar_belakang: item?.gelar_belakang || '',
-    jenis_kelamin: item?.jenis_kelamin || 'L',
+    jenis_kelamin: item?.jenis_kelamin || '',
     tempat_lahir: item?.tempat_lahir || '',
     tanggal_lahir: item?.tanggal_lahir ? item.tanggal_lahir.split('T')[0] : '',
     agama: item?.agama || '',
@@ -242,6 +224,13 @@ function makePayload(form) {
 export default function EmployeesPage() {
   const queryClient = useQueryClient()
   const pengaturan = usePengaturanStore((state) => state.pengaturan)
+  const user = useAuthStore((state) => state.user)
+  const permissions = user?.permissions || []
+  const isSuperAdmin = hasAnyRole(user?.roles || [], ['Super Admin'])
+  const canCreateEmployee = isSuperAdmin || permissions.includes('employee.create')
+  const canUpdateEmployee = isSuperAdmin || permissions.includes('employee.update')
+  const canDeleteEmployee = isSuperAdmin || permissions.includes('employee.delete')
+  const canExportEmployee = isSuperAdmin || permissions.includes('employee.export')
 
   // Filter States
   const [search, setSearch] = useState('')
@@ -465,6 +454,7 @@ export default function EmployeesPage() {
 
   // Modal Handlers
   const openAddModal = () => {
+    if (!canCreateEmployee) return
     setIsEditMode(false)
     setFormData(initialFormState())
     setCurrentStep(1)
@@ -472,6 +462,7 @@ export default function EmployeesPage() {
   }
 
   const openEditModal = (emp) => {
+    if (!canUpdateEmployee) return
     setIsEditMode(true)
     setFormData(emp)
     setCurrentStep(1)
@@ -487,6 +478,7 @@ export default function EmployeesPage() {
 
   const handleFormSubmit = (e) => {
     e?.preventDefault()
+    if ((isEditMode && !canUpdateEmployee) || (!isEditMode && !canCreateEmployee)) return
     if (!formData.nama_lengkap.trim()) {
       pushNotification('Perhatian', 'Data pegawai belum lengkap. Nama lengkap wajib diisi.', 'warning')
       return
@@ -501,6 +493,7 @@ export default function EmployeesPage() {
   }
 
   const toggleEmployeeStatus = (emp) => {
+    if (!canUpdateEmployee) return
     const updatedForm = { ...emp, status: emp.status === 'Aktif' ? 'Nonaktif' : 'Aktif' }
     const payload = makePayload(updatedForm)
     updateMutation.mutate({ id: emp.id, payload })
@@ -508,6 +501,7 @@ export default function EmployeesPage() {
 
   // Export Excel Modal Handler
   const handleExportExcel = () => {
+    if (!canExportEmployee) return
     const rows = [
       ['NIY', 'NIK', 'Nama Lengkap', 'Jabatan', 'Unit Kerja', 'Status Pegawai', 'Status', 'No. HP', 'Email'],
       ...items.map((item) => [item.niy, item.nik, item.nama_lengkap, item.jabatan_name, item.unit_name, item.status_pegawai, item.status, item.no_hp, item.email]),
@@ -524,6 +518,7 @@ export default function EmployeesPage() {
 
   // Add Teaching Assignment to Detail Pegawai
   const handleAddTeaching = () => {
+    if (!canUpdateEmployee) return
     if (!newTeaching.mapel || !newTeaching.kelas) {
       Swal.fire('Peringatan', 'Mata Pelajaran dan Kelas wajib diisi!', 'warning')
       return
@@ -537,6 +532,7 @@ export default function EmployeesPage() {
 
   // Add Certification to Detail Pegawai
   const handleAddCert = () => {
+    if (!canUpdateEmployee) return
     if (!newCert.nama) {
       Swal.fire('Peringatan', 'Nama Sertifikasi wajib diisi!', 'warning')
       return
@@ -550,6 +546,7 @@ export default function EmployeesPage() {
 
   // Add Document to Detail Pegawai
   const handleAddDoc = () => {
+    if (!canUpdateEmployee) return
     if (!newDoc.nama) {
       Swal.fire('Peringatan', 'Nama Dokumen wajib diisi!', 'warning')
       return
@@ -568,8 +565,8 @@ export default function EmployeesPage() {
         title="Master Data Pegawai"
         description="Kelola seluruh data pegawai, profil, jabatan, unit kerja, dan informasi kepegawaian dengan mudah."
         actions={<>
-          <MasterActionButton variant="export" icon={Download} onClick={handleExportExcel}>Export CSV</MasterActionButton>
-          <MasterActionButton icon={Plus} onClick={openAddModal}>Tambah Pegawai</MasterActionButton>
+          {canExportEmployee && <MasterActionButton variant="export" icon={Download} onClick={handleExportExcel}>Export CSV</MasterActionButton>}
+          {canCreateEmployee && <MasterActionButton icon={Plus} onClick={openAddModal}>Tambah Pegawai</MasterActionButton>}
         </>}
       />
 
@@ -692,9 +689,13 @@ export default function EmployeesPage() {
                       <p className="mt-1 flex items-center gap-2 truncate text-xs text-slate-500"><Mail className="h-3.5 w-3.5 shrink-0" />{row.email || '—'}</p>
                     </td>
                     <td className="text-center">
-                      <button type="button" onClick={() => toggleEmployeeStatus(row)} title="Ubah status pegawai">
+                      {canUpdateEmployee ? (
+                        <button type="button" onClick={() => toggleEmployeeStatus(row)} title="Ubah status pegawai">
+                          <AppBadge variant={row.status === 'Aktif' ? 'success' : 'warning'} dot>{row.status || 'Belum ditetapkan'}</AppBadge>
+                        </button>
+                      ) : (
                         <AppBadge variant={row.status === 'Aktif' ? 'success' : 'warning'} dot>{row.status || 'Belum ditetapkan'}</AppBadge>
-                      </button>
+                      )}
                     </td>
                     <td>
                       <p className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
@@ -707,8 +708,8 @@ export default function EmployeesPage() {
                       <div className="flex justify-center">
                         <ActionDropdown
                           onView={() => { setDetailEmployee(row); setActiveDetailTab('Identitas') }}
-                          onEdit={() => openEditModal(row)}
-                          onDelete={() => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) }}
+                          onEdit={canUpdateEmployee ? () => openEditModal(row) : undefined}
+                          onDelete={canDeleteEmployee ? () => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) } : undefined}
                         />
                       </div>
                     </td>
@@ -1400,23 +1401,27 @@ export default function EmployeesPage() {
                   </div>
 
                   <div className="space-y-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => toggleEmployeeStatus(formData)}
-                      className="w-full rounded-lg border border-amber-300 bg-amber-50 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors"
-                    >
-                      {formData.status === 'Aktif' ? 'Nonaktifkan Pegawai' : 'Aktifkan Pegawai'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteTarget(formData)
-                        closeFormModal()
-                      }}
-                      className="w-full rounded-lg border border-red-200 bg-red-50 py-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
-                    >
-                      Hapus Pegawai
-                    </button>
+                    {canUpdateEmployee && (
+                      <button
+                        type="button"
+                        onClick={() => toggleEmployeeStatus(formData)}
+                        className="w-full rounded-lg border border-amber-300 bg-amber-50 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+                      >
+                        {formData.status === 'Aktif' ? 'Nonaktifkan Pegawai' : 'Aktifkan Pegawai'}
+                      </button>
+                    )}
+                    {canDeleteEmployee && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteTarget(formData)
+                          closeFormModal()
+                        }}
+                        className="w-full rounded-lg border border-red-200 bg-red-50 py-2 text-xs font-bold text-red-600 hover:bg-red-100 transition-colors"
+                      >
+                        Hapus Pegawai
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -1475,16 +1480,18 @@ export default function EmployeesPage() {
                 >
                   <FaIdCard /> ID Card
                 </button>
-                <button
-                  onClick={() => {
-                    const target = detailEmployee
-                    setDetailEmployee(null)
-                    openEditModal(target)
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
-                >
-                  <FaEdit /> Edit
-                </button>
+                {canUpdateEmployee && (
+                  <button
+                    onClick={() => {
+                      const target = detailEmployee
+                      setDetailEmployee(null)
+                      openEditModal(target)
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                  >
+                    <FaEdit /> Edit
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1588,7 +1595,7 @@ export default function EmployeesPage() {
               {/* TAB 3: PENUGASAN MENGAJAR */}
               {activeDetailTab === 'Penugasan Mengajar' && (
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-3">
+                  {canUpdateEmployee && <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-3">
                     <h4 className="text-xs font-bold text-slate-800">Tambah Penugasan Mengajar Baru</h4>
                     <div className="grid grid-cols-4 gap-2">
                       <input
@@ -1619,7 +1626,7 @@ export default function EmployeesPage() {
                         + Tambah Penugasan
                       </button>
                     </div>
-                  </div>
+                  </div>}
 
                   <div className="overflow-x-auto rounded-xl border border-slate-200">
                     <table className="w-full text-left text-xs">
@@ -1672,7 +1679,7 @@ export default function EmployeesPage() {
               {/* TAB 5: SERTIFIKASI */}
               {activeDetailTab === 'Sertifikasi' && (
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3">
+                  {canUpdateEmployee && <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3">
                     <h4 className="text-xs font-bold text-slate-800">Tambah Sertifikasi Baru</h4>
                     <div className="grid grid-cols-4 gap-2">
                       <input
@@ -1703,7 +1710,7 @@ export default function EmployeesPage() {
                         + Tambah Sertifikat
                       </button>
                     </div>
-                  </div>
+                  </div>}
 
                   <div className="space-y-2">
                     {(detailEmployee.certifications || []).map((c, idx) => (
@@ -1725,7 +1732,7 @@ export default function EmployeesPage() {
               {/* TAB 6: DOKUMEN */}
               {activeDetailTab === 'Dokumen' && (
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-3">
+                  {canUpdateEmployee && <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-3">
                     <h4 className="text-xs font-bold text-slate-800">Upload Dokumen Pegawai</h4>
                     <div className="grid grid-cols-3 gap-2">
                       <input
@@ -1749,7 +1756,7 @@ export default function EmployeesPage() {
                         + Simpan Dokumen
                       </button>
                     </div>
-                  </div>
+                  </div>}
 
                   <div className="space-y-2">
                     {(detailEmployee.documents || []).map((d, idx) => (
@@ -1822,57 +1829,15 @@ export default function EmployeesPage() {
             </header>
 
             <div className="employee-id-preview">
-              <article className={`employee-id-card employee-id-card--${idCardOrientation} employee-id-card--${selectedIdCardTemplate}`}>
-                <div className="employee-id-card__pattern" aria-hidden="true" />
-                <div className="employee-id-card__top-wave" aria-hidden="true" />
-                <header className="employee-id-card__brand">
-                  <span className="employee-id-card__logo">
-                    {pengaturan.logo_url
-                      ? <img src={pengaturan.logo_url} alt={`Logo ${pengaturan.school_name}`} />
-                      : <b>{pengaturan.logo_text || 'YDE'}</b>}
-                  </span>
-                  <strong>{pengaturan.school_name || 'YAYASAN DAR EL-IMAN'}</strong>
-                  <small>{pengaturan.application_name || 'ISLAMIC SCHOOL'}</small>
-                  <em>Berilmu, Berakhlak, Beramal</em>
-                </header>
-
-                <span className="employee-id-card__label">KARTU PEGAWAI</span>
-
-                <div className="employee-id-card__photo">
-                  {showIdCardModal.foto ? (
-                    <img src={showIdCardModal.foto} alt={showIdCardModal.nama_lengkap} />
-                  ) : (
-                    <span>{showIdCardModal.nama_lengkap.substring(0, 2).toUpperCase()}</span>
-                  )}
-                </div>
-
-                <div className="employee-id-card__identity">
-                  <h3>{showIdCardModal.gelar_depan} {showIdCardModal.nama_lengkap}{showIdCardModal.gelar_belakang ? `, ${showIdCardModal.gelar_belakang}` : ''}</h3>
-                  <strong>{showIdCardModal.jabatan_name || 'Pegawai'}</strong>
-                </div>
-
-                <dl className="employee-id-card__meta">
-                  <div><dt>NIY</dt><dd>{showIdCardModal.niy || '—'}</dd></div>
-                  <div><dt>Unit Kerja</dt><dd>{showIdCardModal.unit_name || '—'}</dd></div>
-                  <div><dt>Tanggal Lahir</dt><dd>{formatEmployeeCardDate(showIdCardModal.tanggal_lahir)}</dd></div>
-                  <div><dt>Status</dt><dd>{showIdCardModal.status_pegawai || showIdCardModal.status || '—'}</dd></div>
-                </dl>
-
-                <div className="employee-id-card__qr">
-                  <QRCodeSVG
-                    value={makeEmployeeQrPayload(showIdCardModal)}
-                    size={92}
-                    level="M"
-                    marginSize={1}
-                    bgColor="#ffffff"
-                    fgColor="#0f172a"
-                    title={`QR akses SIMSIT ${showIdCardModal.nama_lengkap}`}
-                  />
-                  <span>SCAN UNTUK VERIFIKASI</span>
-                </div>
-
-                <footer><b>Generasi Beriman, Berilmu,<br />Berakhlak Mulia</b><span>TAHUN AJARAN<br />2025/2026</span></footer>
-              </article>
+              <EmployeeIdCard
+                orientation={idCardOrientation}
+                employee={showIdCardModal}
+                template={selectedIdCardTemplate}
+                pengaturan={pengaturan}
+                formatDate={formatEmployeeCardDate}
+                qrPayload={makeEmployeeQrPayload(showIdCardModal)}
+                isPrint={false}
+              />
 
               <aside className="employee-id-info">
                 <div className="employee-id-template-picker">
@@ -1938,14 +1903,29 @@ export default function EmployeesPage() {
 
             <footer className="employee-id-modal__footer flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-700 dark:bg-slate-900/40">
               <button type="button" onClick={() => setShowIdCardModal(null)} className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Tutup</button>
-              <button type="button" onClick={() => window.print()} className="flex h-10 items-center gap-2 rounded-xl bg-emerald-800 px-5 text-xs font-bold text-white shadow hover:bg-emerald-900"><FaPrint /> Cetak ID Card</button>
+              <button
+                type="button"
+                onClick={() => {
+                  printEmployeeIdCard({
+                    employee: showIdCardModal,
+                    orientation: idCardOrientation,
+                    template: selectedIdCardTemplate,
+                    pengaturan,
+                    formatDate: formatEmployeeCardDate,
+                    qrPayload: makeEmployeeQrPayload(showIdCardModal),
+                  })
+                }}
+                className="flex h-10 items-center gap-2 rounded-xl bg-emerald-800 px-5 text-xs font-bold text-white shadow hover:bg-emerald-900"
+              >
+                <FaPrint /> Cetak ID Card
+              </button>
             </footer>
           </section>
         </div>
       )}
 
       {/* 8. MODAL KONFIRMASI HAPUS PEGAWAI */}
-      {deleteTarget && (
+      {canDeleteEmployee && deleteTarget && (
         <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Hapus Pegawai">
           <div className="employee-delete-modal w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="p-6 text-center space-y-3 border-b border-slate-100">

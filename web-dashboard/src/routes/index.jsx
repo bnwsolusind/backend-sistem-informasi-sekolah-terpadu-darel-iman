@@ -334,13 +334,11 @@ export const router = createBrowserRouter([
             { path: 'pengajuan-izin/:id/edit', element: <Navigate to="/portal-siswa" replace /> },
           ] },
           { path: 'laporan', element: <BungkusLazy><AttendanceWorkspacePage /></BungkusLazy> },
+          // Fail closed for unknown attendance URLs. Rendering the generic
+          // workspace here made a direct typo/forged child path appear valid.
           {
             path: '*',
-            element: (
-              <BungkusLazy>
-                <AttendanceWorkspacePage />
-              </BungkusLazy>
-            ),
+            element: <Navigate to="/absensi" replace />,
           },
         ],
       },
@@ -398,14 +396,14 @@ export const router = createBrowserRouter([
            { path: 'guru-bk', element: <PermissionElement any={['dashboard.guru-bk.view']}><BungkusLazy><GuruBkDashboardPage /></BungkusLazy></PermissionElement> },
            { path: 'operator', element: <PermissionElement any={['dashboard.operator.view']}><BungkusLazy><OperatorDashboardPage /></BungkusLazy></PermissionElement> },
            { path: 'musyrif', element: <PermissionElement any={['dashboard.guru-tahfizh.view']}><BungkusLazy><MusyrifDashboardPage /></BungkusLazy></PermissionElement> },
-          { path: 'chat-pegawai', element: <BungkusLazy><EmployeeChatPage /></BungkusLazy> },
-          { path: 'akademik', element: <Navigate to="/dashboard/akademik/dashboard" replace /> },
-          { path: 'akademik/dashboard', element: <BungkusLazy><AcademicPage /></BungkusLazy> },
-          { path: 'akademik/pengaturan', element: <BungkusLazy><AcademicLmsContainerPage section="pengaturan" /></BungkusLazy> },
-          { path: 'akademik/perencanaan', element: <BungkusLazy><AcademicLmsContainerPage section="perencanaan" /></BungkusLazy> },
-          { path: 'akademik/pembelajaran', element: <BungkusLazy><AcademicLmsContainerPage section="pembelajaran" /></BungkusLazy> },
-          { path: 'akademik/evaluasi', element: <BungkusLazy><AcademicLmsContainerPage section="evaluasi" /></BungkusLazy> },
-          { path: 'akademik/nilai-rapor', element: <BungkusLazy><AcademicLmsContainerPage section="nilai-rapor" /></BungkusLazy> },
+          { path: 'chat-pegawai', element: <PermissionElement any={['chat.conversation.view', 'chat.manage']}><BungkusLazy><EmployeeChatPage /></BungkusLazy></PermissionElement> },
+          { path: 'akademik', element: <PermissionElement any={['academic.view', 'academic.manage']}><Navigate to="/dashboard/akademik/dashboard" replace /></PermissionElement> },
+          { path: 'akademik/dashboard', element: <PermissionElement any={['academic.view', 'academic.manage']}><BungkusLazy><AcademicPage /></BungkusLazy></PermissionElement> },
+          { path: 'akademik/pengaturan', element: <PermissionElement any={['academic.view', 'academic.manage']}><BungkusLazy><AcademicLmsContainerPage section="pengaturan" /></BungkusLazy></PermissionElement> },
+          { path: 'akademik/perencanaan', element: <PermissionElement any={['academic.view', 'academic.manage']}><BungkusLazy><AcademicLmsContainerPage section="perencanaan" /></BungkusLazy></PermissionElement> },
+          { path: 'akademik/pembelajaran', element: <PermissionElement any={['academic.view', 'academic.manage']}><BungkusLazy><AcademicLmsContainerPage section="pembelajaran" /></BungkusLazy></PermissionElement> },
+          { path: 'akademik/evaluasi', element: <PermissionElement any={['academic.view', 'academic.manage']}><BungkusLazy><AcademicLmsContainerPage section="evaluasi" /></BungkusLazy></PermissionElement> },
+          { path: 'akademik/nilai-rapor', element: <PermissionElement any={['academic.view', 'academic.manage']}><BungkusLazy><AcademicLmsContainerPage section="nilai-rapor" /></BungkusLazy></PermissionElement> },
           {
             path: 'pemantauan',
             element: (
@@ -419,9 +417,9 @@ export const router = createBrowserRouter([
           {
             path: 'crud-demo',
             element: (
-              <BungkusLazy>
-                <StudentCrudPage />
-              </BungkusLazy>
+              <PermissionElement any={['student.create', 'student.update', 'student.delete']}>
+                <BungkusLazy><StudentCrudPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
@@ -435,7 +433,7 @@ export const router = createBrowserRouter([
               {
                 index: true,
                 element: (
-                  <PermissionElement any={['kesiswaan.data_lengkap_siswa']}>
+                  <PermissionElement any={['student.view', 'student.view_all', 'kesiswaan.data_lengkap_siswa']}>
                     <BungkusLazy><StudentsPage /></BungkusLazy>
                   </PermissionElement>
                 ),
@@ -443,7 +441,7 @@ export const router = createBrowserRouter([
               {
                 path: 'input',
                 element: (
-                  <PermissionElement any={['kesiswaan.data_lengkap_siswa']}>
+                  <PermissionElement any={['student.create']}>
                     <BungkusLazy><StudentsPage /></BungkusLazy>
                   </PermissionElement>
                 ),
@@ -459,25 +457,25 @@ export const router = createBrowserRouter([
               {
                 path: 'unit-pendidikan',
                 element: (
-                  <BungkusLazy>
-                    <EducationUnitsPage />
-                  </BungkusLazy>
+                  <PermissionElement any={['unit.view', 'unit.view_all', 'foundation.unit.view']}>
+                    <BungkusLazy><EducationUnitsPage /></BungkusLazy>
+                  </PermissionElement>
                 ),
               },
               {
                 path: 'pegawai',
                 element: (
-                  <BungkusLazy>
-                    <EmployeesPage />
-                  </BungkusLazy>
+                  <PermissionElement any={['employee.view', 'employee.view_all', 'foundation.employee.view']}>
+                    <BungkusLazy><EmployeesPage /></BungkusLazy>
+                  </PermissionElement>
                 ),
               },
               {
                 path: 'jabatan',
                 element: (
-                  <BungkusLazy>
-                    <MasterJabatanPage />
-                  </BungkusLazy>
+                  <PermissionElement any={['master.view', 'sistem.master_data']}>
+                    <BungkusLazy><MasterJabatanPage /></BungkusLazy>
+                  </PermissionElement>
                 ),
               },
               {
@@ -491,7 +489,7 @@ export const router = createBrowserRouter([
               {
                 path: 'laporan',
                 element: (
-                  <PermissionElement any={['kesiswaan.data_lengkap_siswa']}>
+                  <PermissionElement any={['report.student.view', 'student.view', 'student.view_all', 'kesiswaan.data_lengkap_siswa']}>
                     <BungkusLazy><StudentsPage /></BungkusLazy>
                   </PermissionElement>
                 ),
@@ -501,33 +499,33 @@ export const router = createBrowserRouter([
           {
             path: 'employees',
             element: (
-              <BungkusLazy>
-                <EmployeesPage />
-              </BungkusLazy>
+              <PermissionElement any={['employee.view', 'employee.view_all', 'foundation.employee.view']}>
+                <BungkusLazy><EmployeesPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master-jabatan',
             element: (
-              <BungkusLazy>
-                <MasterJabatanPage />
-              </BungkusLazy>
+              <PermissionElement any={['master.view', 'sistem.master_data']}>
+                <BungkusLazy><MasterJabatanPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master-jenis-unit',
             element: (
-              <BungkusLazy>
-                <MasterJenisUnitPendidikanPage />
-              </BungkusLazy>
+              <PermissionElement any={['unit.view', 'unit.view_all', 'sistem.master_data']}>
+                <BungkusLazy><MasterJenisUnitPendidikanPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master-tahun-ajaran',
             element: (
-              <BungkusLazy>
-                <MasterTahunAjaranPage />
-              </BungkusLazy>
+              <PermissionElement any={['master.view', 'sistem.master_data']}>
+                <BungkusLazy><MasterTahunAjaranPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
@@ -553,73 +551,73 @@ export const router = createBrowserRouter([
           {
             path: 'master/unit-pendidikan',
             element: (
-              <BungkusLazy>
-                <EducationUnitsPage />
-              </BungkusLazy>
+              <PermissionElement any={['unit.view', 'unit.view_all', 'foundation.unit.view']}>
+                <BungkusLazy><EducationUnitsPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master/guru',
             element: (
-              <BungkusLazy>
-                <EmployeesPage />
-              </BungkusLazy>
+              <PermissionElement any={['employee.view', 'employee.view_all', 'foundation.employee.view']}>
+                <BungkusLazy><EmployeesPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master/pegawai',
             element: (
-              <BungkusLazy>
-                <EmployeesPage />
-              </BungkusLazy>
+              <PermissionElement any={['employee.view', 'employee.view_all', 'foundation.employee.view']}>
+                <BungkusLazy><EmployeesPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master/siswa',
             element: (
-              <BungkusLazy>
-                <StudentsPage />
-              </BungkusLazy>
+              <PermissionElement any={['student.view', 'student.view_all', 'kesiswaan.data_lengkap_siswa']}>
+                <BungkusLazy><StudentsPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master/orang-tua',
             element: (
-              <BungkusLazy>
-                <ParentsPage />
-              </BungkusLazy>
+              <PermissionElement any={['student.view', 'student.view_all', 'kesiswaan.data_lengkap_siswa']}>
+                <BungkusLazy><ParentsPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'master/alumni',
             element: (
-              <BungkusLazy>
-                <FoundationGraduationAlumniPage />
-              </BungkusLazy>
+              <PermissionElement any={['alumni.view', 'foundation.alumni.view']}>
+                <BungkusLazy><FoundationGraduationAlumniPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'akademik/kelas',
             element: (
-              <BungkusLazy>
-                <MasterKelasPage />
-              </BungkusLazy>
+              <PermissionElement any={['academic.view', 'academic.manage', 'kesiswaan.kelas_rombel']}>
+                <BungkusLazy><MasterKelasPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'akademik/rombel',
             element: (
-              <BungkusLazy>
-                <MasterKelasPage />
-              </BungkusLazy>
+              <PermissionElement any={['academic.view', 'academic.manage', 'kesiswaan.kelas_rombel']}>
+                <BungkusLazy><MasterKelasPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'persetujuan-hapus',
             element: (
-              <BungkusLazy>
-                <DeleteApprovalPage />
-              </BungkusLazy>
+              <PermissionElement any={['approval.manage']}>
+                <BungkusLazy><DeleteApprovalPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
@@ -635,33 +633,33 @@ export const router = createBrowserRouter([
           {
             path: 'hak-akses',
             element: (
-              <BungkusLazy>
-                <MasterHakAksesPage />
-              </BungkusLazy>
+              <PermissionElement any={['sistem.hak_akses', 'permission.manage', 'role.manage']}>
+                <BungkusLazy><MasterHakAksesPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'attendance',
             element: (
-              <BungkusLazy>
-                <AttendancePage />
-              </BungkusLazy>
+              <PermissionElement any={['attendance.view', 'attendance.manage', 'kehadiran.siswa.monitoring']}>
+                <BungkusLazy><AttendancePage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'absensi-gerbang',
             element: (
-              <BungkusLazy>
-                <GateAttendancePage />
-              </BungkusLazy>
+              <PermissionElement any={['attendance.view', 'attendance.manage', 'gate_attendance.view', 'kehadiran.siswa.absensi_digital']}>
+                <BungkusLazy><GateAttendancePage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'absensi-ibadah',
             element: (
-              <BungkusLazy>
-                <WorshipAttendancePage />
-              </BungkusLazy>
+              <PermissionElement any={['attendance.view', 'attendance.manage', 'worship_attendance.view']}>
+                <BungkusLazy><WorshipAttendancePage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
@@ -677,9 +675,9 @@ export const router = createBrowserRouter([
           {
             path: 'academic',
             element: (
-              <BungkusLazy>
-                <AcademicPage />
-              </BungkusLazy>
+              <PermissionElement any={['academic.view', 'academic.manage']}>
+                <BungkusLazy><AcademicPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
@@ -1117,69 +1115,69 @@ export const router = createBrowserRouter([
           {
             path: 'pengaturan',
             element: (
-              <BungkusLazy>
-                <PengaturanPage />
-              </BungkusLazy>
+              <PermissionElement any={['sistem.pengaturan', 'setting.manage']}>
+                <BungkusLazy><PengaturanPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'laporan-absensi',
             element: (
-              <BungkusLazy>
-                <LaporanAbsensiPage />
-              </BungkusLazy>
+              <PermissionElement any={['report.attendance.view', 'report.view']}>
+                <BungkusLazy><LaporanAbsensiPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'laporan-tahfizh',
             element: (
-              <BungkusLazy>
-                <LaporanTahfizhPage />
-              </BungkusLazy>
+              <PermissionElement any={['report.tahfizh.view', 'report.view']}>
+                <BungkusLazy><LaporanTahfizhPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'laporan-akademik',
             element: (
-              <BungkusLazy>
-                <LaporanAkademikPage />
-              </BungkusLazy>
+              <PermissionElement any={['report.academic.view', 'report.view']}>
+                <BungkusLazy><LaporanAkademikPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'laporan-siswa',
             element: (
-              <BungkusLazy>
-                <LaporanSiswaPage />
-              </BungkusLazy>
+              <PermissionElement any={['report.student.view', 'report.view']}>
+                <BungkusLazy><LaporanSiswaPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'laporan-pegawai',
             element: (
-              <BungkusLazy>
-                <LaporanPegawaiPage />
-              </BungkusLazy>
+              <PermissionElement any={['employee.view', 'employee.view_all', 'report.view']}>
+                <BungkusLazy><LaporanPegawaiPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'laporan-lms',
             element: (
-              <BungkusLazy>
-                <LaporanLmsPage />
-              </BungkusLazy>
+              <PermissionElement any={['lms.view', 'lms.manage', 'report.view']}>
+                <BungkusLazy><LaporanLmsPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
           {
             path: 'laporan-alumni',
             element: (
-              <BungkusLazy>
-                <LaporanAlumniPage />
-              </BungkusLazy>
+              <PermissionElement any={['alumni.view', 'foundation.alumni.view', 'report.view']}>
+                <BungkusLazy><LaporanAlumniPage /></BungkusLazy>
+              </PermissionElement>
             ),
           },
-          { path: 'rekap-absensi-gerbang', element: <BungkusLazy><RekapAbsensiGerbangPage /></BungkusLazy> },
-          { path: 'rekap-absensi-ibadah', element: <BungkusLazy><RekapAbsensiIbadahPage /></BungkusLazy> },
+          { path: 'rekap-absensi-gerbang', element: <PermissionElement any={['report.attendance.view', 'attendance.view', 'attendance.manage']}><BungkusLazy><RekapAbsensiGerbangPage /></BungkusLazy></PermissionElement> },
+          { path: 'rekap-absensi-ibadah', element: <PermissionElement any={['report.attendance.view', 'attendance.view', 'attendance.manage']}><BungkusLazy><RekapAbsensiIbadahPage /></BungkusLazy></PermissionElement> },
           {
             path: 'profil-akun',
             element: (

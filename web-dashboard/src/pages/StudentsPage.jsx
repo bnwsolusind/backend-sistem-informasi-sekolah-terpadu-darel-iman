@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -33,6 +34,8 @@ import { educationUnitService } from '../services/educationUnitService'
 import { studentService } from '../services/studentService'
 import PersonAvatar from '../components/ui/PersonAvatar'
 import PersonIdentityCell from '../components/ui/PersonIdentityCell'
+import { hasAnyRole } from '../auth/portalResolver'
+import { useAuthStore } from '../stores/authStore'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -81,6 +84,14 @@ const initialForm = () => ({
 })
 
 export default function StudentsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const user = useAuthStore((state) => state.user)
+  const permissions = user?.permissions || []
+  const isSuperAdmin = hasAnyRole(user?.roles || [], ['Super Admin'])
+  const canCreateStudent = isSuperAdmin || permissions.includes('student.create')
+  const canUpdateStudent = isSuperAdmin || permissions.includes('student.update')
+  const canDeleteStudent = isSuperAdmin || permissions.includes('student.delete')
+  const canExportStudent = isSuperAdmin || permissions.includes('student.export')
   const [step, setStep] = useState(1)
 
   // Filters
@@ -109,6 +120,20 @@ export default function StudentsPage() {
   // Form State
   const [formData, setFormData] = useState(initialForm())
   const [isEdit, setIsEdit] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('action') !== 'add') return
+
+    if (canCreateStudent) {
+      setIsEdit(false)
+      setSelectedStudent(null)
+      setShowFormModal(true)
+    }
+
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('action')
+    setSearchParams(nextParams, { replace: true })
+  }, [canCreateStudent, searchParams, setSearchParams])
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -367,12 +392,14 @@ export default function StudentsPage() {
 
   // Form Handlers
   const handleOpenTambah = () => {
+    if (!canCreateStudent) return
     setIsEdit(false)
     setSelectedStudent(null)
     setShowFormModal(true)
   }
 
   const handleOpenEdit = (student) => {
+    if (!canUpdateStudent) return
     setIsEdit(true)
     setSelectedStudent(student)
     setShowDetailModal(false)
@@ -386,6 +413,7 @@ export default function StudentsPage() {
   }
 
   const handleDelete = async (student) => {
+    if (!canDeleteStudent) return
     const res = await Swal.fire({
       title: 'Hapus data siswa?',
       text: `Data ${student.nama} akan dihapus dari sistem.`,
@@ -402,6 +430,7 @@ export default function StudentsPage() {
   }
 
   const handleFormSubmitCallback = async (payload) => {
+    if ((isEdit && !canUpdateStudent) || (!isEdit && !canCreateStudent)) return
     try {
       if (isEdit && payload.id) {
         await ubah.mutateAsync({ id: payload.id, payload })
@@ -418,6 +447,7 @@ export default function StudentsPage() {
 
   // Export Excel CSV trigger
   const handleExportExcel = () => {
+    if (!canExportStudent) return
     const headers = ['NIS', 'NISN', 'Nama Lengkap', 'Jenis Kelamin', 'Tempat Lahir', 'Tanggal Lahir', 'Agama', 'Alamat', 'Unit Pendidikan', 'Kelas', 'Nama Ayah', 'HP Ayah', 'Nama Ibu', 'HP Ibu', 'Nama Wali', 'HP Wali', 'Status', 'Email']
     const csvRows = [headers.join(',')]
 
@@ -477,8 +507,8 @@ export default function StudentsPage() {
         description="Kelola identitas, data akademik, orang tua atau wali, serta status seluruh siswa."
         icon={FaUserGraduate}
         actions={<>
-          <MasterActionButton variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export CSV</MasterActionButton>
-          <MasterActionButton icon={FaPlus} onClick={handleOpenTambah}>Tambah Siswa</MasterActionButton>
+          {canExportStudent && <MasterActionButton variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export CSV</MasterActionButton>}
+          {canCreateStudent && <MasterActionButton icon={FaPlus} onClick={handleOpenTambah}>Tambah Siswa</MasterActionButton>}
         </>}
       />
 
@@ -634,8 +664,8 @@ export default function StudentsPage() {
                   <div className="flex items-center justify-center">
                     <ActionDropdown
                       onView={() => handleOpenDetail(item)}
-                      onEdit={() => handleOpenEdit(item)}
-                      onDelete={() => handleDelete(item)}
+                      onEdit={canUpdateStudent ? () => handleOpenEdit(item) : undefined}
+                      onDelete={canDeleteStudent ? () => handleDelete(item) : undefined}
                       extraItems={[{
                         label: 'Cetak Kartu',
                         icon: <FaPrint className="h-4 w-4 text-emerald-600" />,
@@ -869,18 +899,22 @@ export default function StudentsPage() {
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">AKSI CEPAT</h4>
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => handleOpenEdit(selectedStudent)}
-                        className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition">
-                        <FaEdit /> Edit Data
-                      </button>
+                      {canUpdateStudent && (
+                        <button onClick={() => handleOpenEdit(selectedStudent)}
+                          className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition">
+                          <FaEdit /> Edit Data
+                        </button>
+                      )}
                       <button onClick={() => { setStudentToPrint(selectedStudent); setShowCetakModal(true) }}
                         className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition">
                         <FaPrint /> Cetak Kartu Siswa
                       </button>
-                      <button onClick={() => handleDelete(selectedStudent)}
-                        className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition">
-                        <FaTrash /> Hapus Data
-                      </button>
+                      {canDeleteStudent && (
+                        <button onClick={() => handleDelete(selectedStudent)}
+                          className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition">
+                          <FaTrash /> Hapus Data
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

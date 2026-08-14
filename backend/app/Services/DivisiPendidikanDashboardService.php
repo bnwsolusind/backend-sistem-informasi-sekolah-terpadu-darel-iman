@@ -7,16 +7,20 @@ use App\Models\EducationUnit;
 use App\Models\Employee;
 use App\Models\Semester;
 use App\Models\Student;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class DivisiPendidikanDashboardService
 {
-    public function getDashboardOverview(array $filters = []): array
+    public function __construct(private readonly AccessScopeService $accessScope) {}
+
+    public function getDashboardOverview(User $user, array $filters = []): array
     {
-        $unitQuery = EducationUnit::query();
+        $unitQuery = $this->accessScope->accessibleEducationUnits($user);
         if (! empty($filters['unit_id']) && $filters['unit_id'] !== 'all') {
-            $unitQuery->where('id', $filters['unit_id']);
+            $this->accessScope->assertEducationUnitAccess($user, (string) $filters['unit_id']);
+            $unitQuery->whereKey($filters['unit_id']);
         }
         $units = $unitQuery->get();
         $unitIds = $units->pluck('id')->toArray();
@@ -42,7 +46,12 @@ class DivisiPendidikanDashboardService
         $laporanBulananMasuk = 0;
         $laporanBulananBelum = 0;
         if (Schema::hasTable('laporan_bulanans')) {
+            $reporterUserIds = Employee::query()
+                ->whereIn('unit_id', $unitIds)
+                ->whereNotNull('user_id')
+                ->pluck('user_id');
             $reportQuery = DB::table('laporan_bulanans')
+                ->whereIn('id_penginput', $reporterUserIds)
                 ->when($activeAcademicYear, fn ($query) => $query->where('id_tahun_ajaran', $activeAcademicYear->id))
                 ->when($activeSemester, fn ($query) => $query->where('id_semester', $activeSemester->id));
             $laporanBulananMasuk = (clone $reportQuery)->where('status_validasi', 'disetujui')->count();

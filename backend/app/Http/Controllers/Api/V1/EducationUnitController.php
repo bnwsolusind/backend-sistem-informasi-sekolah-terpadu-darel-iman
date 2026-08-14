@@ -12,6 +12,7 @@ use App\Models\JenisUnitPendidikan;
 use App\Models\Student;
 use App\Services\AccessScopeService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
@@ -124,16 +125,16 @@ class EducationUnitController extends Controller
         ], 201);
     }
 
-    public function show(EducationUnit|string $education_unit): JsonResponse
+    public function show(Request $request, EducationUnit|string $education_unit): JsonResponse
     {
-        $model = $education_unit instanceof EducationUnit ? $education_unit : EducationUnit::query()->findOrFail($education_unit);
+        $model = $this->scopedUnit($request->user(), $education_unit);
 
         return response()->json($model);
     }
 
     public function update(UpdateEducationUnitRequest $request, EducationUnit|string $education_unit): JsonResponse
     {
-        $model = $education_unit instanceof EducationUnit ? $education_unit : EducationUnit::query()->findOrFail($education_unit);
+        $model = $this->scopedUnit($request->user(), $education_unit);
         $model->update($this->mappedPayload($request->validated(), $model->code));
 
         return response()->json([
@@ -142,14 +143,24 @@ class EducationUnitController extends Controller
         ]);
     }
 
-    public function destroy(EducationUnit|string $education_unit): JsonResponse
+    public function destroy(Request $request, EducationUnit|string $education_unit): JsonResponse
     {
-        $model = $education_unit instanceof EducationUnit ? $education_unit : EducationUnit::query()->findOrFail($education_unit);
+        $model = $this->scopedUnit($request->user(), $education_unit);
         $model->delete();
 
         return response()->json([
             'message' => 'Data unit pendidikan berhasil dihapus.',
         ]);
+    }
+
+    private function scopedUnit($user, EducationUnit|string $educationUnit): EducationUnit
+    {
+        $id = $educationUnit instanceof EducationUnit ? $educationUnit->getKey() : $educationUnit;
+
+        return $this->accessScope
+            ->accessibleEducationUnits($user)
+            ->whereKey($id)
+            ->firstOrFail();
     }
 
     private function mappedPayload(array $validated, ?string $existingCode = null): array

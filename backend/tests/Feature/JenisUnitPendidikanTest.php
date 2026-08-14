@@ -16,7 +16,9 @@ class JenisUnitPendidikanTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
         $this->user = User::factory()->create();
+        $this->user->assignRole('Super Admin');
     }
 
     public function test_dapat_mengambil_daftar_jenis_unit_pendidikan(): void

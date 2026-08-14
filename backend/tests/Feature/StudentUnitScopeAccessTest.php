@@ -28,7 +28,7 @@ class StudentUnitScopeAccessTest extends TestCase
     public function test_unit_user_only_reads_and_manages_students_in_its_unit(): void
     {
         [$unitA, $unitB] = $this->educationUnits();
-        $user = $this->unitEducationUser($unitA);
+        $user = $this->unitAdministrationUser($unitA);
         $studentA = $this->student($unitA, 'Siswa Unit A');
         $studentB = $this->student($unitB, 'Siswa Unit B');
 
@@ -54,7 +54,7 @@ class StudentUnitScopeAccessTest extends TestCase
     public function test_unit_user_cannot_create_student_in_another_unit_and_defaults_to_its_own_unit(): void
     {
         [$unitA, $unitB] = $this->educationUnits();
-        $user = $this->unitEducationUser($unitA);
+        $user = $this->unitAdministrationUser($unitA);
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/students', $this->studentPayload('Siswa Lintas Unit', $unitB->id))
@@ -74,7 +74,7 @@ class StudentUnitScopeAccessTest extends TestCase
     public function test_student_class_assignment_uses_active_kelas_and_rejects_another_unit(): void
     {
         [$unitA, $unitB] = $this->educationUnits();
-        $user = $this->unitEducationUser($unitA);
+        $user = $this->unitAdministrationUser($unitA);
         $kelasA = $this->kelas($unitA, 'Kelas Unit A');
         $kelasB = $this->kelas($unitB, 'Kelas Unit B');
 
@@ -108,10 +108,51 @@ class StudentUnitScopeAccessTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_division_monitoring_role_can_read_its_scope_but_cannot_mutate_students(): void
+    {
+        [$unitA] = $this->educationUnits();
+        $division = User::create([
+            'name' => 'Divisi Pendidikan Monitoring',
+            'email' => 'divisi.monitoring@school-erp.local',
+            'password' => Hash::make('DivisiAkses!2026'),
+            'is_active' => true,
+        ]);
+        $division->assignRole('Divisi Pendidikan');
+        Employee::create([
+            'niy' => 'NIY-DIVISI-MONITORING',
+            'nama_lengkap' => 'Divisi Pendidikan Monitoring',
+            'unit_id' => $unitA->id,
+            'user_id' => $division->id,
+            'status' => 'Aktif',
+        ]);
+        $student = $this->student($unitA, 'Siswa Monitoring Divisi');
+
+        $this->actingAs($division, 'sanctum')
+            ->getJson('/api/students')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $student->id);
+
+        $this->actingAs($division, 'sanctum')
+            ->postJson('/api/students', $this->studentPayload('Siswa Baru oleh Divisi', $unitA->id))
+            ->assertForbidden();
+        $this->actingAs($division, 'sanctum')
+            ->putJson("/api/students/{$student->id}", $this->studentPayload('Siswa Diubah Divisi', $unitA->id))
+            ->assertForbidden();
+        $this->actingAs($division, 'sanctum')
+            ->deleteJson("/api/students/{$student->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('students', [
+            'id' => $student->id,
+            'full_name' => 'Siswa Monitoring Divisi',
+            'deleted_at' => null,
+        ]);
+    }
+
     public function test_student_dashboard_uses_scoped_database_values(): void
     {
         [$unitA, $unitB] = $this->educationUnits();
-        $user = $this->unitEducationUser($unitA);
+        $user = $this->unitAdministrationUser($unitA);
         $this->student($unitA, 'Siswa Mutasi Unit A', [
             'metadata' => ['mutasi_type' => 'masuk'],
         ]);
@@ -146,19 +187,22 @@ class StudentUnitScopeAccessTest extends TestCase
         ];
     }
 
-    private function unitEducationUser(EducationUnit $unit): User
+    private function unitAdministrationUser(EducationUnit $unit): User
     {
         $user = User::create([
-            'name' => 'Divisi Pendidikan Unit',
-            'email' => "divisi.{$unit->code}@school-erp.local",
-            'password' => Hash::make('DivisiAkses!2026'),
+            'name' => 'Tata Usaha Unit',
+            'email' => "tu.{$unit->code}@school-erp.local",
+            'password' => Hash::make('TataUsahaAkses!2026'),
             'is_active' => true,
         ]);
-        $user->assignRole('Divisi Pendidikan');
+        $user->assignRole('Tata Usaha');
+        // Test ini mengisolasi data scope CRUD. Permission delete diberikan
+        // eksplisit karena baseline TU tidak otomatis memegang seluruh aksi arsip.
+        $user->givePermissionTo('student.delete');
 
         Employee::create([
             'niy' => "NIY-{$unit->code}",
-            'nama_lengkap' => 'Pegawai Divisi Pendidikan',
+            'nama_lengkap' => 'Pegawai Tata Usaha',
             'unit_id' => $unit->id,
             'user_id' => $user->id,
             'status' => 'Aktif',

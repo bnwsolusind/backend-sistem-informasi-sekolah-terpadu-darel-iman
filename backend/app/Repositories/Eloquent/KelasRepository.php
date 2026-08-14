@@ -40,6 +40,10 @@ class KelasRepository implements KelasRepositoryInterface
             $query->whereIn('unit_pendidikan_id', $filters['allowed_unit_ids']);
         }
 
+        if (array_key_exists('allowed_kelas_ids', $filters)) {
+            $query->whereIn('id', $filters['allowed_kelas_ids']);
+        }
+
         // Filter Tahun Ajaran
         if (! empty($filters['tahun_ajaran_id'])) {
             $query->where('tahun_ajaran_id', $filters['tahun_ajaran_id']);
@@ -128,12 +132,17 @@ class KelasRepository implements KelasRepositoryInterface
         return (bool) $kelas->restore();
     }
 
-    public function dapatkanStatistik(): array
+    public function dapatkanStatistik(?array $allowedKelasIds = null): array
     {
-        $totalKelas = Kelas::count();
-        $totalAktif = Kelas::where('status', 'Aktif')->count();
-        $waliTerisi = Kelas::whereNotNull('wali_kelas_id')->count();
-        $totalKapasitas = Kelas::sum('kapasitas');
+        $query = Kelas::query();
+        if ($allowedKelasIds !== null) {
+            $query->whereIn('id', $allowedKelasIds);
+        }
+
+        $totalKelas = (clone $query)->count();
+        $totalAktif = (clone $query)->where('status', 'Aktif')->count();
+        $waliTerisi = (clone $query)->whereNotNull('wali_kelas_id')->count();
+        $totalKapasitas = (clone $query)->sum('kapasitas');
 
         return [
             'total_kelas' => $totalKelas,

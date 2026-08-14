@@ -123,6 +123,7 @@ class NotificationApiScopeTest extends TestCase
     public function test_teacher_portal_notifications_use_canonical_recipient_scope(): void
     {
         $this->activateAcademicContext();
+        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
         Role::firstOrCreate(['name' => 'Guru', 'guard_name' => 'web']);
 
         $guru = User::factory()->create();

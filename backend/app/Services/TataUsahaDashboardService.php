@@ -11,21 +11,22 @@ use Illuminate\Support\Facades\Schema;
 
 class TataUsahaDashboardService
 {
+    public function __construct(private readonly AccessScopeService $accessScope) {}
+
     public function getDashboardOverview($user, array $filters = []): array
     {
-        $employee = Employee::where('user_id', $user->id)->first();
-        $unitId = $employee ? $employee->unit_id : null;
+        $unitQuery = $this->accessScope->accessibleEducationUnits($user);
+        if (! empty($filters['unit_id']) && $filters['unit_id'] !== 'all') {
+            $this->accessScope->assertEducationUnitAccess($user, (string) $filters['unit_id']);
+            $unitQuery->whereKey($filters['unit_id']);
+        }
+        $unitId = $unitQuery->value('id');
 
         $activeAcademicYear = AcademicYear::where('is_active', true)->first() ?? AcademicYear::latest()->first();
         $activeSemester = Semester::where('is_active', true)->first() ?? Semester::latest()->first();
 
-        $studentQuery = Student::query();
-        $employeeQuery = Employee::query();
-
-        if ($unitId) {
-            $studentQuery->where('unit_id', $unitId);
-            $employeeQuery->where('unit_id', $unitId);
-        }
+        $studentQuery = Student::query()->whereIn('unit_id', array_filter([$unitId]));
+        $employeeQuery = Employee::query()->whereIn('unit_id', array_filter([$unitId]));
 
         $totalSiswa = (clone $studentQuery)->where('is_active', true)->count();
         $totalPegawai = (clone $employeeQuery)->count();
@@ -43,10 +44,9 @@ class TataUsahaDashboardService
         $today = now()->toDateString();
         $absensiHariIni = 0;
         if (Schema::hasTable('attendances')) {
-            $attQuery = DB::table('attendances')->whereDate('attendance_date', $today);
-            if ($unitId) {
-                $attQuery->whereIn('student_id', (clone $studentQuery)->pluck('id'));
-            }
+            $attQuery = DB::table('attendances')
+                ->whereDate('attendance_date', $today)
+                ->whereIn('student_id', (clone $studentQuery)->pluck('id'));
             $absensiHariIni = $attQuery->count();
         }
 

@@ -30,10 +30,10 @@ export default function AppModal({
           )}
           <span className="min-w-0">
             <span className="block truncate">{title}</span>
-            {description && <span className="block text-[11px] font-medium text-slate-400 dark:text-slate-400">{description}</span>}
           </span>
         </span>
       }
+      description={description}
       footer={footer}
       maxWidth={maxWidth}
     >

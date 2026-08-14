@@ -39,12 +39,11 @@ class KelasController extends Controller
             'status' => $request->query('status'),
             'dengan_sampah' => $request->query('dengan_sampah'),
         ];
-        $filters['allowed_unit_ids'] = $this->accessScopeService
-            ->accessibleRombels($request->user())
-            ->select('unit_pendidikan_id')
-            ->distinct()
-            ->pluck('unit_pendidikan_id')
-            ->all();
+        $allowedKelasIds = $this->accessibleRombelIds(
+            $request,
+            $request->query('dengan_sampah') === 'true'
+        );
+        $filters['allowed_kelas_ids'] = $allowedKelasIds;
 
         $perPage = (int) $request->query('per_page', 15);
         $orderBy = (string) $request->query('order_by', 'created_at');
@@ -64,16 +63,20 @@ class KelasController extends Controller
                 'to' => $kelas->lastItem(),
                 'total' => $kelas->total(),
             ],
-            'statistik' => $this->kelasService->dapatkanStatistik(),
+            'statistik' => $this->kelasService->dapatkanStatistik($this->accessibleRombelIds($request)),
         ]);
     }
 
     /**
      * Dapatkan opsi data master dropdown (Unit, Tahun Ajaran, Semester, Pegawai/Guru).
      */
-    public function options(): JsonResponse
+    public function options(Request $request): JsonResponse
     {
-        $options = $this->kelasService->dapatkanOpsiMaster();
+        $allowedUnitIds = $this->accessScopeService
+            ->accessibleEducationUnits($request->user())
+            ->pluck('education_units.id')
+            ->all();
+        $options = $this->kelasService->dapatkanOpsiMaster($allowedUnitIds);
 
         return response()->json([
             'status' => 'success',
@@ -85,9 +88,9 @@ class KelasController extends Controller
     /**
      * Dapatkan ringkasan statistik kelas.
      */
-    public function stats(): JsonResponse
+    public function stats(Request $request): JsonResponse
     {
-        $stats = $this->kelasService->dapatkanStatistik();
+        $stats = $this->kelasService->dapatkanStatistik($this->accessibleRombelIds($request));
 
         return response()->json([
             'status' => 'success',
@@ -173,7 +176,7 @@ class KelasController extends Controller
      */
     public function restore(Request $request, string $id): JsonResponse
     {
-        $this->scopedKelas($request, $id);
+        $this->scopedKelas($request, $id, true);
         $berhasil = $this->kelasService->pulihkan($id);
 
         if (! $berhasil) {
@@ -217,7 +220,7 @@ class KelasController extends Controller
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $hasil = $this->kelasService->prosesImport($rows);
+        $hasil = $this->kelasService->prosesImport($this->scopedImportRows($request, $rows));
 
         return response()->json([
             'status' => 'success',
@@ -226,12 +229,70 @@ class KelasController extends Controller
         ]);
     }
 
-    private function scopedKelas(Request $request, string $id): Kelas
+    private function scopedKelas(Request $request, string $id, bool $withTrashed = false): Kelas
     {
-        return $this->accessScopeService
-            ->accessibleRombels($request->user())
+        $query = $this->accessScopeService->accessibleRombels($request->user());
+        if ($withTrashed) {
+            $query->withTrashed();
+        }
+
+        return $query
             ->whereKey($id)
             ->firstOrFail();
+    }
+
+    private function accessibleRombelIds(Request $request, bool $withTrashed = false): array
+    {
+        $query = $this->accessScopeService->accessibleRombels($request->user());
+        if ($withTrashed) {
+            $query->withTrashed();
+        }
+
+        return $query->pluck('tbl_kelas.id')->all();
+    }
+
+    private function scopedImportRows(Request $request, array $rows): array
+    {
+        $allowedUnitIds = $this->accessScopeService
+            ->accessibleEducationUnits($request->user())
+            ->pluck('education_units.id')
+            ->all();
+        abort_if($allowedUnitIds === [], 403, 'Tidak ada unit pendidikan dalam cakupan akun.');
+
+        $allowedKelasIds = $this->accessibleRombelIds($request, true);
+        $codes = collect($rows)
+            ->filter(fn ($row) => is_array($row))
+            ->map(fn ($row) => trim((string) ($row['kode_kelas'] ?? $row['kode'] ?? '')))
+            ->filter()
+            ->unique();
+        $existingByCode = Kelas::withTrashed()
+            ->whereIn('kode_kelas', $codes)
+            ->get(['id', 'kode_kelas'])
+            ->keyBy('kode_kelas');
+
+        return collect($rows)->map(function ($row) use ($allowedUnitIds, $allowedKelasIds, $existingByCode) {
+            abort_unless(is_array($row), 422, 'Setiap baris impor harus berupa objek data.');
+
+            $unitId = $row['unit_pendidikan_id'] ?? $row['unit_id'] ?? $allowedUnitIds[0];
+            abort_unless(
+                in_array($unitId, $allowedUnitIds, true),
+                403,
+                'Baris impor memuat unit pendidikan di luar cakupan akun.'
+            );
+
+            $code = trim((string) ($row['kode_kelas'] ?? $row['kode'] ?? ''));
+            $existing = $code !== '' ? $existingByCode->get($code) : null;
+            abort_unless(
+                ! $existing || in_array($existing->id, $allowedKelasIds, true),
+                403,
+                'Data kelas yang akan diperbarui berada di luar cakupan akun.'
+            );
+
+            $row['unit_pendidikan_id'] = $unitId;
+            unset($row['unit_id']);
+
+            return $row;
+        })->all();
     }
 
     private function assertUnitScope(Request $request, ?string $unitId): void

@@ -27,7 +27,7 @@ class DivisiPendidikanDashboardController extends Controller
             ], 401);
         }
 
-        $data = $this->service->getDashboardOverview($request->all());
+        $data = $this->service->getDashboardOverview($user, $request->all());
 
         return response()->json([
             'success' => true,

@@ -39,8 +39,6 @@ const UNIT_COLORS = {
 }
 
 const EMPTY_OPTIONS = []
-const DEFAULT_JENJANG = ['TKIT', 'SDIT', 'SMPIT', 'SMAIT', 'MIT', 'MA']
-const DEFAULT_TINGKAT = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 
 function getUnitBadgeStyle(type) {
   return (
@@ -104,8 +102,10 @@ export default function MasterKelasPage() {
   const masterTahunAjaran = optionsData?.tahun_ajaran || EMPTY_OPTIONS
   const masterSemesters = optionsData?.semesters || EMPTY_OPTIONS
   const masterEmployees = optionsData?.employees || optionsData?.guru || EMPTY_OPTIONS
-  const masterJenjang = optionsData?.jenjang || DEFAULT_JENJANG
-  const masterTingkat = optionsData?.tingkat || DEFAULT_TINGKAT
+  // Master options are API-owned. An empty response must remain empty so a
+  // broken lookup cannot silently turn into business data fabricated in UI.
+  const masterJenjang = optionsData?.jenjang || EMPTY_OPTIONS
+  const masterTingkat = optionsData?.tingkat || EMPTY_OPTIONS
 
   const availableSemestersForm = useMemo(() => {
     if (!formData.tahun_ajaran_id) return masterSemesters

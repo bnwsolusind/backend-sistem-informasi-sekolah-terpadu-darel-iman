@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\RoleName;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,17 +17,16 @@ class EnsureFoundationReadOnly
     {
         $user = $request->user();
 
-        if ($user && ! $user->hasRole('Super Admin')) {
+        if ($user && ! RoleName::userHasAny($user, ['Super Admin'])) {
             $foundationRoles = [
                 'Yayasan',
                 'Ketua Yayasan',
-                'ketua_yayasan',
-                'sekretaris_yayasan',
-                'bendahara_yayasan',
-                'pengurus_yayasan',
+                'Pengurus Yayasan',
+                'Sekretaris Yayasan',
+                'Bendahara Yayasan',
             ];
 
-            if ($user->hasAnyRole($foundationRoles)) {
+            if (RoleName::userHasAny($user, $foundationRoles)) {
                 $method = strtoupper($request->method());
 
                 if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {

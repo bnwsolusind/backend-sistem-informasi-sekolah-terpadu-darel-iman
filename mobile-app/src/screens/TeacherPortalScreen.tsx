@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
-  headerTag: { color: '#3FBF75', fontSize: 11, fontWeight: 'bold', tracking: 1 },
+  headerTag: { color: '#3FBF75', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
   headerTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginTop: 4 },
   headerSubtitle: { color: '#E2E8F0', fontSize: 12, marginTop: 2 },
   tabContainer: {

@@ -166,14 +166,18 @@ class JadwalPelajaranSeeder extends Seeder
             $mapelJadwal = $mataPelajaran[$index % $mataPelajaran->count()];
 
             ClassSchedule::query()->updateOrCreate([
-                'kelas_id' => $kelasJadwal->id,
-                'employee_id' => $guruJadwal->id,
-                'subject_id' => $mapelJadwal->id,
                 'academic_year_id' => $tahunAjaran->id,
                 'semester_id' => $semester->id,
                 'day_of_week' => $slot['hari'],
                 'time_start' => $slot['mulai'],
             ], [
+                // The acceptance fixture owns one deterministic schedule per
+                // period/time slot. Do not key by mutable assignment IDs:
+                // employee reseeding must update the fixture, not duplicate
+                // schedules on every run.
+                'kelas_id' => $kelasJadwal->id,
+                'employee_id' => $guruJadwal->id,
+                'subject_id' => $mapelJadwal->id,
                 'class_id' => null,
                 'teacher_id' => null,
                 'time_end' => $slot['selesai'],

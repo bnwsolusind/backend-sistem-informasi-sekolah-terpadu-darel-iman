@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { ChevronsUpDown } from 'lucide-react'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/table'
 import { cn } from '../../lib/utils'
 import AppSearch from './AppSearch'
@@ -63,6 +63,11 @@ export default function AppDataTable({
   emptyDescription,
   emptyActionLabel,
   emptyActionOnClick,
+  hasActiveFilters,
+  filteredEmptyTitle = 'Data tidak ditemukan',
+  filteredEmptyDescription = 'Coba ubah kata kunci atau filter yang digunakan.',
+  filteredEmptyActionLabel = 'Reset Filter',
+  onResetFilters,
   isEmpty,
   onView,
   onEdit,
@@ -144,6 +149,7 @@ export default function AppDataTable({
     ? sortedData.slice((resolvedClientPage - 1) * clientPageSize, resolvedClientPage * clientPageSize)
     : sortedData
   const resolvedIsEmpty = typeof isEmpty === 'boolean' ? isEmpty : !hasCustomTable && sortedData.length === 0
+  const isFilteredEmpty = typeof hasActiveFilters === 'boolean' ? hasActiveFilters : Boolean(searchValue)
   const customTable = typeof renderTable === 'function'
     ? renderTable({ data: visibleData, sortKey, sortDir })
     : children
@@ -199,10 +205,10 @@ export default function AppDataTable({
         </div>
       ) : resolvedIsEmpty ? (
         <AppEmptyState
-          title={emptyTitle || 'Data Tidak Ditemukan'}
-          description={emptyDescription || 'Belum ada data yang sesuai dengan kriteria.'}
-          actionLabel={emptyActionLabel}
-          onAction={emptyActionOnClick}
+          title={isFilteredEmpty ? filteredEmptyTitle : (emptyTitle || 'Data Tidak Ditemukan')}
+          description={isFilteredEmpty ? filteredEmptyDescription : (emptyDescription || 'Belum ada data yang sesuai dengan kriteria.')}
+          actionLabel={isFilteredEmpty ? filteredEmptyActionLabel : emptyActionLabel}
+          onAction={isFilteredEmpty ? (onResetFilters || emptyActionOnClick) : emptyActionOnClick}
         />
       ) : hasCustomTable ? (
         <div className={cn('app-data-table__viewport min-w-0 overflow-x-auto', tableContainerClassName)}>

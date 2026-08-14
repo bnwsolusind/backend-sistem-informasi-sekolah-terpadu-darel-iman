@@ -226,11 +226,6 @@ class Subject extends Model
         return $this->hasMany(StudentGrade::class, 'subject_id');
     }
 
-    public function rapor(): HasMany
-    {
-        return $this->hasMany(LmsRapor::class, 'mata_pelajaran_id');
-    }
-
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

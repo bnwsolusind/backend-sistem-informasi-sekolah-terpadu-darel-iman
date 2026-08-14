@@ -7,27 +7,24 @@ export const employeeService = {
   },
 
   getDaftar: async (params = {}) => {
-    try {
-      const { data } = await api.get('/employees', { params })
-      return data
-    } catch {
-      return {
-        data: [
-          { id: 1, niy: '2026001', nik: '1234567890123456', nama_lengkap: 'Ustadz Abdullah S.Pd', jenis_kelamin: 'L', status_pegawai: 'Tetap', is_active: true, email: 'abdullah@school.local', no_hp: '081234567890', unit: { name: 'SDIT Dar El-Iman 1' }, position: { name: 'Guru Kelas' } },
-          { id: 2, niy: '2026002', nik: '1234567890123457', nama_lengkap: 'Ustadzah Fatimah M.Pd', jenis_kelamin: 'P', status_pegawai: 'Tetap', is_active: true, email: 'fatimah@school.local', no_hp: '081234567891', unit: { name: 'TKIT Dar El-Iman 1' }, position: { name: 'Guru TK' } }
-        ],
-        total: 2,
-        from: 1,
-        to: 2,
-        last_page: 1,
-        current_page: 1,
-        per_page: 15
-      }
-    }
+    const { data } = await api.get('/employees', { params })
+    return data
   },
 
   getPositions: async () => {
     const { data } = await api.get('/employees/positions')
+    return data
+  },
+
+  getAcademicYears: async () => {
+    const { data } = await api.get('/master/tahun-ajaran/dropdown')
+    return data
+  },
+
+  getSemesters: async (academicYearId) => {
+    const { data } = await api.get('/master/tahun-ajaran/dropdown', {
+      params: { academic_year_id: academicYearId }
+    })
     return data
   },
 
@@ -65,6 +62,11 @@ export const employeeService = {
 
   exportData: async (params = {}) => {
     const { data } = await api.get('/employees/export', { params })
+    return data
+  },
+
+  generateQrCredential: async (employeeId) => {
+    const { data } = await api.post(`/auth/qr/employee/${employeeId}`)
     return data
   },
 }

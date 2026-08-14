@@ -67,15 +67,7 @@ export function FoundationDashboardPage() {
       }
     } catch (err) {
       console.error('Failed to load foundation dashboard:', err)
-      setData({
-        kpis: { total_siswa: 1250, total_guru: 85 },
-        unit_summaries: [
-          { id: 1, name: 'TKIT Dar El-Iman 1', jenjang: 'TKIT', siswa_aktif_count: 120, guru_count: 10, pegawai_count: 5, rombel_count: 4 },
-          { id: 2, name: 'SDIT Dar El-Iman 1', jenjang: 'SDIT', siswa_aktif_count: 450, guru_count: 32, pegawai_count: 12, rombel_count: 15 },
-          { id: 3, name: 'SMPIT Dar El-Iman', jenjang: 'SMPIT', siswa_aktif_count: 380, guru_count: 25, pegawai_count: 10, rombel_count: 12 }
-        ],
-        recent_activities: []
-      })
+      setError(err?.response?.data?.message || 'Gagal memuat data dashboard yayasan.')
     } finally {
       setLoading(false)
     }

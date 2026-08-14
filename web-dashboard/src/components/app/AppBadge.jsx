@@ -26,15 +26,25 @@ const dotColors = {
   outline: 'bg-slate-400',
 }
 
+export function getStatusVariant(status) {
+  const normalized = String(status ?? '').toLowerCase().replace(/[_-]/g, ' ')
+  if (['active', 'aktif', 'success', 'paid', 'lunas', 'hadir', 'approved', 'disetujui'].includes(normalized)) return 'success'
+  if (['pending', 'menunggu', 'proses', 'in progress', 'draft'].includes(normalized)) return 'warning'
+  if (['inactive', 'nonaktif', 'failed', 'gagal', 'rejected', 'ditolak', 'absent', 'alpa'].includes(normalized)) return 'danger'
+  if (['info', 'informasi'].includes(normalized)) return 'info'
+  return 'secondary'
+}
+
 /**
  * AppBadge - canonical badge.
  * variant: primary | secondary | success | warning | danger | info | purple | neutral | outline
  * dot: menampilkan titik status di depan label
  */
-export default function AppBadge({ variant = 'secondary', dot = false, className = '', children, ...props }) {
+export default function AppBadge({ variant, status, dot = false, className = '', children, ...props }) {
+  const resolvedVariant = variant || (status ? getStatusVariant(status) : 'secondary')
   return (
-    <Badge className={cn(badgeVariants[variant], className)} {...props}>
-      {dot && <span className={cn('h-1.5 w-1.5 rounded-full', dotColors[variant] || dotColors.secondary)} />}
+    <Badge className={cn(badgeVariants[resolvedVariant], className)} {...props}>
+      {dot && <span className={cn('h-1.5 w-1.5 rounded-full', dotColors[resolvedVariant] || dotColors.secondary)} />}
       {children}
     </Badge>
   )

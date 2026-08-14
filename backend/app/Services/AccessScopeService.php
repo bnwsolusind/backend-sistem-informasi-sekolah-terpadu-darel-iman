@@ -22,11 +22,17 @@ class AccessScopeService
         if ($this->hasAnyRole($user, [
             'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
             'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
-            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Bidang Pendidikan',
+            'Bendahara Yayasan', 'bendahara_yayasan',
+        ])) {
+            return EducationUnit::query();
+        }
+
+        if ($this->hasAnyRole($user, [
+            'Kepala Bidang Pendidikan',
             'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
             'Divisi Program Khusus', 'divisi_pendidikan',
         ])) {
-            return EducationUnit::query();
+            return EducationUnit::query()->whereIn('id', $this->divisionAllowedEducationUnitIds($user));
         }
 
         $employee = Employee::query()->where('user_id', $user->id)->first();
@@ -160,9 +166,7 @@ class AccessScopeService
         if ($this->hasAnyRole($user, [
             'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
             'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
-            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Bidang Pendidikan',
-            'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
-            'Divisi Program Khusus', 'divisi_pendidikan',
+            'Bendahara Yayasan', 'bendahara_yayasan',
         ])) {
             return Employee::query();
         }
@@ -231,5 +235,48 @@ class AccessScopeService
         $actual = $user->getRoleNames()->map($normalize);
 
         return collect($roles)->map($normalize)->intersect($actual)->isNotEmpty();
+    }
+
+    /**
+     * Resolve allowlist unit lintas-unit dari metadata akun yang dikelola server.
+     * Nama `accessibile_unit_ids` dipertahankan sebagai alias kompatibilitas untuk
+     * data lama yang terlanjur memakai ejaan tersebut. Bila allowlist belum ada,
+     * unit pegawai menjadi fallback tunggal; akun tanpa keduanya harus fail closed.
+     */
+    private function divisionAllowedEducationUnitIds(User $user): Collection
+    {
+        $metadata = is_array($user->metadata) ? $user->metadata : [];
+        $paths = [
+            'allowed_unit_ids',
+            'accessible_unit_ids',
+            'accessibile_unit_ids',
+            'data_scope.allowed_unit_ids',
+            'data_scope.accessible_unit_ids',
+            'data_scope.accessibile_unit_ids',
+        ];
+
+        foreach ($paths as $path) {
+            $rawIds = data_get($metadata, $path);
+            if ($rawIds === null) {
+                continue;
+            }
+
+            $ids = collect(is_array($rawIds) ? $rawIds : [$rawIds])
+                ->filter(fn ($id) => is_string($id) || is_int($id))
+                ->map(fn ($id) => trim((string) $id))
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($ids->isNotEmpty()) {
+                return $ids;
+            }
+        }
+
+        $employeeUnitId = Employee::query()
+            ->where('user_id', $user->id)
+            ->value('unit_id');
+
+        return collect([$employeeUnitId])->filter()->values();
     }
 }

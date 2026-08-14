@@ -21,16 +21,14 @@ export default function AppDrawer({ isOpen, onClose, title, description, icon: I
           )}
           <span className="min-w-0">
             <span className="block truncate">{title}</span>
-            {description && <span className="block text-[11px] font-medium text-slate-400">{description}</span>}
           </span>
         </span>
       }
       position={position}
+      description={description}
+      footer={footer}
     >
-      <div className="flex h-full flex-col">
-        <div className="flex-1">{children}</div>
-        {footer && <div className="mt-4 shrink-0 border-t border-slate-100 pt-4 dark:border-slate-800">{footer}</div>}
-      </div>
+      {children}
     </Drawer>
   )
 }

@@ -22,7 +22,8 @@ import { mobileApiService } from '../services/mobileApiService';
 import { useAuthStore } from '../stores/authStore';
 
 export default function ProfilScreen() {
-  const setToken = useAuthStore((state) => state.setToken);
+  const token = useAuthStore((state) => state.token);
+  const clearSession = useAuthStore((state) => state.clearSession);
   const [profile, setProfile] = useState({
     name: 'Ahmad Zaki Al-Faruq',
     email: 'zaki.alfaruq@sims-sekolah.sch.id',
@@ -33,6 +34,7 @@ export default function ProfilScreen() {
   });
 
   useEffect(() => {
+    if (!token) return;
     mobileApiService.getProfile().then((data) => {
       if (data) {
         setProfile((prev) => ({
@@ -42,8 +44,8 @@ export default function ProfilScreen() {
           role: data.role || prev.role,
         }));
       }
-    });
-  }, []);
+    }).catch(() => {});
+  }, [token]);
 
   const handleLogout = () => {
     Alert.alert('Keluar Aplikasi', 'Apakah Anda yakin ingin keluar dari akun ini?', [
@@ -51,7 +53,7 @@ export default function ProfilScreen() {
       {
         text: 'Keluar',
         style: 'destructive',
-        onPress: () => setToken(null),
+        onPress: clearSession,
       },
     ]);
   };

@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\StudentCardSetting;
+use App\Services\AccessScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class StudentCardSettingController extends Controller
 {
+    public function __construct(private readonly AccessScopeService $accessScope) {}
+
     public function show(Request $request): JsonResponse
     {
         $unitId = $request->query('education_unit_id');
@@ -44,8 +47,13 @@ class StudentCardSettingController extends Controller
         ]);
 
         $userId = $request->user()->id;
+        if (! empty($data['education_unit_id'])) {
+            $this->accessScope->assertEducationUnitAccess($request->user(), $data['education_unit_id']);
+        }
+
         if ($data['is_default'] ?? false) {
             StudentCardSetting::query()
+                ->where('user_id', $userId)
                 ->where('education_unit_id', $data['education_unit_id'] ?? null)
                 ->update(['is_default' => false, 'updated_by' => $userId]);
         }

@@ -18,19 +18,48 @@ const Tab = createBottomTabNavigator();
 export default function BottomTabs() {
   const token = useAuthStore((state) => state.token);
   const setRoles = useAuthStore((state) => state.setRoles);
-  const roles = useAuthStore((state) => state.roles.map((role) => role.toLowerCase().replace(/[_ ]/g, '')));
+  const setPermissions = useAuthStore((state) => state.setPermissions);
+  const roles = useAuthStore((state) => state.roles.map((role) => role.toLowerCase().replace(/[\s_/-]+/g, '')));
+  const permissions = useAuthStore((state) => state.permissions);
+
   useEffect(() => {
-    if (!token || roles.length) return;
+    if (!token) return;
     mobileApiService.getProfile().then((response) => {
       const profile = response?.data ?? response;
       const profileRoles = profile?.roles || (profile?.role ? [profile.role] : []);
+      const profilePermissions = profile?.permissions || [];
       setRoles(profileRoles.map((role: any) => typeof role === 'string' ? role : role.name).filter(Boolean));
-    }).catch(() => setRoles([]));
-  }, [roles.length, setRoles, token]);
-  const canPreview = roles.some((role) => ['superadmin', 'admin'].includes(role));
-  const isTeacher = roles.some((role) => ['guru', 'teacher'].includes(role));
-  const isParent = canPreview || roles.some((role) => ['orangtua', 'parent', 'wali'].includes(role));
-  const isStudent = canPreview || roles.some((role) => ['siswa', 'student'].includes(role));
+      setPermissions(profilePermissions.map((permission: any) => typeof permission === 'string' ? permission : permission.name).filter(Boolean));
+    }).catch(() => {
+      setRoles([]);
+      setPermissions([]);
+    });
+  }, [setPermissions, setRoles, token]);
+
+  const isAuthenticated = Boolean(token);
+  const isSuperAdmin = roles.includes('superadmin');
+  const hasAnyPermission = (...names: string[]) => isSuperAdmin || names.some((name) => permissions.includes(name));
+  const hasPermissionPrefix = (prefix: string) => isSuperAdmin || permissions.some((permission) => permission.startsWith(prefix));
+  const isTeacher = roles.some((role) => [
+    'guru', 'teacher', 'gurumatapelajaran', 'gurupai', 'pembimbing', 'walikelas',
+    'gurutahfizh', 'gurubk', 'musyrif', 'musyrifah', 'musyrifmusyrifah',
+  ].includes(role));
+  const isParent = roles.some((role) => ['orangtua', 'orangtuasiswa', 'parent', 'walimurid', 'wali'].includes(role));
+  const isStudent = roles.some((role) => ['siswa', 'student'].includes(role));
+  const canOpenTeacherPortal = isAuthenticated && (isTeacher || isSuperAdmin) && hasAnyPermission('teacher.dashboard.view');
+  const canOpenParentPortal = isAuthenticated && (isParent || isSuperAdmin) && hasAnyPermission('parent.portal.view');
+  const canOpenStudentPortal = isAuthenticated && (isStudent || isSuperAdmin) && hasAnyPermission('student.portal.view');
+  const canOpenAttendance = isAuthenticated && hasAnyPermission(
+    'attendance.view', 'attendance.manage', 'teacher.attendance.view', 'teacher.attendance.create',
+    'parent.attendance.view', 'student.attendance.view', 'student_attendance.view_own',
+    'lesson_attendance.view', 'lesson_attendance.view_own',
+  );
+  const canOpenTahfizh = isAuthenticated && (
+    hasPermissionPrefix('tahfizh.') || hasAnyPermission('teacher.tahfizh.view', 'parent.tahfizh.view', 'student.tahfizh.view')
+  );
+  const canOpenMutabaah = isAuthenticated && (
+    hasPermissionPrefix('mutabaah.') || hasAnyPermission('teacher.mutabaah.view', 'parent.mutabaah.view', 'student.mutabaah.view')
+  );
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -55,37 +84,37 @@ export default function BottomTabs() {
           },
         })}
       >
-        <Tab.Screen
+        {isAuthenticated && <Tab.Screen
           name="Beranda"
           component={HomeScreen}
           options={{ title: 'SIMS Islam Terpadu' }}
-        />
-        {isTeacher && <Tab.Screen
+        />}
+        {canOpenTeacherPortal && <Tab.Screen
           name="Guru"
           component={TeacherPortalScreen}
           options={{ title: 'Portal Guru' }}
         />}
-        {isParent && <Tab.Screen
+        {canOpenParentPortal && <Tab.Screen
           name="Orang Tua"
           component={ParentPortalScreen}
           options={{ title: 'Portal Ortu' }}
         />}
-        {isStudent && <Tab.Screen
+        {canOpenStudentPortal && <Tab.Screen
           name="Siswa"
           component={StudentPortalScreen}
           options={{ title: 'Portal Siswa' }}
         />}
-        <Tab.Screen
+        {canOpenAttendance && <Tab.Screen
           name="Absensi"
           component={AbsensiScreen}
           options={{ title: 'Presensi' }}
-        />
-        <Tab.Screen
+        />}
+        {canOpenTahfizh && <Tab.Screen
           name="Tahfizh"
           component={TahfizhScreen}
           options={{ title: 'Tahfizh' }}
-        />
-        <Tab.Screen name="Mutabaah" component={MutabaahScreen} options={{ title: 'Mutabaah' }} />
+        />}
+        {canOpenMutabaah && <Tab.Screen name="Mutabaah" component={MutabaahScreen} options={{ title: 'Mutabaah' }} />}
         <Tab.Screen
           name="Profil"
           component={ProfilScreen}

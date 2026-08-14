@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Roles & Permissions & System Configuration
+        // Roles/permissions and system defaults are safe bootstrap data.
         $this->call([
             RolePermissionSeeder::class,
             AttendancePermissionSeeder::class,
@@ -28,31 +28,16 @@ class DatabaseSeeder extends Seeder
             StudentCardSettingsSeeder::class,
         ]);
 
-        // 2. Master Data Organizations & Education Units
-        $this->call([
-            MasterJenisUnitPendidikanSeeder::class,
-            DataDummyUnitPendidikanSeeder::class,
-            MasterJabatanSeeder::class,
-            DataDummyPegawaiSeeder::class,
-            TeacherSeeder::class,
-        ]);
+        // All records below are development/acceptance fixtures. Never seed
+        // them through the production DatabaseSeeder.
+        if (! app()->environment(['local', 'development', 'testing'])) {
+            return;
+        }
 
-        // 3. Parents & Students
+        // 1. Master data and the deterministic login/ownership graph.
         $this->call([
-            ParentSeeder::class,
-            DataDummySiswaSeeder::class,
-        ]);
-
-        // 4. Academic Master
-        $this->call([
-            MasterKurikulumSeeder::class,
-            SubjectSeeder::class,
-            KelasSeeder::class,
-            JadwalPelajaranSeeder::class,
+            SuperAdminAcceptanceSeeder::class,
             ModulSemesterSeeder::class,
-            // Akun role dibuat setelah unit, pegawai, tahun ajaran, semester,
-            // dan kelas tersedia agar setiap login mempunyai relasi scope utuh.
-            DefaultRoleUserSeeder::class,
             QrCredentialSeeder::class,
         ]);
 

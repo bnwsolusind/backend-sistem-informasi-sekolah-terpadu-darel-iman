@@ -16,7 +16,7 @@
 // --- Primitive global components ---
 export { default as AppButton } from './AppButton'
 export { default as AppIconButton } from './IconButton'
-export { default as AppBadge } from './AppBadge'
+export { default as AppBadge, getStatusVariant } from './AppBadge'
 export { default as AppModal } from './AppModal'
 export { default as AppDrawer } from './AppDrawer'
 export { default as AppPagination } from './AppPagination'

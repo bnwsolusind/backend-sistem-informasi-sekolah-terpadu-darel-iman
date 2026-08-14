@@ -70,7 +70,9 @@ class SubjectService
             return false;
         }
 
-        foreach (['schedules', 'capaianPembelajaran', 'tujuanPembelajaran', 'modulAjar', 'materi', 'penugasan', 'kisiKisi', 'bankSoal', 'cbt', 'penilaian', 'rapor', 'teachers', 'classes', 'rombel'] as $relation) {
+        // Rapor is an aggregate per student and academic period; it has no
+        // subject foreign key. Subject usage is guarded by student grades.
+        foreach (['schedules', 'capaianPembelajaran', 'tujuanPembelajaran', 'modulAjar', 'materi', 'penugasan', 'kisiKisi', 'bankSoal', 'cbt', 'penilaian', 'teachers', 'classes', 'rombel'] as $relation) {
             if ($subject->{$relation}()->exists()) {
                 throw ValidationException::withMessages([
                     'subject' => 'Mata pelajaran sudah digunakan pada data akademik dan tidak dapat dihapus. Nonaktifkan data jika tidak lagi digunakan.',

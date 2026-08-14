@@ -15,18 +15,18 @@ use Illuminate\Support\Facades\Schema;
 
 class KepalaSekolahDashboardService
 {
+    public function __construct(private readonly AccessScopeService $accessScope) {}
+
     public function getDashboardData($user, array $filters = []): array
     {
-        // Determine unit_id for Principal
-        $employee = Employee::where('user_id', $user->id)->first();
-        $unitId = $employee ? $employee->unit_id : null;
-
-        if (! $unitId && ! empty($filters['unit_id'])) {
-            $unitId = $filters['unit_id'];
+        $unitQuery = $this->accessScope->accessibleEducationUnits($user);
+        if (! empty($filters['unit_id']) && $filters['unit_id'] !== 'all') {
+            $this->accessScope->assertEducationUnitAccess($user, (string) $filters['unit_id']);
+            $unitQuery->whereKey($filters['unit_id']);
         }
 
-        // Active unit info
-        $unit = $unitId ? EducationUnit::find($unitId) : EducationUnit::first();
+        // A principal without an explicit unit assignment must fail closed.
+        $unit = $unitQuery->first();
         $targetUnitId = $unit ? $unit->id : null;
 
         // Context
@@ -34,16 +34,10 @@ class KepalaSekolahDashboardService
         $activeSemester = Semester::where('is_active', true)->first() ?? Semester::latest()->first();
 
         // 1. KPIs scoped to Principal's unit
-        $studentQuery = Student::query();
-        $employeeQuery = Employee::query();
+        $studentQuery = Student::query()->whereIn('unit_id', array_filter([$targetUnitId]));
+        $employeeQuery = Employee::query()->whereIn('unit_id', array_filter([$targetUnitId]));
         $teacherQuery = Teacher::query();
-        $classQuery = Kelas::query();
-
-        if ($targetUnitId) {
-            $studentQuery->where('unit_id', $targetUnitId);
-            $employeeQuery->where('unit_id', $targetUnitId);
-            $classQuery->where('unit_pendidikan_id', $targetUnitId);
-        }
+        $classQuery = Kelas::query()->whereIn('unit_pendidikan_id', array_filter([$targetUnitId]));
 
         $totalSiswa = (clone $studentQuery)->where('is_active', true)->count();
         $like = DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
@@ -73,10 +67,9 @@ class KepalaSekolahDashboardService
         $alpha = 0;
 
         if (Schema::hasTable('attendances')) {
-            $attQuery = DB::table('attendances')->whereDate('attendance_date', $today);
-            if ($targetUnitId) {
-                $attQuery->whereIn('student_id', (clone $studentQuery)->pluck('id'));
-            }
+            $attQuery = DB::table('attendances')
+                ->whereDate('attendance_date', $today)
+                ->whereIn('student_id', (clone $studentQuery)->pluck('id'));
             $hadirHariIni = (clone $attQuery)->whereIn('status', ['present', 'hadir'])->count();
             $terlambat = (clone $attQuery)->where('status', 'late')->count();
             $izin = (clone $attQuery)->whereIn('status', ['permission', 'izin'])->count();
@@ -87,10 +80,9 @@ class KepalaSekolahDashboardService
         // Tahfizh setoran hari ini
         $setoranTahfizhHariIni = 0;
         if (Schema::hasTable('tahfizh_records')) {
-            $tQuery = DB::table('tahfizh_records')->whereDate('record_date', $today);
-            if ($targetUnitId) {
-                $tQuery->whereIn('student_id', (clone $studentQuery)->pluck('id'));
-            }
+            $tQuery = DB::table('tahfizh_records')
+                ->whereDate('record_date', $today)
+                ->whereIn('student_id', (clone $studentQuery)->pluck('id'));
             $setoranTahfizhHariIni = $tQuery->count();
         }
 
@@ -116,9 +108,7 @@ class KepalaSekolahDashboardService
             $trendQuery = DB::table('attendances')
                 ->selectRaw('attendance_date as date, sum(case when status in (\'present\',\'hadir\') then 1 else 0 end) as hadir, sum(case when status = \'late\' then 1 else 0 end) as terlambat, sum(case when status in (\'absent\',\'alpha\') then 1 else 0 end) as alpha')
                 ->whereBetween('attendance_date', [$sub7Days, $today]);
-            if ($targetUnitId) {
-                $trendQuery->whereIn('student_id', (clone $studentQuery)->pluck('id'));
-            }
+            $trendQuery->whereIn('student_id', (clone $studentQuery)->pluck('id'));
             $attendanceTrend = $trendQuery
                 ->groupBy('attendance_date')
                 ->orderBy('attendance_date')

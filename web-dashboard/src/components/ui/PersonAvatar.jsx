@@ -89,7 +89,8 @@ export default function PersonAvatar({
       <img
         src={resolvedSrc}
         alt={alt || name || 'Avatar'}
-        loading="lazy"
+        loading="eager"
+        crossOrigin="anonymous"
         className="h-full w-full object-cover"
         onError={() => setImageFailed(true)}
       />

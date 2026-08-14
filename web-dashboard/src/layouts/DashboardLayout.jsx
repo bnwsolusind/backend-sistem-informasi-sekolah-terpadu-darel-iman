@@ -59,7 +59,10 @@ export default function DashboardLayout() {
   const hasRole = (...names) => names.some((name) => roles.some((role) => String(role).toLowerCase().replace(/[\s_-]+/g, '') === String(name).toLowerCase().replace(/[\s_-]+/g, '')))
   const can = (...names) => hasRole('Super Admin') || names.some((name) => permissions.includes(name))
   const canViewEducationUnits = can('unit.view', 'unit.view_all', 'foundation.unit.view', 'sistem.master_data')
+  const canViewStudents = can('student.view', 'student.view_all', 'kesiswaan.data_lengkap_siswa')
+  const canCreateStudent = can('student.create')
   const isPortalUser = isStudentRole(roles) || isParentRole(roles)
+  const defaultPortal = resolveDefaultPortal(user || {})
 
   const [collapsed, setCollapsed] = useState(Boolean(pengaturan?.sidebar_collapsed))
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -323,9 +326,19 @@ export default function DashboardLayout() {
     if (to.startsWith('/dashboard/pemantauan')) return can('dashboard.pemantauan.lihat', 'teacher_monitoring.view')
     // Data pribadi hanya memberi akses ke profil siswa sendiri di portal,
     // bukan ke master data seluruh siswa.
-    if (to === '/dashboard/students') return can('kesiswaan.data_lengkap_siswa')
+    if (to === '/dashboard/students') return canViewStudents
     if (to.includes('/students/rombel') || to.includes('/students/kelas')) return can('kesiswaan.kelas_rombel')
-    if (to.includes('/students/input') || to.includes('/students/laporan')) return can('kesiswaan.laporan_masuk_keluar')
+    if (to.includes('/students/input')) return canCreateStudent
+    if (to.includes('/students/laporan')) return can('report.student.view', 'kesiswaan.laporan_masuk_keluar')
+    if (to.includes('/employees') || to.includes('/students/pegawai') || to.includes('/master/pegawai') || to.includes('/master/guru')) {
+      return can('employee.view', 'employee.view_all', 'foundation.employee.view')
+    }
+    if (to.includes('/unit-pendidikan') || to.includes('/master-jenis-unit')) return canViewEducationUnits
+    if (to.includes('/master-jabatan') || to.includes('/master-tahun-ajaran') || to.includes('/students/jabatan')) {
+      return can('master.view', 'sistem.master_data')
+    }
+    if (to.includes('/chat-pegawai')) return can('chat.conversation.view', 'chat.manage')
+    if (to.includes('/akademik') || to === '/dashboard/academic') return can('academic.view', 'academic.manage')
     if (to.includes('/lms/penugasan')) return can('kesiswaan.penugasan_siswa')
     if (to.includes('/lms/materi-pembelajaran')) return can('pembelajaran.materi')
     if (to.includes('/lms/kisi-kisi')) return can('pembelajaran.kisi_kisi_ujian')
@@ -380,8 +393,8 @@ export default function DashboardLayout() {
         )
       )
     }
-    if (to.includes('/hak-akses')) return can('sistem.hak_akses')
-    if (to.includes('/pengaturan')) return can('sistem.pengaturan')
+    if (to.includes('/hak-akses')) return can('sistem.hak_akses', 'permission.manage', 'role.manage')
+    if (to.includes('/pengaturan')) return can('sistem.pengaturan', 'setting.manage')
 
     return can('sistem.master_data')
   }
@@ -1148,26 +1161,40 @@ export default function DashboardLayout() {
       {/* Mobile Bottom Navigation (Responsive Mobile View <= 768px) */}
       <AppBottomNavigation
         items={[
-          { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
-           ...((isStudentRole(roles) || isParentRole(roles) || can('kesiswaan.data_lengkap_siswa'))
+          { to: defaultPortal, label: 'Beranda', icon: LayoutDashboard, end: true },
+           ...(canViewStudents && !isStudentRole(roles) && !isParentRole(roles)
              ? [{
-                 to: isStudentRole(roles) ? '/portal-siswa' : isParentRole(roles) ? '/portal-orangtua' : '/dashboard/students',
-                 label: isStudentRole(roles) ? 'Portal Siswa' : isParentRole(roles) ? 'Portal Anak' : 'Data Siswa',
+                 to: '/dashboard/students',
+                 label: 'Data Siswa',
                 icon: Database,
               }]
             : []),
-          { to: '/dashboard/pengaturan', label: 'Profil', icon: User },
+          {
+            to: isStudentRole(roles)
+              ? '/portal-siswa/profil'
+              : isParentRole(roles)
+                ? '/portal-orangtua?tab=profile'
+                : isFoundationUser
+                  ? '/dashboard/yayasan/profil'
+                  : '/dashboard/profil-akun',
+            label: 'Profil',
+            icon: User,
+          },
         ]}
-         actionCenter={isStudentRole(roles) || isParentRole(roles) || can('kesiswaan.data_lengkap_siswa') ? {
+         actionCenter={(isStudentRole(roles) && can('student.assignment.view')) || (isParentRole(roles) && can('parent.attendance.view')) || canCreateStudent ? {
           icon: Plus,
           ariaLabel: 'Aksi Cepat',
            onClick: () => navigate(isStudentRole(roles) ? '/portal-siswa/tugas' : isParentRole(roles) ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add'),
         } : null}
-        onOpenNotifications={() => window.dispatchEvent(new Event('open-notification-center'))}
+        onOpenNotifications={() => {
+          if (isStudentRole(roles)) navigate('/portal-siswa/informasi-sekolah')
+          else if (isParentRole(roles)) navigate('/portal-orangtua?tab=announcements')
+          else window.dispatchEvent(new Event('open-notification-center'))
+        }}
       />
 
       {/* Floating Action Button (FAB) for Mobile Quick Add */}
-       {!isStudentRole(roles) && !isParentRole(roles) && can('kesiswaan.data_lengkap_siswa') && <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />}
+       {!isStudentRole(roles) && !isParentRole(roles) && canCreateStudent && <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />}
 
       {/* Floating Chat Pop-Up & Melayang Button */}
       <FloatingChatWidget />

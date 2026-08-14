@@ -28,14 +28,19 @@ use App\Models\StudentNote;
 use App\Models\Subject;
 use App\Models\TahfizhDailyLog;
 use App\Models\Teacher;
+use App\Services\AccessScopeService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TeacherPortalController extends Controller
 {
+    public function __construct(private readonly AccessScopeService $accessScope) {}
+
     private function getTeacherContext(Request $request): ?Teacher
     {
         $user = $request->user();
@@ -50,29 +55,8 @@ class TeacherPortalController extends Controller
             $employee = Employee::query()->where('email', $user->email)->first();
         }
 
-        if (! $employee) {
-            $employee = Employee::query()->create([
-                'id' => (string) Str::uuid(),
-                'niy' => 'EMP-'.substr((string) Str::uuid(), 0, 8),
-                'nama_lengkap' => $user->name ?? 'Guru Otomatis',
-                'email' => $user->email,
-                'user_id' => $user->id,
-                'status' => 'Aktif',
-            ]);
-        }
-
-        if (! $teacher) {
+        if (! $teacher && $employee) {
             $teacher = Teacher::query()->where('employee_id', $employee->id)->first();
-        }
-
-        if (! $teacher) {
-            $teacher = Teacher::query()->create([
-                'user_id' => $user->id,
-                'employee_id' => $employee->id,
-                'employee_number' => 'TCH-'.substr((string) Str::uuid(), 0, 8),
-                'full_name' => $employee->nama_lengkap ?? $user->name ?? 'Guru Otomatis',
-                'email' => $employee->email ?? $user->email,
-            ]);
         }
 
         return $teacher;
@@ -227,11 +211,17 @@ class TeacherPortalController extends Controller
 
     private function ensureLmsModulAjar(string $guruId, ?string $subjectId, ?string $classId, ?string $semesterId, ?string $academicYearId, ?string $createdBy = null): LmsModulAjar
     {
-        $educationUnit = $this->ensureEducationUnit();
-        $academicYear = $this->ensureAcademicYear($academicYearId);
-        $semester = $this->ensureSemester($academicYear->id, $semesterId);
-        $subject = $this->ensureSubject($subjectId, $educationUnit->id, $createdBy);
-        $kelas = $this->ensureKelas($classId, $educationUnit->id, $academicYear->id, $semester->id, $createdBy);
+        $kelas = Kelas::query()->findOrFail($classId);
+        $educationUnit = EducationUnit::query()->findOrFail($kelas->unit_pendidikan_id);
+        $academicYear = AcademicYear::query()->findOrFail($academicYearId);
+        $semester = Semester::query()
+            ->where('academic_year_id', $academicYear->id)
+            ->findOrFail($semesterId);
+        $subject = Subject::query()
+            ->where(fn (Builder $query) => $query
+                ->whereNull('unit_pendidikan_id')
+                ->orWhere('unit_pendidikan_id', $educationUnit->id))
+            ->findOrFail($subjectId);
 
         $subjectId = $subject->id;
         $classId = $kelas->id;
@@ -250,8 +240,11 @@ class TeacherPortalController extends Controller
             return $existing;
         }
 
-        $kurikulum = $this->ensureKurikulum($educationUnit->id, $academicYear->id, $semester->id);
-        $subjectName = Subject::query()->find($subjectId)?->name ?? Subject::query()->first()?->name ?? 'Pembelajaran';
+        $kurikulum = MasterKurikulum::query()
+            ->where('unit_pendidikan_id', $educationUnit->id)
+            ->where('tahun_ajaran_id', $academicYear->id)
+            ->firstOrFail();
+        $subjectName = $subject->name ?? $subject->nama_mapel;
 
         return LmsModulAjar::create([
             'unit_pendidikan_id' => $educationUnit->id,
@@ -276,26 +269,13 @@ class TeacherPortalController extends Controller
 
         $activeAcademicYear = AcademicYear::query()->where('is_active', true)->first();
         $activeSemester = Semester::query()->where('is_active', true)->first();
-        $educationUnit = $teacher?->educationUnit ?? EducationUnit::query()->first();
+        $educationUnit = $teacher?->educationUnit ?? $employee?->unit;
 
         $todayDayNum = now()->dayOfWeekIso;
 
         // Schedules today
-        $schedulesQuery = ClassSchedule::query()
+        $schedulesQuery = $this->accessScope->accessibleSchedules($user)
             ->with(['kelas', 'subject'])
-            ->when($teacher || $employee, function ($q) use ($teacher, $employee) {
-                $q->where(function ($sq) use ($teacher, $employee) {
-                    if ($teacher) {
-                        $sq->where('teacher_id', $teacher->id);
-                        if ($teacher->employee_id) {
-                            $sq->orWhere('employee_id', $teacher->employee_id);
-                        }
-                    }
-                    if ($employee) {
-                        $sq->orWhere('employee_id', $employee->id);
-                    }
-                });
-            })
             ->when($activeAcademicYear, fn ($q) => $q->where('academic_year_id', $activeAcademicYear->id))
             ->when($activeSemester, fn ($q) => $q->where('semester_id', $activeSemester->id));
 
@@ -418,21 +398,8 @@ class TeacherPortalController extends Controller
         $day = $request->query('day');
         $classId = $request->query('class_id');
 
-        $schedules = ClassSchedule::query()
+        $schedules = $this->accessScope->accessibleSchedules($request->user())
             ->with(['kelas', 'subject'])
-            ->when($teacher || $employee, function ($q) use ($teacher, $employee) {
-                $q->where(function ($sq) use ($teacher, $employee) {
-                    if ($teacher) {
-                        $sq->where('teacher_id', $teacher->id);
-                        if ($teacher->employee_id) {
-                            $sq->orWhere('employee_id', $teacher->employee_id);
-                        }
-                    }
-                    if ($employee) {
-                        $sq->orWhere('employee_id', $employee->id);
-                    }
-                });
-            })
             ->when($day, function ($q) use ($day) {
                 if (is_numeric($day)) {
                     $q->where('day_of_week', (int) $day);
@@ -459,58 +426,8 @@ class TeacherPortalController extends Controller
 
     public function classes(Request $request): JsonResponse
     {
-        $teacher = $this->getTeacherContext($request);
-        $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
-
-        if ($request->user()?->hasRole('Super Admin')) {
-            $classIds = Student::query()->active()
-                ->selectRaw('COALESCE(kelas_id, class_id) as scoped_class_id')
-                ->where(fn ($query) => $query->whereNotNull('kelas_id')->orWhereNotNull('class_id'))
-                ->pluck('scoped_class_id')->unique()->filter();
-
-            $classes = Kelas::query()->whereIn('id', $classIds)->orderBy('nama_kelas')->get();
-
-            return response()->json(['success' => true, 'data' => $classes]);
-        }
-
-        $classIds = ClassSchedule::query()
-            ->when($teacher || $employee, function ($q) use ($teacher, $employee) {
-                $q->where(function ($sq) use ($teacher, $employee) {
-                    if ($teacher) {
-                        $sq->where('teacher_id', $teacher->id);
-                        if ($teacher->employee_id) {
-                            $sq->orWhere('employee_id', $teacher->employee_id);
-                        }
-                    }
-                    if ($employee) {
-                        $sq->orWhere('employee_id', $employee->id);
-                    }
-                });
-            })
-            ->pluck('kelas_id')
-            ->merge(
-                ClassSchedule::query()
-                    ->when($teacher || $employee, function ($q) use ($teacher, $employee) {
-                        $q->where(function ($sq) use ($teacher, $employee) {
-                            if ($teacher) {
-                                $sq->where('teacher_id', $teacher->id);
-                                if ($teacher->employee_id) {
-                                    $sq->orWhere('employee_id', $teacher->employee_id);
-                                }
-                            }
-                            if ($employee) {
-                                $sq->orWhere('employee_id', $employee->id);
-                            }
-                        });
-                    })
-                    ->pluck('class_id')
-            )
-            ->unique()
-            ->filter();
-
-        $classes = Kelas::query()
-            ->whereIn('id', $classIds)
-            ->orWhere(fn ($q) => $q->where('wali_kelas_id', $teacher?->id)->orWhere('wali_kelas_id', $employee?->id))
+        $classes = $this->accessScope->accessibleRombels($request->user())
+            ->orderBy('nama_kelas')
             ->get();
 
         return response()->json([
@@ -522,14 +439,13 @@ class TeacherPortalController extends Controller
     public function students(Request $request): JsonResponse
     {
         $classId = $request->query('class_id');
-        $teacher = $this->getTeacherContext($request);
-        $classIds = $this->teacherClassIds($request, $teacher);
+        $classIds = $this->accessScope->accessibleRombels($request->user())->pluck('id');
 
         if ($classId) {
             abort_unless($classIds->contains($classId), 403, 'Rombel berada di luar scope guru.');
         }
 
-        $students = Student::query()
+        $students = $this->accessScope->accessibleStudents($request->user())
             ->with(['kelas', 'parent', 'parentsPivot'])
             ->where(function ($query) use ($classIds) {
                 $query->whereIn('kelas_id', $classIds)->orWhereIn('class_id', $classIds);
@@ -553,13 +469,13 @@ class TeacherPortalController extends Controller
 
     public function attendance(Request $request): JsonResponse
     {
-        $teacher = $this->getTeacherContext($request);
         $classId = $request->query('class_id');
         $date = $request->query('date', now()->toDateString());
+        $scheduleIds = $this->accessScope->accessibleSchedules($request->user())->select('id');
 
         $sessions = LessonAttendanceSession::query()
             ->with(['classSchedule', 'kelas', 'subject', 'attendances.student'])
-            ->when($teacher, fn ($q) => $q->where('teacher_id', $teacher->id))
+            ->whereIn('class_schedule_id', $scheduleIds)
             ->when($classId, fn ($q) => $q->where('class_id', $classId))
             ->whereDate('date', $date)
             ->get();
@@ -584,7 +500,18 @@ class TeacherPortalController extends Controller
         ]);
 
         $teacher = $this->getTeacherContext($request);
-        $schedule = ClassSchedule::findOrFail($request->class_schedule_id);
+        $schedule = $this->accessScope->accessibleSchedules($request->user())
+            ->findOrFail($request->class_schedule_id);
+        abort_unless($schedule->kelas_id || $schedule->class_id, 403, 'Jadwal belum terhubung dengan kelas.');
+        $studentIds = collect($request->students)->pluck('student_id')->unique();
+        $allowedStudentCount = $this->accessScope->accessibleStudents($request->user())
+            ->whereIn('id', $studentIds)
+            ->where(function (Builder $query) use ($schedule) {
+                $query->when($schedule->kelas_id, fn (Builder $scope, string $id) => $scope->orWhere('kelas_id', $id))
+                    ->when($schedule->class_id, fn (Builder $scope, string $id) => $scope->orWhere('class_id', $id));
+            })
+            ->count();
+        abort_unless($allowedStudentCount === $studentIds->count(), 403, 'Daftar siswa berada di luar kelas assignment guru.');
 
         $session = LessonAttendanceSession::updateOrCreate(
             [
@@ -650,14 +577,17 @@ class TeacherPortalController extends Controller
             'status' => 'required|string|in:draft,published',
         ]);
 
-        $teacher = $this->getTeacherContext($request);
-        $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
+        [$schedule, $teacher, $employee] = $this->assignedTeachingContext(
+            $request,
+            $request->class_id,
+            $request->subject_id
+        );
         $guruId = $teacher?->employee_id ?? $employee?->id ?? $request->user()?->id;
 
-        $academicYear = $this->ensureAcademicYear($request->input('tahun_ajaran_id'));
-        $semester = $this->ensureSemester($academicYear->id, $request->input('semester_id'));
-        $subject = $this->ensureSubject($request->subject_id, null, $request->user()?->id);
-        $kelas = $this->ensureKelas($request->class_id, null, $academicYear->id, $semester->id, $request->user()?->id);
+        $academicYear = AcademicYear::query()->findOrFail($schedule->academic_year_id);
+        $semester = Semester::query()->findOrFail($schedule->semester_id);
+        $subject = Subject::query()->findOrFail($schedule->subject_id);
+        $kelas = Kelas::query()->findOrFail($schedule->kelas_id);
 
         $subjectId = $subject->id;
         $classId = $kelas->id;
@@ -740,13 +670,38 @@ class TeacherPortalController extends Controller
         ])));
     }
 
+    /** @return array{ClassSchedule, ?Teacher, ?Employee} */
+    private function assignedTeachingContext(Request $request, string $classId, string $subjectId): array
+    {
+        $schedule = $this->accessScope->accessibleSchedules($request->user())
+            ->where('subject_id', $subjectId)
+            ->where(function (Builder $query) use ($classId) {
+                $query->where('kelas_id', $classId)->orWhere('class_id', $classId);
+            })
+            ->firstOrFail();
+        abort_unless($schedule->kelas_id, 403, 'Portal guru membutuhkan rombel primer yang terhubung.');
+
+        $teacher = $this->getTeacherContext($request);
+        $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
+        abort_unless($teacher || $employee || $this->isSuperAdmin($request), 403, 'Akun belum terhubung dengan data guru.');
+
+        return [$schedule, $teacher, $employee];
+    }
+
+    private function isSuperAdmin(Request $request): bool
+    {
+        $normalize = static fn (string $role): string => strtolower((string) preg_replace('/[\s_-]+/', '', $role));
+
+        return $request->user()?->getRoleNames()->map($normalize)->contains('superadmin') ?? false;
+    }
+
     public function assignments(Request $request): JsonResponse
     {
-        $teacher = $this->getTeacherContext($request);
+        $ownerIds = $this->teacherMaterialOwnerIds($request);
 
         $assignments = LmsPenugasan::query()
             ->with(['subject', 'pengumpulanTugas'])
-            ->when($teacher, fn ($q) => $q->where('guru_id', $teacher->id))
+            ->whereIn('guru_id', $ownerIds)
             ->orderBy('created_at', 'desc')
             ->paginate($request->query('per_page', 15));
 
@@ -767,14 +722,17 @@ class TeacherPortalController extends Controller
             'bobot' => 'nullable|numeric',
         ]);
 
-        $teacher = $this->getTeacherContext($request);
-        $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
+        [$schedule, $teacher, $employee] = $this->assignedTeachingContext(
+            $request,
+            $request->class_id,
+            $request->subject_id
+        );
         $guruId = $teacher?->employee_id ?? $employee?->id ?? $request->user()?->id;
 
-        $academicYear = $this->ensureAcademicYear($request->input('tahun_ajaran_id'));
-        $semester = $this->ensureSemester($academicYear->id, $request->input('semester_id'));
-        $subject = $this->ensureSubject($request->subject_id, null, $request->user()?->id);
-        $kelas = $this->ensureKelas($request->class_id, null, $academicYear->id, $semester->id, $request->user()?->id);
+        $academicYear = AcademicYear::query()->findOrFail($schedule->academic_year_id);
+        $semester = Semester::query()->findOrFail($schedule->semester_id);
+        $subject = Subject::query()->findOrFail($schedule->subject_id);
+        $kelas = Kelas::query()->findOrFail($schedule->kelas_id);
 
         $subjectId = $subject->id;
         $classId = $kelas->id;
@@ -810,9 +768,11 @@ class TeacherPortalController extends Controller
     public function submissions(Request $request): JsonResponse
     {
         $assignmentId = $request->query('assignment_id');
+        $ownerIds = $this->teacherMaterialOwnerIds($request);
 
         $submissions = LmsPengumpulanTugas::query()
             ->with(['student', 'penugasan'])
+            ->whereHas('penugasan', fn (Builder $query) => $query->whereIn('guru_id', $ownerIds))
             ->when($assignmentId, fn ($q) => $q->where('penugasan_id', $assignmentId))
             ->orderBy('created_at', 'desc')
             ->paginate($request->query('per_page', 20));
@@ -830,12 +790,15 @@ class TeacherPortalController extends Controller
             'catatan_guru' => 'nullable|string',
         ]);
 
-        $submission = LmsPengumpulanTugas::findOrFail($id);
+        $submission = LmsPengumpulanTugas::query()
+            ->whereHas('penugasan', fn (Builder $query) => $query->whereIn('guru_id', $this->teacherMaterialOwnerIds($request)))
+            ->findOrFail($id);
         $submission->update([
-            'nilai' => $request->nilai,
+            'nilai_guru' => $request->nilai,
             'catatan_guru' => $request->catatan_guru,
             'status' => 'dinilai',
-            'graded_at' => now(),
+            'waktu_dinilai' => now(),
+            'dinilai_oleh' => Employee::query()->where('user_id', $request->user()->id)->value('id'),
         ]);
 
         return response()->json([
@@ -849,10 +812,30 @@ class TeacherPortalController extends Controller
     {
         $classId = $request->query('class_id');
         $subjectId = $request->query('subject_id');
+        $schedulePairs = $this->accessScope->accessibleSchedules($request->user())
+            ->get(['kelas_id', 'class_id', 'subject_id']);
 
         $grades = StudentGrade::query()
             ->with(['student', 'subject', 'kelas'])
-            ->when($classId, fn ($q) => $q->where('class_id', $classId))
+            ->whereIn('student_id', $this->accessScope->accessibleStudents($request->user())->select('id'))
+            ->where(function (Builder $scope) use ($schedulePairs) {
+                foreach ($schedulePairs as $schedule) {
+                    $scope->orWhere(function (Builder $assignment) use ($schedule) {
+                        $assignment->where('subject_id', $schedule->subject_id);
+                        if ($schedule->kelas_id) {
+                            $assignment->where('kelas_id', $schedule->kelas_id);
+                        } elseif ($schedule->class_id) {
+                            $assignment->where('class_id', $schedule->class_id);
+                        } else {
+                            $assignment->whereRaw('1 = 0');
+                        }
+                    });
+                }
+                if ($schedulePairs->isEmpty()) {
+                    $scope->whereRaw('1 = 0');
+                }
+            })
+            ->when($classId, fn ($q) => $q->where(fn (Builder $scope) => $scope->where('class_id', $classId)->orWhere('kelas_id', $classId)))
             ->when($subjectId, fn ($q) => $q->where('subject_id', $subjectId))
             ->get();
 
@@ -869,24 +852,38 @@ class TeacherPortalController extends Controller
             'subject_id' => 'required|uuid',
             'grades' => 'required|array',
             'grades.*.student_id' => 'required|uuid',
-            'grades.*.nilai_tugas' => 'nullable|numeric',
-            'grades.*.nilai_uts' => 'nullable|numeric',
-            'grades.*.nilai_uas' => 'nullable|numeric',
-            'grades.*.nilai_akhir' => 'nullable|numeric',
+            'grades.*.nilai_tugas' => 'nullable|numeric|min:0|max:100',
+            'grades.*.nilai_uts' => 'nullable|numeric|min:0|max:100',
+            'grades.*.nilai_uas' => 'nullable|numeric|min:0|max:100',
+            'grades.*.nilai_akhir' => 'nullable|numeric|min:0|max:100',
         ]);
+
+        [$schedule] = $this->assignedTeachingContext($request, $request->class_id, $request->subject_id);
+        $studentIds = collect($request->grades)->pluck('student_id')->unique();
+        $allowedStudentCount = $this->accessScope->accessibleStudents($request->user())
+            ->whereIn('id', $studentIds)
+            ->where(function (Builder $query) use ($schedule) {
+                $query->when($schedule->kelas_id, fn (Builder $scope, string $id) => $scope->orWhere('kelas_id', $id))
+                    ->when($schedule->class_id, fn (Builder $scope, string $id) => $scope->orWhere('class_id', $id));
+            })
+            ->count();
+        abort_unless($allowedStudentCount === $studentIds->count(), 403, 'Daftar siswa berada di luar kelas assignment guru.');
 
         foreach ($request->grades as $g) {
             StudentGrade::updateOrCreate(
                 [
                     'student_id' => $g['student_id'],
                     'subject_id' => $request->subject_id,
-                    'class_id' => $request->class_id,
+                    'kelas_id' => $schedule->kelas_id,
+                    'class_id' => $schedule->class_id,
+                    'academic_year_id' => $schedule->academic_year_id,
+                    'semester_id' => $schedule->semester_id,
                 ],
                 [
-                    'nilai_tugas' => $g['nilai_tugas'] ?? null,
-                    'nilai_uts' => $g['nilai_uts'] ?? null,
-                    'nilai_uas' => $g['nilai_uas'] ?? null,
-                    'nilai_akhir' => $g['nilai_akhir'] ?? (($g['nilai_tugas'] ?? 0) * 0.3 + ($g['nilai_uts'] ?? 0) * 0.3 + ($g['nilai_uas'] ?? 0) * 0.4),
+                    'score_assignment' => $g['nilai_tugas'] ?? null,
+                    'score_midterm' => $g['nilai_uts'] ?? null,
+                    'score_final' => $g['nilai_uas'] ?? null,
+                    'final_score' => $g['nilai_akhir'] ?? (($g['nilai_tugas'] ?? 0) * 0.3 + ($g['nilai_uts'] ?? 0) * 0.3 + ($g['nilai_uas'] ?? 0) * 0.4),
                 ]
             );
         }
@@ -902,9 +899,14 @@ class TeacherPortalController extends Controller
         $studentId = $request->query('student_id');
         $classId = $request->query('class_id');
         $teacher = $this->getTeacherContext($request);
+        $classIds = $this->teacherClassIds($request, $teacher);
+        if ($classId) {
+            abort_unless($classIds->contains($classId), 403, 'Rombel berada di luar scope pembimbing.');
+        }
 
         $logs = TahfizhDailyLog::query()
             ->with(['student', 'teacher', 'classModel'])
+            ->whereIn('student_id', $this->accessScope->accessibleStudents($request->user())->select('id'))
             ->when($studentId, fn ($q) => $q->where('student_id', $studentId))
             ->when($classId, fn ($q) => $q->where('class_id', $classId))
             ->when($teacher, fn ($q) => $q->where('teacher_id', $teacher->id))
@@ -934,6 +936,12 @@ class TeacherPortalController extends Controller
         ]);
 
         $teacher = $this->getTeacherContext($request);
+        $student = $this->accessScope->accessibleStudents($request->user())
+            ->where(fn (Builder $query) => $query
+                ->where('kelas_id', $validated['class_id'])
+                ->orWhere('class_id', $validated['class_id']))
+            ->findOrFail($validated['student_id']);
+        abort_unless($teacher && $this->isAssignedToStudent($request, $student), 403, 'Siswa berada di luar assignment pembimbing.');
         $surah = QuranSurah::query()->where('nomor', $validated['surah_number'])->firstOrFail();
 
         if ($validated['ayat_end'] > $surah->jumlah_ayat) {
@@ -1144,36 +1152,10 @@ class TeacherPortalController extends Controller
 
     private function teacherClassIds(Request $request, ?Teacher $teacher = null)
     {
-        if ($request->user()?->hasRole('Super Admin')) {
-            return Student::query()->active()
-                ->get(['kelas_id', 'class_id'])
-                ->flatMap(fn ($student) => [$student->kelas_id, $student->class_id])
-                ->filter()->unique()->values();
-        }
+        $primary = $this->accessScope->accessibleRombels($request->user())->pluck('id');
+        $legacy = $this->accessScope->accessibleSchedules($request->user())->pluck('class_id');
 
-        $teacher ??= $this->getTeacherContext($request);
-        $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
-
-        $scheduled = ClassSchedule::query()
-            ->where(function ($query) use ($teacher, $employee) {
-                if ($teacher) {
-                    $query->where('teacher_id', $teacher->id);
-                    if ($teacher->employee_id) {
-                        $query->orWhere('employee_id', $teacher->employee_id);
-                    }
-                }
-                if ($employee) {
-                    $query->orWhere('employee_id', $employee->id);
-                }
-            })
-            ->get(['class_id', 'kelas_id'])
-            ->flatMap(fn ($schedule) => [$schedule->class_id, $schedule->kelas_id]);
-
-        $homeroom = Kelas::query()
-            ->where(fn ($query) => $query->where('wali_kelas_id', $teacher?->id)->orWhere('wali_kelas_id', $employee?->id))
-            ->pluck('id');
-
-        return $scheduled->merge($homeroom)->filter()->unique()->values();
+        return $primary->merge($legacy)->filter()->unique()->values();
     }
 
     public function notifications(Request $request): JsonResponse

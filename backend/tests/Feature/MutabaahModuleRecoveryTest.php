@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\EducationUnit;
+use App\Models\Employee;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,6 +45,19 @@ class MutabaahModuleRecoveryTest extends TestCase
     {
         $user = User::factory()->create();
         $user->assignRole('Wali Kelas');
+        $unit = EducationUnit::create([
+            'code' => 'UNIT-WALAS',
+            'name' => 'Unit Wali Kelas',
+            'level' => 'SD',
+            'is_active' => true,
+        ]);
+        Employee::create([
+            'niy' => 'NIY-WALAS',
+            'nama_lengkap' => 'Wali Kelas',
+            'unit_id' => $unit->id,
+            'user_id' => $user->id,
+            'status' => 'Aktif',
+        ]);
 
         $response = $this->actingAs($user, 'sanctum')->getJson('/api/mutabaah/analytics/dashboard');
         $response->assertStatus(200);
@@ -52,6 +67,16 @@ class MutabaahModuleRecoveryTest extends TestCase
 
         $responseOptions = $this->actingAs($user, 'sanctum')->getJson('/api/mutabaah/enterprise/options');
         $responseOptions->assertStatus(200);
+    }
+
+    public function test_homeroom_without_employee_linkage_is_denied_instead_of_receiving_global_data(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('Wali Kelas');
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/mutabaah/analytics/dashboard')
+            ->assertForbidden();
     }
 
     public function test_parent_cannot_access_mutabaah_enterprise_management()

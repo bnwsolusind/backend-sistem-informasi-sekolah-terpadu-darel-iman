@@ -20,6 +20,11 @@ import {
   X,
 } from 'lucide-react'
 import { educationUnitService } from '../services/educationUnitService'
+import { employeeService } from '../services/employeeService'
+import { studentService } from '../services/studentService'
+import { kelasService } from '../services/kelasService'
+import { api } from '../services/api'
+import { PersonIdentityCell } from '../components/ui/PersonIdentityCell'
 import ActionDropdown from '../components/app/ActionDropdown'
 import { useAuthStore } from '../stores/authStore'
 import {
@@ -178,6 +183,54 @@ export default function EducationUnitsPage() {
   // Detail Modal State
   const [detailUnit, setDetailUnit] = useState(null)
   const [activeDetailTab, setActiveDetailTab] = useState('Informasi')
+
+  // Detail Modal Tab Queries
+  const unitStatsQuery = useQuery({
+    queryKey: ['education-unit-detail-stats', detailUnit?.id],
+    queryFn: async () => {
+      if (!detailUnit?.id) return null
+      try {
+        const res = await api.get(`/foundation/units/${detailUnit.id}`)
+        return res.data?.data || res.data || {}
+      } catch {
+        return {}
+      }
+    },
+    enabled: !!detailUnit?.id && (activeDetailTab === 'Informasi' || activeDetailTab === 'Statistik'),
+  })
+
+  const unitGuruQuery = useQuery({
+    queryKey: ['education-unit-detail-guru', detailUnit?.id],
+    queryFn: async () => {
+      if (!detailUnit?.id) return []
+      const res = await employeeService.getDaftar({ unit_id: detailUnit.id, per_page: 50 })
+      const list = res?.data || res?.data?.data || []
+      return Array.isArray(list) ? list : []
+    },
+    enabled: !!detailUnit?.id && activeDetailTab === 'Guru',
+  })
+
+  const unitSiswaQuery = useQuery({
+    queryKey: ['education-unit-detail-siswa', detailUnit?.id],
+    queryFn: async () => {
+      if (!detailUnit?.id) return []
+      const res = await studentService.getDaftar({ unit_id: detailUnit.id, per_page: 50 })
+      const list = res?.data || res?.data?.data || []
+      return Array.isArray(list) ? list : []
+    },
+    enabled: !!detailUnit?.id && activeDetailTab === 'Siswa',
+  })
+
+  const unitKelasQuery = useQuery({
+    queryKey: ['education-unit-detail-kelas', detailUnit?.id],
+    queryFn: async () => {
+      if (!detailUnit?.id) return []
+      const res = await kelasService.getDaftar({ unit_pendidikan_id: detailUnit.id, per_page: 50 })
+      const list = res?.data || res?.data?.data || []
+      return Array.isArray(list) ? list : []
+    },
+    enabled: !!detailUnit?.id && activeDetailTab === 'Kelas',
+  })
 
   // Delete Modal State
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -612,7 +665,7 @@ export default function EducationUnitsPage() {
                       <td className="px-2 py-3 text-center">
                         <span className="inline-flex justify-center">
                           <ActionDropdown
-                            onView={() => setDetailUnit(row)}
+                            onView={() => { setActiveDetailTab('Informasi'); setDetailUnit(row) }}
                             onEdit={canUpdate ? () => openEditModal(row) : undefined}
                             onDelete={canDelete ? () => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) } : undefined}
                           />
@@ -1123,14 +1176,14 @@ export default function EducationUnitsPage() {
               </div>
 
               {/* Tab Navigation */}
-              <div className="flex gap-6 overflow-x-auto border-b border-slate-200 text-xs font-bold text-slate-500">
+              <div className="flex gap-2 overflow-x-auto border-b border-slate-200 text-xs font-bold text-slate-500 dark:border-slate-700">
                 {['Informasi', 'Statistik', 'Guru', 'Siswa', 'Kelas', 'Dokumen', 'Riwayat'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveDetailTab(tab)}
-                    className={`pb-3 transition-colors border-b-2 ${activeDetailTab === tab
-                      ? 'border-emerald-800 text-emerald-900'
-                      : 'border-transparent hover:text-slate-800'
+                    className={`px-4 pb-3 pt-1 transition-colors border-b-2 whitespace-nowrap ${activeDetailTab === tab
+                      ? 'border-emerald-800 text-emerald-900 dark:border-emerald-400 dark:text-emerald-400 font-extrabold'
+                      : 'border-transparent hover:text-slate-800 dark:hover:text-slate-200'
                       }`}
                   >
                     {tab}
@@ -1138,77 +1191,323 @@ export default function EducationUnitsPage() {
                 ))}
               </div>
 
-              {/* Tab Content: Informasi */}
+              {/* Tab 1: Informasi */}
               {activeDetailTab === 'Informasi' && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Left 2 Cols: Detail Fields Grid */}
-                  <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-                    <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 text-sm">Informasi Unit</h3>
+                  <div className="md:col-span-2 rounded-xl border border-slate-200 bg-white p-5 space-y-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 text-sm dark:border-slate-700 dark:text-slate-100">Informasi Unit</h3>
                     <div className="grid grid-cols-2 gap-4 text-xs">
                       <div>
                         <span className="text-slate-400 block mb-0.5">Jenis Unit</span>
-                        <span className="font-bold text-slate-800">{detailUnit.unit_type}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.unit_type || '—'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">Tahun Berdiri</span>
-                        <span className="font-bold text-slate-800">{detailUnit.established_year || '—'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.established_year || '—'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">NPSN</span>
-                        <span className="font-bold text-slate-800">{detailUnit.npsn || '-'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.npsn || '-'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">Status Akreditasi</span>
-                        <span className="font-bold text-slate-800">{detailUnit.accreditation || '—'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.accreditation || '—'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">Email</span>
-                        <span className="font-bold text-slate-800">{detailUnit.email || '-'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.email || '-'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">SK Pendirian</span>
-                        <span className="font-bold text-slate-800">{detailUnit.sk_pendirian || '-'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.sk_pendirian || '-'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">No. Telepon</span>
-                        <span className="font-bold text-slate-800">{detailUnit.phone || '-'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.phone || '-'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block mb-0.5">Tgl SK</span>
-                        <span className="font-bold text-slate-800">{detailUnit.tgl_sk || '-'}</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-100">{detailUnit.tgl_sk || '-'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Right 1 Col: Quick Stats Card */}
-                  <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-                    <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 text-sm">Statistik Singkat</h3>
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 text-sm dark:border-slate-700 dark:text-slate-100">Statistik Singkat</h3>
                     <div className="space-y-3 text-xs">
-                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/60 border border-blue-100">
-                        <span className="flex items-center gap-2 text-slate-700"><GraduationCap className="text-blue-600" /> Siswa</span>
-                        <span className="font-extrabold text-blue-900">{detailUnit.total_siswa?.toLocaleString()}</span>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/60 border border-blue-100 dark:bg-blue-950/30 dark:border-blue-900">
+                        <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300"><GraduationCap className="text-blue-600" /> Siswa</span>
+                        <span className="font-extrabold text-blue-900 dark:text-blue-300">{(unitStatsQuery.data?.statistik?.siswa ?? detailUnit.total_siswa ?? 0).toLocaleString()}</span>
                       </div>
-                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100">
-                        <span className="flex items-center gap-2 text-slate-700"><UsersRound className="text-emerald-600" /> Guru</span>
-                        <span className="font-extrabold text-emerald-900">{detailUnit.total_guru}</span>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900">
+                        <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300"><UsersRound className="text-emerald-600" /> Guru</span>
+                        <span className="font-extrabold text-emerald-900 dark:text-emerald-300">{unitStatsQuery.data?.statistik?.guru ?? detailUnit.total_guru ?? 0}</span>
                       </div>
-                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50/60 border border-amber-100">
-                        <span className="flex items-center gap-2 text-slate-700"><School className="text-amber-600" /> Kelas</span>
-                        <span className="font-extrabold text-amber-900">{detailUnit.total_kelas}</span>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-amber-50/60 border border-amber-100 dark:bg-amber-950/30 dark:border-amber-900">
+                        <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300"><School className="text-amber-600" /> Kelas</span>
+                        <span className="font-extrabold text-amber-900 dark:text-amber-300">{unitStatsQuery.data?.statistik?.kelas ?? detailUnit.total_kelas ?? 0}</span>
                       </div>
-                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-purple-50/60 border border-purple-100">
-                        <span className="flex items-center gap-2 text-slate-700"><Building2 className="text-purple-600" /> Rombel</span>
-                        <span className="font-extrabold text-purple-900">{detailUnit.total_rombel}</span>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-purple-50/60 border border-purple-100 dark:bg-purple-950/30 dark:border-purple-900">
+                        <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300"><Building2 className="text-purple-600" /> Rombel</span>
+                        <span className="font-extrabold text-purple-900 dark:text-purple-300">{unitStatsQuery.data?.statistik?.rombel ?? detailUnit.total_rombel ?? 0}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {activeDetailTab !== 'Informasi' && (
-                <div className="py-12 text-center text-slate-400 text-xs">
-                  Modul data {activeDetailTab} untuk unit ini siap digunakan.
+              {/* Tab 2: Statistik */}
+              {activeDetailTab === 'Statistik' && (
+                <div className="space-y-6">
+                  {unitStatsQuery.isLoading ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="animate-pulse p-4 border border-slate-200 rounded-xl bg-slate-50"><div className="h-4 w-20 bg-slate-200 rounded mb-2"></div><div className="h-6 w-12 bg-slate-200 rounded"></div></div>
+                      ))}
+                    </div>
+                  ) : unitStatsQuery.isError ? (
+                    <MasterErrorState
+                      title="Gagal memuat statistik unit"
+                      description="Terjadi kesalahan saat mengambil data statistik dari server."
+                      onRetry={() => unitStatsQuery.refetch()}
+                    />
+                  ) : (
+                    <>
+                      <MasterStatsGrid>
+                        <MasterStatCard icon={GraduationCap} label="Total Siswa" value={(unitStatsQuery.data?.statistik?.siswa ?? detailUnit.total_siswa ?? 0).toLocaleString()} description="Terdaftar aktif" variant="warning" delay={40} />
+                        <MasterStatCard icon={UsersRound} label="Total Guru" value={unitStatsQuery.data?.statistik?.guru ?? detailUnit.total_guru ?? 0} description="Tenaga pendidik" variant="success" delay={80} />
+                        <MasterStatCard icon={UsersRound} label="Total Pegawai" value={unitStatsQuery.data?.statistik?.pegawai ?? 0} description="Staf & kependidikan" variant="info" delay={120} />
+                        <MasterStatCard icon={School} label="Kelas / Rombel" value={`${unitStatsQuery.data?.statistik?.kelas ?? detailUnit.total_kelas ?? 0} / ${unitStatsQuery.data?.statistik?.rombel ?? detailUnit.total_rombel ?? 0}`} description="Distribusi kelas" variant="neutral" delay={160} />
+                      </MasterStatsGrid>
+
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4 dark:border-slate-700 dark:bg-slate-800/50">
+                        <h3 className="font-bold text-slate-800 border-b border-slate-100 pb-2 text-sm dark:border-slate-700 dark:text-slate-100">Konteks Akademik & Operasional</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 dark:bg-slate-800 dark:border-slate-700">
+                            <span className="text-slate-400 block mb-1">Tahun Ajaran Aktif</span>
+                            <strong className="text-sm font-bold text-slate-800 dark:text-slate-100">{unitStatsQuery.data?.academic?.tahun_ajaran || '2026/2027'}</strong>
+                          </div>
+                          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 dark:bg-slate-800 dark:border-slate-700">
+                            <span className="text-slate-400 block mb-1">Semester Aktif</span>
+                            <strong className="text-sm font-bold text-slate-800 dark:text-slate-100">{unitStatsQuery.data?.academic?.semester || 'Ganjil'}</strong>
+                          </div>
+                          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200/80 dark:bg-slate-800 dark:border-slate-700">
+                            <span className="text-slate-400 block mb-1">Status Operasional</span>
+                            <span className={`inline-flex items-center gap-1.5 font-bold ${detailUnit.is_active ? 'text-emerald-700' : 'text-rose-600'}`}>
+                              <span className={`h-2 w-2 rounded-full ${detailUnit.is_active ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                              {detailUnit.is_active ? 'Aktif Operating' : 'Nonaktif'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
+              )}
+
+              {/* Tab 3: Guru */}
+              {activeDetailTab === 'Guru' && (
+                <div className="space-y-4">
+                  {unitGuruQuery.isLoading ? (
+                    <div className="animate-pulse space-y-3 p-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-12 bg-slate-100 rounded-lg dark:bg-slate-800"></div>
+                      ))}
+                    </div>
+                  ) : unitGuruQuery.isError ? (
+                    <MasterErrorState
+                      title="Gagal memuat data guru"
+                      description="Terjadi kesalahan saat mengambil daftar guru dari server."
+                      onRetry={() => unitGuruQuery.refetch()}
+                    />
+                  ) : unitGuruQuery.data.length === 0 ? (
+                    <MasterEmptyState
+                      icon={UsersRound}
+                      title="Belum ada data guru pada unit ini."
+                      description="Tidak ada tenaga pendidik/guru yang terdaftar pada unit pendidikan ini."
+                    />
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50">
+                      <table className="w-full text-left text-xs">
+                        <thead className="border-b border-slate-200 bg-slate-50 font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          <tr>
+                            <th className="px-4 py-3">Nama / Pendidik</th>
+                            <th className="px-4 py-3">NIY / NIK</th>
+                            <th className="px-4 py-3">Jabatan</th>
+                            <th className="px-4 py-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
+                          {unitGuruQuery.data.map((guru) => (
+                            <tr key={guru.id || guru.niy}>
+                              <td className="px-4 py-3">
+                                <PersonIdentityCell
+                                  src={guru.foto || guru.avatar}
+                                  name={guru.nama_lengkap || guru.nama || guru.name}
+                                  subtitle={guru.email || guru.no_hp}
+                                />
+                              </td>
+                              <td className="px-4 py-3 font-mono text-[11px]">{guru.niy || guru.nik || '-'}</td>
+                              <td className="px-4 py-3">{guru.position?.name || guru.jabatan || 'Guru / Pendidik'}</td>
+                              <td className="px-4 py-3 text-center">
+                                <MasterStatusBadge active={guru.is_active !== false && guru.status !== 'Nonaktif'} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 4: Siswa */}
+              {activeDetailTab === 'Siswa' && (
+                <div className="space-y-4">
+                  {unitSiswaQuery.isLoading ? (
+                    <div className="animate-pulse space-y-3 p-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-12 bg-slate-100 rounded-lg dark:bg-slate-800"></div>
+                      ))}
+                    </div>
+                  ) : unitSiswaQuery.isError ? (
+                    <MasterErrorState
+                      title="Gagal memuat data siswa"
+                      description="Terjadi kesalahan saat mengambil daftar siswa dari server."
+                      onRetry={() => unitSiswaQuery.refetch()}
+                    />
+                  ) : unitSiswaQuery.data.length === 0 ? (
+                    <MasterEmptyState
+                      icon={GraduationCap}
+                      title="Belum ada data siswa pada unit ini."
+                      description="Tidak ada peserta didik yang terdaftar aktif pada unit pendidikan ini."
+                    />
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50">
+                      <table className="w-full text-left text-xs">
+                        <thead className="border-b border-slate-200 bg-slate-50 font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          <tr>
+                            <th className="px-4 py-3">Nama Siswa</th>
+                            <th className="px-4 py-3">NIS / NISN</th>
+                            <th className="px-4 py-3">Kelas / Rombel</th>
+                            <th className="px-4 py-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
+                          {unitSiswaQuery.data.map((siswa) => {
+                            const kelasDisplay = typeof siswa.kelas === 'object' && siswa.kelas !== null
+                              ? (siswa.kelas.nama_kelas || siswa.kelas.name || siswa.kelas.rombel || '-')
+                              : (typeof siswa.rombel === 'object' && siswa.rombel !== null
+                                ? (siswa.rombel.nama_kelas || siswa.rombel.name || '-')
+                                : (siswa.kelas || siswa.rombel || '-'))
+
+                            return (
+                              <tr key={siswa.id || siswa.nis}>
+                                <td className="px-4 py-3">
+                                  <PersonIdentityCell
+                                    src={siswa.foto}
+                                    name={siswa.nama || siswa.full_name}
+                                    subtitle={siswa.gender === 'male' || siswa.jenis_kelamin === 'L' ? 'Laki-laki' : 'Perempuan'}
+                                  />
+                                </td>
+                                <td className="px-4 py-3 font-mono text-[11px]">
+                                  NIS: {siswa.nis || '-'}<br />
+                                  <span className="text-slate-400">NISN: {siswa.nisn || '-'}</span>
+                                </td>
+                                <td className="px-4 py-3">{kelasDisplay}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <MasterStatusBadge active={siswa.is_active !== false && siswa.status !== 'Nonaktif'} />
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 5: Kelas */}
+              {activeDetailTab === 'Kelas' && (
+                <div className="space-y-4">
+                  {unitKelasQuery.isLoading ? (
+                    <div className="animate-pulse space-y-3 p-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-12 bg-slate-100 rounded-lg dark:bg-slate-800"></div>
+                      ))}
+                    </div>
+                  ) : unitKelasQuery.isError ? (
+                    <MasterErrorState
+                      title="Gagal memuat data kelas"
+                      description="Terjadi kesalahan saat mengambil daftar kelas/rombel dari server."
+                      onRetry={() => unitKelasQuery.refetch()}
+                    />
+                  ) : unitKelasQuery.data.length === 0 ? (
+                    <MasterEmptyState
+                      icon={School}
+                      title="Belum ada data kelas/rombel pada unit ini."
+                      description="Tidak ada rombel atau kelas yang terdaftar pada unit pendidikan ini."
+                    />
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/50">
+                      <table className="w-full text-left text-xs">
+                        <thead className="border-b border-slate-200 bg-slate-50 font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          <tr>
+                            <th className="px-4 py-3">Nama Kelas / Rombel</th>
+                            <th className="px-4 py-3">Tingkat</th>
+                            <th className="px-4 py-3">Wali Kelas</th>
+                            <th className="px-4 py-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
+                          {unitKelasQuery.data.map((kelas) => {
+                            const namaKelasDisplay = typeof kelas.nama_kelas === 'object' && kelas.nama_kelas !== null
+                              ? (kelas.nama_kelas.nama_kelas || kelas.nama_kelas.name || '-')
+                              : (kelas.nama_kelas || kelas.name || kelas.rombel || '-')
+
+                            const waliKelasDisplay = typeof kelas.wali_kelas === 'object' && kelas.wali_kelas !== null
+                              ? (kelas.wali_kelas.nama_lengkap || kelas.wali_kelas.name || '-')
+                              : (typeof kelas.wali_kelas === 'string' ? kelas.wali_kelas : (kelas.wali_kelas_nama || '-'))
+
+                            return (
+                              <tr key={kelas.id || (typeof kelas.nama_kelas === 'string' ? kelas.nama_kelas : 'kelas-item')}>
+                                <td className="px-4 py-3 font-bold text-slate-900 dark:text-slate-100">
+                                  {namaKelasDisplay}
+                                </td>
+                                <td className="px-4 py-3">{kelas.tingkat || kelas.level || '-'}</td>
+                                <td className="px-4 py-3">{waliKelasDisplay}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <MasterStatusBadge active={kelas.is_active !== false && kelas.status !== 'Nonaktif'} />
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 6: Dokumen */}
+              {activeDetailTab === 'Dokumen' && (
+                <MasterEmptyState
+                  icon={FileText}
+                  title="Belum ada dokumen pada unit ini."
+                  description="Dokumen resmi atau berkas akreditasi unit pendidikan ini belum diunggah."
+                />
+              )}
+
+              {/* Tab 7: Riwayat */}
+              {activeDetailTab === 'Riwayat' && (
+                <MasterEmptyState
+                  icon={RefreshCcw}
+                  title="Belum ada riwayat aktivitas."
+                  description="Log aktivitas dan riwayat perubahan data unit pendidikan akan dicatat di sini."
+                />
               )}
             </div>
           </div>

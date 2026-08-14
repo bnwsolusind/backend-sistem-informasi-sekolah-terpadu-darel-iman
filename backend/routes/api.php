@@ -283,38 +283,44 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard-v1', DashboardController::class)
         ->middleware('can:dashboard.view');
 
-    Route::prefix('dashboard-pemantauan')->middleware('can:dashboard.pemantauan.lihat')->group(function () {
-        Route::get('/ringkasan', [DashboardPemantauanController::class, 'ringkasan']);
+    Route::prefix('dashboard-pemantauan')->group(function () {
+        Route::middleware('can:dashboard.pemantauan.lihat')->group(function () {
+            Route::get('/ringkasan', [DashboardPemantauanController::class, 'ringkasan']);
+            Route::get('/pemantauan-divisi', [DashboardPemantauanController::class, 'daftarPemantauanDivisi']);
+            Route::get('/pemantauan-divisi/{id}', [DashboardPemantauanController::class, 'detailPemantauanDivisi']);
+            Route::get('/laporan-bulanan', [DashboardPemantauanController::class, 'daftarLaporanBulanan']);
+            Route::get('/laporan-bulanan/{id}', [DashboardPemantauanController::class, 'detailLaporanBulanan']);
+            Route::get('/rekap-prestasi-siswa', [DashboardPemantauanController::class, 'daftarRekapPrestasiSiswa']);
+            Route::get('/rekap-prestasi-siswa/{id}', [DashboardPemantauanController::class, 'detailRekapPrestasiSiswa']);
+            Route::get('/pengumuman-sekolah', [DashboardPemantauanController::class, 'daftarPengumumanSekolah']);
+            Route::get('/pengumuman-sekolah/{id}', [DashboardPemantauanController::class, 'detailPengumumanSekolah']);
+            Route::get('/indikator-kinerja-utama', [DashboardPemantauanController::class, 'daftarIndikatorKinerjaUtama']);
+            Route::get('/indikator-kinerja-utama/{id}', [DashboardPemantauanController::class, 'detailIndikatorKinerjaUtama']);
+        });
 
-        Route::get('/pemantauan-divisi', [DashboardPemantauanController::class, 'daftarPemantauanDivisi']);
-        Route::post('/pemantauan-divisi', [DashboardPemantauanController::class, 'simpanPemantauanDivisi']);
-        Route::get('/pemantauan-divisi/{id}', [DashboardPemantauanController::class, 'detailPemantauanDivisi']);
-        Route::put('/pemantauan-divisi/{id}', [DashboardPemantauanController::class, 'ubahPemantauanDivisi']);
-        Route::delete('/pemantauan-divisi/{id}', [DashboardPemantauanController::class, 'hapusPemantauanDivisi']);
+        Route::middleware(['can:dashboard.pemantauan.kelola', 'can:divisi.monitoring'])->group(function () {
+            Route::post('/pemantauan-divisi', [DashboardPemantauanController::class, 'simpanPemantauanDivisi']);
+            Route::put('/pemantauan-divisi/{id}', [DashboardPemantauanController::class, 'ubahPemantauanDivisi']);
+            Route::delete('/pemantauan-divisi/{id}', [DashboardPemantauanController::class, 'hapusPemantauanDivisi']);
+        });
 
-        Route::get('/laporan-bulanan', [DashboardPemantauanController::class, 'daftarLaporanBulanan']);
-        Route::post('/laporan-bulanan', [DashboardPemantauanController::class, 'simpanLaporanBulanan']);
-        Route::get('/laporan-bulanan/{id}', [DashboardPemantauanController::class, 'detailLaporanBulanan']);
-        Route::put('/laporan-bulanan/{id}', [DashboardPemantauanController::class, 'ubahLaporanBulanan']);
-        Route::delete('/laporan-bulanan/{id}', [DashboardPemantauanController::class, 'hapusLaporanBulanan']);
+        Route::middleware(['can:dashboard.pemantauan.kelola', 'can:divisi.laporan_bulanan'])->group(function () {
+            Route::post('/laporan-bulanan', [DashboardPemantauanController::class, 'simpanLaporanBulanan']);
+            Route::put('/laporan-bulanan/{id}', [DashboardPemantauanController::class, 'ubahLaporanBulanan']);
+            Route::delete('/laporan-bulanan/{id}', [DashboardPemantauanController::class, 'hapusLaporanBulanan']);
+        });
 
-        Route::get('/rekap-prestasi-siswa', [DashboardPemantauanController::class, 'daftarRekapPrestasiSiswa']);
-        Route::post('/rekap-prestasi-siswa', [DashboardPemantauanController::class, 'simpanRekapPrestasiSiswa']);
-        Route::get('/rekap-prestasi-siswa/{id}', [DashboardPemantauanController::class, 'detailRekapPrestasiSiswa']);
-        Route::put('/rekap-prestasi-siswa/{id}', [DashboardPemantauanController::class, 'ubahRekapPrestasiSiswa']);
-        Route::delete('/rekap-prestasi-siswa/{id}', [DashboardPemantauanController::class, 'hapusRekapPrestasiSiswa']);
-
-        Route::get('/pengumuman-sekolah', [DashboardPemantauanController::class, 'daftarPengumumanSekolah']);
-        Route::post('/pengumuman-sekolah', [DashboardPemantauanController::class, 'simpanPengumumanSekolah']);
-        Route::get('/pengumuman-sekolah/{id}', [DashboardPemantauanController::class, 'detailPengumumanSekolah']);
-        Route::put('/pengumuman-sekolah/{id}', [DashboardPemantauanController::class, 'ubahPengumumanSekolah']);
-        Route::delete('/pengumuman-sekolah/{id}', [DashboardPemantauanController::class, 'hapusPengumumanSekolah']);
-
-        Route::get('/indikator-kinerja-utama', [DashboardPemantauanController::class, 'daftarIndikatorKinerjaUtama']);
-        Route::post('/indikator-kinerja-utama', [DashboardPemantauanController::class, 'simpanIndikatorKinerjaUtama']);
-        Route::get('/indikator-kinerja-utama/{id}', [DashboardPemantauanController::class, 'detailIndikatorKinerjaUtama']);
-        Route::put('/indikator-kinerja-utama/{id}', [DashboardPemantauanController::class, 'ubahIndikatorKinerjaUtama']);
-        Route::delete('/indikator-kinerja-utama/{id}', [DashboardPemantauanController::class, 'hapusIndikatorKinerjaUtama']);
+        Route::middleware('can:dashboard.pemantauan.kelola')->group(function () {
+            Route::post('/rekap-prestasi-siswa', [DashboardPemantauanController::class, 'simpanRekapPrestasiSiswa']);
+            Route::put('/rekap-prestasi-siswa/{id}', [DashboardPemantauanController::class, 'ubahRekapPrestasiSiswa']);
+            Route::delete('/rekap-prestasi-siswa/{id}', [DashboardPemantauanController::class, 'hapusRekapPrestasiSiswa']);
+            Route::post('/pengumuman-sekolah', [DashboardPemantauanController::class, 'simpanPengumumanSekolah']);
+            Route::put('/pengumuman-sekolah/{id}', [DashboardPemantauanController::class, 'ubahPengumumanSekolah']);
+            Route::delete('/pengumuman-sekolah/{id}', [DashboardPemantauanController::class, 'hapusPengumumanSekolah']);
+            Route::post('/indikator-kinerja-utama', [DashboardPemantauanController::class, 'simpanIndikatorKinerjaUtama']);
+            Route::put('/indikator-kinerja-utama/{id}', [DashboardPemantauanController::class, 'ubahIndikatorKinerjaUtama']);
+            Route::delete('/indikator-kinerja-utama/{id}', [DashboardPemantauanController::class, 'hapusIndikatorKinerjaUtama']);
+        });
     });
 
     Route::get('/teacher-monitoring', [Step04TeacherController::class, 'monitoring'])
@@ -343,14 +349,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy'])
         ->middleware('permission:employee.delete|sistem.master_data');
 
-    Route::middleware('can:kesiswaan.data_lengkap_siswa')->group(function () {
-        Route::get('/students/dashboard', [StudentController::class, 'dashboard']);
-        Route::apiResource('students', StudentController::class)->except(['create', 'edit']);
-    });
+    Route::get('/students/dashboard', [StudentController::class, 'dashboard'])
+        ->middleware('permission:student.view|student.view_all|kesiswaan.data_lengkap_siswa|foundation.student.view|sistem.master_data');
+    Route::apiResource('students', StudentController::class)->only(['index', 'show'])
+        ->middleware('permission:student.view|student.view_all|kesiswaan.data_lengkap_siswa|foundation.student.view|sistem.master_data');
+    Route::apiResource('students', StudentController::class)->only(['store'])
+        ->middleware('permission:student.create|sistem.master_data');
+    Route::apiResource('students', StudentController::class)->only(['update'])
+        ->middleware('permission:student.update|sistem.master_data');
+    Route::apiResource('students', StudentController::class)->only(['destroy'])
+        ->middleware('permission:student.delete|sistem.master_data');
     Route::get('/student-card-settings', [\App\Http\Controllers\Api\V1\StudentCardSettingController::class, 'show']);
     Route::post('/student-card-settings', [\App\Http\Controllers\Api\V1\StudentCardSettingController::class, 'store']);
-    Route::apiResource('education-units', EducationUnitController::class)->except(['create', 'edit'])
+    Route::apiResource('education-units', EducationUnitController::class)->only(['index', 'show'])
         ->middleware('permission:unit.view|unit.view_all|foundation.unit.view|sistem.master_data');
+    Route::apiResource('education-units', EducationUnitController::class)->only(['store'])
+        ->middleware('permission:unit.create|sistem.master_data');
+    Route::apiResource('education-units', EducationUnitController::class)->only(['update'])
+        ->middleware('permission:unit.update|sistem.master_data');
+    Route::apiResource('education-units', EducationUnitController::class)->only(['destroy'])
+        ->middleware('permission:unit.delete|sistem.master_data');
     Route::apiResource('teachers', TeacherController::class)->only(['index'])
         ->middleware('permission:employee.view|employee.view_all|foundation.teacher.view|sistem.master_data');
     Route::apiResource('classes', ClassController::class)->only(['index'])
@@ -362,71 +380,163 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/kelas/stats', [KelasController::class, 'stats'])
         ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|sistem.master_data');
     Route::post('/kelas/import', [KelasController::class, 'import'])
-        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.create|sistem.master_data');
+        ->middleware('permission:master.create|academic.schedule.create|sistem.master_data');
     Route::post('/kelas/{id}/restore', [KelasController::class, 'restore'])
-        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.update|sistem.master_data');
+        ->middleware('permission:master.update|academic.schedule.update|sistem.master_data');
     Route::get('/kelas/{id}/siswa', [KelasController::class, 'siswa'])
         ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|sistem.master_data');
-    Route::apiResource('kelas', KelasController::class)->except(['create', 'edit'])
-        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|academic.schedule.create|academic.schedule.update|sistem.master_data');
+    Route::apiResource('kelas', KelasController::class)->only(['index', 'show'])
+        ->middleware('permission:kesiswaan.kelas_rombel|academic.schedule.view|master.view|sistem.master_data');
+    Route::apiResource('kelas', KelasController::class)->only(['store'])
+        ->middleware('permission:master.create|academic.schedule.create|sistem.master_data');
+    Route::apiResource('kelas', KelasController::class)->only(['update'])
+        ->middleware('permission:master.update|academic.schedule.update|sistem.master_data');
+    Route::apiResource('kelas', KelasController::class)->only(['destroy'])
+        ->middleware('permission:master.delete|academic.schedule.delete|sistem.master_data');
     // Rute Master Data Jabatan
-    Route::get('/jabatan/options', [JabatanController::class, 'options']);
-    Route::get('/jabatan/stats', [JabatanController::class, 'stats']);
-    Route::get('/jabatan/export', [JabatanController::class, 'export']);
-    Route::post('/jabatan/import', [JabatanController::class, 'import']);
-    Route::post('/jabatan/{id}/restore', [JabatanController::class, 'restore']);
-    Route::apiResource('jabatan', JabatanController::class);
+    Route::get('/jabatan/options', [JabatanController::class, 'options'])
+        ->middleware('permission:master.view|sistem.master_data');
+    Route::get('/jabatan/stats', [JabatanController::class, 'stats'])
+        ->middleware('permission:master.view|sistem.master_data');
+    Route::get('/jabatan/export', [JabatanController::class, 'export'])
+        ->middleware('permission:master.view|report.export|sistem.master_data');
+    Route::post('/jabatan/import', [JabatanController::class, 'import'])
+        ->middleware('permission:master.create|master.update|sistem.master_data');
+    Route::post('/jabatan/{id}/restore', [JabatanController::class, 'restore'])
+        ->middleware('permission:master.update|sistem.master_data');
+    Route::apiResource('jabatan', JabatanController::class)->only(['index', 'show'])
+        ->middleware('permission:master.view|sistem.master_data');
+    Route::apiResource('jabatan', JabatanController::class)->only(['store'])
+        ->middleware('permission:master.create|sistem.master_data');
+    Route::apiResource('jabatan', JabatanController::class)->only(['update'])
+        ->middleware('permission:master.update|sistem.master_data');
+    Route::apiResource('jabatan', JabatanController::class)->only(['destroy'])
+        ->middleware('permission:master.delete|sistem.master_data');
 
     // Rute Master Jenis Unit Pendidikan & Mata Pelajaran
     Route::prefix('master')->group(function () {
-        Route::get('/jenis-unit/dropdown', [JenisUnitPendidikanController::class, 'dropdown']);
-        Route::get('/jenis-unit/stats', [JenisUnitPendidikanController::class, 'stats']);
-        Route::get('/jenis-unit/export', [JenisUnitPendidikanController::class, 'export']);
-        Route::post('/jenis-unit/import', [JenisUnitPendidikanController::class, 'import']);
-        Route::post('/jenis-unit/{id}/restore', [JenisUnitPendidikanController::class, 'restore']);
-        Route::apiResource('jenis-unit', JenisUnitPendidikanController::class);
+        Route::get('/jenis-unit/dropdown', [JenisUnitPendidikanController::class, 'dropdown'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::get('/jenis-unit/stats', [JenisUnitPendidikanController::class, 'stats'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::get('/jenis-unit/export', [JenisUnitPendidikanController::class, 'export'])
+            ->middleware('permission:master.view|report.export|sistem.master_data');
+        Route::post('/jenis-unit/import', [JenisUnitPendidikanController::class, 'import'])
+            ->middleware('permission:master.create|master.update|sistem.master_data');
+        Route::post('/jenis-unit/{id}/restore', [JenisUnitPendidikanController::class, 'restore'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::apiResource('jenis-unit', JenisUnitPendidikanController::class)->only(['index', 'show'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::apiResource('jenis-unit', JenisUnitPendidikanController::class)->only(['store'])
+            ->middleware('permission:master.create|sistem.master_data');
+        Route::apiResource('jenis-unit', JenisUnitPendidikanController::class)->only(['update'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::apiResource('jenis-unit', JenisUnitPendidikanController::class)->only(['destroy'])
+            ->middleware('permission:master.delete|sistem.master_data');
 
         // Subjects (Mata Pelajaran)
-        Route::get('/subjects/dropdown', [SubjectController::class, 'dropdown']);
-        Route::get('/subjects/stats', [SubjectController::class, 'stats']);
-        Route::post('/subjects/bulk-status', [SubjectController::class, 'bulkStatus']);
-        Route::post('/subjects/bulk-delete', [SubjectController::class, 'bulkDelete']);
-        Route::get('/subjects/export/excel', [SubjectController::class, 'exportExcel']);
-        Route::get('/subjects/export/pdf', [SubjectController::class, 'exportPdf']);
-        Route::post('/subjects/import', [SubjectController::class, 'import']);
-        Route::post('/subjects/{id}/restore', [SubjectController::class, 'restore']);
-        Route::apiResource('subjects', SubjectController::class);
+        Route::get('/subjects/dropdown', [SubjectController::class, 'dropdown'])
+            ->middleware('permission:academic.subject.view|master.view|sistem.master_data');
+        Route::get('/subjects/stats', [SubjectController::class, 'stats'])
+            ->middleware('permission:academic.subject.view|master.view|sistem.master_data');
+        Route::post('/subjects/bulk-status', [SubjectController::class, 'bulkStatus'])
+            ->middleware('permission:academic.subject.update|sistem.master_data');
+        Route::post('/subjects/bulk-delete', [SubjectController::class, 'bulkDelete'])
+            ->middleware('permission:academic.subject.delete|sistem.master_data');
+        Route::get('/subjects/export/excel', [SubjectController::class, 'exportExcel'])
+            ->middleware('permission:academic.subject.view|report.export|sistem.master_data');
+        Route::get('/subjects/export/pdf', [SubjectController::class, 'exportPdf'])
+            ->middleware('permission:academic.subject.view|report.export|sistem.master_data');
+        Route::post('/subjects/import', [SubjectController::class, 'import'])
+            ->middleware('permission:academic.subject.create|academic.subject.update|sistem.master_data');
+        Route::post('/subjects/{id}/restore', [SubjectController::class, 'restore'])
+            ->middleware('permission:academic.subject.update|sistem.master_data');
+        Route::apiResource('subjects', SubjectController::class)->only(['index', 'show'])
+            ->middleware('permission:academic.subject.view|master.view|sistem.master_data');
+        Route::apiResource('subjects', SubjectController::class)->only(['store'])
+            ->middleware('permission:academic.subject.create|sistem.master_data');
+        Route::apiResource('subjects', SubjectController::class)->only(['update'])
+            ->middleware('permission:academic.subject.update|sistem.master_data');
+        Route::apiResource('subjects', SubjectController::class)->only(['destroy'])
+            ->middleware('permission:academic.subject.delete|sistem.master_data');
 
         // Tahun Ajaran (Academic Year)
-        Route::get('/tahun-ajaran/dropdown', [TahunAjaranController::class, 'dropdown']);
-        Route::get('/tahun-ajaran/stats', [TahunAjaranController::class, 'stats']);
-        Route::get('/tahun-ajaran/export', [TahunAjaranController::class, 'export']);
-        Route::post('/tahun-ajaran/import', [TahunAjaranController::class, 'import']);
-        Route::post('/tahun-ajaran/{id}/set-aktif', [TahunAjaranController::class, 'setAktif']);
-        Route::post('/tahun-ajaran/{id}/restore', [TahunAjaranController::class, 'restore']);
-        Route::apiResource('tahun-ajaran', TahunAjaranController::class);
+        Route::get('/tahun-ajaran/dropdown', [TahunAjaranController::class, 'dropdown'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::get('/tahun-ajaran/stats', [TahunAjaranController::class, 'stats'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::get('/tahun-ajaran/export', [TahunAjaranController::class, 'export'])
+            ->middleware('permission:master.view|report.export|sistem.master_data');
+        Route::post('/tahun-ajaran/import', [TahunAjaranController::class, 'import'])
+            ->middleware('permission:master.create|master.update|sistem.master_data');
+        Route::post('/tahun-ajaran/{id}/set-aktif', [TahunAjaranController::class, 'setAktif'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::post('/tahun-ajaran/{id}/restore', [TahunAjaranController::class, 'restore'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::apiResource('tahun-ajaran', TahunAjaranController::class)->only(['index', 'show'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::apiResource('tahun-ajaran', TahunAjaranController::class)->only(['store'])
+            ->middleware('permission:master.create|sistem.master_data');
+        Route::apiResource('tahun-ajaran', TahunAjaranController::class)->only(['update'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::apiResource('tahun-ajaran', TahunAjaranController::class)->only(['destroy'])
+            ->middleware('permission:master.delete|sistem.master_data');
 
         // Master Modul Semester
-        Route::get('/modul-semester/options', [ModulSemesterController::class, 'options']);
-        Route::get('/modul-semester/stats', [ModulSemesterController::class, 'stats']);
-        Route::post('/modul-semester/{id}/restore', [ModulSemesterController::class, 'restore']);
-        Route::post('/modul-semester/{id}/duplicate', [ModulSemesterController::class, 'duplicate']);
-        Route::post('/modul-semester/{id}/toggle-status', [ModulSemesterController::class, 'toggleStatus']);
-        Route::apiResource('modul-semester', ModulSemesterController::class);
+        Route::get('/modul-semester/options', [ModulSemesterController::class, 'options'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::get('/modul-semester/stats', [ModulSemesterController::class, 'stats'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::post('/modul-semester/{id}/restore', [ModulSemesterController::class, 'restore'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::post('/modul-semester/{id}/duplicate', [ModulSemesterController::class, 'duplicate'])
+            ->middleware('permission:master.create|sistem.master_data');
+        Route::post('/modul-semester/{id}/toggle-status', [ModulSemesterController::class, 'toggleStatus'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::apiResource('modul-semester', ModulSemesterController::class)->only(['index', 'show'])
+            ->middleware('permission:master.view|sistem.master_data');
+        Route::apiResource('modul-semester', ModulSemesterController::class)->only(['store'])
+            ->middleware('permission:master.create|sistem.master_data');
+        Route::apiResource('modul-semester', ModulSemesterController::class)->only(['update'])
+            ->middleware('permission:master.update|sistem.master_data');
+        Route::apiResource('modul-semester', ModulSemesterController::class)->only(['destroy'])
+            ->middleware('permission:master.delete|sistem.master_data');
 
         // Master Kurikulum
-        Route::get('/kurikulum/dropdown', [MasterKurikulumController::class, 'dropdown']);
-        Route::get('/kurikulum/stats', [MasterKurikulumController::class, 'stats']);
-        Route::get('/kurikulum/export', [MasterKurikulumController::class, 'export']);
-        Route::post('/kurikulum/import', [MasterKurikulumController::class, 'import']);
-        Route::post('/kurikulum/{id}/restore', [MasterKurikulumController::class, 'restore']);
-        Route::apiResource('kurikulum', MasterKurikulumController::class);
+        Route::get('/kurikulum/dropdown', [MasterKurikulumController::class, 'dropdown'])
+            ->middleware('permission:academic.curriculum.view|master.view|sistem.master_data');
+        Route::get('/kurikulum/stats', [MasterKurikulumController::class, 'stats'])
+            ->middleware('permission:academic.curriculum.view|master.view|sistem.master_data');
+        Route::get('/kurikulum/export', [MasterKurikulumController::class, 'export'])
+            ->middleware('permission:academic.curriculum.view|report.export|sistem.master_data');
+        Route::post('/kurikulum/import', [MasterKurikulumController::class, 'import'])
+            ->middleware('permission:academic.curriculum.create|academic.curriculum.update|sistem.master_data');
+        Route::post('/kurikulum/{id}/restore', [MasterKurikulumController::class, 'restore'])
+            ->middleware('permission:academic.curriculum.update|sistem.master_data');
+        Route::apiResource('kurikulum', MasterKurikulumController::class)->only(['index', 'show'])
+            ->middleware('permission:academic.curriculum.view|master.view|sistem.master_data');
+        Route::apiResource('kurikulum', MasterKurikulumController::class)->only(['store'])
+            ->middleware('permission:academic.curriculum.create|sistem.master_data');
+        Route::apiResource('kurikulum', MasterKurikulumController::class)->only(['update'])
+            ->middleware('permission:academic.curriculum.update|sistem.master_data');
+        Route::apiResource('kurikulum', MasterKurikulumController::class)->only(['destroy'])
+            ->middleware('permission:academic.curriculum.delete|sistem.master_data');
 
         // Capaian Pembelajaran (CP)
-        Route::get('/capaian-pembelajaran/dropdown', [CapaianPembelajaranController::class, 'dropdown']);
-        Route::get('/capaian-pembelajaran/stats', [CapaianPembelajaranController::class, 'stats']);
-        Route::post('/capaian-pembelajaran/{id}/restore', [CapaianPembelajaranController::class, 'restore']);
-        Route::apiResource('capaian-pembelajaran', CapaianPembelajaranController::class);
+        Route::get('/capaian-pembelajaran/dropdown', [CapaianPembelajaranController::class, 'dropdown'])
+            ->middleware('permission:academic.curriculum.view|master.view|sistem.master_data');
+        Route::get('/capaian-pembelajaran/stats', [CapaianPembelajaranController::class, 'stats'])
+            ->middleware('permission:academic.curriculum.view|master.view|sistem.master_data');
+        Route::post('/capaian-pembelajaran/{id}/restore', [CapaianPembelajaranController::class, 'restore'])
+            ->middleware('permission:academic.curriculum.update|sistem.master_data');
+        Route::apiResource('capaian-pembelajaran', CapaianPembelajaranController::class)->only(['index', 'show'])
+            ->middleware('permission:academic.curriculum.view|master.view|sistem.master_data');
+        Route::apiResource('capaian-pembelajaran', CapaianPembelajaranController::class)->only(['store'])
+            ->middleware('permission:academic.curriculum.create|sistem.master_data');
+        Route::apiResource('capaian-pembelajaran', CapaianPembelajaranController::class)->only(['update'])
+            ->middleware('permission:academic.curriculum.update|sistem.master_data');
+        Route::apiResource('capaian-pembelajaran', CapaianPembelajaranController::class)->only(['destroy'])
+            ->middleware('permission:academic.curriculum.delete|sistem.master_data');
     });
 
     // Rute Master Hak Akses (Role & Permission — Spatie)
@@ -607,19 +717,42 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Direct Capaian Pembelajaran Dropdown
-    Route::get('/capaian-pembelajaran/dropdown', [CapaianPembelajaranController::class, 'dropdown']);
+    Route::get('/capaian-pembelajaran/dropdown', [CapaianPembelajaranController::class, 'dropdown'])
+        ->middleware('permission:academic.curriculum.view|master.view|sistem.master_data');
 
     // Master Divisi
-    Route::get('/divisions/dropdown', [DivisionController::class, 'dropdown']);
-    Route::apiResource('divisions', DivisionController::class)->except(['create', 'edit']);
+    Route::get('/divisions/dropdown', [DivisionController::class, 'dropdown'])
+        ->middleware('permission:master.view|sistem.master_data');
+    Route::apiResource('divisions', DivisionController::class)->only(['index', 'show'])
+        ->middleware('permission:master.view|sistem.master_data');
+    Route::apiResource('divisions', DivisionController::class)->only(['store'])
+        ->middleware('permission:master.create|sistem.master_data');
+    Route::apiResource('divisions', DivisionController::class)->only(['update'])
+        ->middleware('permission:master.update|sistem.master_data');
+    Route::apiResource('divisions', DivisionController::class)->only(['destroy'])
+        ->middleware('permission:master.delete|sistem.master_data');
 
     // Jadwal Pelajaran
-    Route::get('/schedules-options', [ScheduleController::class, 'options']);
-    Route::apiResource('schedules', ScheduleController::class)->except(['create', 'edit']);
+    Route::get('/schedules-options', [ScheduleController::class, 'options'])
+        ->middleware('permission:academic.schedule.view|sistem.master_data');
+    Route::apiResource('schedules', ScheduleController::class)->only(['index', 'show'])
+        ->middleware('permission:academic.schedule.view|sistem.master_data');
+    Route::apiResource('schedules', ScheduleController::class)->only(['store'])
+        ->middleware('permission:academic.schedule.create|sistem.master_data');
+    Route::apiResource('schedules', ScheduleController::class)->only(['update'])
+        ->middleware('permission:academic.schedule.update|sistem.master_data');
+    Route::apiResource('schedules', ScheduleController::class)->only(['destroy'])
+        ->middleware('permission:academic.schedule.delete|sistem.master_data');
 
     // Nilai Siswa / Raport
-    Route::get('/grades/rekap', [GradeController::class, 'rekap']);
-    Route::apiResource('grades', GradeController::class)->except(['create', 'edit', 'destroy']);
+    Route::get('/grades/rekap', [GradeController::class, 'rekap'])
+        ->middleware('permission:academic.grade.view|teacher.grade.view');
+    Route::apiResource('grades', GradeController::class)->only(['index', 'show'])
+        ->middleware('permission:academic.grade.view|teacher.grade.view');
+    Route::apiResource('grades', GradeController::class)->only(['store'])
+        ->middleware('permission:academic.grade.create|teacher.grade.create');
+    Route::apiResource('grades', GradeController::class)->only(['update'])
+        ->middleware('permission:academic.grade.update|teacher.grade.update');
 
     // LMS Modul Ajar (RPP Digital)
     Route::prefix('lms')->group(function () {
@@ -747,8 +880,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Teacher Portal Routes (/api/teacher/*)
-    Route::prefix('teacher')->middleware('role:Guru|Guru Mata Pelajaran|Guru PAI|Pembimbing|Wali Kelas|Guru Tahfizh|Musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|Super Admin')->group(function () {
-             Route::get('/step04/schedules', [Step04TeacherController::class, 'schedules']);
+    Route::prefix('teacher')->middleware('role:Guru|guru|Guru Mata Pelajaran|guru_mata_pelajaran|Guru PAI|Pembimbing|Wali Kelas|walas|wali_kelas|Guru Tahfizh|guru_tahfizh|Musyrif|musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|guru_bk|Super Admin|super_admin|super-admin|Superadmin')->group(function () {
+             Route::get('/step04/schedules', [Step04TeacherController::class, 'schedules'])
+                 ->middleware('permission:teacher.schedule.view');
              Route::post('/teaching-attendance/scan', [Step04TeacherController::class, 'scan'])
                  ->middleware('permission:teaching_attendance.scan');
              Route::post('/teaching-sessions/{session}/start', [Step04TeacherController::class, 'startSession'])
@@ -757,60 +891,91 @@ Route::middleware('auth:sanctum')->group(function () {
                  ->middleware('permission:teaching_session.close');
              Route::post('/presence/heartbeat', [Step04TeacherController::class, 'heartbeat'])
                  ->middleware('permission:teacher_presence.heartbeat');
-             Route::get('/dashboard', [TeacherPortalController::class, 'dashboard']);
-            Route::get('/schedules', [TeacherPortalController::class, 'schedules']);
-            Route::get('/classes', [TeacherPortalController::class, 'classes']);
-            Route::get('/students', [TeacherPortalController::class, 'students']);
-            Route::get('/attendance', [TeacherPortalController::class, 'attendance']);
-            Route::post('/attendance', [TeacherPortalController::class, 'saveAttendance']);
-            Route::get('/materials', [TeacherPortalController::class, 'materials']);
-            Route::post('/materials', [TeacherPortalController::class, 'saveMaterial']);
-            Route::put('/materials/{id}', [TeacherPortalController::class, 'updateMaterial']);
-            Route::delete('/materials/{id}', [TeacherPortalController::class, 'deleteMaterial']);
-            Route::get('/assignments', [TeacherPortalController::class, 'assignments']);
-            Route::post('/assignments', [TeacherPortalController::class, 'saveAssignment']);
-            Route::get('/submissions', [TeacherPortalController::class, 'submissions']);
-            Route::post('/submissions/{id}/grade', [TeacherPortalController::class, 'gradeSubmission']);
-            Route::get('/grades', [TeacherPortalController::class, 'grades']);
-            Route::post('/grades', [TeacherPortalController::class, 'saveGrades']);
-            Route::get('/tahfizh', [TeacherPortalController::class, 'tahfizh']);
-            Route::post('/tahfizh', [TeacherPortalController::class, 'saveTahfizh']);
-            Route::get('/mutabaah', [TeacherPortalController::class, 'mutabaah']);
-            Route::post('/mutabaah/{id}/verify', [TeacherPortalController::class, 'verifyMutabaah']);
-            Route::get('/student-notes', [TeacherPortalController::class, 'studentNotes']);
-            Route::post('/student-notes', [TeacherPortalController::class, 'saveStudentNote']);
-            Route::get('/student-notes/{id}', [TeacherPortalController::class, 'showStudentNote']);
-            Route::put('/student-notes/{id}', [TeacherPortalController::class, 'updateStudentNote']);
-            Route::delete('/student-notes/{id}', [TeacherPortalController::class, 'deleteStudentNote']);
-            Route::get('/notifications', [TeacherPortalController::class, 'notifications']);
-            Route::get('/profile', [TeacherPortalController::class, 'profile']);
-            Route::post('/profile', [TeacherPortalController::class, 'updateProfile']);
+             Route::get('/dashboard', [TeacherPortalController::class, 'dashboard'])
+                 ->middleware('permission:teacher.dashboard.view');
+            Route::get('/schedules', [TeacherPortalController::class, 'schedules'])
+                ->middleware('permission:teacher.schedule.view');
+            Route::get('/classes', [TeacherPortalController::class, 'classes'])
+                ->middleware('permission:teacher.schedule.view|teacher.attendance.view|teacher.tahfizh.view|teacher.mutabaah.view|teacher.student_note.view');
+            Route::get('/students', [TeacherPortalController::class, 'students'])
+                ->middleware('permission:teacher.schedule.view|teacher.attendance.view|teacher.tahfizh.view|teacher.mutabaah.view|teacher.student_note.view');
+            Route::get('/attendance', [TeacherPortalController::class, 'attendance'])
+                ->middleware('permission:teacher.attendance.view');
+            Route::post('/attendance', [TeacherPortalController::class, 'saveAttendance'])
+                ->middleware('permission:teacher.attendance.create');
+            Route::get('/materials', [TeacherPortalController::class, 'materials'])
+                ->middleware('permission:teacher.material.view');
+            Route::post('/materials', [TeacherPortalController::class, 'saveMaterial'])
+                ->middleware('permission:teacher.material.create');
+            Route::put('/materials/{id}', [TeacherPortalController::class, 'updateMaterial'])
+                ->middleware('permission:teacher.material.update');
+            Route::delete('/materials/{id}', [TeacherPortalController::class, 'deleteMaterial'])
+                ->middleware('permission:teacher.material.delete');
+            Route::get('/assignments', [TeacherPortalController::class, 'assignments'])
+                ->middleware('permission:teacher.assignment.view');
+            Route::post('/assignments', [TeacherPortalController::class, 'saveAssignment'])
+                ->middleware('permission:teacher.assignment.create');
+            Route::get('/submissions', [TeacherPortalController::class, 'submissions'])
+                ->middleware('permission:teacher.submission.view');
+            Route::post('/submissions/{id}/grade', [TeacherPortalController::class, 'gradeSubmission'])
+                ->middleware('permission:teacher.grade.create|teacher.grade.update');
+            Route::get('/grades', [TeacherPortalController::class, 'grades'])
+                ->middleware('permission:teacher.grade.view');
+            Route::post('/grades', [TeacherPortalController::class, 'saveGrades'])
+                ->middleware('permission:teacher.grade.create|teacher.grade.update');
+            Route::get('/tahfizh', [TeacherPortalController::class, 'tahfizh'])
+                ->middleware('permission:teacher.tahfizh.view');
+            Route::post('/tahfizh', [TeacherPortalController::class, 'saveTahfizh'])
+                ->middleware('permission:teacher.tahfizh.create|teacher.tahfizh.update');
+            Route::get('/mutabaah', [TeacherPortalController::class, 'mutabaah'])
+                ->middleware('permission:teacher.mutabaah.view');
+            Route::post('/mutabaah/{id}/verify', [TeacherPortalController::class, 'verifyMutabaah'])
+                ->middleware('permission:teacher.mutabaah.update');
+            Route::get('/student-notes', [TeacherPortalController::class, 'studentNotes'])
+                ->middleware('permission:teacher.student_note.view');
+            Route::post('/student-notes', [TeacherPortalController::class, 'saveStudentNote'])
+                ->middleware('permission:teacher.student_note.create');
+            Route::get('/student-notes/{id}', [TeacherPortalController::class, 'showStudentNote'])
+                ->middleware('permission:teacher.student_note.view');
+            Route::put('/student-notes/{id}', [TeacherPortalController::class, 'updateStudentNote'])
+                ->middleware('permission:teacher.student_note.update');
+            Route::delete('/student-notes/{id}', [TeacherPortalController::class, 'deleteStudentNote'])
+                ->middleware('permission:teacher.student_note.update');
+            Route::get('/notifications', [TeacherPortalController::class, 'notifications'])
+                ->middleware('permission:teacher.dashboard.view');
+            Route::get('/profile', [TeacherPortalController::class, 'profile'])
+                ->middleware('permission:teacher.dashboard.view');
+            Route::post('/profile', [TeacherPortalController::class, 'updateProfile'])
+                ->middleware('permission:teacher.dashboard.view');
 
             // Teacher Chat Routes
-            Route::get('/chat/conversations', [TeacherPortalController::class, 'chatConversations']);
-            Route::get('/chat/parent/{parentUserId}/student/{studentId}', [TeacherPortalController::class, 'chatMessages']);
-            Route::post('/chat/parent/{parentUserId}/student/{studentId}', [TeacherPortalController::class, 'sendChatMessage']);
+            Route::get('/chat/conversations', [TeacherPortalController::class, 'chatConversations'])
+                ->middleware('permission:chat.conversation.view');
+            Route::get('/chat/parent/{parentUserId}/student/{studentId}', [TeacherPortalController::class, 'chatMessages'])
+                ->middleware('permission:chat.message.view');
+            Route::post('/chat/parent/{parentUserId}/student/{studentId}', [TeacherPortalController::class, 'sendChatMessage'])
+                ->middleware('permission:chat.message.send');
         });
 
         // Parent & Student Portal Routes (/api/portal/*)
-        Route::prefix('portal')->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent|Siswa|siswa|student')->group(function () {
+        Route::prefix('portal')->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent|Siswa|siswa|student')->group(function () {
             Route::get('/dashboard', [StudentParentPortalController::class, 'dashboard']);
             Route::get('/children', [StudentParentPortalController::class, 'children']);
              Route::get('/profile', [StudentParentPortalController::class, 'profile']);
              Route::get('/attendance-qr', [StudentParentPortalController::class, 'attendanceQr']);
              Route::get('/schedules', [StudentParentPortalController::class, 'schedules']);
             Route::get('/attendance', [StudentParentPortalController::class, 'attendance']);
-            Route::post('/permissions', [StudentParentPortalController::class, 'submitPermission'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
+            Route::post('/permissions', [StudentParentPortalController::class, 'submitPermission'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
             Route::get('/permissions', [StudentParentPortalController::class, 'permissionsHistory']);
             Route::get('/materials', [StudentParentPortalController::class, 'materials']);
             Route::get('/assignments', [StudentParentPortalController::class, 'assignments']);
-            Route::post('/assignments/{id}/submit', [StudentParentPortalController::class, 'submitAssignment'])->middleware('role:Siswa');
+            Route::post('/assignments/{id}/submit', [StudentParentPortalController::class, 'submitAssignment'])->middleware('role:Siswa|siswa|student');
             Route::get('/grades', [StudentParentPortalController::class, 'grades']);
             Route::get('/tahfizh', [StudentParentPortalController::class, 'tahfizh']);
             Route::get('/mutabaah', [StudentParentPortalController::class, 'mutabaah']);
-            Route::post('/mutabaah', [StudentParentPortalController::class, 'saveMutabaahStudent'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
+            Route::post('/mutabaah', [StudentParentPortalController::class, 'saveMutabaahStudent'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
             Route::get('/student-notes', [StudentParentPortalController::class, 'studentNotes']);
-            Route::post('/student-notes/{id}/sign', [StudentParentPortalController::class, 'signStudentNote'])->middleware('role:Orang Tua|orang_tua|Orangtua|Wali Murid|parent');
+            Route::post('/student-notes/{id}/sign', [StudentParentPortalController::class, 'signStudentNote'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
             Route::get('/achievements', [StudentParentPortalController::class, 'achievements']);
             Route::get('/announcements', [StudentParentPortalController::class, 'announcements']);
             Route::get('/school-information', [StudentParentPortalController::class, 'schoolInformation']);
@@ -831,8 +996,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/lms/exams', [StudentParentPortalController::class, 'examOverview']);
             Route::get('/exam-grids', [StudentParentPortalController::class, 'examGrids']);
             Route::get('/results', [StudentParentPortalController::class, 'results']);
-            Route::post('/lms/exams/{id}/start', [StudentParentPortalController::class, 'startExam'])->middleware('role:Siswa');
-            Route::post('/lms/exam-sessions/{sesiId}/answers', [StudentParentPortalController::class, 'saveExamAnswers'])->middleware('role:Siswa');
+            Route::post('/lms/exams/{id}/start', [StudentParentPortalController::class, 'startExam'])->middleware('role:Siswa|siswa|student');
+            Route::post('/lms/exam-sessions/{sesiId}/answers', [StudentParentPortalController::class, 'saveExamAnswers'])->middleware('role:Siswa|siswa|student');
         });
 
         // Alumni Portal Routes (/api/portal/alumni/*)

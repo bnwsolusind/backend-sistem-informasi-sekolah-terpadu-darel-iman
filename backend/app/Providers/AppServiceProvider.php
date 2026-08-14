@@ -63,6 +63,7 @@ use App\Repositories\Eloquent\SubjectRepository;
 use App\Repositories\Eloquent\TahunAjaranRepository;
 use App\Repositories\Eloquent\TeacherRepository;
 use App\Repositories\Eloquent\TujuanPembelajaranRepository;
+use App\Support\RoleName;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
@@ -112,7 +113,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Global authorization bypass untuk Super Admin
         Gate::before(function (\App\Models\User $user, string $ability) {
-            return $user->hasRole('Super Admin') ? true : null;
+            return RoleName::userHasAny($user, ['Super Admin']) ? true : null;
         });
 
         foreach ([

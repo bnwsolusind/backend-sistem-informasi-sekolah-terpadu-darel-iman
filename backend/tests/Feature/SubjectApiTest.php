@@ -25,7 +25,9 @@ class SubjectApiTest extends TestCase
     {
         parent::setUp();
 
+        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
         $this->user = User::factory()->create();
+        $this->user->assignRole('Super Admin');
 
         $this->unit = EducationUnit::create([
             'name' => 'SMP IT Antigravity Test',

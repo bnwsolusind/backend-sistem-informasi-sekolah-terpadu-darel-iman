@@ -77,22 +77,28 @@ class KelasService
     /**
      * Dapatkan statistik ringkasan kelas.
      */
-    public function dapatkanStatistik(): array
+    public function dapatkanStatistik(?array $allowedKelasIds = null): array
     {
-        return $this->kelasRepository->dapatkanStatistik();
+        return $this->kelasRepository->dapatkanStatistik($allowedKelasIds);
     }
 
     /**
      * Dapatkan daftar opsi data master untuk dropdown form/filter.
      */
-    public function dapatkanOpsiMaster(): array
+    public function dapatkanOpsiMaster(?array $allowedUnitIds = null): array
     {
-        $units = EducationUnit::where('is_active', true)->select('id', 'name', 'code', 'level')->orderBy('name', 'asc')->get();
+        $units = EducationUnit::query()
+            ->where('is_active', true)
+            ->when($allowedUnitIds !== null, fn ($query) => $query->whereIn('id', $allowedUnitIds))
+            ->select('id', 'name', 'code', 'level')
+            ->orderBy('name', 'asc')
+            ->get();
         $academicYears = AcademicYear::orderBy('start_date', 'desc')->select('id', 'name', 'is_active')->get();
         $semesters = Semester::orderBy('sequence', 'asc')->select('id', 'academic_year_id', 'name', 'sequence', 'is_active')->get();
 
         // Ambil data Pegawai / Guru (hanya dari tabel employees, tidak membuat baru)
         $employees = Employee::where('status', 'Aktif')
+            ->when($allowedUnitIds !== null, fn ($query) => $query->whereIn('unit_id', $allowedUnitIds))
             ->select('id', 'niy', 'nama_lengkap', 'gelar_depan', 'gelar_belakang', 'unit_id', 'jabatan_id')
             ->orderBy('nama_lengkap', 'asc')
             ->get()
@@ -156,7 +162,6 @@ class KelasService
         $gagal = 0;
         $errors = [];
 
-        $unitDefault = EducationUnit::first();
         $tahunDefault = AcademicYear::where('is_active', true)->first() ?? AcademicYear::first();
         $semesterDefault = Semester::where('is_active', true)->first() ?? Semester::first();
 
@@ -172,10 +177,18 @@ class KelasService
                     continue;
                 }
 
+                $unitId = $row['unit_pendidikan_id'] ?? null;
+                if (! $unitId) {
+                    $gagal++;
+                    $errors[] = 'Baris '.($index + 1).': Unit pendidikan wajib diisi.';
+
+                    continue;
+                }
+
                 Kelas::updateOrCreate(
                     ['kode_kelas' => $kode],
                     [
-                        'unit_pendidikan_id' => $row['unit_pendidikan_id'] ?? $unitDefault?->id,
+                        'unit_pendidikan_id' => $unitId,
                         'tahun_ajaran_id' => $row['tahun_ajaran_id'] ?? $tahunDefault?->id,
                         'semester_id' => $row['semester_id'] ?? $semesterDefault?->id,
                         'jenjang' => $row['jenjang'] ?? 'SDIT',

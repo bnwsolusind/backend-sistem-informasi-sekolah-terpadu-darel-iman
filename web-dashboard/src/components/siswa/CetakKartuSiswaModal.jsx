@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { printStudentIdCard } from '../../services/idCardPrintService.jsx'
+import StudentIdCard from '../card-print/StudentIdCard'
 import {
   FaBookmark,
   FaCheck,
@@ -240,26 +242,63 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
       return
     }
     setToast({ tone: 'success', title: 'Kartu Siap Dicetak', message: 'Dokumen kartu siswa berhasil disiapkan.' })
-    window.setTimeout(() => window.print(), 150)
+    printStudentIdCard({
+      data,
+      config: cardConfig,
+      theme,
+      pengaturan,
+      qrToken,
+      formatDate,
+    })
   }
 
   const handleDownload = async () => {
-    if (!data.id) {
+    if (!data?.id) {
       setToast({ tone: 'warning', title: 'Pilih Siswa', message: 'Silakan pilih data siswa sebelum mencetak kartu.' })
       return
     }
+
     const node = document.getElementById('printable-student-card')
     if (!node) return
+
     setIsProcessing(true)
+
     try {
-      const dataUrl = await toPng(node, { pixelRatio: 3, cacheBust: true, backgroundColor: '#ffffff' })
+      const isHorizontal = orientation === 'horizontal'
+      const exportWidth = isHorizontal ? 1011 : 638
+      const exportHeight = isHorizontal ? 638 : 1011
+
+      const dataUrl = await toPng(node, {
+        width: exportWidth,
+        height: exportHeight,
+        pixelRatio: 2,
+        cacheBust: false,
+        backgroundColor: '#ffffff',
+        fontEmbedCSS: '',
+        imagePlaceholder:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      })
+
       const link = document.createElement('a')
-      link.download = `kartu-siswa-${data.nis || data.id}.png`
+      const studentName = (data.nama || data.full_name || 'siswa')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+
+      link.download = `kartu-siswa-${studentName}-${orientation}.png`
       link.href = dataUrl
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
+
       setToast({ tone: 'success', title: 'Preview Berhasil Diunduh', message: 'File kartu siswa berhasil dibuat.' })
-    } catch {
-      setToast({ tone: 'danger', title: 'Gagal Memproses Kartu', message: 'Terjadi kesalahan saat membuat kartu siswa. Silakan coba kembali.' })
+    } catch (err) {
+      console.error('DOWNLOAD_PREVIEW_ERROR:', err)
+      setToast({
+        tone: 'danger',
+        title: 'Gagal Memproses Kartu',
+        message: 'Terjadi kesalahan saat membuat kartu siswa. Silakan coba kembali.',
+      })
     } finally {
       setIsProcessing(false)
     }
@@ -292,14 +331,14 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
     const sizeClass = className || (vertical ? 'h-[126px] w-[108px]' : 'h-[118px] w-[104px]')
     return (
       <div className={`${sizeClass} ${vertical ? 'rounded-2xl border-4 border-white shadow-lg' : 'rounded-xl'} flex items-center justify-center overflow-hidden bg-slate-100 shadow-sm`} style={{ backgroundColor: data.foto ? undefined : theme.primary }}>
-        <PersonAvatar src={data.foto} name={data.nama} size={vertical ? 'profile' : 'card'} className={`${vertical ? 'h-[118px] w-[100px] rounded-[16px]' : 'h-full w-full rounded-[12px]'} border-0 shadow-none`} />
+        <PersonAvatar src={data.foto} name={data.nama} size={vertical ? 'profile' : 'card'} className={`${vertical ? 'h-[118px]! w-[100px]! rounded-[16px]' : 'h-full! w-full! rounded-[12px]'} border-0 shadow-none`} />
       </div>
     )
   }
 
   const AttendanceQr = ({ size }) => (
-    <div className="rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-slate-300">
-      {qrToken ? <QRCodeSVG value={qrToken} size={size} level="M" /> : <FaQrcode style={{ width: size, height: size }} className="text-slate-300" />}
+    <div className="student-card-qr rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-slate-300">
+      {qrToken ? <QRCodeSVG value={qrToken} size={size} level="M" marginSize={4} /> : <FaQrcode style={{ width: size, height: size }} className="text-slate-300" />}
     </div>
   )
 
@@ -313,187 +352,119 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/65 p-3 backdrop-blur-sm">
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #printable-student-card, #printable-student-card * { visibility: visible !important; }
-          #printable-student-card {
-            position: fixed !important; inset: 0 !important; margin: auto !important;
-            box-shadow: none !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
-          }
-        }
-      `}</style>
-
-      <section className="my-3 flex max-h-[calc(100vh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><FaIdCard /></span>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Kartu Siswa</h2>
-              <p className="text-[11px] text-slate-500">Atur desain, aktifkan QR absensi, lalu cetak kartu siswa.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={saveTemplate} disabled={isSaving} className="hidden h-10 items-center gap-2 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white disabled:opacity-60 sm:flex">
-              {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FaBookmark />} {isSaving ? 'Menyimpan...' : 'Simpan Pilihan'}
-            </button>
-            <button type="button" onClick={onClose} aria-label="Tutup" className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"><FaTimes /></button>
-          </div>
-        </header>
-
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-4">
-            <div className="space-y-5">
-              <section>
-                <h3 className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-700">1. Pilih Siswa</h3>
-                <label className="relative block">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Cari nama siswa, NIS, atau NISN..." className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-[11px] outline-none focus:border-emerald-600 focus:ring-3 focus:ring-emerald-100" />
-                </label>
-                <select
-                  value={selectedStudent?.id || ''}
-                  onChange={(event) => setSelectedStudent(studentOptions.find((item) => String(item.id) === event.target.value) || null)}
-                  className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none focus:border-emerald-600"
-                >
-                  <option value="">Pilih siswa...</option>
-                  {studentOptions.map((item) => <option key={item.id} value={item.id}>{item.nama} · {item.nis} · {item.nisn}</option>)}
-                </select>
-                {selectedStudent && (
-                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
-                    <PersonAvatar src={data.foto} name={data.nama} size="table" className="border-emerald-200" />
-                    <span className="min-w-0">
-                      <strong className="block truncate text-xs text-slate-800">{data.nama}</strong>
-                      <small className="block truncate text-[9px] text-slate-500">NIS {data.nis} · NISN {data.nisn}</small>
-                      <small className="block truncate text-[9px] font-semibold text-emerald-700">{data.unit} · Kelas {data.kelas} · {data.status}</small>
-                    </span>
-                  </div>
-                )}
-              </section>
-
-              <section>
-                <h3 className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-700">2. Orientasi Kartu</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {[['horizontal', 'Horizontal'], ['vertical', 'Vertikal']].map(([value, label]) => (
-                    <button key={value} type="button" onClick={() => updateConfig('orientation', value)} className={`relative flex h-14 items-center justify-center gap-2 rounded-xl border text-[11px] font-bold transition ${orientation === value ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100' : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200'}`}><FaIdCard className={value === 'vertical' ? 'rotate-90' : ''} />{label}{orientation === value && <FaCheck className="absolute right-2 top-2 text-[9px]" />}</button>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-700">3. Pilih Template Warna</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  {THEMES.map((item) => (
-                    <button key={item.id} type="button" onClick={() => updateConfig('templateColor', item.id)} className={`relative overflow-hidden rounded-xl border bg-white p-1.5 text-left transition ${themeId === item.id ? 'border-emerald-600 ring-2 ring-emerald-100' : 'border-slate-200 hover:border-emerald-200'}`}>
-                      <span className="block h-9 rounded-lg" style={{ background: `linear-gradient(145deg, ${item.primary}, ${item.soft} 58%, ${item.accent})` }} />
-                      <span className="mt-1 flex justify-center gap-0.5">{[item.primary, item.secondary, item.accent].map((color) => <i key={color} className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />)}</span>
-                      <span className="mt-1 block truncate text-center text-[8px] font-bold text-slate-600">{item.name}</span>
-                      {themeId === item.id && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-700 text-[8px] text-white"><FaCheck /></span>}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-700">4. Opsi Tampilan</h3>
-                <div className="grid grid-cols-1 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:grid-cols-2 lg:grid-cols-1">
-                  <Toggle label="Foto Siswa" checked={showPhoto} onChange={(value) => updateConfig('showPhoto', value)} />
-                  <Toggle label="Logo Yayasan" checked={showLogo} onChange={(value) => updateConfig('showLogo', value)} />
-                  <Toggle label="QR Code" checked={showQr} onChange={(value) => updateConfig('showQr', value)} />
-                  <Toggle label="NIS" checked={showNis} onChange={(value) => updateConfig('showNis', value)} />
-                  <Toggle label="NISN" checked={showNisn} onChange={(value) => updateConfig('showNisn', value)} />
-                  <Toggle label="Kelas" checked={showClass} onChange={(value) => updateConfig('showClass', value)} />
-                  <Toggle label="Rombel" checked={showRombel} onChange={(value) => updateConfig('showRombel', value)} />
-                  <Toggle label="Unit Pendidikan" checked={showUnit} onChange={(value) => updateConfig('showUnit', value)} />
-                  <Toggle label="Tahun Ajaran" checked={showAcademicYear} onChange={(value) => updateConfig('showAcademicYear', value)} />
-                  <Toggle label="Motto" checked={showMotto} onChange={(value) => updateConfig('showMotto', value)} />
-                </div>
-              </section>
-
-              <button type="button" onClick={resetTemplate} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-600 hover:bg-slate-50"><RotateCcw className="h-4 w-4" /> Reset Template</button>
-            </div>
-          </aside>
-
-          <main className="min-h-0 overflow-y-auto p-5 sm:p-6">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/65 p-3 backdrop-blur-sm">
+        <section className="my-3 flex max-h-[calc(100vh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+          <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><FaIdCard /></span>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Preview Kartu Siswa</h3>
-                <p className="text-[11px] text-slate-500">QR hanya aktif untuk siswa yang sudah tersimpan dan memiliki token absensi.</p>
+                <h2 className="text-base font-bold text-slate-900">Kartu Siswa</h2>
+                <p className="text-[11px] text-slate-500">Atur desain, aktifkan QR absensi, lalu cetak kartu siswa.</p>
               </div>
-              <span className={`rounded-full px-3 py-1 text-[10px] font-bold ${qrToken ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                {qrToken ? 'QR Absensi Aktif' : 'QR Belum Aktif'}
-              </span>
             </div>
-
-            <div className="flex min-h-[500px] items-center justify-center overflow-auto rounded-2xl border border-slate-200 bg-[radial-gradient(circle_at_center,_#f8fafc,_#eef2f7)] p-6">
-              <article
-                id="printable-student-card"
-                className={`${cardClass} relative flex shrink-0 overflow-hidden rounded-2xl bg-white shadow-2xl`}
-                style={{ border: `1px solid ${theme.primary}40` }}
-              >
-                {orientation === 'horizontal' ? (
-                  <div className="relative z-10 h-full w-full">
-                    <span className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: `radial-gradient(${theme.primary} 1px, transparent 1px)`, backgroundSize: '13px 13px' }} />
-                    <span className="absolute -right-20 -top-24 h-40 w-64 rounded-[50%]" style={{ background: theme.soft }} />
-                    <div className="absolute left-[4%] top-[6%]"><BrandMark /></div>
-                    <span className="absolute right-0 top-0 rounded-bl-[28px] px-5 py-3 text-[9px] font-black tracking-wider text-white" style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.dark})` }}>KARTU SISWA</span>
-
-                    {showPhoto && <div className="absolute left-[5.8%] top-[31%] h-[45%] w-[25.8%]"><StudentPhoto className="h-full w-full rounded-[14px] border border-slate-200" /></div>}
-                    {showUnit && <span className="absolute left-[5.8%] top-[78.5%] w-[25.8%] truncate rounded-md px-2 py-1 text-center text-[7px] font-black text-white" style={{ background: theme.primary }}>{data.unit}</span>}
-
-                    <div className={`absolute top-[31%] min-w-0 ${showPhoto ? 'left-[36%] right-[31%]' : 'left-[6%] right-[31%]'}`}>
-                      <p className="text-[7px] font-medium text-slate-500">Nama</p>
-                      <h4 className="truncate text-[13px] font-black uppercase leading-tight text-slate-950">{data.nama}</h4>
-                      <div className="mt-2.5 space-y-2">
-                        {showNis && <DetailRow icon={IdCard} label="NIS" value={data.nis} horizontal />}
-                        {showNisn && <DetailRow icon={ShieldCheck} label="NISN" value={data.nisn} horizontal />}
-                        {showClass && <DetailRow icon={UserRound} label="Kelas" value={`${data.kelas}${showRombel && data.rombel !== '-' ? ` / ${data.rombel}` : ''}`} horizontal />}
-                        {!showClass && showRombel && <DetailRow icon={UserRound} label="Rombel" value={data.rombel} horizontal />}
-                        <DetailRow icon={CalendarDays} label="Tanggal Lahir" value={formatDate(data.tanggalLahir)} horizontal />
-                        <DetailRow icon={Droplets} label="Gol. Darah" value={data.golonganDarah} horizontal />
-                        {showAcademicYear && <DetailRow icon={School} label="Tahun Ajaran" value={data.tahunAjaran} horizontal />}
-                      </div>
-                    </div>
-                    {showQr && <div className="absolute right-[5%] top-[38%] flex w-[22%] flex-col items-center rounded-xl border border-slate-300 bg-white p-2 shadow-sm"><AttendanceQr size={78} /><b className="mt-1 w-full rounded py-1 text-center text-[7px] text-white" style={{ background: theme.primary }}>ID CARD</b><small className="mt-1 text-[6px] text-slate-500">Scan untuk verifikasi</small></div>}
-
-                    <span className="absolute -bottom-[26%] -left-[9%] h-[44%] w-[92%] -rotate-2 rounded-[50%]" style={{ background: `linear-gradient(115deg, ${theme.dark}, ${theme.primary})`, borderTop: `4px solid ${theme.accent}` }} />
-                    <span className="absolute -bottom-[23%] right-[-9%] h-[39%] w-[43%] rotate-2 rounded-[58%_0_0_0]" style={{ background: `linear-gradient(130deg, ${theme.accent}, #d89b13)` }} />
-                    <div className="absolute bottom-[5%] left-[5%] flex items-center gap-2 text-white"><BookOpen className="h-6 w-6" strokeWidth={1.5} /><p className="text-[7px] font-semibold leading-tight">Sekolah Unggulan<br />Berbasis Al-Qur'an</p></div>
-                    <p className="absolute bottom-[7%] left-[37%] text-[7px] font-medium text-white/90">www.dareliman.sch.id</p>
-                    <div className="absolute bottom-[4%] right-[4%] w-[23%] text-center text-white">
-                      <svg viewBox="0 0 120 34" className="mx-auto h-7 w-[86%]" aria-hidden="true"><path d="M8 26C24 4 23 3 18 29C40 5 31 30 50 14C42 36 65 10 58 28C74 16 77 28 111 23" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
-                      <p className="text-[6.5px] font-bold uppercase">Kepala Sekolah</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative z-10 h-full w-full text-center">
-                    <span className="absolute left-0 right-0 top-0 h-[28%] rounded-b-[52%]" style={{ background: `linear-gradient(135deg, ${theme.primary}, ${theme.dark})`, borderBottom: `4px solid ${theme.accent}` }} />
-                    <span className="absolute left-0 right-0 top-0 h-[28%] opacity-10" style={{ backgroundImage: 'radial-gradient(white 1px, transparent 1px)', backgroundSize: '13px 13px' }} />
-                    <div className="absolute left-[8%] right-[8%] top-[5%]"><BrandMark compact inverted /></div>
-                    {showMotto && <p className="absolute left-[36%] right-[5%] top-[16%] text-left text-[7px] italic leading-relaxed text-white/90">Berilmu, Berakhlak, Beramal<br />Untuk Meraih Ridha Allah</p>}
-
-                    {showPhoto && <div className="absolute left-1/2 top-[17.5%] h-[22%] w-[38%] -translate-x-1/2"><StudentPhoto vertical className="h-full w-full rounded-full border-4 border-white shadow-lg" /></div>}
-                    <div className={`absolute left-[8%] right-[8%] ${showPhoto ? 'top-[40.5%]' : 'top-[29%]'}`}>
-                      <h4 className="truncate text-[14px] font-black uppercase leading-tight" style={{ color: theme.dark }}>{data.nama}</h4>
-                      {showUnit && <p className="mx-auto mt-1 w-fit max-w-full truncate rounded-md px-4 py-1 text-[7px] font-black text-white" style={{ background: theme.primary }}>{data.unit}</p>}
-                      <div className="mt-3 space-y-2 text-left">
-                        {showNis && <DetailRow icon={IdCard} label="NIS" value={data.nis} />}
-                        {showNisn && <DetailRow icon={ShieldCheck} label="NISN" value={data.nisn} />}
-                        {showClass && <DetailRow icon={UserRound} label="Kelas" value={`${data.kelas}${showRombel && data.rombel !== '-' ? ` / ${data.rombel}` : ''}`} />}
-                        {!showClass && showRombel && <DetailRow icon={UserRound} label="Rombel" value={data.rombel} />}
-                        <DetailRow icon={CalendarDays} label="Tanggal Lahir" value={formatDate(data.tanggalLahir)} />
-                        <DetailRow icon={Droplets} label="Gol. Darah" value={data.golonganDarah} />
-                        {showAcademicYear && <DetailRow icon={School} label="Tahun Ajaran" value={data.tahunAjaran} />}
-                      </div>
-                    </div>
-                    {showQr && <div className="absolute bottom-[12%] left-1/2 flex -translate-x-1/2 flex-col items-center rounded-xl border border-slate-300 bg-white p-2 shadow-sm"><AttendanceQr size={68} /><b className="mt-1 w-full rounded py-1 text-[7px] text-white" style={{ background: theme.primary }}>ID CARD</b><small className="mt-1 text-[6px] text-slate-500">Scan untuk verifikasi</small></div>}
-                    <span className="absolute -bottom-[5%] -left-[10%] h-[17%] w-[120%] rounded-[50%_50%_0_0]" style={{ background: `linear-gradient(115deg, ${theme.dark}, ${theme.primary})`, borderTop: `4px solid ${theme.accent}` }} />
-                    <div className="absolute bottom-[3.6%] left-[8%] flex items-center gap-2 text-left text-white"><BookOpen className="h-6 w-6" strokeWidth={1.5} /><p className="text-[6.5px] font-semibold leading-tight">Sekolah Unggulan<br />Berbasis Al-Qur'an</p></div>
-                    <p className="absolute bottom-[3.6%] right-[8%] border-l border-white/40 pl-4 text-left text-[6.5px] font-bold text-white">TAHUN AJARAN<br />{data.tahunAjaran}</p>
-                  </div>
-                )}
-              </article>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={saveTemplate} disabled={isSaving} className="hidden h-10 items-center gap-2 rounded-xl bg-emerald-800 px-4 text-xs font-semibold text-white disabled:opacity-60 sm:flex">
+                {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FaBookmark />} {isSaving ? 'Menyimpan...' : 'Simpan Pilihan'}
+              </button>
+              <button type="button" onClick={onClose} aria-label="Tutup" className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"><FaTimes /></button>
             </div>
+          </header>
+
+          <div className="grid min-h-0 flex-1 lg:grid-cols-[360px_minmax(0,1fr)]">
+            <aside className="overflow-y-auto border-r border-slate-100 bg-slate-50/60 p-4">
+              <div className="space-y-5">
+                <section>
+                  <h3 className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-700">1. Pilih Siswa</h3>
+                  <label className="relative block">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Cari nama siswa, NIS, atau NISN..." className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-[11px] outline-none focus:border-emerald-600 focus:ring-3 focus:ring-emerald-100" />
+                  </label>
+                  <select
+                    value={selectedStudent?.id || ''}
+                    onChange={(event) => setSelectedStudent(studentOptions.find((item) => String(item.id) === event.target.value) || null)}
+                    className="mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none focus:border-emerald-600"
+                  >
+                    <option value="">Pilih siswa...</option>
+                    {studentOptions.map((item) => <option key={item.id} value={item.id}>{item.nama} · {item.nis} · {item.nisn}</option>)}
+                  </select>
+                  {selectedStudent && (
+                    <div className="mt-2 flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
+                      <PersonAvatar src={data.foto} name={data.nama} size="table" className="border-emerald-200" />
+                      <span className="min-w-0">
+                        <strong className="block truncate text-xs text-slate-800">{data.nama}</strong>
+                        <small className="block truncate text-[9px] text-slate-500">NIS {data.nis} · NISN {data.nisn}</small>
+                        <small className="block truncate text-[9px] font-semibold text-emerald-700">{data.unit} · Kelas {data.kelas} · {data.status}</small>
+                      </span>
+                    </div>
+                  )}
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-700">2. Orientasi Kartu</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[['horizontal', 'Horizontal'], ['vertical', 'Vertikal']].map(([value, label]) => (
+                      <button key={value} type="button" onClick={() => updateConfig('orientation', value)} className={`relative flex h-14 items-center justify-center gap-2 rounded-xl border text-[11px] font-bold transition ${orientation === value ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-100' : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200'}`}><FaIdCard className={value === 'vertical' ? 'rotate-90' : ''} />{label}{orientation === value && <FaCheck className="absolute right-2 top-2 text-[9px]" />}</button>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-700">3. Pilih Template Warna</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {THEMES.map((item) => (
+                      <button key={item.id} type="button" onClick={() => updateConfig('templateColor', item.id)} className={`relative overflow-hidden rounded-xl border bg-white p-1.5 text-left transition ${themeId === item.id ? 'border-emerald-600 ring-2 ring-emerald-100' : 'border-slate-200 hover:border-emerald-200'}`}>
+                        <span className="block h-9 rounded-lg" style={{ background: `linear-gradient(145deg, ${item.primary}, ${item.soft} 58%, ${item.accent})` }} />
+                        <span className="mt-1 flex justify-center gap-0.5">{[item.primary, item.secondary, item.accent].map((color) => <i key={color} className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />)}</span>
+                        <span className="mt-1 block truncate text-center text-[8px] font-bold text-slate-600">{item.name}</span>
+                        {themeId === item.id && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-700 text-[8px] text-white"><FaCheck /></span>}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                  <h3 className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-700">4. Opsi Tampilan</h3>
+                  <div className="grid grid-cols-1 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:grid-cols-2 lg:grid-cols-1">
+                    <Toggle label="Foto Siswa" checked={showPhoto} onChange={(value) => updateConfig('showPhoto', value)} />
+                    <Toggle label="Logo Yayasan" checked={showLogo} onChange={(value) => updateConfig('showLogo', value)} />
+                    <Toggle label="QR Code" checked={showQr} onChange={(value) => updateConfig('showQr', value)} />
+                    <Toggle label="NIS" checked={showNis} onChange={(value) => updateConfig('showNis', value)} />
+                    <Toggle label="NISN" checked={showNisn} onChange={(value) => updateConfig('showNisn', value)} />
+                    <Toggle label="Kelas" checked={showClass} onChange={(value) => updateConfig('showClass', value)} />
+                    <Toggle label="Rombel" checked={showRombel} onChange={(value) => updateConfig('showRombel', value)} />
+                    <Toggle label="Unit Pendidikan" checked={showUnit} onChange={(value) => updateConfig('showUnit', value)} />
+                    <Toggle label="Tahun Ajaran" checked={showAcademicYear} onChange={(value) => updateConfig('showAcademicYear', value)} />
+                    <Toggle label="Motto" checked={showMotto} onChange={(value) => updateConfig('showMotto', value)} />
+                  </div>
+                </section>
+
+                <button type="button" onClick={resetTemplate} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-[11px] font-bold text-slate-600 hover:bg-slate-50"><RotateCcw className="h-4 w-4" /> Reset Template</button>
+              </div>
+            </aside>
+
+            <main className="min-h-0 overflow-y-auto p-5 sm:p-6">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Preview Kartu Siswa</h3>
+                  <p className="text-[11px] text-slate-500">QR hanya aktif untuk siswa yang sudah tersimpan dan memiliki token absensi.</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-[10px] font-bold ${qrToken ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                  {qrToken ? 'QR Absensi Aktif' : 'QR Belum Aktif'}
+                </span>
+              </div>
+
+              <div className="flex min-h-[500px] items-center justify-center overflow-auto rounded-2xl border border-slate-200 bg-[radial-gradient(circle_at_center,_#f8fafc,_#eef2f7)] p-6">
+                <StudentIdCard
+                  data={data}
+                  config={cardConfig}
+                  theme={theme}
+                  pengaturan={pengaturan}
+                  qrToken={qrToken}
+                  formatDate={formatDate}
+                  isPrint={false}
+                />
+              </div>
 
             {qrError && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-medium text-amber-800">{qrError}</p>}
 
@@ -518,7 +489,8 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
           </div>
         </footer>
       </section>
-      {toast && (
+    </div>
+    {toast && (
         <div className={`fixed right-4 top-4 z-[70] w-[min(360px,calc(100vw-2rem))] rounded-2xl border bg-white p-4 shadow-2xl ${
           toast.tone === 'danger' ? 'border-rose-200' : toast.tone === 'warning' ? 'border-amber-200' : 'border-emerald-200'
         }`}>
@@ -531,6 +503,6 @@ export default function CetakKartuSiswaModal({ student, onClose }) {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
