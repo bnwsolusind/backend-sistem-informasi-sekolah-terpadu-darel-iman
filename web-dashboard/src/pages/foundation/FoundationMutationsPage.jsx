@@ -4,7 +4,6 @@ import ActionDropdown from '../../components/app/ActionDropdown'
 import api from '../../services/api'
 import {
   MasterActionButton,
-  MasterActionIconButton,
   MasterBadge,
   MasterDataPage,
   MasterDataTable,

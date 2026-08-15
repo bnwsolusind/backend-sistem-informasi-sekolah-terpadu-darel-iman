@@ -77,120 +77,140 @@ export default function TahunAjaranImportModal({
   }
 
   return (
-    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-      <div className="ui-modal flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
-        {/* HEADER */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-white px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
-              <FaFileImport className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-extrabold tracking-tight text-slate-800">Impor Data Tahun Ajaran</h3>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Unggah file CSV/Excel untuk impor masal data tahun ajaran
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700"
-          >
-            <FaTimes className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* BODY */}
-        <div className="p-6 space-y-5 overflow-y-auto flex-1 text-sm">
-          {/* Download Template Box */}
-          <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between">
-            <div>
-              <h4 className="font-bold text-emerald-900">Belum punya format file?</h4>
-              <p className="text-xs text-emerald-700 mt-0.5">
-                Unduh contoh template CSV untuk mencocokkan kolom data.
-              </p>
+    <div
+      id="tahun-ajaran-import-modal"
+      className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tahun-ajaran-import-title"
+      tabIndex={-1}
+    >
+      <div className="modal-dialog font-sans w-full max-w-2xl">
+        <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+          {/* HEADER */}
+          <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                <FaFileImport className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 id="tahun-ajaran-import-title" className="modal-title text-base font-bold text-slate-900 dark:text-white">Impor Data Tahun Ajaran</h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Unggah file CSV/Excel untuk impor masal data tahun ajaran
+                </p>
+              </div>
             </div>
             <button
-              onClick={handleDownloadTemplate}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-100/50 text-emerald-800 font-bold text-xs border border-emerald-200 shadow-xs transition-all"
+              type="button"
+              onClick={onClose}
+              className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              aria-label="Tutup impor tahun ajaran"
+              data-overlay="#tahun-ajaran-import-modal"
             >
-              <FaDownload className="w-3.5 h-3.5 text-emerald-600" /> Unduh Template
+              <FaTimes className="size-4" />
             </button>
           </div>
 
-          {/* Upload Box */}
-          <div className="border-2 border-dashed border-emerald-200 rounded-2xl p-6 text-center hover:border-emerald-400 transition-colors bg-emerald-50/20">
-            <input
-              type="file"
-              accept=".csv, text/csv"
-              id="file-import-input"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <label htmlFor="file-import-input" className="cursor-pointer space-y-2 block">
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-xs">
-                <FaUpload className="w-5 h-5" />
+          {/* BODY */}
+          <div className="modal-body min-h-0 flex-1 space-y-5 overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-200">
+            {/* Download Template Box */}
+            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 flex items-center justify-between dark:bg-slate-800/50 dark:border-slate-700">
+              <div>
+                <h4 className="font-bold text-emerald-900 dark:text-emerald-300">Belum punya format file?</h4>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  Unduh contoh template CSV untuk mencocokkan kolom data.
+                </p>
               </div>
-              <p className="font-bold text-gray-800">
-                {fileName ? fileName : 'Klik di sini untuk memilih file CSV'}
-              </p>
-              <p className="text-xs text-gray-500">Format yang didukung: .CSV (Comma Separated Values)</p>
-            </label>
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="btn btn-primary btn-sm inline-flex items-center gap-2"
+              >
+                <FaDownload className="size-3.5" /> Unduh Template
+              </button>
+            </div>
+
+            {/* Upload Box */}
+            <div className="border-2 border-dashed border-emerald-200 rounded-2xl p-6 text-center hover:border-emerald-400 transition-colors bg-emerald-50/20 dark:bg-slate-800/40 dark:border-slate-600">
+              <input
+                type="file"
+                accept=".csv, text/csv"
+                id="file-import-input"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <label htmlFor="file-import-input" className="cursor-pointer space-y-2 block">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-xs dark:bg-emerald-950/50 dark:text-emerald-300">
+                  <FaUpload className="w-5 h-5" />
+                </div>
+                <p className="font-bold text-gray-800 dark:text-slate-200">
+                  {fileName ? fileName : 'Klik di sini untuk memilih file CSV'}
+                </p>
+                <p className="text-xs text-gray-500">Format yang didukung: .CSV (Comma Separated Values)</p>
+              </label>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <FaExclamationTriangle className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Preview Table */}
+            {previewRows.length > 0 && (
+              <div>
+                <h4 className="font-bold text-gray-800 dark:text-slate-200 mb-2 flex items-center justify-between">
+                  <span>Pratinjau Data Impor</span>
+                  <span className="text-xs font-bold text-emerald-600 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-300">
+                    {previewRows.length} Baris Siap Diimpor
+                  </span>
+                </h4>
+                <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-gray-100 font-bold text-gray-700 dark:bg-slate-800 dark:text-slate-300 sticky top-0">
+                        <th className="p-2 border-b dark:border-slate-700">Nama</th>
+                        <th className="p-2 border-b dark:border-slate-700">Mulai</th>
+                        <th className="p-2 border-b dark:border-slate-700">Selesai</th>
+                        <th className="p-2 border-b dark:border-slate-700">Status Aktif</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                      {previewRows.map((r, i) => (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                          <td className="p-2 font-bold">{r.name}</td>
+                          <td className="p-2">{r.start_date}</td>
+                          <td className="p-2">{r.end_date}</td>
+                          <td className="p-2">{r.is_active}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
-          {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
-              <FaExclamationTriangle className="w-4 h-4 text-rose-500 flex-shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Preview Table */}
-          {previewRows.length > 0 && (
-            <div>
-              <h4 className="font-bold text-gray-800 mb-2 flex items-center justify-between">
-                <span>Pratinjau Data Impor</span>
-                <span className="text-xs font-bold text-emerald-600 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
-                  {previewRows.length} Baris Siap Diimpor
-                </span>
-              </h4>
-              <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-xl">
-                <table className="w-full text-left text-xs">
-                  <tr className="bg-gray-100 font-bold text-gray-700 sticky top-0">
-                    <th className="p-2 border-b">Nama</th>
-                    <th className="p-2 border-b">Mulai</th>
-                    <th className="p-2 border-b">Selesai</th>
-                    <th className="p-2 border-b">Status Aktif</th>
-                  </tr>
-                  {previewRows.map((r, i) => (
-                    <tr key={i} className="border-b hover:bg-gray-50">
-                      <td className="p-2 font-bold">{r.name}</td>
-                      <td className="p-2">{r.start_date}</td>
-                      <td className="p-2">{r.end_date}</td>
-                      <td className="p-2">{r.is_active}</td>
-                    </tr>
-                  ))}
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* FOOTER */}
-        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-100 transition-all"
-          >
-            Batal
-          </button>
-          <button
-            onClick={handleSubmitImport}
-            disabled={previewRows.length === 0 || isSubmitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all disabled:opacity-40"
-          >
-            {isSubmitting ? 'Memproses...' : 'Proses Impor Data'}
-          </button>
+          {/* FOOTER */}
+          <div className="modal-footer flex items-center justify-end gap-3 border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-soft btn-secondary"
+              data-overlay="#tahun-ajaran-import-modal"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmitImport}
+              disabled={previewRows.length === 0 || isSubmitting}
+              className="btn btn-primary disabled:opacity-40"
+            >
+              {isSubmitting ? 'Memproses...' : 'Proses Impor Data'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

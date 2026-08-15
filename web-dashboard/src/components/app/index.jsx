@@ -6,10 +6,6 @@
  * Satu-satunya sumber component global di seluruh aplikasi.
  * Seluruh halaman WAJIB memakai komponen dari barrel ini.
  *
- * DILARANG membuat duplikat: DashboardHeader, GuruHeader,
- * YayasanHeader, PortalHeader, MutabaahHeader, StudentTable,
- * TeacherTable, DashboardCard, InfoCard, SummaryBox, dsb.
- *
  * ============================================================
  */
 
@@ -32,11 +28,14 @@ export { default as AppPageLayout } from './AppPageLayout'
 export { default as AppPageHeader } from './AppPageHeader'
 export { default as AppHero } from './AppHero'
 export { default as AppBreadcrumb } from './AppBreadcrumb'
+export { default as SectionHeader } from './SectionHeader'
 export { default as PageContainer } from './PageContainer'
 export { default as AppBottomNavigation } from './AppBottomNavigation'
 
-// --- Data display ---
+// --- Data display & Cards ---
 export { default as AppDataTable } from './AppDataTable'
+export { default as MobileDataCard } from './MobileDataCard'
+export { default as DetailPanel } from './DetailPanel'
 export { default as AppCard } from './AppCard'
 export { SectionCard } from './AppCard'
 export { default as AppTabs } from './AppTabs'
@@ -46,7 +45,10 @@ export { default as InfoCard } from './SummaryCard'
 export { default as PersonCard } from './PersonCard'
 export { default as ActionDropdown } from './ActionDropdown'
 export { default as AppDropdown } from './ActionDropdown'
+
+// --- Form & Validation ---
 export { default as AppForm } from './AppForm'
+export { default as FormField } from './FormField'
 
 // --- Buttons ---
 export { default as IconButton } from './IconButton'

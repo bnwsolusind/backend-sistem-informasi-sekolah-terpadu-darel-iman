@@ -6,6 +6,7 @@ import {
   Users,
   CalendarCheck,
   Activity,
+  RefreshCw,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -17,13 +18,19 @@ import {
   CartesianGrid,
 } from 'recharts'
 
-import DashboardHeader from '../components/dashboard/DashboardHeader'
-import DashboardFilter from '../components/dashboard/DashboardFilter'
-import KpiCardGrid from '../components/dashboard/KpiCardGrid'
-import KpiCard from '../components/dashboard/KpiCard'
+import {
+  AppPageHeader,
+  AppBreadcrumb,
+  AppFilterBar,
+  KpiCard,
+  AppDataTable,
+  AppBadge,
+  AppButton,
+  SectionHeader,
+  PageContainer,
+} from '../components/app'
+
 import ChartCard from '../components/dashboard/ChartCard'
-import DataTableCard from '../components/dashboard/DataTableCard'
-import QuickActionCard from '../components/dashboard/QuickActionCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
 import KpiQuickViewModal from '../components/KpiQuickViewModal'
@@ -60,8 +67,8 @@ export default function MusyrifDashboardPage() {
     fetchDashboard()
   }, [])
 
-  if (loading) return <SkeletonDashboard />
-  if (error) return <ErrorState message={error} onRetry={fetchDashboard} />
+  if (loading && !data) return <SkeletonDashboard />
+  if (error && !data) return <ErrorState message={error} onRetry={fetchDashboard} />
 
   const kpis = data?.kpis || {}
   const context = data?.context || {}
@@ -70,113 +77,170 @@ export default function MusyrifDashboardPage() {
 
   const formatNumber = (num) => (num !== undefined && num !== null ? Number(num).toLocaleString('id-ID') : '0')
 
-  const quickActions = [
+  const santriColumns = [
     {
-      label: 'Presensi Ibadah Santri',
-      icon: CalendarCheck,
-      onClick: () => navigate('/dashboard/absensi-ibadah'),
-      permissions: ['worship_attendance.view'],
+      key: 'name',
+      label: 'Nama Santri Binaan',
+      render: (row) => <span className="font-extrabold text-slate-900 dark:text-white text-xs">{row.name}</span>,
     },
     {
-      label: 'Mutabaah Harian Santri',
-      icon: Activity,
-      onClick: () => navigate('/dashboard/mutabaah'),
-      permissions: ['mutabaah.view'],
+      key: 'room',
+      label: 'Kamar Asrama',
+      render: (row) => <AppBadge variant="info">{row.room || 'Asrama'}</AppBadge>,
     },
     {
-      label: 'Setoran Tahfizh Asrama',
-      icon: BookOpen,
-      onClick: () => navigate('/portal-guru/workspace?tab=tahfizh'),
-      permissions: ['tahfizh.monitoring_target'],
+      key: 'worship',
+      label: 'Kedisiplinan Shalat',
+      render: (row) => <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">{row.worship}</span>,
+    },
+    {
+      key: 'tahfizh',
+      label: 'Capaian Hafalan',
+      render: (row) => <span className="font-bold text-[#0E5C44] dark:text-[#3FBF75] text-xs">{row.tahfizh}</span>,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row) => (
+        <AppBadge variant={row.status === 'Baik' ? 'success' : 'warning'} dot>
+          {row.status}
+        </AppBadge>
+      ),
     },
   ]
 
   return (
-    <div className="space-y-6 pb-12">
-      <DashboardHeader
+    <PageContainer maxW="7xl">
+      <div className="space-y-6 pb-12">
+      {/* Breadcrumb Navigation */}
+      <AppBreadcrumb items={[{ label: 'Dashboard Musyrif Asrama' }]} />
+
+      {/* Header */}
+      <AppPageHeader
+        variant="brand"
         title="Dashboard Musyrif / Pembimbing Asrama"
-        subtitle="Monitoring ibadah, kedisiplinan asrama, mutaba'ah harian, dan hafalan santri binaan"
-        roleName="Musyrif Asrama"
-        academicYear={context.tahun_ajaran?.nama}
-        semester={context.semester?.nama}
+        eyebrow="Dormitory Management & Character Building"
+        description="Monitoring ibadah harian, kedisiplinan asrama, mutaba'ah yaumiyah, dan setoran hafalan santri binaan."
+        welcomeName="Musyrif Asrama"
+        chips={[
+          context.tahun_ajaran ? `TA ${context.tahun_ajaran.nama}` : 'TBA 2026/2027',
+          context.semester ? `Semester ${context.semester.nama}` : 'Semester Ganjil',
+          'Scope: Asrama Santri',
+        ]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <AppButton variant="accent" size="sm" icon={CalendarCheck} onClick={() => navigate('/dashboard/absensi-ibadah')}>
+              Presensi Ibadah
+            </AppButton>
+            <AppButton variant="outline" size="sm" icon={RefreshCw} onClick={fetchDashboard} className="border-white/30 text-white hover:bg-white/10">
+              Segarkan Data
+            </AppButton>
+          </div>
+        }
       />
 
-      <DashboardFilter onReset={fetchDashboard} />
+      {/* Filter Bar */}
+      <AppFilterBar label="Filter Asrama & Santri" onReset={fetchDashboard} />
 
       {/* Primary KPI Grid */}
-      <KpiCardGrid cols={4}>
-        <KpiCard
-          title="Santri Binaan Asrama"
-          value={formatNumber(kpis.santri_binaan?.total ?? kpis.total_siswa_binaan?.total ?? 0)}
-          icon={Users}
-          onClick={() => setActiveModal('santri_binaan')}
-        />
-        <KpiCard
-          title="Presensi Sholat Berjamaah"
-          value={formatNumber(kpis.ibadah_lengkap?.total ?? 0)}
-          icon={CalendarCheck}
-        />
-        <KpiCard
-          title="Setoran Hafalan Hari Ini"
-          value={formatNumber(kpis.setoran_tahfizh?.total ?? kpis.setoran_hari_ini?.total ?? 0)}
-          icon={BookOpen}
-        />
-        <KpiCard
-          title="Mutaba'ah Terisi"
-          value={formatNumber(kpis.mutabaah_terisi?.total ?? 0)}
-          icon={CheckCircle2}
-        />
-      </KpiCardGrid>
-
-      <QuickActionCard title="Aksi Cepat Musyrif Asrama" actions={quickActions} />
-
-      {/* Chart & Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ChartCard
-          title="Kedisiplinan Sholat Berjamaah"
-          subtitle="Tingkat kehadiran sholat 5 waktu di Masjid/Musholla"
-          empty={!charts.worship_trend || charts.worship_trend.length === 0}
-        >
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.worship_trend || []}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="day" stroke="#888888" fontSize={11} />
-                <YAxis stroke="#888888" fontSize={11} />
-                <Tooltip />
-                <Bar dataKey="shubuh" fill="#0E5C44" name="Shubuh" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="isya" fill="#3FBF75" name="Isya" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
-
-        <div className="lg:col-span-2">
-          <DataTableCard
-            title="Daftar Santri Binaan & Aktivitas Harian"
-            subtitle="Ringkasan ibadah dan hafalan santri di kamar/kamar asrama"
-            headers={['Nama Santri', 'Kamar', 'Kedisiplinan Sholat', 'Capaian Hafalan', 'Status']}
-             rows={(tables.santri_logs || []).map((log) => [
-              <span key="name" className="font-semibold text-slate-900 dark:text-white">
-                {log.name}
-              </span>,
-              log.room,
-              log.worship,
-              log.tahfizh,
-              <span
-                key="st"
-                className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                  log.status === 'Baik' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                }`}
-              >
-                {log.status}
-              </span>,
-            ])}
-            emptyMessage="Belum ada santri binaan."
+      <section className="space-y-3">
+        <SectionHeader title="Kondisi Ibadah & Santri Binaan" subtitle="Jumlah santri, presensi shalat, setoran hafalan, dan mutaba'ah" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            title="Santri Binaan Asrama"
+            value={formatNumber(kpis.santri_binaan?.total ?? kpis.total_siswa_binaan?.total ?? 0)}
+            icon={Users}
+            colorScheme="emerald"
+            badge="Santri"
+            badgeVariant="success"
+            onClick={() => setActiveModal('santri_binaan')}
+          />
+          <KpiCard
+            title="Presensi Shalat Berjamaah"
+            value={formatNumber(kpis.ibadah_lengkap?.total ?? 0)}
+            icon={CalendarCheck}
+            colorScheme="blue"
+            badge="Shalat"
+            badgeVariant="info"
+          />
+          <KpiCard
+            title="Setoran Hafalan Hari Ini"
+            value={formatNumber(kpis.setoran_tahfizh?.total ?? kpis.setoran_hari_ini?.total ?? 0)}
+            icon={BookOpen}
+            colorScheme="violet"
+            badge="Setoran"
+            badgeVariant="purple"
+          />
+          <KpiCard
+            title="Mutaba'ah Terisi"
+            value={formatNumber(kpis.mutabaah_terisi?.total ?? 0)}
+            icon={CheckCircle2}
+            colorScheme="amber"
+            badge="Mutaba'ah"
+            badgeVariant="warning"
           />
         </div>
-      </div>
+      </section>
 
+      {/* Quick Action Navigation */}
+      <section className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Aksi Cepat Musyrif Asrama</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Pintas presensi ibadah, mutaba'ah harian, dan setoran hafalan santri</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <AppButton variant="secondary" size="sm" icon={CalendarCheck} onClick={() => navigate('/dashboard/absensi-ibadah')}>
+              Presensi Ibadah Santri
+            </AppButton>
+            <AppButton variant="secondary" size="sm" icon={Activity} onClick={() => navigate('/dashboard/mutabaah')}>
+              Mutabaah Harian Santri
+            </AppButton>
+            <AppButton variant="primary" size="sm" icon={BookOpen} onClick={() => navigate('/portal-guru/workspace?tab=tahfizh')}>
+              Setoran Tahfizh Asrama
+            </AppButton>
+          </div>
+        </div>
+      </section>
+
+      {/* Worship Discipline Chart & Santri Logs Table */}
+      <section className="space-y-3">
+        <SectionHeader title="Disiplin Shalat & Aktivitas Santri" subtitle="Grafik presensi shalat 5 waktu dan log aktivitas santri di kamar" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <ChartCard
+            title="Kedisiplinan Shalat Berjamaah"
+            subtitle="Tingkat kehadiran shalat di Masjid/Musholla"
+            className="lg:col-span-4"
+            empty={!charts.worship_trend || charts.worship_trend.length === 0}
+          >
+            <div className="h-64 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={charts.worship_trend || []}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="day" stroke="#888888" fontSize={11} />
+                  <YAxis stroke="#888888" fontSize={11} />
+                  <Tooltip />
+                  <Bar dataKey="shubuh" fill="#0E5C44" name="Shubuh" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="isya" fill="#3FBF75" name="Isya" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartCard>
+
+          <div className="lg:col-span-8">
+            <AppDataTable
+              title="Daftar Santri Binaan & Aktivitas Harian"
+              description="Ringkasan ibadah dan hafalan santri di kamar asrama"
+              data={tables.santri_logs || []}
+              columns={santriColumns}
+              keyField="name"
+              searchPlaceholder="Cari santri atau kamar..."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* KPI Detail Modal */}
       <ModalErrorBoundary onClose={() => setActiveModal(null)}>
         <KpiQuickViewModal
           type={activeModal}
@@ -185,5 +249,6 @@ export default function MusyrifDashboardPage() {
         />
       </ModalErrorBoundary>
     </div>
+    </PageContainer>
   )
 }

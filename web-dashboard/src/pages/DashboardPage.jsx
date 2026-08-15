@@ -59,6 +59,8 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Modal } from '../components/ui/modal'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
 const PRESTASI_COLORS = ['#10B981', '#0284C7', '#F59E0B', '#8B5CF6', '#EF4444']
 
@@ -134,25 +136,25 @@ export default function DashboardPage() {
 
   // Unit Education Table Data (Dynamic from DB if available)
   const dataUnitPendidikan = (apiData?.unit_summaries || []).map((u, idx) => ({
-        no: idx + 1,
-        id: u.id,
-        name: u.name,
-        siswa: Number(u.siswa_aktif_count || 0).toLocaleString('id-ID'),
-        guru: String(u.guru_count || 0),
-        pegawai: String(u.pegawai_count || 0),
-        kelas: String(u.kelas_count || u.rombel_count || 0),
-        rombel: String(u.rombel_count || u.kelas_count || 0),
-        presensiSiswa: '-',
-        presensiGuru: '-',
-        tahfizh: '-',
-      }))
+    no: idx + 1,
+    id: u.id,
+    name: u.name,
+    siswa: Number(u.siswa_aktif_count || 0).toLocaleString('id-ID'),
+    guru: String(u.guru_count || 0),
+    pegawai: String(u.pegawai_count || 0),
+    kelas: String(u.kelas_count || u.rombel_count || 0),
+    rombel: String(u.rombel_count || u.kelas_count || 0),
+    presensiSiswa: '-',
+    presensiGuru: '-',
+    tahfizh: '-',
+  }))
 
   // Dynamic Announcements from DB if available
   const recentInformationList = (apiData?.recent_information || []).map((item) => ({
-        title: item.judul,
-        sub: item.isi || 'Pengumuman Resmi Yayasan',
-        date: item.tanggal,
-      }))
+    title: item.judul,
+    sub: item.isi || 'Pengumuman Resmi Yayasan',
+    date: item.tanggal,
+  }))
 
   // Donut chart data for Prestasi Siswa
   const dataPrestasiDonut = apiData?.charts?.prestasi_distribution || []
@@ -184,7 +186,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12 bg-slate-50/50 dark:bg-transparent min-h-screen">
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Ringkasan Yayasan' }]} />
+      <div className="space-y-6 pb-12 bg-slate-50/50 dark:bg-transparent min-h-screen">
       {/* 1. HERO BANNER WITH ISLAMIC DOME SILHOUETTE & MONITORING BADGE */}
       <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-[#083A2A] via-[#0E5C44] to-[#1E8E5A] p-6 md:p-8 text-white shadow-xl border border-emerald-500/20">
         <div className="absolute inset-0 opacity-15 pointer-events-none">
@@ -907,5 +911,6 @@ export default function DashboardPage() {
         />
       </ModalErrorBoundary>
     </div>
+    </PageContainer>
   )
 }

@@ -70,6 +70,7 @@ use App\Http\Controllers\Api\V1\TeacherController;
 use App\Http\Controllers\Api\V1\TeacherPortalController;
 use App\Http\Controllers\Api\V1\TujuanPembelajaranController;
 use App\Http\Controllers\Api\V1\UserAccountController;
+use App\Http\Controllers\Api\V1\WilayahController;
 use App\Http\Controllers\Api\V1\WorshipAttendanceController;
 use Illuminate\Support\Facades\Route;
 
@@ -77,6 +78,17 @@ Route::get('/site-settings', [SiteSettingController::class, 'show']);
 Route::get('/equran/surah', [EQuranController::class, 'surahs']);
 Route::get('/equran/surah/{id}', [EQuranController::class, 'show']);
 Route::get('/equran/jadwal-sholat', [EQuranController::class, 'jadwalSholat']);
+
+// Wilayah / Region Endpoints
+Route::get('/v1/wilayah/provinsi', [WilayahController::class, 'provinsi']);
+Route::get('/v1/wilayah/kota', [WilayahController::class, 'kota']);
+Route::get('/v1/wilayah/kecamatan', [WilayahController::class, 'kecamatan']);
+Route::get('/v1/wilayah/kelurahan', [WilayahController::class, 'kelurahan']);
+
+Route::get('/wilayah/provinsi', [WilayahController::class, 'provinsi']);
+Route::get('/wilayah/kota', [WilayahController::class, 'kota']);
+Route::get('/wilayah/kecamatan', [WilayahController::class, 'kecamatan']);
+Route::get('/wilayah/kelurahan', [WilayahController::class, 'kelurahan']);
 
 // Doa & Dzikir Endpoints (Standard /api/doa & /api/equran/doa)
 Route::get('/doa', [EQuranController::class, 'doas']);

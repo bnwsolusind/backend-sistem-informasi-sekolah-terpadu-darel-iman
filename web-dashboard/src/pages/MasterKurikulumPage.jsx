@@ -14,6 +14,8 @@ import KurikulumTable from '../components/kurikulum/KurikulumTable'
 import KurikulumFormModal from '../components/kurikulum/KurikulumFormModal'
 import KurikulumDetailModal from '../components/kurikulum/KurikulumDetailModal'
 import KurikulumImportModal from '../components/kurikulum/KurikulumImportModal'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterActionButton,
   MasterDataSection,
@@ -316,8 +318,11 @@ export default function MasterKurikulumPage() {
   }
 
   return (
-    <MasterDataPage className="education-unit-page" hideBreadcrumb>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Data Kurikulum' }]} />
+      <MasterDataPage className="education-unit-page">
       <MasterPageHeader
+        tone="brand"
         icon={BookOpen}
         title="Master Data Kurikulum"
         description="Kelola seluruh kurikulum pendidikan yang digunakan oleh setiap Unit Pendidikan Sekolah Islam Terpadu."
@@ -492,5 +497,6 @@ export default function MasterKurikulumPage() {
         isSubmitting={importMutation.isPending}
       />
     </MasterDataPage>
+    </PageContainer>
   )
 }

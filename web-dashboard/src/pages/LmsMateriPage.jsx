@@ -28,6 +28,8 @@ import {
   Paperclip,
 } from 'lucide-react'
 import { lmsMateriService } from '../services/lmsMateriService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
 export default function LmsMateriPage() {
   const [dataMateri, setDataMateri] = useState([])
@@ -334,7 +336,9 @@ export default function LmsMateriPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] p-4 md:p-8 font-sans transition-colors duration-200">
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'LMS & Akademik', href: '/dashboard' }, { label: 'Materi Pembelajaran' }]} />
+      <div className="min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] p-4 md:p-8 font-sans transition-colors duration-200">
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* HERO BANNER */}
@@ -1049,5 +1053,6 @@ export default function LmsMateriPage() {
         </div>
       )}
     </div>
+    </PageContainer>
   )
 }

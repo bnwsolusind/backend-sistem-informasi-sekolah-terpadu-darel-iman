@@ -13,6 +13,8 @@ import { studentService } from '../services/studentService'
 import PersonAvatar from '../components/ui/PersonAvatar'
 import PersonIdentityCell from '../components/ui/PersonIdentityCell'
 import ActionDropdown from '../components/app/ActionDropdown'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -134,9 +136,12 @@ export default function ParentsPage() {
   }
 
   return (
-    <MasterDataPage className="education-unit-page parent-master-page" hideBreadcrumb>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Orang Tua / Wali' }]} />
+      <MasterDataPage className="education-unit-page parent-master-page">
       {/* Header Banner */}
       <MasterPageHeader
+        tone="brand"
         icon={Users}
         title="Data Orang Tua / Wali Siswa"
         description="Kelola direktori kontak, data pekerjaan, dan relasi orang tua/wali siswa terintegrasi secara komprehensif."
@@ -342,5 +347,6 @@ export default function ParentsPage() {
         )}
       </MasterDetailModal>
     </MasterDataPage>
+    </PageContainer>
   )
 }

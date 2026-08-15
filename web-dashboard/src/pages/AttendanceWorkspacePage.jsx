@@ -313,8 +313,8 @@ function TeacherWorkspace({ activeScheduleId = '', activeDate = '', requestedSes
         </label>
         <label className="text-xs font-bold text-slate-600 md:col-span-2 dark:text-slate-300">Jadwal Pelajaran
           <select disabled={activeLogin} value={scheduleId} onChange={(event) => setScheduleId(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-transparent p-3 outline-none focus:ring-2 focus:ring-[#3FBF75] disabled:bg-slate-100 dark:disabled:bg-slate-800">
-            <option value="">Tidak ada jadwal</option>
-            {schedules.map((item) => <option key={item.id} value={item.id}>{item.subject?.name} · {item.kelas?.nama_kelas} · {item.time_start?.slice(0, 5)}–{item.time_end?.slice(0, 5)}</option>)}
+            <option value="">{schedules.length === 0 ? 'Belum ada jadwal pelajaran' : 'Pilih Jadwal Pelajaran'}</option>
+            {schedules.map((item) => <option key={item.id} value={item.id}>{item.subject?.name || item.subject?.nama_mapel} · {item.kelas?.nama_kelas || item.kelas?.name} · {item.time_start?.slice(0, 5)}–{item.time_end?.slice(0, 5)}</option>)}
           </select>
         </label>
         {selected && <div className="md:col-span-3 flex flex-wrap items-start justify-between gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">

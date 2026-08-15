@@ -1,21 +1,27 @@
 import * as React from 'react'
 import PropTypes from 'prop-types'
+import {
+  TableRoot as TailGridsTableRoot,
+  TableHeader as TailGridsTableHeader,
+  TableBody as TailGridsTableBody,
+  TableRow as TailGridsTableRow,
+  TableHead as TailGridsTableHead,
+  TableCell as TailGridsTableCell
+} from '../tailgrids/core/table'
 import { cn } from '../../lib/utils'
 
-export const Table = React.forwardRef(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-x-auto rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800/80 dark:bg-[#1B2433]">
-    <table ref={ref} className={cn('w-full caption-bottom text-sm border-collapse', className)} {...props} />
-  </div>
+export const Table = React.forwardRef(({ className, fullBleed, ...props }, ref) => (
+  <TailGridsTableRoot ref={ref} fullBleed={fullBleed} className={cn('w-full', className)} {...props} />
 ))
 Table.displayName = 'Table'
 
 export const TableHeader = React.forwardRef(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn('bg-slate-50/90 sticky top-0 z-10 backdrop-blur-md border-b border-slate-200/80 text-slate-700 font-extrabold dark:bg-slate-800/90 dark:border-slate-800 dark:text-slate-200', className)} {...props} />
+  <TailGridsTableHeader ref={ref} className={cn(className)} {...props} />
 ))
 TableHeader.displayName = 'TableHeader'
 
 export const TableBody = React.forwardRef(({ className, ...props }, ref) => (
-  <tbody ref={ref} className={cn('divide-y divide-slate-100 bg-white dark:divide-slate-800/60 dark:bg-[#1B2433]', className)} {...props} />
+  <TailGridsTableBody ref={ref} className={cn(className)} {...props} />
 ))
 TableBody.displayName = 'TableBody'
 
@@ -25,31 +31,17 @@ export const TableFooter = React.forwardRef(({ className, ...props }, ref) => (
 TableFooter.displayName = 'TableFooter'
 
 export const TableRow = React.forwardRef(({ className, ...props }, ref) => (
-  <tr
-    ref={ref}
-    className={cn(
-      'transition-colors hover:bg-[#0E5C44]/5 data-[state=selected]:bg-[#0E5C44]/10 dark:hover:bg-[#3FBF75]/10 dark:data-[state=selected]:bg-[#3FBF75]/20',
-      className
-    )}
-    {...props}
-  />
+  <TailGridsTableRow ref={ref} className={cn(className)} {...props} />
 ))
 TableRow.displayName = 'TableRow'
 
 export const TableHead = React.forwardRef(({ className, ...props }, ref) => (
-  <th
-    ref={ref}
-    className={cn(
-      'h-11 px-5 text-left align-middle font-semibold text-slate-500 uppercase tracking-wider text-[11px] [&:has([role=checkbox])]:pr-0 dark:text-slate-400',
-      className
-    )}
-    {...props}
-  />
+  <TailGridsTableHead ref={ref} className={cn(className)} {...props} />
 ))
 TableHead.displayName = 'TableHead'
 
 export const TableCell = React.forwardRef(({ className, ...props }, ref) => (
-  <td ref={ref} className={cn('px-5 py-4 align-middle text-slate-700 font-normal [&:has([role=checkbox])]:pr-0 dark:text-slate-200', className)} {...props} />
+  <TailGridsTableCell ref={ref} className={cn(className)} {...props} />
 ))
 TableCell.displayName = 'TableCell'
 

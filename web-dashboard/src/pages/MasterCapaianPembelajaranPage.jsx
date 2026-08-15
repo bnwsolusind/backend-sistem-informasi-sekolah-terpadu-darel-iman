@@ -18,6 +18,8 @@ import { educationUnitService } from '../services/educationUnitService'
 import { tahunAjaranService } from '../services/tahunAjaranService'
 import { masterKurikulumService } from '../services/masterKurikulumService'
 import { subjectService } from '../services/subjectService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterDataPage,
   MasterActionButton,
@@ -268,10 +270,14 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
   }
 
   return (
-    <MasterDataPage
-      className="education-unit-page cp-master-page"
-      hideBreadcrumb={embedded || hideBreadcrumb}
-    >
+    <PageContainer maxW="7xl">
+      {!(embedded || hideBreadcrumb) && (
+        <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Capaian Pembelajaran' }]} />
+      )}
+      <MasterDataPage
+        className="education-unit-page cp-master-page"
+        hideBreadcrumb={embedded || hideBreadcrumb}
+      >
       {/* Hero Banner */}
       <MasterPageHeader
         tone="brand"
@@ -696,5 +702,6 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
         </div>
       )}
     </MasterDataPage>
+    </PageContainer>
   )
 }

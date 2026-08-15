@@ -17,6 +17,7 @@ Daftar source of truth `docs/ai/`. Dokumen di `08_REPORT/`, `09_PROMPT/`, dan `9
 | Role and permission | `03_AUTH/ROLE_PERMISSION.md` |
 | Role/portal matrix | `03_AUTH/ROLE_PORTAL_MATRIX.md` |
 | Module access matrix | `03_AUTH/MODULE_ACCESS_MATRIX.md` |
+| UI/UX supreme lock | `04_UI_UX/00_MASTER_UI_UX_LOCK.md` |
 | UI/UX global rules | `04_UI_UX/UI_RULEBOOK.md` |
 | Design tokens | `04_UI_UX/DESIGN_SYSTEM.md` |
 | Reusable components | `04_UI_UX/COMPONENT_STANDARD.md` |
@@ -76,6 +77,7 @@ Daftar source of truth `docs/ai/`. Dokumen di `08_REPORT/`, `09_PROMPT/`, dan `9
 
 | TOPIC | FILE | STATUS | LAST UPDATED | PURPOSE |
 |---|---|---|---|---|
+| Master UI/UX lock | `04_UI_UX/00_MASTER_UI_UX_LOCK.md` | CANONICAL | 2026-08-14 | Supreme Visual Execution Lock (Visual-First, Function-Safe) |
 | UI rulebook | `04_UI_UX/UI_RULEBOOK.md` | CANONICAL | 2026-08-10 | Master UI lock + aturan global UI |
 | Design system | `04_UI_UX/DESIGN_SYSTEM.md` | CANONICAL | 2026-08-10 | Token warna, tipografi, radius, shadow, ikon |
 | Component standard | `04_UI_UX/COMPONENT_STANDARD.md` | CANONICAL | 2026-08-10 | Komponen canonical, no duplicate, banned names |
@@ -150,6 +152,31 @@ Dokumen report aktif bukan source of truth. Baca hanya bila status atau bukti di
 | Module refactor prompt | `09_PROMPT/MODERN_SOFT_MODULE_REFACTOR_PROMPT.md` | PROMPT | 2026-08-10 | Template refactor UI modul |
 | New module prompt | `09_PROMPT/AUDIT_SEBULUM_BUAT_MODUL_BARU.md` | PROMPT | 2026-08-10 | Audit sebelum modul baru |
 | Module refactor contoh | `09_PROMPT/CONTOH_PROMPT_MODUL_REFACTOR.md` | PROMPT | 2026-08-10 | Contoh prompt refactor modul |
+| FlyonUI modal prompt | `09_PROMPT/FLYONUI_MODAL_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi modal FlyonUI Tailwind |
+| FlyonUI button prompt | `09_PROMPT/FLYONUI_BUTTON_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi solid & icon button FlyonUI Tailwind |
+| TailGrids alert prompt | `09_PROMPT/TAILGRIDS_ALERT_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Alert TailGrids React |
+| TailGrids alert dialog prompt | `09_PROMPT/TAILGRIDS_ALERT_DIALOG_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Alert Dialog (Tambah & Ubah Penyimpanan) TailGrids React |
+| TailGrids avatar prompt | `09_PROMPT/TAILGRIDS_AVATAR_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Avatar, Group Count, Status, & Profile Sizes TailGrids React |
+| TailGrids badge prompt | `09_PROMPT/TAILGRIDS_BADGE_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Badge warna & ikon TailGrids React |
+| TailGrids breadcrumbs prompt | `09_PROMPT/TAILGRIDS_BREADCRUMBS_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Breadcrumbs navigasi TailGrids React |
+| TailGrids button prompt | `09_PROMPT/TAILGRIDS_BUTTON_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Button variant, appearance, & sizes TailGrids React |
+| TailGrids calendar prompt | `09_PROMPT/TAILGRIDS_CALENDAR_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Calendar & YearPicker TailGrids React |
+| TailGrids card prompt | `09_PROMPT/TAILGRIDS_CARD_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Card responsif, Header, Content, & Footer TailGrids React |
+| TailGrids checkbox prompt | `09_PROMPT/TAILGRIDS_CHECKBOX_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Checkbox & Label TailGrids React |
+| TailGrids chart prompt | `09_PROMPT/TAILGRIDS_CHART_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Chart, Tooltip, & Legend TailGrids React |
+| TailGrids combobox prompt | `09_PROMPT/TAILGRIDS_COMBOBOX_COMPONENT.md` | PROMPT | 2026-08-14 | Panduan & template integrasi Combobox & Command Palette TailGrids React |
+| TailGrids datepicker prompt | `09_PROMPT/TAILGRIDS_DATEPICKER_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi DatePicker, DateField, Calendar & Field TailGrids React |
+| TailGrids field prompt | `09_PROMPT/TAILGRIDS_FIELD_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Field (Description, Input & Label) TailGrids React |
+| TailGrids list prompt | `09_PROMPT/TAILGRIDS_LIST_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi List (Direction, Dividers, Active Item, Count Badge) TailGrids React |
+| TailGrids overlay prompt | `09_PROMPT/TAILGRIDS_OVERLAY_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Overlay (OverlayWrapper, Backdrop, Controlled State & Popover) TailGrids React |
+| TailGrids pagination prompt | `09_PROMPT/TAILGRIDS_PAGINATION_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Pagination (full, label, icon, compact) TailGrids React |
+| TailGrids range calendar prompt | `09_PROMPT/TAILGRIDS_RANGE_CALENDAR_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Range Calendar (YearPicker, RangeSelection) TailGrids React |
+| TailGrids scroll area prompt | `09_PROMPT/TAILGRIDS_SCROLL_AREA_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Scroll Area (ScrollAreaViewport, ScrollBar) TailGrids React |
+| TailGrids select prompt | `09_PROMPT/TAILGRIDS_SELECT_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Select (SelectTrigger, SelectValue, SelectIndicator, SelectItem) TailGrids React |
+| TailGrids sidebar prompt | `09_PROMPT/TAILGRIDS_SIDEBAR_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Sidebar (SidebarProvider, SidebarHeader, SidebarContent, SidebarFooter) TailGrids React |
+| TailGrids spinner prompt | `09_PROMPT/TAILGRIDS_SPINNER_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Spinner (size xs, sm, md, lg, xl & Button loading) TailGrids React |
+| TailGrids table prompt | `09_PROMPT/TAILGRIDS_TABLE_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Table (TableRoot, TableHeader, TableBody, TableHead, TableRow, TableCell) TailGrids React |
+
 
 ## 99_ARCHIVE
 

@@ -67,6 +67,18 @@ import PersonIdentityCell from '../components/ui/PersonIdentityCell'
 import { hasAnyRole } from '../auth/portalResolver'
 import { useAuthStore } from '../stores/authStore'
 import { usePengaturanStore } from '../stores/pengaturanStore'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
+import AppDataTable from '../components/app/AppDataTable'
+import AppPageHeader from '../components/app/AppPageHeader'
+import { Download1, Upload1, Plus as PlusIcon } from '@tailgrids/icons'
+import { ChevronDown } from 'lucide-react'
+import { Button } from '@/components/tailgrids/core/button'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/tailgrids/core/hover-card'
 
 const STATUS_PEGAWAI_OPTIONS = ['Tetap', 'Kontrak', 'Honorer', 'Magang']
 const STATUS_OPTIONS = ['Aktif', 'Nonaktif', 'Cuti', 'Resign']
@@ -242,6 +254,7 @@ export default function EmployeesPage() {
 
   // Pagination State
   const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(10)
 
   // Modal Controls
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
@@ -288,8 +301,9 @@ export default function EmployeesPage() {
   // Query Fetching Employees
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: [
-      'employees',
+      'employees-list',
       page,
+      perPage,
       search,
       selectedUnitFilter,
       selectedJabatanFilter,
@@ -300,7 +314,7 @@ export default function EmployeesPage() {
     queryFn: () =>
       employeeService.getDaftar({
         page,
-        per_page: 15,
+        per_page: perPage,
         search: search || undefined,
         unit_id: selectedUnitFilter || undefined,
         jabatan_id: selectedJabatanFilter || undefined,
@@ -558,16 +572,196 @@ export default function EmployeesPage() {
     setNewDoc({ nama: '', file_name: '' })
   }
 
+  const hasActiveFilters =
+    Boolean(search) ||
+    Boolean(selectedUnitFilter) ||
+    Boolean(selectedJabatanFilter) ||
+    Boolean(selectedStatusPegawaiFilter) ||
+    Boolean(selectedStatusFilter) ||
+    Boolean(selectedGenderFilter)
+
+  const handleResetFilters = () => {
+    setSelectedUnitFilter('')
+    setSelectedJabatanFilter('')
+    setSelectedStatusPegawaiFilter('')
+    setSelectedStatusFilter('')
+    setSelectedGenderFilter('')
+    setSearch('')
+    setPage(1)
+  }
+
+  // Column definitions following TAILGRIDS_TABLE_COMPONENT benchmark
+  const employeeColumns = [
+    {
+      key: 'nama_lengkap',
+      label: 'Nama Pegawai',
+      render: (row) => {
+        const fullName = `${row.gelar_depan ? `${row.gelar_depan} ` : ''}${row.nama_lengkap}${row.gelar_belakang ? `, ${row.gelar_belakang}` : ''}`
+        return (
+          <div className="flex min-w-0 items-center gap-3">
+            <PersonAvatar
+              src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
+              name={fullName}
+              size="md"
+            />
+            <span className="min-w-0 flex-1">
+              <HoverCard>
+                <HoverCardTrigger
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setDetailEmployee(row)
+                    setActiveDetailTab('Identitas')
+                  }}
+                  className="inline-block max-w-full truncate text-[13px] font-extrabold leading-5 text-slate-900 dark:text-white border-b border-dashed border-slate-400/60 hover:border-[#0E5C44] transition-colors cursor-pointer"
+                  title={fullName}
+                >
+                  {fullName}
+                </HoverCardTrigger>
+                <HoverCardContent className="w-64 p-3.5 border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#1B2433] shadow-xl rounded-xl">
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <PersonAvatar
+                      src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
+                      name={fullName}
+                      size="sm"
+                    />
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{fullName}</h4>
+                      <p className="text-[10px] text-slate-500 font-mono">{row.niy ? `NIY ${row.niy}` : 'NIY —'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+                    <p><strong className="text-slate-400 font-normal">Jabatan:</strong> {row.jabatan_name || '-'}</p>
+                    <p><strong className="text-slate-400 font-normal">Unit Kerja:</strong> {row.unit_name || '-'}</p>
+                    <p><strong className="text-slate-400 font-normal">No HP:</strong> {row.no_hp || '-'}</p>
+                    <p><strong className="text-slate-400 font-normal">Email:</strong> {row.email || '-'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setDetailEmployee(row); setActiveDetailTab('Identitas') }}
+                    className="w-full py-1.5 bg-[#0E5C44] text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors hover:bg-[#1E8E5A] mt-2.5 cursor-pointer"
+                  >
+                    Lihat Profil Pegawai
+                  </button>
+                </HoverCardContent>
+              </HoverCard>
+              <small className="block truncate font-mono text-[10px] text-slate-400">
+                {row.niy ? `NIY ${row.niy}` : 'NIY belum tersedia'}
+              </small>
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'jabatan_name',
+      label: 'Jabatan & Unit Kerja',
+      className: 'hidden md:table-cell',
+      render: (row) => (
+        <div>
+          <p className="truncate font-bold text-xs text-slate-900 dark:text-slate-100">{row.jabatan_name || '—'}</p>
+          <p className="truncate text-xs text-emerald-700 dark:text-emerald-400 font-semibold">{row.unit_name || 'Belum ditentukan'}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'kontak',
+      label: 'Kontak',
+      className: 'hidden lg:table-cell',
+      render: (row) => (
+        <div className="space-y-0.5 text-xs">
+          <p className="flex items-center gap-1.5 truncate text-slate-700 dark:text-slate-300 font-medium">
+            <Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            {row.no_hp || '—'}
+          </p>
+          <p className="flex items-center gap-1.5 truncate text-slate-500">
+            <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            {row.email || '—'}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      className: 'hidden sm:table-cell text-center',
+      render: (row) => (
+        <div className="flex justify-center">
+          {canUpdateEmployee ? (
+            <button type="button" onClick={() => toggleEmployeeStatus(row)} title="Ubah status pegawai" className="cursor-pointer">
+              <AppBadge variant={row.status === 'Aktif' ? 'success' : row.status === 'Cuti' ? 'warning' : 'danger'} dot>
+                {row.status || 'Belum ditetapkan'}
+              </AppBadge>
+            </button>
+          ) : (
+            <AppBadge variant={row.status === 'Aktif' ? 'success' : row.status === 'Cuti' ? 'warning' : 'danger'} dot>
+              {row.status || 'Belum ditetapkan'}
+            </AppBadge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'tanggal_masuk',
+      label: 'Tgl Bergabung',
+      className: 'hidden xl:table-cell text-center',
+      render: (row) => (
+        <span className="whitespace-nowrap font-medium text-xs text-slate-700 dark:text-slate-300">
+          {row.tanggal_masuk
+            ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(row.tanggal_masuk))
+            : '—'}
+        </span>
+      ),
+    },
+  ]
+
+  const renderMobileCard = ({ row }) => {
+    const fullName = `${row.gelar_depan ? `${row.gelar_depan} ` : ''}${row.nama_lengkap}${row.gelar_belakang ? `, ${row.gelar_belakang}` : ''}`
+    return (
+      <div className="rounded-[18px] border border-slate-200/80 bg-white p-4 shadow-2xs dark:border-slate-700 dark:bg-[#1B2433]">
+        <div className="flex items-start gap-3">
+          <PersonAvatar
+            src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
+            name={fullName}
+            size="md"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[13px] font-extrabold text-slate-900 dark:text-white">{fullName}</p>
+                <p className="font-mono text-[10px] text-slate-400">{row.niy ? `NIY ${row.niy}` : 'NIY —'}</p>
+              </div>
+              <AppBadge variant={row.status === 'Aktif' ? 'success' : row.status === 'Cuti' ? 'warning' : 'danger'} dot>
+                {row.status || 'Belum ditetapkan'}
+              </AppBadge>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className="font-bold text-slate-800 dark:text-slate-200">{row.jabatan_name || '-'}</span>
+              <span className="text-emerald-700 font-semibold">{row.unit_name || '-'}</span>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+          <ActionDropdown
+            onView={() => { setDetailEmployee(row); setActiveDetailTab('Identitas') }}
+            onEdit={canUpdateEmployee ? () => openEditModal(row) : undefined}
+            onDelete={canDeleteEmployee ? () => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) } : undefined}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <MasterDataPage className="employee-master-page education-unit-page" hideBreadcrumb>
-      <MasterPageHeader
+    <PageContainer maxW="7xl" className="space-y-6 pb-12">
+      <AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Data Pegawai' }]} />
+
+      <AppPageHeader
+        variant="brand"
         icon={UsersRound}
         title="Master Data Pegawai"
         description="Kelola seluruh data pegawai, profil, jabatan, unit kerja, dan informasi kepegawaian dengan mudah."
-        actions={<>
-          {canExportEmployee && <MasterActionButton variant="export" icon={Download} onClick={handleExportExcel}>Export CSV</MasterActionButton>}
-          {canCreateEmployee && <MasterActionButton icon={Plus} onClick={openAddModal}>Tambah Pegawai</MasterActionButton>}
-        </>}
+        eyebrow="SDM & Kepegawaian"
       />
 
       <MasterStatsGrid className="education-unit-kpis employee-kpis">
@@ -577,149 +771,201 @@ export default function EmployeesPage() {
         <MasterStatCard loading={isSummaryLoading} icon={Building2} label="TU & Operator" value={employeeStats.total_tu_operator ?? 0} description="Tenaga kependidikan" variant="neutral" delay={150} />
       </MasterStatsGrid>
 
-      <MasterDataSection
+      <AppDataTable
         title="Daftar Pegawai"
-        description="Menampilkan data sesuai filter dan kewenangan Anda."
-        countLabel={`${Number(paginationInfo.total).toLocaleString('id-ID')} pegawai`}
-        search={{
-          value: search,
-          onValueChange: (value) => { setSearch(value); setPage(1) },
-          placeholder: 'Cari pegawai, NIY, NIK, jabatan, atau unit kerja...',
-          'aria-label': 'Cari pegawai',
-        }}
-        filters={
-          <>
-            <MasterFilterSelect
-              aria-label="Filter unit kerja"
-              value={selectedUnitFilter}
-              onChange={(e) => { setSelectedUnitFilter(e.target.value); setPage(1) }}
-            >
-              <option value="">Semua Unit Kerja</option>
-              {unitsList.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
-            </MasterFilterSelect>
-            <MasterFilterSelect
-              aria-label="Filter jabatan"
-              value={selectedJabatanFilter}
-              onChange={(e) => { setSelectedJabatanFilter(e.target.value); setPage(1) }}
-            >
-              <option value="">Semua Jabatan</option>
-              {positionsList.map((pos) => <option key={pos.id} value={pos.id}>{pos.name}</option>)}
-            </MasterFilterSelect>
-            <MasterFilterSelect
-              aria-label="Filter status pegawai"
-              value={selectedStatusFilter}
-              onChange={(e) => { setSelectedStatusFilter(e.target.value); setPage(1) }}
-            >
-              <option value="">Semua Status</option>
-              {STATUS_OPTIONS.map((st) => <option key={st} value={st}>{st}</option>)}
-            </MasterFilterSelect>
-            <MasterFilterSelect
-              aria-label="Filter jenis kelamin"
-              value={selectedGenderFilter}
-              onChange={(e) => { setSelectedGenderFilter(e.target.value); setPage(1) }}
-            >
-              <option value="">Semua Jenis Kelamin</option>
-              <option value="L">Laki-laki</option>
-              <option value="P">Perempuan</option>
-            </MasterFilterSelect>
-          </>
+        description="Menampilkan data pegawai sesuai pencarian, unit kerja, dan filter yang dipilih."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Import Button (Soft Sky Blue Squircle) */}
+            {(canCreateEmployee || isSuperAdmin) && (
+              <div className="group relative inline-flex">
+                <button
+                  type="button"
+                  title="Import Data Pegawai"
+                  aria-label="Import Data Pegawai"
+                  className="flex size-10 items-center justify-center rounded-2xl bg-sky-100/90 text-sky-500 hover:bg-sky-200/90 dark:bg-sky-950/50 dark:text-sky-400 dark:hover:bg-sky-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                  onClick={() => setShowImportModal(true)}
+                >
+                  <Upload1 className="size-5" />
+                </button>
+                <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                  <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                  Import Data
+                </div>
+              </div>
+            )}
+
+            {canExportEmployee && (
+              <div className="group relative inline-flex">
+                <button
+                  type="button"
+                  title="Export Data Pegawai CSV"
+                  aria-label="Export Data Pegawai CSV"
+                  className="flex size-10 items-center justify-center rounded-2xl bg-amber-100/90 text-amber-600 hover:bg-amber-200/90 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                  onClick={handleExportExcel}
+                >
+                  <Download1 className="size-5" />
+                </button>
+                <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                  <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                  Export CSV
+                </div>
+              </div>
+            )}
+
+            {canCreateEmployee && (
+              <div className="group relative inline-flex">
+                <button
+                  type="button"
+                  title="Tambah Pegawai Baru"
+                  aria-label="Tambah Pegawai Baru"
+                  className="flex size-10 items-center justify-center rounded-2xl bg-emerald-100/90 text-emerald-600 hover:bg-emerald-200/90 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                  onClick={openAddModal}
+                >
+                  <PlusIcon className="size-5" />
+                </button>
+                <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                  <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                  Tambah Pegawai
+                </div>
+              </div>
+            )}
+          </div>
         }
-        onReset={() => {
-          setSelectedUnitFilter('')
-          setSelectedJabatanFilter('')
-          setSelectedStatusPegawaiFilter('')
-          setSelectedStatusFilter('')
-          setSelectedGenderFilter('')
-          setSearch('')
-          setPage(1)
-        }}
-        resetDisabled={!search && !selectedUnitFilter && !selectedJabatanFilter && !selectedStatusFilter && !selectedGenderFilter}
+        columns={employeeColumns}
+        data={items}
+        keyField="id"
         isLoading={isLoading || isFetching}
         isError={isError}
         errorTitle="Data pegawai gagal dimuat"
         errorMessage="Terjadi kesalahan saat mengambil data pegawai dari server."
         onRetry={refetch}
-        isEmpty={!isLoading && !isFetching && !isError && items.length === 0}
+        serverControlled
+        search={search}
+        onSearchChange={(val) => { setSearch(val); setPage(1) }}
+        searchPlaceholder="Cari pegawai, NIY, NIK, jabatan, atau unit kerja..."
+        filters={
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0 flex-nowrap w-full">
+            {/* Unit Kerja filter */}
+            <div className="relative shrink-0">
+              <select
+                aria-label="Filter unit kerja"
+                value={selectedUnitFilter}
+                onChange={(e) => { setSelectedUnitFilter(e.target.value); setPage(1) }}
+                className="h-9 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+              >
+                <option value="">Semua Unit Kerja</option>
+                {unitsList.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            </div>
+
+            {/* Jabatan filter */}
+            <div className="relative shrink-0">
+              <select
+                aria-label="Filter jabatan"
+                value={selectedJabatanFilter}
+                onChange={(e) => { setSelectedJabatanFilter(e.target.value); setPage(1) }}
+                className="h-9 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+              >
+                <option value="">Semua Jabatan</option>
+                {positionsList.map((pos) => <option key={pos.id} value={pos.id}>{pos.name}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            </div>
+
+            {/* Status Pegawai filter */}
+            <div className="relative shrink-0">
+              <select
+                aria-label="Filter status pegawai"
+                value={selectedStatusPegawaiFilter}
+                onChange={(e) => { setSelectedStatusPegawaiFilter(e.target.value); setPage(1) }}
+                className="h-9 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+              >
+                <option value="">Semua Status Pegawai</option>
+                {STATUS_PEGAWAI_OPTIONS.map((st) => <option key={st} value={st}>{st}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            </div>
+
+            {/* Status filter */}
+            <div className="relative shrink-0">
+              <select
+                aria-label="Filter status keaktifan"
+                value={selectedStatusFilter}
+                onChange={(e) => { setSelectedStatusFilter(e.target.value); setPage(1) }}
+                className="h-9 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+              >
+                <option value="">Semua Status</option>
+                {STATUS_OPTIONS.map((st) => <option key={st} value={st}>{st}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            </div>
+
+            {/* Jenis Kelamin filter */}
+            <div className="relative shrink-0">
+              <select
+                aria-label="Filter jenis kelamin"
+                value={selectedGenderFilter}
+                onChange={(e) => { setSelectedGenderFilter(e.target.value); setPage(1) }}
+                className="h-9 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+              >
+                <option value="">Semua Jenis Kelamin</option>
+                <option value="L">Laki-laki</option>
+                <option value="P">Perempuan</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            </div>
+
+            {/* Per Page filter */}
+            <div className="relative shrink-0">
+              <select
+                value={perPage}
+                onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+                aria-label="Tampilkan per halaman"
+                className="h-9 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-7 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+              >
+                <option value={5}>5 per halaman</option>
+                <option value={10}>10 per halaman</option>
+                <option value={15}>15 per halaman</option>
+                <option value={25}>25 per halaman</option>
+                <option value={50}>50 per halaman</option>
+                <option value={100}>100 per halaman</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            </div>
+
+            {/* Reset button */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                appearance="outline"
+                size="xs"
+                onClick={handleResetFilters}
+                className="h-9 shrink-0 px-2.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/50"
+              >
+                <RefreshCcw className="size-3.5" />
+                <span>Reset</span>
+              </Button>
+            )}
+          </div>
+        }
+        onView={(row) => { setDetailEmployee(row); setActiveDetailTab('Identitas') }}
+        onEdit={canUpdateEmployee ? (row) => openEditModal(row) : undefined}
+        onDelete={canDeleteEmployee ? (row) => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) } : undefined}
+        renderMobileCard={renderMobileCard}
+        showPagination
+        page={paginationInfo.current_page}
+        totalPages={paginationInfo.last_page}
+        totalItems={paginationInfo.total}
+        itemsPerPage={paginationInfo.per_page}
+        onPageChange={(p) => setPage(p)}
+        meta={paginationInfo}
         emptyTitle="Pegawai tidak ditemukan"
-        emptyDescription="Ubah kata pencarian atau filter untuk melihat data lainnya."
-        pagination={{
-          meta: {
-            total: paginationInfo.total,
-            from: paginationInfo.from,
-            to: paginationInfo.to,
-            last_page: paginationInfo.last_page,
-            current_page: page,
-          },
-          page,
-          onPageChange: setPage,
-        }}
-      >
-        <div className="employee-table-wrap">
-          <table className="employee-table w-full table-fixed text-left">
-            <thead>
-              <tr>
-                <th className="employee-col-number text-center">No</th>
-                <th className="employee-col-identity" colSpan={2}>Nama Pegawai <span>NIY</span></th>
-                <th className="employee-col-position">Jabatan <span>Unit Kerja</span></th>
-                <th className="employee-col-contact">Kontak</th>
-                <th className="employee-col-status text-center">Status</th>
-                <th className="employee-col-date">Tgl Bergabung</th>
-                <th className="employee-col-actions text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((row, index) => {
-                const fullName = `${row.gelar_depan ? `${row.gelar_depan} ` : ''}${row.nama_lengkap}${row.gelar_belakang ? `, ${row.gelar_belakang}` : ''}`
-                return (
-                  <tr key={row.id || index}>
-                    <td className="text-center font-semibold text-slate-400">{paginationInfo.from + index}</td>
-                    <td colSpan={2}>
-                      <PersonIdentityCell
-                        src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
-                        name={fullName}
-                        subtitle={row.niy ? `NIY ${row.niy}` : 'NIY belum tersedia'}
-                      />
-                    </td>
-                    <td>
-                      <p className="truncate font-semibold text-slate-800 dark:text-slate-100">{row.jabatan_name || '—'}</p>
-                      <p className="truncate text-xs text-slate-500">{row.unit_name || 'Belum ditentukan'}</p>
-                    </td>
-                    <td>
-                      <p className="flex items-center gap-2 truncate text-xs text-slate-700 dark:text-slate-300"><Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />{row.no_hp || '—'}</p>
-                      <p className="mt-1 flex items-center gap-2 truncate text-xs text-slate-500"><Mail className="h-3.5 w-3.5 shrink-0" />{row.email || '—'}</p>
-                    </td>
-                    <td className="text-center">
-                      {canUpdateEmployee ? (
-                        <button type="button" onClick={() => toggleEmployeeStatus(row)} title="Ubah status pegawai">
-                          <AppBadge variant={row.status === 'Aktif' ? 'success' : 'warning'} dot>{row.status || 'Belum ditetapkan'}</AppBadge>
-                        </button>
-                      ) : (
-                        <AppBadge variant={row.status === 'Aktif' ? 'success' : 'warning'} dot>{row.status || 'Belum ditetapkan'}</AppBadge>
-                      )}
-                    </td>
-                    <td>
-                      <p className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
-                        {row.tanggal_masuk
-                          ? new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(row.tanggal_masuk))
-                          : '—'}
-                      </p>
-                    </td>
-                    <td>
-                      <div className="flex justify-center">
-                        <ActionDropdown
-                          onView={() => { setDetailEmployee(row); setActiveDetailTab('Identitas') }}
-                          onEdit={canUpdateEmployee ? () => openEditModal(row) : undefined}
-                          onDelete={canDeleteEmployee ? () => { setDeleteTarget(row); setHasConfirmedDeleteCheck(false) } : undefined}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </MasterDataSection>
+        emptyDescription="Coba sesuaikan kata kunci pencarian atau filter yang diterapkan."
+        hasActiveFilters={hasActiveFilters}
+        onResetFilters={handleResetFilters}
+      />
 
       <div className="hidden" aria-hidden="true">
       {/* 1. Header Banner */}
@@ -1024,20 +1270,27 @@ export default function EmployeesPage() {
 
       {/* 5. MODAL WIZARD: TAMBAH / EDIT PEGAWAI */}
       {isFormModalOpen && (
-        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
-          <div className="employee-form-modal w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
-              <h2 id="employee-form-title" className="text-base font-bold text-slate-900">
-                {isEditMode ? 'Edit Pegawai' : 'Tambah Pegawai'}
-              </h2>
-              <button onClick={closeFormModal} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700">
-                ✕
-              </button>
-            </div>
+        <div className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="employee-form-title" tabIndex={-1}>
+          <div className="modal-dialog font-sans w-full max-w-4xl">
+            <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+              {/* Header */}
+              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+                <h3 id="employee-form-title" className="modal-title text-base font-bold text-slate-900 dark:text-white">
+                  {isEditMode ? 'Edit Pegawai' : 'Tambah Pegawai'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={closeFormModal}
+                  className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  aria-label="Tutup"
+                >
+                  <FaTimes className="size-4" />
+                </button>
+              </div>
 
-            {/* Main Body Grid */}
-            <div className="employee-form-layout grid grid-cols-1 lg:grid-cols-4 min-h-[480px]">
+              {/* Main Body Grid */}
+              <div className="modal-body min-h-0 flex-1 overflow-y-auto p-0 text-sm text-slate-700 dark:text-slate-200">
+                <div className="employee-form-layout grid grid-cols-1 lg:grid-cols-4 min-h-[480px]">
               {/* Stepper Sidebar */}
               <div className="employee-form-stepper border-r border-slate-100 bg-slate-50/50 p-6 space-y-6">
                 {[
@@ -1427,12 +1680,14 @@ export default function EmployeesPage() {
               )}
             </div>
 
+            </div>
+
             {/* Bottom Footer Actions */}
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+            <div className="modal-footer flex items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
               <button
                 type="button"
                 onClick={closeFormModal}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                className="btn btn-soft btn-secondary"
               >
                 Batal
               </button>
@@ -1442,7 +1697,7 @@ export default function EmployeesPage() {
                   <button
                     type="button"
                     onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}
-                    className="rounded-lg bg-emerald-800 px-6 py-2 text-xs font-bold text-white shadow hover:bg-emerald-900 transition-colors"
+                    className="btn btn-primary inline-flex items-center gap-1.5"
                   >
                     Selanjutnya →
                   </button>
@@ -1450,7 +1705,7 @@ export default function EmployeesPage() {
                   <button
                     type="button"
                     onClick={handleFormSubmit}
-                    className="rounded-lg bg-emerald-800 px-6 py-2 text-xs font-bold text-white shadow hover:bg-emerald-900 transition-colors"
+                    className="btn btn-primary inline-flex items-center gap-1.5"
                   >
                     {isEditMode ? 'Simpan Perubahan' : 'Simpan Pegawai'}
                   </button>
@@ -1459,44 +1714,57 @@ export default function EmployeesPage() {
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* 6. MODAL DETAIL PEGAWAI (WITH 7 TABS) */}
       {detailEmployee && (
-        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Detail Pegawai">
-          <div className="employee-detail-modal w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-            {/* Top Bar */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-3.5 bg-slate-50">
-              <button
-                onClick={() => setDetailEmployee(null)}
-                className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900"
-              >
-                <FaArrowLeft /> Kembali
-              </button>
-              <div className="flex items-center gap-2">
+        <div className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" role="dialog" aria-modal="true" aria-label="Detail Pegawai" tabIndex={-1}>
+          <div className="modal-dialog font-sans w-full max-w-3xl">
+            <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+              {/* Top Bar / Header */}
+              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
                 <button
-                  onClick={() => setShowIdCardModal(detailEmployee)}
-                  className="flex items-center gap-1.5 rounded-lg border border-purple-600 bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700 hover:bg-purple-100"
+                  type="button"
+                  onClick={() => setDetailEmployee(null)}
+                  className="btn btn-soft btn-secondary btn-sm inline-flex items-center gap-1.5"
                 >
-                  <FaIdCard /> ID Card
+                  <FaArrowLeft className="size-3.5" /> Kembali
                 </button>
-                {canUpdateEmployee && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => {
-                      const target = detailEmployee
-                      setDetailEmployee(null)
-                      openEditModal(target)
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50"
+                    type="button"
+                    onClick={() => setShowIdCardModal(detailEmployee)}
+                    className="btn btn-soft btn-primary btn-sm inline-flex items-center gap-1.5"
                   >
-                    <FaEdit /> Edit
+                    <FaIdCard className="size-3.5" /> ID Card
                   </button>
-                )}
+                  {canUpdateEmployee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = detailEmployee
+                        setDetailEmployee(null)
+                        openEditModal(target)
+                      }}
+                      className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+                    >
+                      <FaEdit className="size-3.5" /> Edit
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDetailEmployee(null)}
+                    className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    aria-label="Tutup"
+                  >
+                    <FaTimes className="size-4" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Content Body */}
-            <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+              {/* Content Body */}
+              <div className="modal-body min-h-0 flex-1 space-y-6 overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-200">
               {/* Profile Card Header */}
               <div className="flex flex-col md:flex-row gap-6 items-center rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <PersonAvatar
@@ -1595,38 +1863,40 @@ export default function EmployeesPage() {
               {/* TAB 3: PENUGASAN MENGAJAR */}
               {activeDetailTab === 'Penugasan Mengajar' && (
                 <div className="space-y-4">
-                  {canUpdateEmployee && <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-3">
-                    <h4 className="text-xs font-bold text-slate-800">Tambah Penugasan Mengajar Baru</h4>
-                    <div className="grid grid-cols-4 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Mata Pelajaran"
-                        value={newTeaching.mapel}
-                        onChange={(e) => setNewTeaching((p) => ({ ...p, mapel: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Kelas / Rombel"
-                        value={newTeaching.kelas}
-                        onChange={(e) => setNewTeaching((p) => ({ ...p, kelas: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Tahun Ajaran"
-                        value={newTeaching.tahun}
-                        onChange={(e) => setNewTeaching((p) => ({ ...p, tahun: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <button
-                        onClick={handleAddTeaching}
-                        className="rounded-lg bg-emerald-800 text-white text-xs font-bold py-1.5 hover:bg-emerald-900"
-                      >
-                        + Tambah Penugasan
-                      </button>
+                  {canUpdateEmployee && (
+                    <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-800">Tambah Penugasan Mengajar Baru</h4>
+                      <div className="grid grid-cols-4 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Mata Pelajaran"
+                          value={newTeaching.mapel}
+                          onChange={(e) => setNewTeaching((p) => ({ ...p, mapel: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Kelas / Rombel"
+                          value={newTeaching.kelas}
+                          onChange={(e) => setNewTeaching((p) => ({ ...p, kelas: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Tahun Ajaran"
+                          value={newTeaching.tahun}
+                          onChange={(e) => setNewTeaching((p) => ({ ...p, tahun: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <button
+                          onClick={handleAddTeaching}
+                          className="rounded-lg bg-emerald-800 text-white text-xs font-bold py-1.5 hover:bg-emerald-900"
+                        >
+                          + Tambah Penugasan
+                        </button>
+                      </div>
                     </div>
-                  </div>}
+                  )}
 
                   <div className="overflow-x-auto rounded-xl border border-slate-200">
                     <table className="w-full text-left text-xs">
@@ -1679,38 +1949,40 @@ export default function EmployeesPage() {
               {/* TAB 5: SERTIFIKASI */}
               {activeDetailTab === 'Sertifikasi' && (
                 <div className="space-y-4">
-                  {canUpdateEmployee && <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3">
-                    <h4 className="text-xs font-bold text-slate-800">Tambah Sertifikasi Baru</h4>
-                    <div className="grid grid-cols-4 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nama Sertifikat"
-                        value={newCert.nama}
-                        onChange={(e) => setNewCert((p) => ({ ...p, nama: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Penerbit"
-                        value={newCert.penerbit}
-                        onChange={(e) => setNewCert((p) => ({ ...p, penerbit: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Tahun"
-                        value={newCert.tahun}
-                        onChange={(e) => setNewCert((p) => ({ ...p, tahun: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <button
-                        onClick={handleAddCert}
-                        className="rounded-lg bg-blue-700 text-white text-xs font-bold py-1.5 hover:bg-blue-800"
-                      >
-                        + Tambah Sertifikat
-                      </button>
+                  {canUpdateEmployee && (
+                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-800">Tambah Sertifikasi Baru</h4>
+                      <div className="grid grid-cols-4 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Nama Sertifikat"
+                          value={newCert.nama}
+                          onChange={(e) => setNewCert((p) => ({ ...p, nama: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Penerbit"
+                          value={newCert.penerbit}
+                          onChange={(e) => setNewCert((p) => ({ ...p, penerbit: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Tahun"
+                          value={newCert.tahun}
+                          onChange={(e) => setNewCert((p) => ({ ...p, tahun: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <button
+                          onClick={handleAddCert}
+                          className="rounded-lg bg-blue-700 text-white text-xs font-bold py-1.5 hover:bg-blue-800"
+                        >
+                          + Tambah Sertifikat
+                        </button>
+                      </div>
                     </div>
-                  </div>}
+                  )}
 
                   <div className="space-y-2">
                     {(detailEmployee.certifications || []).map((c, idx) => (
@@ -1732,31 +2004,33 @@ export default function EmployeesPage() {
               {/* TAB 6: DOKUMEN */}
               {activeDetailTab === 'Dokumen' && (
                 <div className="space-y-4">
-                  {canUpdateEmployee && <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-3">
-                    <h4 className="text-xs font-bold text-slate-800">Upload Dokumen Pegawai</h4>
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nama Dokumen (KTP, SK, Ijazah)"
-                        value={newDoc.nama}
-                        onChange={(e) => setNewDoc((p) => ({ ...p, nama: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Nama File (.pdf / .jpg)"
-                        value={newDoc.file_name}
-                        onChange={(e) => setNewDoc((p) => ({ ...p, file_name: e.target.value }))}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                      />
-                      <button
-                        onClick={handleAddDoc}
-                        className="rounded-lg bg-purple-700 text-white text-xs font-bold py-1.5 hover:bg-purple-800"
-                      >
-                        + Simpan Dokumen
-                      </button>
+                  {canUpdateEmployee && (
+                    <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-800">Upload Dokumen Pegawai</h4>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Nama Dokumen (KTP, SK, Ijazah)"
+                          value={newDoc.nama}
+                          onChange={(e) => setNewDoc((p) => ({ ...p, nama: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Nama File (.pdf / .jpg)"
+                          value={newDoc.file_name}
+                          onChange={(e) => setNewDoc((p) => ({ ...p, file_name: e.target.value }))}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+                        />
+                        <button
+                          onClick={handleAddDoc}
+                          className="rounded-lg bg-purple-700 text-white text-xs font-bold py-1.5 hover:bg-purple-800"
+                        >
+                          + Simpan Dokumen
+                        </button>
+                      </div>
                     </div>
-                  </div>}
+                  )}
 
                   <div className="space-y-2">
                     {(detailEmployee.documents || []).map((d, idx) => (
@@ -1814,165 +2088,193 @@ export default function EmployeesPage() {
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* 7. MODAL CETAK ID CARD PEGAWAI */}
       {showIdCardModal && (
-        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-id-card-title">
-          <section className="employee-id-modal w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
-            <header className="employee-id-modal__header flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
-              <div>
-                <h2 id="employee-id-card-title" className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><FaIdCard className="text-emerald-700" /> ID Card Pegawai</h2>
-                <p className="mt-0.5 text-xs text-slate-500">Pratinjau kartu identitas dan QR akses SIMSIT</p>
-              </div>
-              <button type="button" onClick={() => setShowIdCardModal(null)} aria-label="Tutup ID Card" className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><FaTimes /></button>
-            </header>
-
-            <div className="employee-id-preview">
-              <EmployeeIdCard
-                orientation={idCardOrientation}
-                employee={showIdCardModal}
-                template={selectedIdCardTemplate}
-                pengaturan={pengaturan}
-                formatDate={formatEmployeeCardDate}
-                qrPayload={makeEmployeeQrPayload(showIdCardModal)}
-                isPrint={false}
-              />
-
-              <aside className="employee-id-info">
-                <div className="employee-id-template-picker">
-                  <div>
-                    <h3>Pilih Template Kartu</h3>
-                    <p>Pilih warna kartu identitas yang akan digunakan.</p>
-                  </div>
-                  <div className="employee-id-template-grid">
-                    {ID_CARD_TEMPLATES.map((template) => (
-                      <button
-                        key={template.id}
-                        type="button"
-                        onClick={() => setSelectedIdCardTemplate(template.id)}
-                        aria-pressed={selectedIdCardTemplate === template.id}
-                        className={`employee-id-template-option employee-id-template-option--${template.id} ${selectedIdCardTemplate === template.id ? 'is-selected' : ''}`}
-                      >
-                        <span className="employee-id-template-option__preview">
-                          <i />
-                          <b>DEI</b>
-                          <em />
-                          <small>QR</small>
-                        </span>
-                        <strong>{template.label}</strong>
-                        <small>{template.description}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="employee-id-orientation-picker">
-                  <div>
-                    <h3>Orientasi Kartu</h3>
-                    <p>Pilih tata letak kartu untuk preview dan hasil cetak.</p>
-                  </div>
-                  <div className="employee-id-orientation-grid">
-                    {[
-                      ['horizontal', 'Horizontal'],
-                      ['vertical', 'Vertikal'],
-                    ].map(([value, label]) => (
-                      <button key={value} type="button" onClick={() => changeIdCardOrientation(value)} aria-pressed={idCardOrientation === value} className={idCardOrientation === value ? 'is-selected' : ''}>
-                        <span className={`employee-id-orientation-icon employee-id-orientation-icon--${value}`}><i /><b /></span>
-                        <strong>{label}</strong>
-                        {idCardOrientation === value && <FaCheckCircle />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+        <div className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="employee-id-card-title" tabIndex={-1}>
+          <div className="modal-dialog font-sans w-full max-w-5xl">
+            <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
                 <div>
-                  <h3>Informasi QR Login</h3>
-                  <p>QR memuat identitas pengguna, unit kerja, dan peran akses untuk proses pertukaran autentikasi SIMSIT.</p>
+                  <h3 id="employee-id-card-title" className="modal-title flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><FaIdCard className="text-emerald-700 dark:text-emerald-400" /> ID Card Pegawai</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Pratinjau kartu identitas dan QR akses SIMSIT</p>
                 </div>
-                <dl>
-                  <div><dt>Identifier Login</dt><dd>{showIdCardModal.niy || showIdCardModal.email}</dd></div>
-                  <div><dt>Peran Utama</dt><dd>{showIdCardModal.jabatan_name || 'Pegawai'}</dd></div>
-                  <div><dt>Unit Kerja</dt><dd>{showIdCardModal.unit_name || '—'}</dd></div>
-                  <div><dt>Status</dt><dd><span>{showIdCardModal.status}</span></dd></div>
-                </dl>
-                <div className="employee-id-security-note">
-                  <BadgeCheck />
-                  <p>QR tidak menyimpan password atau token rahasia. Backend nantinya harus memvalidasi QR dan menukarnya dengan sesi login yang aman.</p>
-                </div>
-              </aside>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setShowIdCardModal(null)}
+                  className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  aria-label="Tutup ID Card"
+                >
+                  <FaTimes className="size-4" />
+                </button>
+              </div>
 
-            <footer className="employee-id-modal__footer flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-700 dark:bg-slate-900/40">
-              <button type="button" onClick={() => setShowIdCardModal(null)} className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Tutup</button>
-              <button
-                type="button"
-                onClick={() => {
-                  printEmployeeIdCard({
-                    employee: showIdCardModal,
-                    orientation: idCardOrientation,
-                    template: selectedIdCardTemplate,
-                    pengaturan,
-                    formatDate: formatEmployeeCardDate,
-                    qrPayload: makeEmployeeQrPayload(showIdCardModal),
-                  })
-                }}
-                className="flex h-10 items-center gap-2 rounded-xl bg-emerald-800 px-5 text-xs font-bold text-white shadow hover:bg-emerald-900"
-              >
-                <FaPrint /> Cetak ID Card
-              </button>
-            </footer>
-          </section>
+              <div className="modal-body min-h-0 flex-1 overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-200">
+                <div className="employee-id-preview">
+                  <EmployeeIdCard
+                    orientation={idCardOrientation}
+                    employee={showIdCardModal}
+                    template={selectedIdCardTemplate}
+                    pengaturan={pengaturan}
+                    formatDate={formatEmployeeCardDate}
+                    qrPayload={makeEmployeeQrPayload(showIdCardModal)}
+                    isPrint={false}
+                  />
+
+                  <aside className="employee-id-info">
+                    <div className="employee-id-template-picker">
+                      <div>
+                        <h3>Pilih Template Kartu</h3>
+                        <p>Pilih warna kartu identitas yang akan digunakan.</p>
+                      </div>
+                      <div className="employee-id-template-grid">
+                        {ID_CARD_TEMPLATES.map((template) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => setSelectedIdCardTemplate(template.id)}
+                            aria-pressed={selectedIdCardTemplate === template.id}
+                            className={`employee-id-template-option employee-id-template-option--${template.id} ${selectedIdCardTemplate === template.id ? 'is-selected' : ''}`}
+                          >
+                            <span className="employee-id-template-option__preview">
+                              <i />
+                              <b>DEI</b>
+                              <em />
+                              <small>QR</small>
+                            </span>
+                            <strong>{template.label}</strong>
+                            <small>{template.description}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="employee-id-orientation-picker">
+                      <div>
+                        <h3>Orientasi Kartu</h3>
+                        <p>Pilih tata letak kartu untuk preview dan hasil cetak.</p>
+                      </div>
+                      <div className="employee-id-orientation-grid">
+                        {[
+                          ['horizontal', 'Horizontal'],
+                          ['vertical', 'Vertikal'],
+                        ].map(([value, label]) => (
+                          <button key={value} type="button" onClick={() => changeIdCardOrientation(value)} aria-pressed={idCardOrientation === value} className={idCardOrientation === value ? 'is-selected' : ''}>
+                            <span className={`employee-id-orientation-icon employee-id-orientation-icon--${value}`}><i /><b /></span>
+                            <strong>{label}</strong>
+                            {idCardOrientation === value && <FaCheckCircle />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h3>Informasi QR Login</h3>
+                      <p>QR memuat identitas pengguna, unit kerja, dan peran akses untuk proses pertukaran autentikasi SIMSIT.</p>
+                    </div>
+                    <dl>
+                      <div><dt>Identifier Login</dt><dd>{showIdCardModal.niy || showIdCardModal.email}</dd></div>
+                      <div><dt>Peran Utama</dt><dd>{showIdCardModal.jabatan_name || 'Pegawai'}</dd></div>
+                      <div><dt>Unit Kerja</dt><dd>{showIdCardModal.unit_name || '—'}</dd></div>
+                      <div><dt>Status</dt><dd><span>{showIdCardModal.status}</span></dd></div>
+                    </dl>
+                    <div className="employee-id-security-note">
+                      <BadgeCheck />
+                      <p>QR tidak menyimpan password atau token rahasia. Backend nantinya harus memvalidasi QR dan menukarnya dengan sesi login yang aman.</p>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+
+              <div className="modal-footer flex items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+                <button type="button" onClick={() => setShowIdCardModal(null)} className="btn btn-soft btn-secondary">Tutup</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    printEmployeeIdCard({
+                      employee: showIdCardModal,
+                      orientation: idCardOrientation,
+                      template: selectedIdCardTemplate,
+                      pengaturan,
+                      formatDate: formatEmployeeCardDate,
+                      qrPayload: makeEmployeeQrPayload(showIdCardModal),
+                    })
+                  }}
+                  className="btn btn-primary inline-flex items-center gap-2"
+                >
+                  <FaPrint /> Cetak ID Card
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* 8. MODAL KONFIRMASI HAPUS PEGAWAI */}
       {canDeleteEmployee && deleteTarget && (
-        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Hapus Pegawai">
-          <div className="employee-delete-modal w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="p-6 text-center space-y-3 border-b border-slate-100">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-600 text-2xl">
-                <FaExclamationTriangle />
-              </div>
-              <h3 className="text-lg font-extrabold text-slate-900">Hapus Data Pegawai</h3>
-              <p className="text-xs text-slate-500">Apakah Anda yakin ingin menghapus pegawai berikut secara permanen?</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-800 font-black text-white text-xs">
-                  {deleteTarget.nama_lengkap.substring(0, 2).toUpperCase()}
+        <div className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" role="dialog" aria-modal="true" aria-label="Hapus Pegawai" tabIndex={-1}>
+          <div className="modal-dialog font-sans w-full max-w-lg">
+            <div className="modal-content flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 text-xl">
+                    <FaExclamationTriangle />
+                  </div>
+                  <div>
+                    <h3 className="modal-title text-base font-bold text-slate-900 dark:text-white">Hapus Data Pegawai</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Apakah Anda yakin ingin menghapus pegawai berikut secara permanen?</p>
+                  </div>
                 </div>
-                <div className="text-xs space-y-0.5">
-                  <h4 className="font-extrabold text-slate-900">{deleteTarget.nama_lengkap}</h4>
-                  <p className="text-slate-500">NIY: <span className="font-medium text-slate-700">{deleteTarget.niy}</span></p>
-                  <p className="text-slate-500">Jabatan: <span className="font-medium text-slate-700">{deleteTarget.jabatan_name}</span></p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  aria-label="Tutup"
+                >
+                  <FaTimes className="size-4" />
+                </button>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={hasConfirmedDeleteCheck}
-                  onChange={(e) => setHasConfirmedDeleteCheck(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-800 focus:ring-emerald-600"
-                />
-                Saya memahami bahwa data pegawai tidak dapat dikembalikan.
-              </label>
-            </div>
+              <div className="modal-body space-y-4 p-5 text-sm text-slate-700 dark:text-slate-200">
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-700 dark:bg-slate-800/40">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-800 font-black text-white text-xs">
+                    {deleteTarget.nama_lengkap.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div className="text-xs space-y-0.5">
+                    <h4 className="font-extrabold text-slate-900 dark:text-white">{deleteTarget.nama_lengkap}</h4>
+                    <p className="text-slate-500">NIY: <span className="font-medium text-slate-700 dark:text-slate-300">{deleteTarget.niy}</span></p>
+                    <p className="text-slate-500">Jabatan: <span className="font-medium text-slate-700 dark:text-slate-300">{deleteTarget.jabatan_name}</span></p>
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-              >
-                Batal
-              </button>
-              <button
-                disabled={!hasConfirmedDeleteCheck || deleteMutation.isPending}
-                onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="rounded-lg bg-red-600 px-5 py-2 text-xs font-bold text-white shadow hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
-                {deleteMutation.isPending ? 'Menghapus...' : 'Hapus Permanen'}
-              </button>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={hasConfirmedDeleteCheck}
+                    onChange={(e) => setHasConfirmedDeleteCheck(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-800 focus:ring-emerald-600"
+                  />
+                  Saya memahami bahwa data pegawai tidak dapat dikembalikan.
+                </label>
+              </div>
+
+              <div className="modal-footer flex items-center justify-end gap-3 border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  className="btn btn-soft btn-secondary"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasConfirmedDeleteCheck || deleteMutation.isPending}
+                  onClick={() => deleteMutation.mutate(deleteTarget.id)}
+                  className="btn btn-error text-white disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? 'Menghapus...' : 'Hapus Permanen'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1980,113 +2282,116 @@ export default function EmployeesPage() {
 
       {/* 9. MODAL DASHBOARD IMPORT PEGAWAI */}
       {showImportModal && (
-        <div className="employee-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Import Data Pegawai">
-          <div className="employee-import-modal w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                  <FaFileImport className="text-base" />
-                </div>
-                <div>
-                  <h2 className="text-base font-extrabold text-slate-900">Import Data Pegawai</h2>
-                  <p className="text-xs text-slate-500">Unggah file CSV/Excel untuk impor data pegawai secara massal</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <FaFileExcel className="text-2xl text-emerald-600 shrink-0" />
+        <div className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" role="dialog" aria-modal="true" aria-label="Import Data Pegawai" tabIndex={-1}>
+          <div className="modal-dialog font-sans w-full max-w-2xl">
+            <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                    <FaFileImport className="text-base" />
+                  </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">Unduh Format Template Import Pegawai</h4>
-                    <p className="text-[11px] text-slate-500">Format disesuaikan dengan skema master pegawai ERP.</p>
+                    <h3 className="modal-title text-base font-bold text-slate-900 dark:text-white">Import Data Pegawai</h3>
+                    <p className="text-xs text-slate-500">Unggah file CSV/Excel untuk impor data pegawai secara massal</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={handleDownloadTemplatePegawai}
-                  className="flex items-center gap-1.5 rounded-xl border border-emerald-600 bg-white px-3.5 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition shadow-xs whitespace-nowrap"
+                  onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
+                  className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  aria-label="Tutup"
                 >
-                  <FaDownload className="text-emerald-600" /> Unduh Template
+                  <FaTimes className="size-4" />
                 </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-2">Unggah File (Excel / CSV)</label>
-                <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-6 text-center hover:bg-slate-50 cursor-pointer transition">
-                  <FaUpload className="text-3xl text-emerald-700 mb-2" />
-                  <span className="text-xs font-bold text-slate-800">
-                    {importFile ? importFile.name : 'Klik untuk memilih file Excel atau CSV'}
-                  </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5">
-                    {importFile ? `${(importFile.size / 1024).toFixed(1)} KB` : 'Format disukai: .csv, .xlsx (Maks. 5MB)'}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".csv, .xlsx, .xls"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
+              <div className="modal-body min-h-0 flex-1 space-y-5 overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-200">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 dark:bg-slate-800/50 dark:border-slate-700">
+                  <div className="flex items-center gap-3">
+                    <FaFileExcel className="text-2xl text-emerald-600 shrink-0" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Unduh Format Template Import Pegawai</h4>
+                      <p className="text-[11px] text-slate-500">Format disesuaikan dengan skema master pegawai ERP.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplatePegawai}
+                    className="btn btn-primary btn-sm flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <FaDownload /> Unduh Template
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-2">Unggah File (Excel / CSV)</label>
+                  <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-6 text-center hover:bg-slate-50 cursor-pointer transition dark:border-slate-600 dark:bg-slate-800/40">
+                    <FaUpload className="text-3xl text-emerald-700 dark:text-emerald-400 mb-2" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {importFile ? importFile.name : 'Klik untuk memilih file Excel atau CSV'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">
+                      {importFile ? `${(importFile.size / 1024).toFixed(1)} KB` : 'Format disukai: .csv, .xlsx (Maks. 5MB)'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".csv, .xlsx, .xls"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {importPreviewData.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">Preview Data ({importPreviewData.length} baris)</h4>
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                      <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
+                        <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase dark:bg-slate-800">
+                          <tr>
+                            <th className="py-2 px-3">NIY</th>
+                            <th className="py-2 px-3">Nama Pegawai</th>
+                            <th className="py-2 px-3">Jabatan</th>
+                            <th className="py-2 px-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                          {importPreviewData.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                              <td className="py-2 px-3 font-mono">{row.niy}</td>
+                              <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">{row.nama}</td>
+                              <td className="py-2 px-3">{row.jabatan}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                  {row.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {importPreviewData.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-800">Preview Data ({importPreviewData.length} baris)</h4>
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-xs text-slate-600">
-                      <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
-                        <tr>
-                          <th className="py-2 px-3">NIY</th>
-                          <th className="py-2 px-3">Nama Pegawai</th>
-                          <th className="py-2 px-3">Jabatan</th>
-                          <th className="py-2 px-3 text-center">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {importPreviewData.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
-                            <td className="py-2 px-3 font-mono">{row.niy}</td>
-                            <td className="py-2 px-3 font-bold text-slate-800">{row.nama}</td>
-                            <td className="py-2 px-3">{row.jabatan}</td>
-                            <td className="py-2 px-3 text-center">
-                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                                {row.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!importFile || isImporting}
-                onClick={handleProcessImport}
-                className="flex items-center gap-2 rounded-xl bg-[#064e3b] px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 transition"
-              >
-                {isImporting ? 'Memproses Import...' : 'Proses Import Data'}
-              </button>
+              <div className="modal-footer flex items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+                <button
+                  type="button"
+                  onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
+                  className="btn btn-soft btn-secondary"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={!importFile || isImporting}
+                  onClick={handleProcessImport}
+                  className="btn btn-primary flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isImporting ? 'Memproses Import...' : 'Proses Import Data'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2106,6 +2411,6 @@ export default function EmployeesPage() {
           </article>
         ))}
       </div>
-    </MasterDataPage>
+    </PageContainer>
   )
 }

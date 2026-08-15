@@ -22,6 +22,15 @@ import {
 import Swal from 'sweetalert2'
 import ActionDropdown from '../components/app/ActionDropdown'
 import { equranService } from '../services/equranService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
+import {
+  MasterActionButton,
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+} from '../components/master-data'
 
 const emptySurah = {
   nomor: '',
@@ -40,6 +49,8 @@ export default function MasterQuranSurahPage() {
   const [syncing, setSyncing] = useState(false)
   const [search, setSearch] = useState('')
   const [tempatFilter, setTempatFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(10)
 
   // State untuk Modal Form (Tambah/Edit)
   const [showModal, setShowModal] = useState(false)
@@ -285,85 +296,34 @@ export default function MasterQuranSurahPage() {
   }, [surahs])
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header Title Banner */}
-      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">
-            <Sparkles className="w-4 h-4 text-emerald-300" />
-            <span>Master Data Referensi Al-Qur'an</span>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-            <BookOpen className="w-7 h-7 text-emerald-300" />
-            Kelola Data Surah & Rincian Ayat
-          </h1>
-          <p className="text-emerald-100/80 text-sm mt-1">
-            Klik pada nama surah untuk melihat rincian ayat lengkap beserta nomor ayat & transliterasi latinnya.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-sm backdrop-blur-md border border-white/20 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'Menyinkronkan...' : 'Sync 114 Surah (EQuran.id)'}</span>
-          </button>
-
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-sm shadow-lg transition-all flex items-center gap-2 active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Surah Manual</span>
-          </button>
-        </div>
-      </div>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Surah Al-Qur\'an' }]} />
+      <MasterDataPage className="education-unit-page quran-master-page" hideBreadcrumb>
+      {/* Master Canonical Page Header */}
+      <MasterPageHeader
+        tone="brand"
+        icon={BookOpen}
+        title="Kelola Data Surah & Rincian Ayat"
+        description="Master data 114 surah Al-Qur'an terpadu dengan rincian ayat, terjemahan, dan audio mp3."
+        actions={
+          <>
+            <MasterActionButton variant="secondary" icon={RefreshCw} disabled={syncing} onClick={handleSync}>
+              {syncing ? 'Menyinkronkan...' : 'Sync EQuran.id'}
+            </MasterActionButton>
+            <MasterActionButton icon={Plus} onClick={handleOpenAdd}>
+              Tambah Surah Manual
+            </MasterActionButton>
+          </>
+        }
+      />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-emerald-50 text-emerald-600">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Total Surah DB</div>
-            <div className="text-xl font-bold text-gray-800">{stats.count}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-cyan-50 text-cyan-600">
-            <FileText className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Total Ayat</div>
-            <div className="text-xl font-bold text-gray-800">{stats.totalAyat.toLocaleString('id-ID')}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-amber-50 text-amber-600">
-            <MapPin className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Surah Makkiyah</div>
-            <div className="text-xl font-bold text-gray-800">{stats.makkiyah}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-indigo-50 text-indigo-600">
-            <CheckCircle className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Surah Madaniyah</div>
-            <div className="text-xl font-bold text-gray-800">{stats.madaniyah}</div>
-          </div>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={Layers} label="Total Surah DB" value={stats.count} description="Surah tersimpan" variant="success" delay={40} />
+        <MasterStatCard icon={FileText} label="Total Ayat Al-Qur'an" value={stats.totalAyat.toLocaleString('id-ID')} description="Jumlah seluruh ayat" variant="info" delay={80} />
+        <MasterStatCard icon={MapPin} label="Surah Makkiyah" value={stats.makkiyah} description="Turun di Mekah" variant="warning" delay={120} />
+        <MasterStatCard icon={CheckCircle} label="Surah Madaniyah" value={stats.madaniyah} description="Turun di Madinah" variant="neutral" delay={160} />
+      </MasterStatsGrid>
 
       {/* Toolbar Search & Filter */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-3">
@@ -748,6 +708,7 @@ export default function MasterQuranSurahPage() {
           </div>
         </div>
       )}
-    </div>
+    </MasterDataPage>
+    </PageContainer>
   )
 }

@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { kelasService } from '../services/kelasService'
 import { ActionDropdown, AppBadge, PersonIdentityCell } from '../components/app'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterActionButton,
   MasterDataSection,
@@ -308,9 +310,12 @@ export default function MasterKelasPage() {
   }
 
   return (
-    <MasterDataPage className="education-unit-page" hideBreadcrumb>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Data Kelas' }]} />
+      <MasterDataPage className="education-unit-page">
       {/* Header Banner */}
       <MasterPageHeader
+        tone="brand"
         icon={School}
         title="Data Kelas & Rombongan Belajar"
         description="Kelola seluruh rombongan belajar, penugasan wali kelas, alokasi ruangan, dan kapasitas siswa di lingkungan Yayasan."
@@ -721,5 +726,6 @@ export default function MasterKelasPage() {
         description={`Apakah Anda yakin ingin menghapus data kelas ${deleteTarget?.nama_kelas}? Data akan dimasukkan ke arsip soft delete.`}
       />
     </MasterDataPage>
+    </PageContainer>
   )
 }

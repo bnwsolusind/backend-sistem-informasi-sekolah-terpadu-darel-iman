@@ -1,13 +1,31 @@
 import React, { useState, useEffect } from 'react'
-import { GraduationCap, UserCheck, Phone, Mail, Building, Briefcase, BookOpen, Save, CheckCircle2 } from 'lucide-react'
+import {
+  GraduationCap,
+  UserCheck,
+  Building,
+  Briefcase,
+  Save,
+  Megaphone,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Mail,
+  Phone,
+  MapPin,
+  School,
+  FileBadge,
+} from 'lucide-react'
 import Swal from 'sweetalert2'
 
-import DashboardHeader from '../components/dashboard/DashboardHeader'
-import KpiCardGrid from '../components/dashboard/KpiCardGrid'
-import KpiCard from '../components/dashboard/KpiCard'
-import DataTableCard from '../components/dashboard/DataTableCard'
-import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
-import ErrorState from '../components/dashboard/ErrorState'
+import {
+  AppPageHeader,
+  KpiCard,
+  AppBadge,
+  AppSkeleton,
+  AppErrorState,
+  PersonIdentityCell,
+} from '../components/app'
 
 import { alumniPortalService } from '../services/alumniPortalService'
 
@@ -70,6 +88,9 @@ export default function AlumniPortalPage() {
         text: 'Data profil alumni berhasil diperbarui.',
         timer: 2000,
         showConfirmButton: false,
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-white',
+        },
       })
       fetchDashboard()
     } catch (err) {
@@ -78,14 +99,17 @@ export default function AlumniPortalPage() {
         icon: 'error',
         title: 'Gagal',
         text: err.response?.data?.message || 'Gagal memperbarui profil alumni.',
+        customClass: {
+          popup: 'rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-white',
+        },
       })
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <SkeletonDashboard />
-  if (error) return <ErrorState message={error} onRetry={fetchDashboard} />
+  if (loading) return <AppSkeleton count={4} />
+  if (error) return <AppErrorState title="Gagal Memuat Portal Alumni" message={error} onRetry={fetchDashboard} />
 
   const profile = data?.profile || {}
   const kpis = data?.kpis || {}
@@ -93,101 +117,157 @@ export default function AlumniPortalPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      <DashboardHeader
+      {/* Master Canonical Page Header */}
+      <AppPageHeader
+        variant="brand"
+        icon={GraduationCap}
+        eyebrow="Portal Alumni & Tracer Study"
         title={`Portal Alumni — ${profile.full_name || 'Alumni'}`}
-        subtitle={`Lulusan ${profile.education_unit || 'Sekolah'} — Tahun Lulus ${profile.tahun_lulus}`}
-        roleName="Alumni"
-        unitName={profile.education_unit}
+        description={`Lulusan ${profile.education_unit || 'Sekolah'} — Tahun Lulus ${profile.tahun_lulus || '-'}`}
+        chips={[
+          `Status: ${profile.status_kelulusan || 'Lulus'}`,
+          `Unit: ${profile.education_unit || 'Sekolah'}`,
+        ]}
       />
 
-      <KpiCardGrid cols={4}>
-        <KpiCard title="Tahun Lulus" value={kpis.tahun_lulus} icon={GraduationCap} />
-        <KpiCard title="Unit Asal Sekolah" value={kpis.unit_asal} icon={Building} />
-        <KpiCard title="Status Profil Kontak" value={kpis.status_profil} icon={UserCheck} />
-        <KpiCard title="Aktivitas Saat Ini" value={kpis.status_lanjutan} icon={Briefcase} />
-      </KpiCardGrid>
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          title="Tahun Lulus"
+          value={kpis.tahun_lulus || profile.tahun_lulus || '-'}
+          icon={GraduationCap}
+          tone="emerald"
+          subtitle="Tahun kelulusan resmi"
+        />
+        <KpiCard
+          title="Unit Asal Sekolah"
+          value={kpis.unit_asal || profile.education_unit || '-'}
+          icon={Building}
+          tone="blue"
+          subtitle="Unit pendidikan kelulusan"
+        />
+        <KpiCard
+          title="Status Profil Kontak"
+          value={kpis.status_profil || 'Terverifikasi'}
+          icon={UserCheck}
+          tone="green"
+          subtitle="Status penelusuran alumni"
+        />
+        <KpiCard
+          title="Aktivitas Saat Ini"
+          value={kpis.status_lanjutan || profile.status_lanjutan || 'Kuliah'}
+          icon={Briefcase}
+          tone="violet"
+          subtitle="Status studi / karir alumni"
+        />
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        {/* Read-Only Official Academic Records & Editable Profile Form */}
-        <div className="space-y-4 lg:col-span-8">
-          {/* Read-Only Official Credentials */}
-          <div className="rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
-              Data Resmi Kelulusan (Read-Only)
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Identitas akademik resmi yang diterbitkan oleh sistem sekolah.
-            </p>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column: Read-Only Academic Info + Editable Form */}
+        <div className="space-y-6 lg:col-span-8">
+          {/* Read-Only Official Academic Record */}
+          <div className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#0E5C44] flex items-center justify-center dark:bg-emerald-950/60 dark:text-[#3FBF75]">
+                <FileBadge className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Data Resmi Kelulusan (Read-Only)
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Identitas akademik resmi yang diterbitkan oleh sistem sekolah.
+                </p>
+              </div>
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">Nama Lengkap</span>
-                <span className="font-bold text-slate-900 dark:text-white">{profile.full_name}</span>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 dark:bg-slate-800/60 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block mb-1 font-medium">Nama Lengkap</span>
+                <span className="font-bold text-slate-900 dark:text-white text-sm">{profile.full_name || '-'}</span>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">NIS / NISN</span>
-                <span className="font-bold text-slate-900 dark:text-white">{profile.nis || '-'} / {profile.nisn || '-'}</span>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 dark:bg-slate-800/60 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block mb-1 font-medium">NIS / NISN</span>
+                <span className="font-bold text-slate-900 dark:text-white text-sm">{profile.nis || '-'} / {profile.nisn || '-'}</span>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">Tahun Lulus</span>
-                <span className="font-bold text-slate-900 dark:text-white">{profile.tahun_lulus}</span>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 dark:bg-slate-800/60 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block mb-1 font-medium">Tahun Lulus</span>
+                <span className="font-bold text-slate-900 dark:text-white text-sm">{profile.tahun_lulus || '-'}</span>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
-                <span className="text-slate-400 block mb-1">Status Kelulusan</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">{profile.status_kelulusan}</span>
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 dark:bg-slate-800/60 dark:border-slate-800">
+                <span className="text-slate-400 dark:text-slate-500 block mb-1 font-medium">Status Kelulusan</span>
+                <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-[#3FBF75] text-sm">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {profile.status_kelulusan || 'Lulus'}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Editable Form for Alumni Contact & Education/Job info */}
-          <form onSubmit={handleSaveProfile} className="space-y-4 rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
-              Perbarui Informasi Kontak &amp; Karir Alumni
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Perbarui domisili, kontak, perguruan tinggi, atau tempat kerja Anda untuk tracer alumni.
-            </p>
+          {/* Editable Form for Alumni Contact & Tracer Info */}
+          <form onSubmit={handleSaveProfile} className="space-y-5 rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center dark:bg-blue-950/60 dark:text-blue-400">
+                <Briefcase className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Perbarui Informasi Kontak & Karir Alumni
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Perbarui domisili, kontak, perguruan tinggi, atau tempat kerja Anda untuk tracer alumni.
+                </p>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">No. HP / WhatsApp</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-slate-400" /> No. HP / WhatsApp
+                </label>
                 <input
                   type="text"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-white"
+                  className="w-full h-10.5 rounded-xl border border-slate-200/80 px-3.5 bg-white text-slate-900 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-white dark:focus:border-[#3FBF75]"
                   placeholder="08xxxxxxxxxx"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Email Aktif</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-slate-400" /> Email Aktif
+                </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-white"
+                  className="w-full h-10.5 rounded-xl border border-slate-200/80 px-3.5 bg-white text-slate-900 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-white dark:focus:border-[#3FBF75]"
                   placeholder="email@domain.com"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Alamat Domisili</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" /> Alamat Domisili
+                </label>
                 <textarea
                   rows={2}
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Alamat domisili saat ini"
+                  className="w-full rounded-xl border border-slate-200/80 p-3 bg-white text-slate-900 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-white dark:focus:border-[#3FBF75]"
+                  placeholder="Alamat domisili saat ini..."
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Aktivitas Lanjutan</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400" /> Aktivitas Lanjutan
+                </label>
                 <select
                   value={formData.status_lanjutan}
                   onChange={(e) => setFormData({ ...formData, status_lanjutan: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-white"
+                  className="w-full h-10.5 rounded-xl border border-slate-200/80 px-3.5 bg-white text-slate-900 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-white dark:focus:border-[#3FBF75]"
                 >
                   <option value="Kuliah">Kuliah (Perguruan Tinggi)</option>
                   <option value="Bekerja">Bekerja</option>
@@ -197,64 +277,100 @@ export default function AlumniPortalPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Nama Perguruan Tinggi / Universitas</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <School className="w-3.5 h-3.5 text-slate-400" /> Nama Perguruan Tinggi / Universitas
+                </label>
                 <input
                   type="text"
                   value={formData.perguruan_tinggi}
                   onChange={(e) => setFormData({ ...formData, perguruan_tinggi: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Nama universitas / kampus"
+                  className="w-full h-10.5 rounded-xl border border-slate-200/80 px-3.5 bg-white text-slate-900 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-white dark:focus:border-[#3FBF75]"
+                  placeholder="Nama universitas / kampus..."
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Pekerjaan / Jabatan</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400" /> Pekerjaan / Jabatan
+                </label>
                 <input
                   type="text"
                   value={formData.pekerjaan}
                   onChange={(e) => setFormData({ ...formData, pekerjaan: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Pekerjaan saat ini"
+                  className="w-full h-10.5 rounded-xl border border-slate-200/80 px-3.5 bg-white text-slate-900 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-white dark:focus:border-[#3FBF75]"
+                  placeholder="Pekerjaan / posisi saat ini..."
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Instansi / Nama Perusahaan</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <Building className="w-3.5 h-3.5 text-slate-400" /> Instansi / Nama Perusahaan
+                </label>
                 <input
                   type="text"
                   value={formData.instansi}
                   onChange={(e) => setFormData({ ...formData, instansi: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-slate-200 px-3 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-white"
-                  placeholder="Nama tempat bekerja / wirausaha"
+                  className="w-full h-10.5 rounded-xl border border-slate-200/80 px-3.5 bg-white text-slate-900 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-white dark:focus:border-[#3FBF75]"
+                  placeholder="Nama tempat bekerja / wirausaha..."
                 />
               </div>
             </div>
 
-            <div className="flex justify-end pt-3">
+            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0E5C44] text-white text-xs font-semibold hover:bg-[#1E8E5A] transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0E5C44] text-white text-xs font-semibold shadow-md hover:bg-[#1E8E5A] transition-all disabled:opacity-50 dark:bg-[#3FBF75] dark:text-slate-900"
               >
-                <Save className="w-4 h-4" />
-                <span>{saving ? 'Simpan...' : 'Simpan Perubahan Profile'}</span>
+                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{saving ? 'Simpan...' : 'Simpan Perubahan Profil'}</span>
               </button>
             </div>
           </form>
         </div>
 
-        {/* Alumni Announcements Table */}
+        {/* Right Column: Alumni Announcements Card */}
         <div className="lg:col-span-4">
-          <DataTableCard
-            title="Pengumuman Sekolah & Alumni"
-            subtitle="Kabar alumni dan informasi resmi dari sekolah"
-            headers={['Pengumuman', 'Tanggal']}
-            rows={announcements.map((ann, idx) => [
-              <span key="title" className="font-semibold text-slate-900 dark:text-white">{ann.judul_pengumuman || ann.judul}</span>,
-              ann.created_at ? new Date(ann.created_at).toLocaleDateString('id-ID') : '-'
-            ])}
-            emptyMessage="Belum ada pengumuman alumni."
-          />
+          <div className="rounded-[18px] border border-slate-200/80 bg-white shadow-sm overflow-hidden dark:border-slate-800 dark:bg-[#1B2433]">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center dark:bg-amber-950/60 dark:text-amber-400">
+                <Megaphone className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Pengumuman Sekolah & Alumni
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Kabar alumni & informasi resmi sekolah
+                </p>
+              </div>
+            </div>
+
+            {announcements.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                Belum ada pengumuman alumni saat ini.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {announcements.map((ann, idx) => (
+                  <div key={ann.id || idx} className="p-4 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors space-y-1.5">
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 line-clamp-2">
+                      {ann.judul_pengumuman || ann.judul || 'Informasi Alumni'}
+                    </h4>
+                    {ann.isi && (
+                      <p className="text-slate-500 dark:text-slate-400 line-clamp-2 text-[11px]">
+                        {ann.isi}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 font-medium pt-0.5">
+                      <Calendar className="w-3 h-3" />
+                      <span>{ann.created_at ? new Date(ann.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

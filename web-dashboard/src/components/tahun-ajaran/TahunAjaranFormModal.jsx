@@ -101,25 +101,35 @@ export default function TahunAjaranFormModal({
   }
 
   return (
-    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm">
-      <div className="ui-modal my-6 w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl">
-        {/* Modal Header Bar (Persis Referensi UI/UX) */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-white px-7 py-5">
-          <h2 className="text-xl font-black text-[#0f172a]">
-            {isEdit ? 'Edit Master Data Tahun Ajaran' : 'Tambah Master Data Tahun Ajaran'}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-          >
-            <FaTimes className="w-4 h-4" />
-          </button>
-        </div>
+    <div
+      id="tahun-ajaran-form-modal"
+      className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tahun-ajaran-form-title"
+      tabIndex={-1}
+    >
+      <div className="modal-dialog font-sans w-full max-w-4xl">
+        <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+          {/* Modal Header Bar */}
+          <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+            <h3 id="tahun-ajaran-form-title" className="modal-title text-base font-bold text-slate-900 dark:text-white">
+              {isEdit ? 'Edit Master Data Tahun Ajaran' : 'Tambah Master Data Tahun Ajaran'}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              aria-label="Tutup formulir tahun ajaran"
+              data-overlay="#tahun-ajaran-form-modal"
+            >
+              <FaTimes className="size-4" />
+            </button>
+          </div>
 
-        {/* Modal Main Body Grid */}
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-4 min-h-[440px]">
+          {/* Modal Main Body Grid */}
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="modal-body flex min-h-0 flex-1 flex-col overflow-y-auto p-0">
             {/* Left Column: Wizard Stepper Vertikal */}
             <div className="border-r border-slate-100 bg-[#f8fafc] p-7 space-y-7">
               {[
@@ -335,11 +345,12 @@ export default function TahunAjaranFormModal({
           </div>
 
           {/* Modal Bottom Action Footer */}
-          <div className="flex items-center justify-between border-t border-slate-100 bg-white px-7 py-4">
+          <div className="modal-footer flex items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              className="btn btn-soft btn-secondary"
+              data-overlay="#tahun-ajaran-form-modal"
             >
               Batal
             </button>
@@ -349,9 +360,9 @@ export default function TahunAjaranFormModal({
                 <button
                   type="button"
                   onClick={handlePrev}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+                  className="btn btn-soft btn-secondary inline-flex items-center gap-1.5"
                 >
-                  <FaArrowLeft className="w-3 h-3" />
+                  <FaArrowLeft className="size-3" />
                   <span>Sebelumnya</span>
                 </button>
               )}
@@ -360,18 +371,18 @@ export default function TahunAjaranFormModal({
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="rounded-xl bg-[#046c4e] hover:bg-[#03543d] px-6 py-2.5 text-xs font-bold text-white shadow-md transition-colors flex items-center gap-1.5"
+                  className="btn btn-primary inline-flex items-center gap-1.5"
                 >
                   <span>Selanjutnya</span>
-                  <FaArrowRight className="w-3 h-3" />
+                  <FaArrowRight className="size-3" />
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-xl bg-[#046c4e] hover:bg-[#03543d] px-6 py-2.5 text-xs font-bold text-white shadow-md disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                  className="btn btn-primary inline-flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <FaCheckCircle className="w-3.5 h-3.5" />
+                  <FaCheckCircle className="size-4" />
                   <span>{isSubmitting ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Tahun Ajaran'}</span>
                 </button>
               )}
@@ -380,5 +391,6 @@ export default function TahunAjaranFormModal({
         </form>
       </div>
     </div>
+  </div>
   )
 }

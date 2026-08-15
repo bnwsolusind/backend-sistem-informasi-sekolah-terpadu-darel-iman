@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { ChevronsUpDown } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/table'
+import { ArrowBothDirectionHorizontal2 } from '@tailgrids/icons'
+import { TableRoot, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../tailgrids/core/table'
+import { Pagination } from '../tailgrids/core/pagination'
 import { cn } from '../../lib/utils'
 import AppSearch from './AppSearch'
 import AppPagination from './AppPagination'
@@ -8,27 +9,27 @@ import AppEmptyState from './AppEmptyState'
 import AppErrorState from './AppErrorState'
 import AppSkeleton from './AppSkeleton'
 import ActionDropdown from './ActionDropdown'
+import MobileDataCard from './MobileDataCard'
+
 
 /**
- * AppDataTable - canonical data table (satu-satunya tabel di aplikasi).
+ * AppDataTable - Canonical master data table component.
  *
- * Fitur:
- *  - Sticky header, sticky kolom aksi
- *  - Search internal + controlled
- *  - Filter via `filters` node (biasanya AppFilterBar)
- *  - Pagination (meta Laravel atau manual)
- *  - Density comfortable/compact
- *  - Loading skeleton, Empty, Error state
- *  - Selected row
- *  - Kolom aksi (View/Edit/Delete/History) via ActionDropdown
- *  - Raw table mode via `children`/`renderTable` for a shared outer shell
- *  - `serverControlled` prevents filtering/sorting one server-paginated slice
- *
- * columns: [{ key, label, render(row), className, hideOnMobile }]
+ * Capabilities:
+ *  - Responsive Desktop Table + Mobile Card view fallback
+ *  - Sticky header & sticky action columns
+ *  - Internal + Controlled Search & Sorting
+ *  - Filter bar integration
+ *  - Server / Client pagination
+ *  - Density modes ('comfortable' | 'compact')
+ *  - Loading skeleton, Empty, and Error states
+ *  - Multi-row selection & Bulk actions
+ *  - ActionDropdown with built-in permission checking
  */
 export default function AppDataTable({
   children,
   renderTable,
+  renderMobileCard,
   columns = [],
   data = [],
   keyField = 'id',
@@ -75,6 +76,7 @@ export default function AppDataTable({
   onHistory,
   extraActions,
   embedded = false,
+  fullBleed = false,
   showToolbar = true,
   showPagination = true,
   toolbarClassName = '',
@@ -140,7 +142,7 @@ export default function AppDataTable({
   }
 
   const hasActionColumn = Boolean(onView || onEdit || onDelete || onHistory || extraActions)
-  const rowPadding = density === 'compact' ? 'px-4 py-2.5' : 'px-5 py-4'
+  const rowPadding = density === 'compact' ? 'px-3.5 py-2.5' : 'px-4 py-3.5'
   const hasFilters = Boolean(filters)
   const resolvedBulkActions = typeof bulkActions === 'function' ? bulkActions(selectedKeys) : bulkActions
   const clientTotalPages = Math.max(1, Math.ceil(sortedData.length / clientPageSize))
@@ -155,38 +157,59 @@ export default function AppDataTable({
     : children
 
   return (
-    <div className={cn(
-      'app-data-table min-w-0',
-      embedded
-        ? 'app-data-table--embedded'
-        : 'overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]',
-      className
-    )}>
+    <div
+      className={cn(
+        'app-data-table min-w-0',
+        embedded
+          ? 'app-data-table--embedded'
+          : 'overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]',
+        className
+      )}
+    >
       {/* Toolbar: search + filter + action */}
-      {showToolbar && (onSearchChange || search !== undefined || hasFilters || actions) && (
-        <div className={cn('flex flex-col gap-3 border-b border-slate-100 p-4 dark:border-slate-800', toolbarClassName)}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {(title || description) && (
-              <div className="min-w-0">
-                {title && <h3 className="text-sm font-bold text-slate-900 dark:text-white">{title}</h3>}
-                {description && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{description}</p>}
-              </div>
-            )}
-            <div className="flex flex-1 items-center gap-3 sm:justify-end">
+      {showToolbar && (onSearchChange || search !== undefined || hasFilters || actions || title) && (
+        <div className={cn('flex flex-col gap-3.5 border-b border-slate-100 px-4 py-4 sm:px-6 md:px-8 dark:border-slate-800', toolbarClassName)}>
+          {/* Row 1: Title / Description on Left, Action Buttons (Import, Export, Tambah Unit) on Right */}
+          {(title || description || actions) && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100/80 pb-3 dark:border-slate-800/60">
+              {(title || description) && (
+                <div className="min-w-0">
+                  {title && <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{title}</h3>}
+                  {description && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{description}</p>}
+                </div>
+              )}
+              {actions && (
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {actions}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Row 2: Full-width Search Input */}
+          {(onSearchChange || search !== undefined) && (
+            <div className="w-full min-w-0">
               <AppSearch
                 value={searchValue}
                 onChange={handleSearch}
                 placeholder={searchPlaceholder}
                 size="sm"
               />
-              {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
             </div>
-          </div>
-          {hasFilters && <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">{filters}</div>}
+          )}
+
+          {/* Row 3: Filter Controls */}
+          {hasFilters && (
+            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap overflow-x-auto no-scrollbar min-w-0 w-full pt-0.5">
+              {filters}
+            </div>
+          )}
+
+          {/* Selected Rows Bulk Action */}
           {selectedKeys.length > 0 && resolvedBulkActions && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-emerald-50/70 p-2 dark:bg-emerald-950/30">
-              <span className="mr-1 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                {selectedKeys.length} dipilih
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-emerald-50/80 p-2.5 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/30">
+              <span className="mr-1 text-xs font-bold text-[#0E5C44] dark:text-[#3FBF75]">
+                {selectedKeys.length} data dipilih
               </span>
               {resolvedBulkActions}
             </div>
@@ -215,115 +238,189 @@ export default function AppDataTable({
           {customTable}
         </div>
       ) : (
-        <div className={cn('app-data-table__viewport min-w-0 overflow-x-auto', tableContainerClassName)}>
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                {onToggleSelect && (
-                  <TableHead className="w-10 px-4">
-                    <input
-                      type="checkbox"
-                      aria-label="Pilih semua"
-                      checked={selectedKeys.length > 0 && selectedKeys.length === visibleData.length}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          onToggleSelect?.(visibleData.map((row) => row[keyField]))
-                        } else {
-                          onToggleSelect?.([])
-                        }
-                      }}
-                      className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-[#0E5C44]"
-                    />
-                  </TableHead>
-                )}
-                {columns.map((col) => (
-                  <TableHead key={col.key || col.label} className={cn('whitespace-nowrap', col.hideOnMobile && 'hidden lg:table-cell', col.className)}>
-                    {col.sortable ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSort(col.key)}
-                        className="inline-flex items-center gap-1 uppercase tracking-wider transition hover:text-[#0E5C44] dark:hover:text-[#3FBF75]"
-                      >
-                        {col.label}
-                        <ChevronsUpDown className={cn('h-3 w-3', sortKey === col.key ? 'text-[#0E5C44] dark:text-[#3FBF75]' : 'text-slate-300')} />
-                      </button>
-                    ) : (
-                      col.label
-                    )}
-                  </TableHead>
-                ))}
-                {hasActionColumn && (
-                  <TableHead className="w-[80px] min-w-[80px] text-center font-bold uppercase tracking-wider">
-                    AKSI
-                  </TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleData.map((row, rowIdx) => {
-                const rowKey = row?.[keyField] ?? rowIdx
-                const selected = selectedKeys.includes(rowKey)
+        <>
+          {/* Mobile Card List View (Visible on < md screens if renderMobileCard or fallback card is enabled) */}
+          <div className="block md:hidden space-y-3 p-3.5">
+            {visibleData.map((row, rowIdx) => {
+              const rowKey = row?.[keyField] ?? rowIdx
+              const selected = selectedKeys.includes(rowKey)
+
+              if (renderMobileCard) {
                 return (
-                  <TableRow
-                    key={rowKey}
-                    data-state={selected ? 'selected' : undefined}
-                    onClick={onRowClick ? () => onRowClick(row) : undefined}
-                    className={cn(onRowClick && 'cursor-pointer')}
-                  >
-                    {onToggleSelect && (
-                      <TableCell className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          aria-label={`Pilih ${rowKey}`}
-                          checked={selected}
-                          onChange={(e) => {
-                            const next = e.target.checked
-                              ? [...new Set([...selectedKeys, rowKey])]
-                              : selectedKeys.filter((k) => k !== rowKey)
-                            onToggleSelect?.(next)
-                          }}
-                          className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-[#0E5C44]"
-                        />
-                      </TableCell>
-                    )}
-                    {columns.map((col) => (
-                      <TableCell key={col.key || col.label} className={cn(rowPadding, 'whitespace-nowrap', col.hideOnMobile && 'hidden lg:table-cell', col.className)}>
-                        {col.render ? col.render(row, rowIdx) : row?.[col.key] ?? '—'}
-                      </TableCell>
-                    ))}
-                    {hasActionColumn && (
-                      <TableCell className={cn('w-[80px] min-w-[80px] text-center', rowPadding)} onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5">
-                          {extraActions?.({ row, rowIdx })}
-                          {hasActionColumn && (
-                            <ActionDropdown
-                              onView={onView ? () => onView(row) : undefined}
-                              onEdit={onEdit ? () => onEdit(row) : undefined}
-                              onDelete={onDelete ? () => onDelete(row) : undefined}
-                              onHistory={onHistory ? () => onHistory(row) : undefined}
-                            />
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                  <React.Fragment key={rowKey}>
+                    {renderMobileCard({
+                      row,
+                      rowIdx,
+                      selected,
+                      onToggleSelect: () => {
+                        const next = selected
+                          ? selectedKeys.filter((k) => k !== rowKey)
+                          : [...new Set([...selectedKeys, rowKey])]
+                        onToggleSelect?.(next)
+                      },
+                      onView: onView ? () => onView(row) : undefined,
+                      onEdit: onEdit ? () => onEdit(row) : undefined,
+                      onDelete: onDelete ? () => onDelete(row) : undefined,
+                      onHistory: onHistory ? () => onHistory(row) : undefined,
+                    })}
+                  </React.Fragment>
                 )
-              })}
-            </TableBody>
-          </Table>
-        </div>
+              }
+
+              // Default Mobile Data Card fallback
+              const firstCol = columns[0]
+              const titleVal = firstCol?.render ? firstCol.render(row, rowIdx) : row?.[firstCol?.key] || `Item #${rowIdx + 1}`
+              const secondaryFields = columns.slice(1, 5).map((col) => ({
+                label: col.label,
+                value: col.render ? col.render(row, rowIdx) : row?.[col.key],
+              }))
+
+              return (
+                <MobileDataCard
+                  key={rowKey}
+                  title={titleVal}
+                  fields={secondaryFields}
+                  selected={selected}
+                  onSelect={
+                    onToggleSelect
+                      ? (checked) => {
+                          const next = checked
+                            ? [...new Set([...selectedKeys, rowKey])]
+                            : selectedKeys.filter((k) => k !== rowKey)
+                          onToggleSelect(next)
+                        }
+                      : undefined
+                  }
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onView={onView ? () => onView(row) : undefined}
+                  onEdit={onEdit ? () => onEdit(row) : undefined}
+                  onDelete={onDelete ? () => onDelete(row) : undefined}
+                  onHistory={onHistory ? () => onHistory(row) : undefined}
+                  extraActions={extraActions?.({ row, rowIdx })}
+                />
+              )
+            })}
+          </div>
+
+          {/* Desktop Table View (Hidden on mobile < md screens) */}
+          <div className={cn('hidden md:block app-data-table__viewport min-w-0 px-4 sm:px-6 md:px-8', tableContainerClassName)}>
+            <TableRoot fullBleed={false}>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40">
+                  {onToggleSelect && (
+                    <TableHead className="w-10 px-4">
+                      <input
+                        type="checkbox"
+                        aria-label="Pilih semua"
+                        checked={selectedKeys.length > 0 && selectedKeys.length === visibleData.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            onToggleSelect?.(visibleData.map((row) => row[keyField]))
+                          } else {
+                            onToggleSelect?.([])
+                          }
+                        }}
+                        className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-[#0E5C44] dark:border-slate-700"
+                      />
+                    </TableHead>
+                  )}
+                  {columns.map((col) => (
+                    <TableHead
+                      key={col.key || col.label}
+                      className={cn('whitespace-nowrap text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400', col.hideOnMobile && 'hidden lg:table-cell', col.className)}
+                    >
+                      {col.sortable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col.key)}
+                          className="inline-flex items-center gap-1.5 transition-all duration-150 active:scale-95 cursor-pointer hover:text-slate-900 dark:hover:text-white text-xs font-bold"
+                        >
+                          <span>{col.label}</span>
+                          <ArrowBothDirectionHorizontal2 className={cn('h-3 w-3 shrink-0 transition-transform duration-200', sortKey === col.key ? 'text-[#0E5C44] dark:text-[#3FBF75] rotate-180' : 'text-slate-400')} />
+                        </button>
+                      ) : (
+                        col.label
+                      )}
+                    </TableHead>
+                  ))}
+                  {hasActionColumn && (
+                    <TableHead className="w-[88px] min-w-[88px] text-center font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      AKSI
+                    </TableHead>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleData.map((row, rowIdx) => {
+                  const rowKey = row?.[keyField] ?? rowIdx
+                  const selected = selectedKeys.includes(rowKey)
+                  return (
+                    <TableRow
+                      key={rowKey}
+                      data-state={selected ? 'selected' : undefined}
+                      onClick={onRowClick ? () => onRowClick(row) : undefined}
+                      className={cn(
+                        'transition-all duration-200 hover:bg-slate-50/90 dark:hover:bg-slate-800/50 hover:shadow-xs',
+                        selected && 'bg-emerald-50/30 dark:bg-emerald-950/20',
+                        onRowClick && 'cursor-pointer'
+                      )}
+                    >
+                      {onToggleSelect && (
+                        <TableCell className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`Pilih ${rowKey}`}
+                            checked={selected}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...new Set([...selectedKeys, rowKey])]
+                                : selectedKeys.filter((k) => k !== rowKey)
+                              onToggleSelect?.(next)
+                            }}
+                            className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-[#0E5C44] dark:border-slate-700"
+                          />
+                        </TableCell>
+                      )}
+                      {columns.map((col) => (
+                        <TableCell
+                          key={col.key || col.label}
+                          className={cn(rowPadding, 'whitespace-nowrap text-xs text-slate-700 dark:text-slate-200', col.hideOnMobile && 'hidden lg:table-cell', col.className)}
+                        >
+                          {col.render ? col.render(row, rowIdx) : row?.[col.key] ?? '—'}
+                        </TableCell>
+                      ))}
+                      {hasActionColumn && (
+                        <TableCell className={cn('w-[88px] min-w-[88px] text-center', rowPadding)} onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1.5">
+                            {extraActions?.({ row, rowIdx })}
+                            {hasActionColumn && (
+                              <ActionDropdown
+                                onView={onView ? () => onView(row) : undefined}
+                                onEdit={onEdit ? () => onEdit(row) : undefined}
+                                onDelete={onDelete ? () => onDelete(row) : undefined}
+                                onHistory={onHistory ? () => onHistory(row) : undefined}
+                              />
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </TableRoot>
+          </div>
+        </>
       )}
 
       {/* Pagination */}
       {showPagination && !isLoading && !isError && !resolvedIsEmpty && (
-        <div className="px-4 pb-4 pt-3">
-          <AppPagination
+        <div className="w-full border-t border-slate-100 px-4 py-3.5 sm:px-6 md:px-8 dark:border-slate-800">
+          <Pagination
             currentPage={clientPagination ? resolvedClientPage : page}
             totalPages={clientPagination ? clientTotalPages : totalPages}
-            totalItems={clientPagination ? sortedData.length : totalItems}
-            itemsPerPage={clientPagination ? clientPageSize : itemsPerPage}
+            sideLayout="full"
             onPageChange={clientPagination ? setClientPage : onPageChange}
-            meta={meta}
           />
         </div>
       )}

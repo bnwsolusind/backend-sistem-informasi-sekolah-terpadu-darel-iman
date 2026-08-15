@@ -19,6 +19,7 @@ use App\Models\Student;
 use App\Models\Teacher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -41,94 +42,109 @@ class DashboardPemantauanController extends Controller
         $hariIni = now()->toDateString();
         $awalMinggu = now()->subDays(6)->toDateString();
 
-        if (Schema::hasTable('attendances')) {
-            $hadirHariIni = DB::table('attendances')->whereDate('attendance_date', $hariIni)->count();
-            $terlambatHariIni = DB::table('attendances')->whereDate('attendance_date', $hariIni)->where('status', 'late')->count();
-            $tidakHadirHariIni = DB::table('attendances')->whereDate('attendance_date', $hariIni)->where('status', 'absent')->count();
+        $cacheKey = "dashboard_pemantauan_ringkasan_{$hariIni}";
 
-            $lineChartMingguan = DB::table('attendances')
-                ->selectRaw('attendance_date as label, count(*) as total')
-                ->whereBetween('attendance_date', [$awalMinggu, $hariIni])
-                ->groupBy('attendance_date')
-                ->orderBy('attendance_date')
-                ->get();
-        } else {
-            $hadirHariIni = 0;
-            $terlambatHariIni = 0;
-            $tidakHadirHariIni = 0;
-            $lineChartMingguan = collect();
-        }
+        $cachedData = Cache::remember($cacheKey, 30, function () use ($hariIni, $awalMinggu) {
+            if (Schema::hasTable('attendances')) {
+                $attendanceCounts = DB::table('attendances')
+                    ->whereDate('attendance_date', $hariIni)
+                    ->selectRaw("
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as terlambat,
+                        SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as tidak_hadir
+                    ")
+                    ->first();
 
-        $donutChart = [
-            ['label' => 'Hadir', 'nilai' => max($hadirHariIni - $terlambatHariIni - $tidakHadirHariIni, 0)],
-            ['label' => 'Terlambat', 'nilai' => $terlambatHariIni],
-            ['label' => 'Tidak Hadir', 'nilai' => $tidakHadirHariIni],
-        ];
+                $hadirHariIni = (int) ($attendanceCounts->total ?? 0);
+                $terlambatHariIni = (int) ($attendanceCounts->terlambat ?? 0);
+                $tidakHadirHariIni = (int) ($attendanceCounts->tidak_hadir ?? 0);
 
-        if (Schema::hasTable('tahfizh_records') && Schema::hasTable('classes')) {
-            $barTahfizh = DB::table('tahfizh_records')
-                ->join('classes', 'classes.id', '=', 'tahfizh_records.class_id')
-                ->selectRaw('classes.name as kelas, COALESCE(SUM(tahfizh_records.line_count), 0) as total_baris')
-                ->whereBetween('record_date', [$awalMinggu, $hariIni])
-                ->groupBy('classes.name')
-                ->orderByDesc('total_baris')
-                ->limit(7)
-                ->get();
+                $lineChartMingguan = DB::table('attendances')
+                    ->selectRaw('attendance_date as label, count(*) as total')
+                    ->whereBetween('attendance_date', [$awalMinggu, $hariIni])
+                    ->groupBy('attendance_date')
+                    ->orderBy('attendance_date')
+                    ->get();
+            } else {
+                $hadirHariIni = 0;
+                $terlambatHariIni = 0;
+                $tidakHadirHariIni = 0;
+                $lineChartMingguan = collect();
+            }
 
-            $rataBarisTahfizh = (float) DB::table('tahfizh_records')
-                ->whereBetween('record_date', [now()->subDays(30)->toDateString(), $hariIni])
-                ->avg('line_count');
-        } else {
-            $barTahfizh = collect();
-            $rataBarisTahfizh = 0;
-        }
-
-        if (Schema::hasTable('mutabaah_records')) {
-            $ibadahRingkas = DB::table('mutabaah_records')
-                ->selectRaw('COALESCE(AVG(tilawah_lines), 0) as rata_tilawah, COALESCE(AVG(CASE WHEN sunnah_fasting THEN 100 ELSE 0 END), 0) as persen_puasa_sunnah')
-                ->whereBetween('record_date', [$awalMinggu, $hariIni])
-                ->first();
-        } else {
-            $ibadahRingkas = (object) [
-                'rata_tilawah' => 0,
-                'persen_puasa_sunnah' => 0,
+            $donutChart = [
+                ['label' => 'Hadir', 'nilai' => max($hadirHariIni - $terlambatHariIni - $tidakHadirHariIni, 0)],
+                ['label' => 'Terlambat', 'nilai' => $terlambatHariIni],
+                ['label' => 'Tidak Hadir', 'nilai' => $tidakHadirHariIni],
             ];
-        }
 
-        $targetBaris = 10;
-        $persenTargetTahfizh = $targetBaris > 0 ? min(round(($rataBarisTahfizh / $targetBaris) * 100, 2), 100) : 0;
+            if (Schema::hasTable('tahfizh_records') && Schema::hasTable('classes')) {
+                $barTahfizh = DB::table('tahfizh_records')
+                    ->join('classes', 'classes.id', '=', 'tahfizh_records.class_id')
+                    ->selectRaw('classes.name as kelas, COALESCE(SUM(tahfizh_records.line_count), 0) as total_baris')
+                    ->whereBetween('record_date', [$awalMinggu, $hariIni])
+                    ->groupBy('classes.name')
+                    ->orderByDesc('total_baris')
+                    ->limit(7)
+                    ->get();
 
-        return new RingkasanDashboardPemantauanResource([
-            'total_siswa' => Student::query()->count(),
-            'total_guru' => Teacher::query()->count(),
-            'kehadiran_hari_ini' => $hadirHariIni,
-            'statistik_keterlambatan' => $terlambatHariIni,
-            'statistik_ketidakhadiran' => $tidakHadirHariIni,
-            'donut_chart' => $donutChart,
-            'line_chart_kehadiran_mingguan' => $lineChartMingguan,
-            'bar_chart_tahfizh' => $barTahfizh,
-            'progress_target_tahfizh' => [
-                'target_baris_per_hari' => $targetBaris,
-                'realisasi_rata_baris' => round($rataBarisTahfizh, 2),
-                'persentase' => $persenTargetTahfizh,
-            ],
-            'progress_ibadah_siswa' => [
-                'rata_tilawah_baris' => round((float) ($ibadahRingkas->rata_tilawah ?? 0), 2),
-                'persen_puasa_sunnah' => round((float) ($ibadahRingkas->persen_puasa_sunnah ?? 0), 2),
-            ],
-            'data_tabel_rekap_prestasi' => RekapPrestasiSiswa::query()->latest('tanggal_prestasi')->limit(10)->get(),
-            'pengumuman_sekolah' => PengumumanSekolah::query()
-                ->where('status_aktif', true)
-                ->where(function ($query) {
-                    $query->whereNull('selesai_tampil')->orWhere('selesai_tampil', '>=', now());
-                })
-                ->where('mulai_tampil', '<=', now())
-                ->orderByDesc('prioritas')
-                ->orderByDesc('mulai_tampil')
-                ->limit(10)
-                ->get(),
-            'indikator_kinerja_utama' => IndikatorKinerjaUtama::query()->orderBy('urutan_tampil')->limit(12)->get(),
-        ]);
+                $rataBarisTahfizh = (float) DB::table('tahfizh_records')
+                    ->whereBetween('record_date', [now()->subDays(30)->toDateString(), $hariIni])
+                    ->avg('line_count');
+            } else {
+                $barTahfizh = collect();
+                $rataBarisTahfizh = 0;
+            }
+
+            if (Schema::hasTable('mutabaah_records')) {
+                $ibadahRingkas = DB::table('mutabaah_records')
+                    ->selectRaw('COALESCE(AVG(tilawah_lines), 0) as rata_tilawah, COALESCE(AVG(CASE WHEN sunnah_fasting THEN 100 ELSE 0 END), 0) as persen_puasa_sunnah')
+                    ->whereBetween('record_date', [$awalMinggu, $hariIni])
+                    ->first();
+            } else {
+                $ibadahRingkas = (object) [
+                    'rata_tilawah' => 0,
+                    'persen_puasa_sunnah' => 0,
+                ];
+            }
+
+            $targetBaris = 10;
+            $persenTargetTahfizh = $targetBaris > 0 ? min(round(($rataBarisTahfizh / $targetBaris) * 100, 2), 100) : 0;
+
+            return [
+                'total_siswa' => Student::query()->count(),
+                'total_guru' => Teacher::query()->count(),
+                'kehadiran_hari_ini' => $hadirHariIni,
+                'statistik_keterlambatan' => $terlambatHariIni,
+                'statistik_ketidakhadiran' => $tidakHadirHariIni,
+                'donut_chart' => $donutChart,
+                'line_chart_kehadiran_mingguan' => $lineChartMingguan,
+                'bar_chart_tahfizh' => $barTahfizh,
+                'progress_target_tahfizh' => [
+                    'target_baris_per_hari' => $targetBaris,
+                    'realisasi_rata_baris' => round($rataBarisTahfizh, 2),
+                    'persentase' => $persenTargetTahfizh,
+                ],
+                'progress_ibadah_siswa' => [
+                    'rata_tilawah_baris' => round((float) ($ibadahRingkas->rata_tilawah ?? 0), 2),
+                    'persen_puasa_sunnah' => round((float) ($ibadahRingkas->persen_puasa_sunnah ?? 0), 2),
+                ],
+                'data_tabel_rekap_prestasi' => RekapPrestasiSiswa::query()->latest('tanggal_prestasi')->limit(10)->get(),
+                'pengumuman_sekolah' => PengumumanSekolah::query()
+                    ->where('status_aktif', true)
+                    ->where(function ($query) {
+                        $query->whereNull('selesai_tampil')->orWhere('selesai_tampil', '>=', now());
+                    })
+                    ->where('mulai_tampil', '<=', now())
+                    ->orderByDesc('prioritas')
+                    ->orderByDesc('mulai_tampil')
+                    ->limit(10)
+                    ->get(),
+                'indikator_kinerja_utama' => IndikatorKinerjaUtama::query()->orderBy('urutan_tampil')->limit(12)->get(),
+            ];
+        });
+
+        return new RingkasanDashboardPemantauanResource($cachedData);
     }
 
     public function daftarPemantauanDivisi(DaftarPemantauanDashboardRequest $request): JsonResponse

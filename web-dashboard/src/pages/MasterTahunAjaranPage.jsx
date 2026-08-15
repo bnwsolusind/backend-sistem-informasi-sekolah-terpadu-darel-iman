@@ -16,6 +16,8 @@ import TahunAjaranTable from '../components/tahun-ajaran/TahunAjaranTable'
 import TahunAjaranFormModal from '../components/tahun-ajaran/TahunAjaranFormModal'
 import TahunAjaranDetailModal from '../components/tahun-ajaran/TahunAjaranDetailModal'
 import TahunAjaranImportModal from '../components/tahun-ajaran/TahunAjaranImportModal'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -162,8 +164,11 @@ export default function MasterTahunAjaranPage() {
   }
 
   return (
-    <MasterDataPage className="education-unit-page academic-year-page" hideBreadcrumb>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Tahun Ajaran' }]} />
+      <MasterDataPage className="education-unit-page academic-year-page">
       <MasterPageHeader
+        tone="brand"
         title="Master Tahun Ajaran"
         description="Kelola periode akademik, rentang tanggal, dan tahun ajaran aktif sekolah."
         icon={CalendarDays}
@@ -251,6 +256,7 @@ export default function MasterTahunAjaranPage() {
         {notifications.map((item) => <div key={item.id} className={`flex items-start gap-3 rounded-2xl border bg-white p-4 shadow-xl dark:bg-[#1B2433] ${item.tone === 'danger' ? 'border-rose-200' : item.tone === 'warning' ? 'border-amber-200' : 'border-emerald-200'}`}><CheckCircle2 className={`mt-0.5 h-5 w-5 shrink-0 ${item.tone === 'danger' ? 'text-rose-600' : item.tone === 'warning' ? 'text-amber-600' : 'text-emerald-600'}`} /><div className="min-w-0 flex-1"><b className="text-sm text-slate-900 dark:text-white">{item.title}</b><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">{item.message}</p></div><button onClick={() => setNotifications((items) => items.filter((n) => n.id !== item.id))} aria-label="Tutup notifikasi"><X className="h-4 w-4 text-slate-400" /></button></div>)}
       </div>
     </MasterDataPage>
+    </PageContainer>
   )
 }
 

@@ -136,34 +136,44 @@ export default function JenisUnitFormModal({
   const isEdit = Boolean(initialData)
 
   return (
-    <div className="education-unit-popup ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs" role="dialog" aria-modal="true" aria-labelledby="jenis-unit-form-title">
-      <div className="ui-modal flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
-        {/* Header Modal */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
-              <School className="h-5 w-5" strokeWidth={2.25} />
+    <div
+      id="jenis-unit-form-modal"
+      className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="jenis-unit-form-title"
+      tabIndex={-1}
+    >
+      <div className="modal-dialog font-sans w-full max-w-2xl">
+        <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+          {/* Header Modal */}
+          <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-700">
+                <School className="h-5 w-5" strokeWidth={2.25} />
+              </div>
+              <div>
+                <h3 id="jenis-unit-form-title" className="modal-title text-base font-bold text-slate-800 dark:text-white">
+                  {isEdit ? 'Edit Jenis Unit Pendidikan' : 'Tambah Jenis Unit Pendidikan'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Kelola informasi data jenis unit pendidikan terpadu.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 id="jenis-unit-form-title" className="text-base font-bold text-slate-800 dark:text-white">
-                {isEdit ? 'Edit Jenis Unit Pendidikan' : 'Tambah Jenis Unit Pendidikan'}
-              </h2>
-              <p className="text-xs text-slate-500">
-                Kelola informasi data jenis unit pendidikan terpadu.
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Tutup form jenis unit"
+              data-overlay="#jenis-unit-form-modal"
+              className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            >
+              <X className="size-4" strokeWidth={2.25} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Tutup form jenis unit"
-            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-          >
-            <X className="h-5 w-5" strokeWidth={2.25} />
-          </button>
-        </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="min-h-0 space-y-5 overflow-y-auto p-5 text-xs text-slate-700">
+          {/* Form Body */}
+          <form onSubmit={handleSubmit} className="modal-body min-h-0 space-y-5 overflow-y-auto p-5 text-xs text-slate-700 dark:text-slate-200">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Kode Jenis */}
             <div>
@@ -340,13 +350,13 @@ export default function JenisUnitFormModal({
           </div>
 
           {/* Buttons Footer */}
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+          <div className="modal-footer pt-4 border-t border-slate-100 flex items-center justify-between dark:border-slate-700">
             <button
               type="button"
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+              className="btn btn-secondary inline-flex items-center gap-1.5"
             >
-              <RefreshCcw className="h-3.5 w-3.5" strokeWidth={2.25} />
+              <RefreshCcw className="size-4" strokeWidth={2} />
               Reset
             </button>
 
@@ -354,16 +364,18 @@ export default function JenisUnitFormModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                className="btn btn-error text-white inline-flex items-center gap-1.5"
+                data-overlay="#jenis-unit-form-modal"
               >
+                <X className="size-4" />
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="ui-button inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-5 py-2.5 font-semibold text-white shadow-md shadow-emerald-800/20 transition-all hover:bg-emerald-900 focus:ring-2 focus:ring-emerald-600 focus:ring-offset-1 disabled:opacity-50"
+                className="btn btn-success bg-[#0E5C44] hover:bg-[#1E8E5A] text-white border-none inline-flex items-center gap-2 shadow-md disabled:opacity-50"
               >
-                <Save className="h-4 w-4" strokeWidth={2.25} />
+                <Save className="size-4" strokeWidth={2} />
                 {isSubmitting ? 'Menyimpan...' : 'Simpan'}
               </button>
             </div>
@@ -371,5 +383,6 @@ export default function JenisUnitFormModal({
         </form>
       </div>
     </div>
-  )
+  </div>
+)
 }

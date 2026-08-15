@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { lmsAktivitasBelajarService } from '../services/lmsAktivitasBelajarService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
 export default function LmsAktivitasBelajarPage() {
   const [dataAktivitas, setDataAktivitas] = useState([])

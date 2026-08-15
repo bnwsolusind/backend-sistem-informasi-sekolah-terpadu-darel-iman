@@ -4,7 +4,6 @@ import { Building2, CheckCircle2, FileSpreadsheet, GraduationCap, MapPin, Refres
 import api from '../../services/api'
 import {
   MasterActionButton,
-  MasterActionIconButton,
   MasterDataPage,
   MasterDataTable,
   MasterEmptyState,
@@ -54,12 +53,7 @@ export function FoundationUnitsPage() {
       setUnits(Array.isArray(rawData) ? rawData : [])
     } catch (err) {
       console.error('Failed to fetch foundation units:', err)
-      setUnits([
-        { id: 1, name: 'TKIT Dar El-Iman 1', code: 'TKIT-1', jenis_unit: 'TKIT', is_active: true, location: 'Padang', kepala_sekolah: 'Ustadz Ahmad', principal_nip: '19850101', siswa_aktif_count: 120, guru_count: 10, rombel_count: 4 },
-        { id: 2, name: 'SDIT Dar El-Iman 1', code: 'SDIT-1', jenis_unit: 'SDIT', is_active: true, location: 'Padang', kepala_sekolah: 'Ustadz Budi', principal_nip: '19820202', siswa_aktif_count: 450, guru_count: 32, rombel_count: 15 },
-        { id: 3, name: 'SMPIT Dar El-Iman', code: 'SMPIT-1', jenis_unit: 'SMPIT', is_active: true, location: 'Padang', kepala_sekolah: 'Ustadz Candra', principal_nip: '19800303', siswa_aktif_count: 380, guru_count: 25, rombel_count: 12 }
-      ])
-      setError(false)
+      setError(true)
     } finally {
       setLoading(false)
       setIsFetching(false)

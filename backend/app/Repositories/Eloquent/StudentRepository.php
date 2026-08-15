@@ -16,7 +16,7 @@ class StudentRepository implements StudentRepositoryInterface
     ): LengthAwarePaginator
     {
         return Student::query()
-            ->with(['kelas:id,nama_kelas,tingkat,unit_pendidikan_id', 'educationUnit:id,name', 'parent', 'parentsPivot'])
+            ->with(['kelas:id,nama_kelas,tingkat,unit_pendidikan_id', 'educationUnit:id,name'])
             ->when(! $canAccessAllUnits, function ($query) use ($unitId) {
                 $query->when(
                     $unitId,
@@ -30,8 +30,7 @@ class StudentRepository implements StudentRepositoryInterface
                     $q->where('nis', 'like', $term)
                         ->orWhere('full_name', 'like', $term)
                         ->orWhere('nisn', 'like', $term)
-                        ->orWhere('address', 'like', $term)
-                        ->orWhere('metadata->nisn', 'like', $term);
+                        ->orWhere('address', 'like', $term);
                 });
             })
             ->orderBy('full_name')

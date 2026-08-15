@@ -13,6 +13,14 @@ import {
   Clock3,
   TrendingUp,
   FileSpreadsheet,
+  Sparkles,
+  ArrowUpRight,
+  ShieldCheck,
+  Calendar,
+  Bell,
+  RefreshCw,
+  Eye,
+  Filter,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -22,25 +30,33 @@ import {
   CartesianGrid,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
 } from 'recharts'
 
-import DashboardHeader from '../../components/dashboard/DashboardHeader'
-import DashboardFilter from '../../components/dashboard/DashboardFilter'
-import KpiCardGrid from '../../components/dashboard/KpiCardGrid'
-import KpiCard from '../../components/dashboard/KpiCard'
+import {
+  AppPageHeader,
+  AppBreadcrumb,
+  AppFilterBar,
+  KpiCard,
+  SummaryCard,
+  AppDataTable,
+  AppBadge,
+  AppButton,
+  ActionDropdown,
+  SectionHeader,
+} from '../../components/app'
+
 import ChartCard from '../../components/dashboard/ChartCard'
-import DataTableCard from '../../components/dashboard/DataTableCard'
-import QuickActionCard from '../../components/dashboard/QuickActionCard'
 import SkeletonDashboard from '../../components/dashboard/SkeletonDashboard'
 import ErrorState from '../../components/dashboard/ErrorState'
 import KpiQuickViewModal from '../../components/KpiQuickViewModal'
 import ModalErrorBoundary from '../../components/common/ModalErrorBoundary'
-import ActionDropdown from '../../components/app/ActionDropdown'
-import { SectionCard } from '../../components/app'
+import KpiDetailDrawer from '../../components/KpiDetailDrawer'
 
 import api from '../../services/api'
 
@@ -50,15 +66,17 @@ export function FoundationDashboardPage() {
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
   const [selectedUnitFilter, setSelectedUnitFilter] = useState('all')
+  const [selectedPeriodFilter, setSelectedPeriodFilter] = useState('year')
   const [activeModal, setActiveModal] = useState(null)
+  const [detailDrawer, setDetailDrawer] = useState({ isOpen: false, type: null, id: null })
   const [unitsList, setUnitsList] = useState([])
 
-  const fetchDashboard = async (unitId = selectedUnitFilter) => {
+  const fetchDashboard = async (unitId = selectedUnitFilter, period = selectedPeriodFilter) => {
     setLoading(true)
     setError(null)
     try {
       const res = await api.get('/foundation/dashboard', {
-        params: { unit_id: unitId }
+        params: { unit_id: unitId, period }
       })
       if (res.data && res.data.data) {
         setData(res.data.data)
@@ -86,16 +104,30 @@ export function FoundationDashboardPage() {
 
   useEffect(() => {
     fetchUnits()
-    fetchDashboard('all')
+    fetchDashboard('all', 'year')
   }, [])
 
   const handleUnitFilterChange = (unitId) => {
     setSelectedUnitFilter(unitId)
-    fetchDashboard(unitId)
+    fetchDashboard(unitId, selectedPeriodFilter)
   }
 
-  if (loading) return <SkeletonDashboard />
-  if (error) return <ErrorState message={error} onRetry={() => fetchDashboard(selectedUnitFilter)} />
+  const handleResetFilter = () => {
+    setSelectedUnitFilter('all')
+    setSelectedPeriodFilter('year')
+    fetchDashboard('all', 'year')
+  }
+
+  const handleOpenUnitDetail = (unit) => {
+    setDetailDrawer({
+      isOpen: true,
+      type: 'unit_pendidikan',
+      id: unit.id,
+    })
+  }
+
+  if (loading && !data) return <SkeletonDashboard />
+  if (error && !data) return <ErrorState message={error} onRetry={() => fetchDashboard(selectedUnitFilter)} />
 
   const kpis = data?.kpis || {}
   const charts = data?.charts || {}
@@ -109,139 +141,455 @@ export function FoundationDashboardPage() {
   const activeYear = data?.active_academic_year
   const activeSemester = data?.active_semester
   const prestasiDistribution = charts.prestasi_distribution || []
-  const quickActions = [
-    { label: 'Unit Pendidikan', icon: Building2, onClick: () => navigate('/dashboard/yayasan/unit-pendidikan') },
-    { label: 'Pegawai & Guru', icon: UserCheck, onClick: () => navigate('/dashboard/yayasan/pegawai-guru') },
-    { label: 'Data Siswa', icon: Users, onClick: () => navigate('/dashboard/yayasan/siswa') },
-    { label: 'Laporan Lintas Unit', icon: FileSpreadsheet, onClick: () => navigate('/dashboard/yayasan/laporan') },
-  ]
-
-  const foundationMetric = (label, value, Icon, tone = 'emerald') => (
-    <div key={label} className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-xs dark:border-slate-800 dark:bg-[#1B2433]">
-      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone === 'amber' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' : tone === 'rose' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : 'bg-emerald-50 text-[#0E5C44] dark:bg-emerald-950/50 dark:text-emerald-300'}`}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
-        <strong className="block text-base font-black text-slate-900 dark:text-white">{value ?? 0}{typeof value === 'number' && label.includes('Kehadiran') ? '%' : ''}</strong>
-      </span>
-    </div>
-  )
+  const sdmDistribution = charts.sdm_distribution || []
 
   const formatNumber = (num) => (num !== undefined && num !== null ? Number(num).toLocaleString('id-ID') : '0')
 
+  const isFiltered = selectedUnitFilter !== 'all' || selectedPeriodFilter !== 'year'
+
+  // Columns for Unit Summary Table
+  const unitColumns = [
+    {
+      key: 'name',
+      label: 'Nama Unit Pendidikan',
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0E5C44]/10 text-[#0E5C44] font-black text-xs dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]">
+            {(row.code || row.name || 'UN').substring(0, 3).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="font-extrabold text-slate-900 dark:text-white truncate">{row.name}</p>
+            <p className="text-[11px] text-slate-400 font-medium">{row.jenis_unit || row.level || 'Unit Sekolah'}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'kepala_sekolah',
+      label: 'Kepala Sekolah',
+      hideOnMobile: true,
+      render: (row) => (
+        <span className="font-medium text-slate-700 dark:text-slate-300">
+          {typeof row.kepala_sekolah === 'object' ? row.kepala_sekolah?.nama : row.kepala_sekolah || 'Belum Ditentukan'}
+        </span>
+      ),
+    },
+    {
+      key: 'siswa_aktif_count',
+      label: 'Siswa Aktif',
+      sortable: true,
+      render: (row) => (
+        <span className="font-extrabold text-[#0E5C44] dark:text-[#3FBF75]">
+          {formatNumber(row.siswa_aktif_count ?? row.siswa_count)} Siswa
+        </span>
+      ),
+    },
+    {
+      key: 'guru_count',
+      label: 'Guru',
+      sortable: true,
+      render: (row) => <span className="font-bold text-slate-800 dark:text-slate-200">{formatNumber(row.guru_count)}</span>,
+    },
+    {
+      key: 'pegawai_count',
+      label: 'Pegawai & Tendik',
+      sortable: true,
+      hideOnMobile: true,
+      render: (row) => <span className="font-semibold text-slate-600 dark:text-slate-400">{formatNumber(row.pegawai_count)}</span>,
+    },
+    {
+      key: 'rombel_count',
+      label: 'Rombel',
+      sortable: true,
+      hideOnMobile: true,
+      render: (row) => <span className="font-semibold text-slate-600 dark:text-slate-400">{formatNumber(row.rombel_count || row.kelas_count)}</span>,
+    },
+    {
+      key: 'is_active',
+      label: 'Status',
+      render: (row) => (
+        <AppBadge variant={row.is_active ? 'success' : 'secondary'} dot>
+          {row.is_active ? 'Aktif' : 'Nonaktif'}
+        </AppBadge>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-6 pb-12">
-      {/* Header (Monitoring Eksekutif Yayasan) */}
-      <DashboardHeader
+      {/* Breadcrumb Navigation */}
+      <AppBreadcrumb items={[{ label: 'Dashboard Pengurus Yayasan' }]} />
+
+      {/* Welcome Header (Brand Variant with Islamic Modern Pattern) */}
+      <AppPageHeader
+        variant="brand"
         title="Dashboard Pengurus Yayasan"
-        subtitle="Monitoring eksekutif perkembangan sekolah, SDM, kesiswaan, dan unit pendidikan secara terpadu"
-        roleName="Pengurus Yayasan"
-        academicYear={activeYear?.name || activeYear?.nama}
-        semester={activeSemester?.name || activeSemester?.nama}
-      />
-
-      {/* Filter Global Unit */}
-      <DashboardFilter
-        units={unitsList}
-        selectedUnit={selectedUnitFilter}
-        onUnitChange={handleUnitFilterChange}
-        onReset={() => handleUnitFilterChange('all')}
-      />
-
-      <section className="space-y-3">
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#0E5C44] dark:text-emerald-400">Ringkasan lintas unit</p>
-            <h2 className="text-base font-black text-slate-900 dark:text-white">Kinerja Yayasan</h2>
+        eyebrow="Yayasan Darel Iman — Executive Monitoring"
+        description="Monitoring eksekutif 15 unit pendidikan, SDM guru & pegawai, kesiswaan, capaian akademik, tahfizh, dan mutaba'ah secara terpadu."
+        welcomeName="Pengurus Yayasan"
+        chips={[
+          activeYear ? `Tahun Ajaran ${activeYear.name || activeYear.nama}` : 'TBA 2026/2027',
+          activeSemester ? `Semester ${activeSemester.name || activeSemester.nama}` : 'Semester Ganjil',
+          `${unitsList.length || 15} Unit Pendidikan`,
+          'Status: Monitoring Real-Time',
+        ]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <AppButton
+              variant="accent"
+              size="sm"
+              icon={FileSpreadsheet}
+              onClick={() => navigate('/dashboard/yayasan/laporan')}
+            >
+              Laporan Lintas Unit
+            </AppButton>
+            <AppButton
+              variant="outline"
+              size="sm"
+              icon={RefreshCw}
+              onClick={() => fetchDashboard(selectedUnitFilter, selectedPeriodFilter)}
+              className="border-white/30 text-white hover:bg-white/10"
+            >
+              Segarkan
+            </AppButton>
           </div>
-          <span className="hidden text-xs text-slate-400 sm:block">Data baca-saja dari seluruh unit</span>
+        }
+      />
+
+      {/* Filter Global Unit & Periode */}
+      <AppFilterBar
+        label="Filter Monitoring"
+        activeCount={isFiltered ? (selectedUnitFilter !== 'all' ? 1 : 0) + (selectedPeriodFilter !== 'year' ? 1 : 0) : 0}
+        onReset={handleResetFilter}
+      >
+        <div className="flex flex-1 flex-wrap items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">Unit Pendidikan:</span>
+            <select
+              value={selectedUnitFilter}
+              onChange={(e) => handleUnitFilterChange(e.target.value)}
+              className="h-9.5 min-w-[200px] rounded-xl border border-slate-200/80 bg-white px-3 text-xs font-bold text-slate-700 outline-none transition focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200 dark:focus:border-[#3FBF75]"
+            >
+              <option value="all">Semua Unit Pendidikan (15 Unit)</option>
+              {unitsList.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.code || u.jenis_unit || 'Unit'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">Periode:</span>
+            <select
+              value={selectedPeriodFilter}
+              onChange={(e) => {
+                setSelectedPeriodFilter(e.target.value)
+                fetchDashboard(selectedUnitFilter, e.target.value)
+              }}
+              className="h-9.5 rounded-xl border border-slate-200/80 bg-white px-3 text-xs font-bold text-slate-700 outline-none transition focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200 dark:focus:border-[#3FBF75]"
+            >
+              <option value="year">Tahun Berjalan</option>
+              <option value="month">Bulan Ini</option>
+              <option value="semester">Semester Ini</option>
+            </select>
+          </div>
         </div>
-        <KpiCardGrid cols={4}>
-          <KpiCard title="Total Unit Pendidikan" value={formatNumber(kpis.unit_pendidikan?.total ?? kpis.total_unit_aktif)} trend={kpis.unit_pendidikan?.growth} trendType={kpis.unit_pendidikan?.growth >= 0 ? 'up' : 'down'} icon={Building2} onClick={() => setActiveModal('total_unit')} />
-          <KpiCard title="Total Guru" value={formatNumber(kpis.guru?.total ?? kpis.total_guru)} trend={kpis.guru?.growth} trendType={kpis.guru?.growth >= 0 ? 'up' : 'down'} icon={GraduationCap} onClick={() => setActiveModal('total_guru')} />
-          <KpiCard title="Total Pegawai & Tendik" value={formatNumber(kpis.pegawai?.total ?? kpis.total_pegawai)} trend={kpis.pegawai?.growth} trendType={kpis.pegawai?.growth >= 0 ? 'up' : 'down'} icon={UserCheck} onClick={() => setActiveModal('total_pegawai')} />
-          <KpiCard title="Total Siswa Aktif" value={formatNumber(kpis.siswa?.total ?? kpis.total_siswa_aktif)} trend={kpis.siswa?.growth} trendType={kpis.siswa?.growth >= 0 ? 'up' : 'down'} icon={Users} onClick={() => setActiveModal('total_siswa')} />
-          <KpiCard title="Total Orang Tua" value={formatNumber(kpis.orang_tua?.total ?? kpis.total_ortu)} icon={HeartHandshake} onClick={() => setActiveModal('total_ortu')} />
-          <KpiCard title="Total Alumni" value={formatNumber(kpis.alumni?.total ?? kpis.total_alumni)} icon={GraduationCap} onClick={() => setActiveModal('total_alumni')} />
-          <KpiCard title="Total Kelas" value={formatNumber(kpis.kelas?.total ?? kpis.total_kelas)} icon={School} onClick={() => setActiveModal('total_kelas')} />
-          <KpiCard title="Total Rombel" value={formatNumber(kpis.rombel?.total ?? kpis.total_rombel)} icon={Layers} onClick={() => setActiveModal('total_rombel')} />
-        </KpiCardGrid>
+      </AppFilterBar>
+
+      {/* KPI Cards Grid (Canonical KpiCard Session 3) */}
+      <section className="space-y-3">
+        <SectionHeader
+          title="Kinerja Eksekutif Yayasan"
+          subtitle="Ringkasan agregat real-time dari PostgreSQL seluruh unit pendidikan"
+          badge="Monitoring Real-Time"
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            title="Total Unit Pendidikan"
+            value={formatNumber(kpis.unit_pendidikan?.total ?? kpis.total_unit_aktif ?? unitsList.length)}
+            trend={kpis.unit_pendidikan?.growth ?? kpis.growth_unit}
+            trendType={(kpis.unit_pendidikan?.growth ?? 0) >= 0 ? 'up' : 'down'}
+            trendText="unit baru bulan ini"
+            icon={Building2}
+            colorScheme="emerald"
+            badge="15 Unit"
+            badgeVariant="success"
+            onClick={() => setActiveModal('total_unit')}
+          />
+
+          <KpiCard
+            title="Guru & Pendidik"
+            value={formatNumber(kpis.guru?.total ?? kpis.total_guru)}
+            trend={kpis.guru?.growth ?? kpis.growth_guru}
+            trendType={(kpis.guru?.growth ?? 0) >= 0 ? 'up' : 'down'}
+            trendText="vs bulan lalu"
+            icon={GraduationCap}
+            colorScheme="blue"
+            badge="SDM Guru"
+            badgeVariant="info"
+            onClick={() => setActiveModal('total_guru')}
+          />
+
+          <KpiCard
+            title="Pegawai & Tendik"
+            value={formatNumber(kpis.pegawai?.total ?? kpis.total_pegawai)}
+            trend={kpis.pegawai?.growth ?? kpis.growth_pegawai}
+            trendType={(kpis.pegawai?.growth ?? 0) >= 0 ? 'up' : 'down'}
+            trendText="vs bulan lalu"
+            icon={UserCheck}
+            colorScheme="violet"
+            badge="Tendik"
+            badgeVariant="purple"
+            onClick={() => setActiveModal('total_pegawai')}
+          />
+
+          <KpiCard
+            title="Siswa Aktif"
+            value={formatNumber(kpis.siswa?.total ?? kpis.total_siswa_aktif)}
+            trend={kpis.siswa?.growth ?? kpis.growth_siswa}
+            trendType={(kpis.siswa?.growth ?? 0) >= 0 ? 'up' : 'down'}
+            trendText="siswa terdaftar"
+            icon={Users}
+            colorScheme="indigo"
+            badge="Terdaftar"
+            badgeVariant="success"
+            onClick={() => setActiveModal('total_siswa')}
+          />
+
+          <KpiCard
+            title="Orang Tua / Wali"
+            value={formatNumber(kpis.orang_tua?.total ?? kpis.total_ortu)}
+            trend={kpis.orang_tua?.growth ?? kpis.growth_ortu}
+            trendType="up"
+            trendText="akun wali murid"
+            icon={HeartHandshake}
+            colorScheme="rose"
+            badge="Wali"
+            badgeVariant="warning"
+            onClick={() => setActiveModal('total_ortu')}
+          />
+
+          <KpiCard
+            title="Total Alumni"
+            value={formatNumber(kpis.alumni?.total ?? kpis.total_alumni)}
+            trend={kpis.alumni?.growth ?? kpis.growth_alumni}
+            trendType="up"
+            trendText="alumni terdata"
+            icon={Sparkles}
+            colorScheme="amber"
+            badge="Lulusan"
+            badgeVariant="purple"
+            onClick={() => setActiveModal('total_alumni')}
+          />
+
+          <KpiCard
+            title="Total Kelas"
+            value={formatNumber(kpis.kelas?.total ?? kpis.total_kelas)}
+            trend={kpis.kelas?.growth ?? kpis.growth_kelas}
+            trendType="neutral"
+            trendText="ruang kelas"
+            icon={School}
+            colorScheme="blue"
+            badge="Kelas"
+            badgeVariant="info"
+            onClick={() => setActiveModal('total_kelas')}
+          />
+
+          <KpiCard
+            title="Total Rombel"
+            value={formatNumber(kpis.rombel?.total ?? kpis.total_rombel)}
+            trend={kpis.rombel?.growth ?? kpis.growth_rombel}
+            trendType="up"
+            trendText="rombongan belajar"
+            icon={Layers}
+            colorScheme="emerald"
+            badge="Rombel"
+            badgeVariant="success"
+            onClick={() => setActiveModal('total_rombel')}
+          />
+        </div>
       </section>
 
+      {/* Ringkasan Operasional & Monitoring Akademik */}
       <section className="space-y-3">
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#0E5C44] dark:text-emerald-400">Monitoring operasional</p>
-          <h2 className="text-base font-black text-slate-900 dark:text-white">Monitoring Akademik</h2>
-        </div>
+        <SectionHeader
+          title="Monitoring Operasional & Akademik"
+          subtitle="Kondisi presensi, input nilai, tahfizh, dan mutaba'ah ibadah harian"
+        />
+
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-          {foundationMetric('Kehadiran Guru', monitoringAkademik.kehadiran_guru, UserCheck)}
-          {foundationMetric('Kehadiran Siswa', monitoringAkademik.kehadiran_siswa, Users)}
-          {foundationMetric('Input Nilai', monitoringAkademik.input_nilai, CheckCircle2)}
-          {foundationMetric('Input Tahfizh', monitoringAkademik.input_tahfiz, Award)}
-          {foundationMetric("Input Mutaba'ah", monitoringAkademik.input_mutabaah, HeartHandshake)}
-          {foundationMetric('Terlambat', monitoringAkademik.terlambat_hari_ini, Clock3, 'amber')}
-          {foundationMetric('Tidak Hadir', monitoringAkademik.tidak_hadir_hari_ini, UserCheck, 'rose')}
+          <SummaryCard
+            title="Kehadiran Guru"
+            value={`${monitoringAkademik.kehadiran_guru ?? 100}%`}
+            icon={UserCheck}
+            colorScheme="emerald"
+          />
+          <SummaryCard
+            title="Kehadiran Siswa"
+            value={`${monitoringAkademik.kehadiran_siswa ?? 100}%`}
+            icon={Users}
+            colorScheme="blue"
+          />
+          <SummaryCard
+            title="Input Nilai"
+            value={`${monitoringAkademik.input_nilai ?? 100}%`}
+            icon={CheckCircle2}
+            colorScheme="violet"
+          />
+          <SummaryCard
+            title="Input Tahfizh"
+            value={`${monitoringAkademik.input_tahfiz ?? 100}%`}
+            icon={Award}
+            colorScheme="amber"
+          />
+          <SummaryCard
+            title="Input Mutaba'ah"
+            value={`${monitoringAkademik.input_mutabaah ?? 100}%`}
+            icon={HeartHandshake}
+            colorScheme="indigo"
+          />
+          <SummaryCard
+            title="Terlambat Hari Ini"
+            value={formatNumber(monitoringAkademik.terlambat_hari_ini)}
+            icon={Clock3}
+            colorScheme="amber"
+          />
+          <SummaryCard
+            title="Tidak Hadir"
+            value={formatNumber(monitoringAkademik.tidak_hadir_hari_ini)}
+            icon={UserCheck}
+            colorScheme="rose"
+          />
         </div>
+
+        {/* Demographic & Movement Breakdown */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {foundationMetric('Siswa Baru', formatNumber(kpis.siswa_baru), TrendingUp)}
-          {foundationMetric('Mutasi Masuk', formatNumber(kpis.mutasi_masuk), TrendingUp)}
-          {foundationMetric('Mutasi Keluar', formatNumber(kpis.mutasi_keluar), TrendingUp, 'amber')}
-          {foundationMetric('Siswa Lulus', formatNumber(kpis.siswa_lulus), GraduationCap)}
+          <SummaryCard
+            title="Siswa Baru"
+            value={formatNumber(kpis.siswa_baru)}
+            description="Tahun ajaran berjalan"
+            icon={TrendingUp}
+            colorScheme="emerald"
+          />
+          <SummaryCard
+            title="Mutasi Masuk"
+            value={formatNumber(kpis.mutasi_masuk)}
+            description="Siswa pindahan masuk"
+            icon={TrendingUp}
+            colorScheme="blue"
+          />
+          <SummaryCard
+            title="Mutasi Keluar"
+            value={formatNumber(kpis.mutasi_keluar)}
+            description="Siswa pindahan keluar"
+            icon={TrendingUp}
+            colorScheme="amber"
+          />
+          <SummaryCard
+            title="Siswa Lulus"
+            value={formatNumber(kpis.siswa_lulus)}
+            description="Telah menyelesaikan pendidikan"
+            icon={GraduationCap}
+            colorScheme="indigo"
+          />
         </div>
       </section>
 
+      {/* Visual Analytics & Charts */}
       <section className="space-y-3">
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#0E5C44] dark:text-emerald-400">Analitik strategis</p>
-          <h2 className="text-base font-black text-slate-900 dark:text-white">Capaian Pendidikan</h2>
-        </div>
+        <SectionHeader
+          title="Analitik Capaian & Distribusi Lintas Unit"
+          subtitle="Visualisasi grafik distribusi SDM, capaian prestasi, dan mutaba'ah ibadah"
+        />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* Chart 1: Distribusi SDM Guru & Tendik per Unit */}
           <ChartCard
-            title="Target / Realisasi Tahfizh"
-            subtitle="Progress target hafalan lintas unit"
-            className="lg:col-span-5"
-            empty={!charts.tahfizh_target_progress || charts.tahfizh_target_progress.length === 0}
+            title="Distribusi SDM per Unit Pendidikan"
+            subtitle="Perbandingan jumlah Guru vs Tendik di seluruh unit"
+            className="lg:col-span-6"
+            empty={!sdmDistribution || sdmDistribution.length === 0}
           >
-            <div className="h-48 w-full">
+            <div className="h-56 w-full pt-2">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={charts.tahfizh_target_progress || []}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="name" fontSize={10} />
+                <BarChart data={sdmDistribution} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="code" fontSize={10} interval={0} angle={-30} textAnchor="end" />
                   <YAxis fontSize={10} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="target" stroke="#94a3b8" strokeWidth={2} name="Target" />
-                  <Line type="monotone" dataKey="realisasi" stroke="#0E5C44" strokeWidth={2} name="Realisasi" />
-                </LineChart>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1E293B',
+                      border: 'none',
+                      borderRadius: '12px',
+                      color: '#FFF',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                  <Bar dataKey="guru" fill="#0E5C44" name="Guru" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="tendik" fill="#3FBF75" name="Tendik" radius={[6, 6, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </ChartCard>
 
-          <SectionCard title="Monitoring Ibadah" description="Kelengkapan data mutaba'ah dan ibadah" className="lg:col-span-4" contentClassName="space-y-3">
-            {[
-              ['Shalat', monitoringIbadah.shalat],
-              ['Tilawah', monitoringIbadah.tilawah],
-              ['Murajaah', monitoringIbadah.murajaah],
-              ["Mutaba'ah terverifikasi", monitoringIbadah.mutabaah],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <div className="mb-1 flex items-center justify-between gap-2 text-xs font-semibold"><span>{label}</span><span className="text-[#0E5C44] dark:text-emerald-400">{value ?? 0}%</span></div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full rounded-full bg-[#0E5C44]" style={{ width: `${Math.min(100, Math.max(0, Number(value) || 0))}%` }} /></div>
-              </div>
-            ))}
-          </SectionCard>
+          {/* Chart 2: Monitoring Mutaba'ah Ibadah */}
+          <div className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm space-y-4 lg:col-span-3 dark:border-slate-800 dark:bg-[#1B2433]">
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Monitoring Ibadah Harian</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Tingkat kelengkapan mutaba'ah siswa</p>
+            </div>
 
+            <div className="space-y-3 pt-1">
+              {[
+                { label: 'Shalat Wajib & Sunnah', value: monitoringIbadah.shalat },
+                { label: 'Tilawah Al-Qur\'an', value: monitoringIbadah.tilawah },
+                { label: 'Muraja\'ah Hafalan', value: monitoringIbadah.murajaah },
+                { label: 'Mutaba\'ah Terverifikasi', value: monitoringIbadah.mutabaah },
+              ].map((item) => (
+                <div key={item.label} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
+                    <span className="text-[#0E5C44] dark:text-[#3FBF75] font-black">{item.value ?? 0}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#0E5C44] to-[#3FBF75] transition-all duration-300"
+                      style={{ width: `${Math.min(100, Math.max(0, Number(item.value) || 0))}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Chart 3: Distribusi Prestasi Siswa */}
           <ChartCard
-            title="Prestasi"
-            subtitle="Distribusi capaian siswa"
+            title="Distribusi Prestasi Siswa"
+            subtitle="Kategori capaian prestasi terdaftar"
             className="lg:col-span-3"
             empty={!prestasiDistribution.some((item) => Number(item.value) > 0)}
           >
-            <div className="h-48 w-full">
+            <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={prestasiDistribution} dataKey="value" nameKey="name" innerRadius={42} outerRadius={68} paddingAngle={3}>
-                    {prestasiDistribution.map((entry, index) => <Cell key={`${entry.name}-${index}`} fill={entry.color || ['#0E5C44', '#3FBF75', '#F59E0B', '#8B5CF6', '#EF4444'][index % 5]} />)}
+                  <Pie
+                    data={prestasiDistribution}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={3}
+                  >
+                    {prestasiDistribution.map((entry, index) => (
+                      <Cell
+                        key={`${entry.name}-${index}`}
+                        fill={entry.color || ['#0E5C44', '#3FBF75', '#F59E0B', '#8B5CF6', '#EF4444'][index % 5]}
+                      />
+                    ))}
                   </Pie>
                   <Tooltip />
                   <Legend iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
@@ -252,80 +600,185 @@ export function FoundationDashboardPage() {
         </div>
       </section>
 
+      {/* Cross-Unit Comparison & Performance Ranking */}
       <section className="space-y-3">
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#0E5C44] dark:text-emerald-400">Perbandingan unit</p>
-          <h2 className="text-base font-black text-slate-900 dark:text-white">Trend, Ranking, dan Agenda</h2>
-        </div>
+        <SectionHeader
+          title="Perbandingan Kinerja Unit Pendidikan"
+          subtitle="Daftar 15 unit pendidikan beserta statistik jumlah siswa, guru, pegawai, dan rombel"
+          actions={
+            <AppButton
+              variant="outline"
+              size="sm"
+              icon={Building2}
+              onClick={() => navigate('/dashboard/yayasan/unit-pendidikan')}
+            >
+              Lihat Seluruh Unit
+            </AppButton>
+          }
+        />
+
+        <AppDataTable
+          data={unitSummaries}
+          columns={unitColumns}
+          keyField="id"
+          searchPlaceholder="Cari nama atau jenis unit..."
+          onView={(row) => handleOpenUnitDetail(row)}
+          renderMobileCard={({ row, onView }) => (
+            <div
+              key={row.id}
+              onClick={onView}
+              className="flex flex-col gap-2.5 rounded-[16px] border border-slate-200/80 bg-white p-4 shadow-sm cursor-pointer hover:border-[#3FBF75]/40 dark:border-slate-800 dark:bg-[#1B2433]"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0E5C44]/10 text-[#0E5C44] font-black text-xs dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]">
+                    {(row.code || row.name || 'UN').substring(0, 3).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{row.name}</h4>
+                    <p className="text-xs text-slate-400">{row.jenis_unit || row.level || 'Unit Pendidikan'}</p>
+                  </div>
+                </div>
+                <AppBadge variant={row.is_active ? 'success' : 'secondary'} dot>
+                  {row.is_active ? 'Aktif' : 'Nonaktif'}
+                </AppBadge>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800 text-center">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Siswa</span>
+                  <p className="text-xs font-black text-[#0E5C44] dark:text-[#3FBF75]">{formatNumber(row.siswa_aktif_count)}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Guru</span>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{formatNumber(row.guru_count)}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Rombel</span>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{formatNumber(row.rombel_count || row.kelas_count)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        />
+      </section>
+
+      {/* Activity Feed & Announcements Grid */}
+      <section className="space-y-3">
+        <SectionHeader
+          title="Informasi Resmi & Aktivitas Terbaru"
+          subtitle="Pengumuman resmi yayasan dan log aktivitas sistem terkini"
+        />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <ChartCard title="Trend Kehadiran" subtitle="Pergerakan kehadiran lintas periode" className="lg:col-span-5" empty={!charts.attendance_trend || charts.attendance_trend.length === 0}>
-            <div className="h-48 w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={charts.attendance_trend || []}><CartesianGrid strokeDasharray="3 3" opacity={0.3} /><XAxis dataKey="date" fontSize={10} /><YAxis fontSize={10} /><Tooltip /><Line type="monotone" dataKey="hadir" stroke="#0E5C44" strokeWidth={2} name="Hadir" /></LineChart></ResponsiveContainer></div>
-          </ChartCard>
+          {/* Announcements Feed */}
+          <div className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm space-y-4 lg:col-span-7 dark:border-slate-800 dark:bg-[#1B2433]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Pengumuman & Agenda Yayasan</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Informasi dan edaran resmi terbaru</p>
+              </div>
+              <AppBadge variant="info">{recentInformation.length} Informasi</AppBadge>
+            </div>
 
-          <SectionCard title="Ranking Unit" description="Urutan berdasarkan siswa aktif" className="lg:col-span-4" contentClassName="space-y-2">
-            {unitRankings.slice(0, 5).map((unit) => <div key={`${unit.rank}-${unit.name}`} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2 dark:border-slate-800"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-black text-[#0E5C44] dark:bg-emerald-950/50 dark:text-emerald-300">{unit.rank}</span><span className="min-w-0 flex-1 truncate text-xs font-semibold">{unit.name}</span><span className="text-xs font-black text-slate-500">{unit.score ?? 0}</span></div>)}
-            {!unitRankings.length && <p className="py-8 text-center text-xs text-slate-400">Belum ada ranking unit.</p>}
-          </SectionCard>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+              {recentInformation.map((info) => (
+                <div key={info.id} className="py-3 first:pt-0 last:pb-0 space-y-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white line-clamp-1">
+                      {info.judul}
+                    </h4>
+                    <span className="shrink-0 text-[10px] font-bold text-slate-400">
+                      {info.tanggal}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{info.isi}</p>
+                </div>
+              ))}
+              {!recentInformation.length && (
+                <p className="py-8 text-center text-xs text-slate-400 italic">Belum ada pengumuman resmi terbaru.</p>
+              )}
+            </div>
+          </div>
 
-          <SectionCard title="Agenda Yayasan" description="Informasi terbaru" className="lg:col-span-3" contentClassName="space-y-3">
-            {(agendaYayasan.length ? agendaYayasan : recentInformation).slice(0, 4).map((item) => <div key={item.id} className="border-b border-slate-100 pb-2.5 last:border-0 last:pb-0 dark:border-slate-800"><p className="line-clamp-2 text-xs font-bold">{item.judul}</p><p className="mt-1 text-[10px] text-slate-400">{item.tanggal || item.jam || '-'}</p></div>)}
-            {!agendaYayasan.length && !recentInformation.length && <p className="py-8 text-center text-xs text-slate-400">Belum ada agenda.</p>}
-          </SectionCard>
+          {/* Activity Feed */}
+          <div className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm space-y-4 lg:col-span-5 dark:border-slate-800 dark:bg-[#1B2433]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Aktivitas Sistem Terbaru</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Log transaksi presensi dan aktivitas</p>
+              </div>
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+
+            <div className="space-y-2.5">
+              {recentActivities.map((act) => (
+                <div
+                  key={act.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 dark:border-slate-800 dark:bg-slate-900/40"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{act.title}</p>
+                    <p className="text-[10px] text-slate-400">{act.subtitle}</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-extrabold text-[#0E5C44] dark:text-[#3FBF75]">
+                    {act.time}
+                  </span>
+                </div>
+              ))}
+              {!recentActivities.length && (
+                <p className="py-8 text-center text-xs text-slate-400 italic">Belum ada aktivitas terbaru tercatat.</p>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="space-y-3">
-        <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[.16em] text-[#0E5C44] dark:text-emerald-400">Aktivitas</p>
-          <h2 className="text-base font-black text-slate-900 dark:text-white">Aktivitas Terbaru</h2>
+      {/* Quick Action Bar */}
+      <section className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Akses Cepat Modul Eksekutif</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Navigasi langsung ke modul monitoring spesifik</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <AppButton
+              variant="secondary"
+              size="sm"
+              icon={Building2}
+              onClick={() => navigate('/dashboard/yayasan/unit-pendidikan')}
+            >
+              Unit Pendidikan
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              size="sm"
+              icon={UserCheck}
+              onClick={() => navigate('/dashboard/yayasan/pegawai-guru')}
+            >
+              Pegawai & Guru
+            </AppButton>
+            <AppButton
+              variant="secondary"
+              size="sm"
+              icon={Users}
+              onClick={() => navigate('/dashboard/yayasan/siswa')}
+            >
+              Data Siswa
+            </AppButton>
+            <AppButton
+              variant="primary"
+              size="sm"
+              icon={FileSpreadsheet}
+              onClick={() => navigate('/dashboard/yayasan/laporan')}
+            >
+              Laporan Lintas Unit
+            </AppButton>
+          </div>
         </div>
-        <SectionCard title="Aktivitas Sistem Terbaru" description="Ringkasan aktivitas yang tercatat di database" contentClassName="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {recentActivities.slice(0, 6).map((item) => <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/50"><p className="text-xs font-semibold">{item.title}</p><p className="mt-1 text-[10px] text-slate-400">{item.subtitle} · {item.time}</p></div>)}
-          {!recentActivities.length && <p className="py-6 text-center text-xs text-slate-400 sm:col-span-2 lg:col-span-3">Belum ada aktivitas terbaru.</p>}
-        </SectionCard>
-        <QuickActionCard title="Akses Cepat" actions={quickActions} />
       </section>
 
-      {/* Unit Summary Table (View-Only, No Edit/Delete) */}
-      <DataTableCard
-        title="Ringkasan Kinerja Unit Pendidikan"
-        subtitle="Daftar unit beserta statistik siswa, guru, dan rombel"
-        headers={['No', 'Nama Unit', 'Jenjang', 'Siswa', 'Guru', 'Pegawai', 'Rombel', 'Aksi']}
-        rows={unitSummaries.map((u, idx) => [
-          idx + 1,
-          <span key="name" className="font-semibold text-slate-900 dark:text-white">{u.name}</span>,
-          u.jenjang || u.code || '-',
-          formatNumber(u.siswa_aktif_count || u.siswa_count),
-          formatNumber(u.guru_count),
-          formatNumber(u.pegawai_count),
-          formatNumber(u.rombel_count || u.kelas_count),
-          <ActionDropdown
-            key="action"
-            onView={() => setActiveModal(`unit_${u.id}`)}
-          />
-        ])}
-        emptyMessage="Belum ada unit pendidikan yang terdaftar."
-      />
-
-      {/* Recent Information / Announcements */}
-      <DataTableCard
-        title="Pengumuman & Informasi Terbaru"
-        subtitle="Pengumuman resmi dari yayasan atau unit sekolah"
-        headers={['Judul Informasi', 'Tanggal', 'Prioritas']}
-        rows={recentInformation.map((info, idx) => [
-          <div key="info">
-            <div className="font-semibold text-slate-900 dark:text-white text-xs">{info.judul}</div>
-            <div className="text-[11px] text-slate-500 line-clamp-1">{info.isi}</div>
-          </div>,
-          info.tanggal,
-          <span key="priority" className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-            {info.prioritas || 'Normal'}
-          </span>
-        ])}
-        emptyMessage="Belum ada pengumuman terbaru."
-      />
-
-      {/* KPI Detail Modal (Real PostgreSQL Data) */}
+      {/* Modal Quick View KPI (Data PostgreSQL Real) */}
       <ModalErrorBoundary onClose={() => setActiveModal(null)}>
         <KpiQuickViewModal
           type={activeModal}
@@ -333,6 +786,16 @@ export function FoundationDashboardPage() {
           onClose={() => setActiveModal(null)}
         />
       </ModalErrorBoundary>
+
+      {/* Canonical Detail Drawer Slide-over */}
+      <KpiDetailDrawer
+        type={detailDrawer.type}
+        id={detailDrawer.id}
+        isOpen={detailDrawer.isOpen}
+        onClose={() => setDetailDrawer({ isOpen: false, type: null, id: null })}
+      />
     </div>
   )
 }
+
+export default FoundationDashboardPage

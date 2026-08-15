@@ -42,6 +42,16 @@ import GlobalSearchModal from '../components/GlobalSearchModal'
 import NotificationCenter from '../components/app/NotificationCenter'
 import AppBottomNavigation from '../components/app/AppBottomNavigation'
 import { isParentRole, isStudentRole, isTeacherRole, resolveDefaultPortal } from '../auth/portalResolver'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuHeader,
+  DropdownMenuItem,
+  DropdownMenuSection,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/tailgrids/core/dropdown'
+import { UserCircle1, Gear1, Exit, Bell1 } from '@tailgrids/icons'
 
 export default function DashboardLayout() {
   const location = useLocation()
@@ -304,6 +314,9 @@ export default function DashboardLayout() {
     ...(can('teacher_monitoring.view') ? [
       { to: '/dashboard/pemantauan', label: 'Monitoring Guru Mengajar' },
     ] : []),
+    ...(can('divisi.monitoring', 'dashboard.pemantauan.kelola', 'dashboard.pemantauan.lihat') ? [
+      { to: '/dashboard/monitoring-divisi', label: 'Input Monitoring Divisi' },
+    ] : []),
     ...(!hasRole('Guru') && !hasRole('Guru Tahfizh') && !hasRole('Wali Kelas') && !hasRole('Siswa') ? [
       { to: '/dashboard/absensi-gerbang', label: 'Absensi Gerbang' },
       { to: '/dashboard/absensi-pembelajaran', label: 'Absensi Kelas & MaPel' },
@@ -324,6 +337,7 @@ export default function DashboardLayout() {
     if (to.startsWith('/portal-guru')) return isTeacherRole(roles)
     if (to === '/dashboard') return can('dashboard.view')
     if (to.startsWith('/dashboard/pemantauan')) return can('dashboard.pemantauan.lihat', 'teacher_monitoring.view')
+    if (to.startsWith('/dashboard/monitoring-divisi')) return can('divisi.monitoring', 'dashboard.pemantauan.kelola', 'dashboard.pemantauan.lihat')
     // Data pribadi hanya memberi akses ke profil siswa sendiri di portal,
     // bukan ke master data seluruh siswa.
     if (to === '/dashboard/students') return canViewStudents
@@ -663,11 +677,11 @@ export default function DashboardLayout() {
     <div
       className={`site-shell min-h-screen text-slate-800 flex flex-col font-sans antialiased dark:bg-slate-950 dark:text-slate-100 template-${pengaturan.template}`}
       style={{
-        '--site-sidebar': pengaturan.sidebar_color,
-        '--site-accent': pengaturan.sidebar_accent_color,
-        '--site-body': pengaturan.body_color,
-        '--site-header': pengaturan.header_color,
-        backgroundColor: isDarkMode ? '#0F172A' : pengaturan.body_color,
+        '--site-sidebar': pengaturan.sidebar_color || '#064E3B',
+        '--site-accent': pengaturan.sidebar_accent_color || '#3FBF75',
+        '--site-body': isDarkMode ? '#0F172A' : '#F7F9FC',
+        '--site-header': isDarkMode ? '#0F172A' : '#FFFFFF',
+        backgroundColor: isDarkMode ? '#0F172A' : '#F7F9FC',
       }}
     >
       {/* Mobile Overlay */}
@@ -679,29 +693,29 @@ export default function DashboardLayout() {
       )}
 
       <div className={`flex flex-1 min-h-screen ${pengaturan.sidebar_position === 'right' ? 'md:flex-row-reverse' : ''}`}>
-        {/* Left Sidebar (Sticky & Collapsible) */}
+        {/* Left Sidebar (Sticky & Collapsible - Deep Emerald Green #064E3B) */}
         <aside
           className={`site-sidebar fixed inset-y-0 z-50 flex flex-col justify-between border-white/10 text-slate-100 transition-all duration-300 ease-in-out md:sticky md:top-0 md:h-screen ${pengaturan.sidebar_position === 'right' ? 'right-0 border-l' : 'left-0 border-r'} ${pengaturan.sidebar_style === 'light' ? 'site-sidebar-light' : ''} ${collapsed ? 'w-20' : 'w-64'
             } ${mobileMenuOpen ? 'translate-x-0 w-64' : pengaturan.sidebar_position === 'right' ? 'translate-x-full md:translate-x-0' : '-translate-x-full md:translate-x-0'}`}
           style={{
             background: pengaturan.sidebar_style === 'gradient'
-              ? `linear-gradient(180deg, ${pengaturan.sidebar_color}, color-mix(in srgb, ${pengaturan.sidebar_color} 72%, #000))`
-              : pengaturan.sidebar_style === 'light' ? '#FFFFFF' : pengaturan.sidebar_color,
+              ? `linear-gradient(180deg, ${pengaturan.sidebar_color || '#064E3B'}, color-mix(in srgb, ${pengaturan.sidebar_color || '#064E3B'} 72%, #000))`
+              : pengaturan.sidebar_style === 'light' ? '#FFFFFF' : (pengaturan.sidebar_color || '#064E3B'),
           }}
         >
           {/* Header Sidebar: Logo & Collapsible Toggle */}
           <div className="p-4 border-b border-white/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-white shadow-md" style={{ backgroundColor: pengaturan.sidebar_accent_color }}>
-                  {pengaturan.logo_url ? <img src={pengaturan.logo_url} alt="Logo" className="h-full w-full bg-white object-contain p-1" /> : <span className="text-[10px] font-black">{pengaturan.logo_text || <Sparkles className="h-5 w-5" />}</span>}
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-white shadow-md bg-[#064E3B] border border-emerald-400/30" style={{ backgroundColor: pengaturan.sidebar_accent_color || '#064E3B' }}>
+                  {pengaturan.logo_url ? <img src={pengaturan.logo_url} alt="Logo Yayasan Darel Iman" className="h-full w-full bg-white object-contain p-1" /> : <span className="text-[10px] font-black">{pengaturan.logo_text || <Sparkles className="h-5 w-5 text-emerald-200" />}</span>}
                 </div>
                 {!collapsed && (
                   <div className="min-w-0">
                     <h1 className="text-xs font-black tracking-wider text-white uppercase truncate font-sans">
                       {namaSekolah}
                     </h1>
-                    <p className="text-[10px] font-bold tracking-widest" style={{ color: pengaturan.sidebar_accent_color }}>{pengaturan.application_name}</p>
+                    <p className="text-[10px] font-bold tracking-widest text-emerald-300">{pengaturan.application_name || 'Sistem Manajemen Sekolah'}</p>
                   </div>
                 )}
               </div>
@@ -711,6 +725,7 @@ export default function DashboardLayout() {
                 type="button"
                 onClick={() => setCollapsed(!collapsed)}
                 className="hidden md:flex h-7 w-7 items-center justify-center rounded-xl bg-white/10 text-emerald-100 hover:bg-white/20 hover:text-white transition-all btn-master"
+                title={collapsed ? 'Perluas Sidebar' : 'Ciutkan Sidebar'}
               >
                 {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
               </button>
@@ -738,12 +753,12 @@ export default function DashboardLayout() {
                     to={item.to}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 font-bold transition-all duration-200 ${isActive
-                      ? 'bg-white text-[#0E5C44] shadow-md dark:bg-[#10B981] dark:text-[#0d1514]'
-                      : 'text-emerald-100/70 hover:bg-white/10 hover:text-white'
+                      ? 'bg-white text-[#064E3B] shadow-md dark:bg-emerald-500 dark:text-slate-950'
+                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
                       }`}
                     title={collapsed ? item.label : undefined}
                   >
-                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-[#0E5C44]/10 text-[#0E5C44] dark:bg-slate-900/30 dark:text-slate-900' : 'text-emerald-300'}`}>
+                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-[#064E3B]/10 text-[#064E3B] dark:bg-slate-900/30 dark:text-slate-900' : 'text-emerald-300'}`}>
                       <Icon className="h-4 w-4 stroke-[2]" />
                     </div>
                     {!collapsed && <span>{item.label}</span>}
@@ -764,7 +779,7 @@ export default function DashboardLayout() {
                     }}
                     className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-bold transition-all duration-200 ${isOpen || hasActiveChild
                       ? 'bg-white/15 text-white shadow-xs'
-                      : 'text-emerald-100/70 hover:bg-white/10 hover:text-white'
+                      : 'text-emerald-100/80 hover:bg-white/10 hover:text-white'
                       }`}
                     title={collapsed ? item.label : undefined}
                   >
@@ -774,7 +789,7 @@ export default function DashboardLayout() {
                     </div>
                     {!collapsed && (
                       <span className="text-[10px]">
-                        {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        {isOpen ? <ChevronDown className="h-3.5 w-3.5 text-emerald-200" /> : <ChevronRight className="h-3.5 w-3.5 text-emerald-300" />}
                       </span>
                     )}
                   </button>
@@ -806,7 +821,7 @@ export default function DashboardLayout() {
           </nav>
 
           {/* User Status Bar & Help Link at Sidebar Bottom */}
-          <div className="p-3.5 border-t border-white/10 bg-black/10 space-y-2.5">
+          <div className="p-3.5 border-t border-white/10 bg-black/15 space-y-2.5">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <PersonAvatar
@@ -815,7 +830,7 @@ export default function DashboardLayout() {
                   size="sm"
                   className="border border-white/20 shadow-md"
                 />
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-[#083a2b]" />
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-[#064E3B]" />
               </div>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
@@ -829,7 +844,7 @@ export default function DashboardLayout() {
             </div>
 
             {!collapsed && (
-              <p className="truncate px-2 text-[9px] text-white/55">{pengaturan.footer_text}</p>
+              <p className="truncate px-2 text-[9px] text-white/55">{pengaturan.footer_text || 'Yayasan Darel Iman © 2026'}</p>
             )}
             {!collapsed && (
               <button
@@ -844,27 +859,19 @@ export default function DashboardLayout() {
           </div>
         </aside>
 
-        {/* Main Workspace Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Topbar Navbar (Sticky Header) */}
+        {/* Main Workspace Area (Light Gray Background bg-slate-50) */}
+        <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#0F172A]">
+          {/* Topbar Header (Clean White bg-white with subtle shadow shadow-sm) */}
           <header
-            className={`${pengaturan.header_sticky ? 'sticky top-0' : 'relative'} z-30 flex h-16 min-w-0 items-center justify-between overflow-visible border-b border-slate-200/80 px-3 sm:px-4 lg:px-8 backdrop-blur-md shadow-2xs transition-colors duration-200 dark:border-slate-800/80`}
-            style={{
-              backgroundColor: isDarkMode
-                ? 'rgba(17, 24, 39, 0.94)'
-                : pengaturan.header_style === 'transparent'
-                  ? 'transparent'
-                  : pengaturan.header_style === 'solid'
-                    ? pengaturan.header_color
-                    : `${pengaturan.header_color}E6`,
-            }}
+            className={`${pengaturan.header_sticky ? 'sticky top-0' : 'relative'} z-30 flex h-16 min-w-0 items-center justify-between overflow-visible border-b border-slate-200/80 px-3 sm:px-4 lg:px-8 bg-white dark:bg-slate-900 shadow-sm backdrop-blur-md transition-colors duration-200 dark:border-slate-800/80`}
           >
-            {/* Left Controls: Mobile Toggle, Unit Switcher Dropdown, Search */}
-            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            {/* Left Controls: Mobile Menu Toggle & Active Unit Switcher */}
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
                 className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 md:hidden dark:border-slate-800 dark:text-slate-300"
+                aria-label="Buka Menu"
               >
                 <Menu className="h-5 w-5" />
               </button>
@@ -874,11 +881,11 @@ export default function DashboardLayout() {
                 <button
                   type="button"
                   onClick={() => setUnitDropdownOpen(!unitDropdownOpen)}
-                  className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-100 hover:border-[#0E5C44]/30 transition-all dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 btn-master"
+                  className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-100 hover:border-[#064E3B]/30 transition-all dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 btn-master"
                 >
-                  <Layers className="h-4 w-4 text-[#0E5C44] dark:text-[#3FBF75] stroke-[2]" />
+                  <Layers className="h-4 w-4 text-[#064E3B] dark:text-[#3FBF75] stroke-[2]" />
                   <span className="hidden sm:inline text-slate-500 font-medium">Unit:</span>
-                  <span className="font-extrabold text-[#0E5C44] dark:text-[#3FBF75]">{activeUnit || 'Semua Unit'}</span>
+                  <span className="font-extrabold text-[#064E3B] dark:text-[#3FBF75]">{activeUnit || 'Semua Unit'}</span>
                   <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
                 </button>
 
@@ -896,41 +903,43 @@ export default function DashboardLayout() {
                           setUnitDropdownOpen(false)
                         }}
                         className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${activeUnit === unit.id
-                          ? 'bg-[#0E5C44]/10 text-[#0E5C44] font-bold dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]'
+                          ? 'bg-[#064E3B]/10 text-[#064E3B] font-bold dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]'
                           : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/60'
                           }`}
                       >
                         <span>{unit.name}</span>
-                        {activeUnit === unit.id && <span className="h-2 w-2 rounded-full bg-[#0E5C44] dark:bg-[#3FBF75]" />}
+                        {activeUnit === unit.id && <span className="h-2 w-2 rounded-full bg-[#064E3B] dark:bg-[#3FBF75]" />}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Global Search Bar (Expand Width on Focus) */}
+            {/* Centered Clean Dynamic Search Bar */}
+            <div className="flex-1 flex justify-center max-w-md mx-auto px-2 sm:px-4">
               <div
                 onClick={() => setIsSearchModalOpen(true)}
-                className="relative hidden md:flex items-center flex-1 max-w-xs transition-all duration-300 focus-within:max-w-md cursor-pointer"
+                className="relative w-full hidden md:flex items-center transition-all duration-300 focus-within:max-w-md cursor-pointer group"
               >
-                <Search className="absolute left-3 text-slate-400 h-4 w-4" />
+                <Search className="absolute left-3 text-slate-400 group-hover:text-[#064E3B] h-4 w-4 transition-colors" />
                 <input
                   type="text"
                   readOnly
-                  placeholder="Cari siswa, guru, kelas..."
-                  className="w-full rounded-xl border border-slate-200/80 bg-slate-50/80 pl-9 pr-8 py-1.5 text-xs font-medium placeholder-slate-400 focus:bg-white focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/30 transition-all duration-300 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder-slate-500 cursor-pointer"
+                  placeholder="Cari siswa, guru, kelas, modul..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/90 pl-9 pr-14 py-1.5 text-xs font-medium text-slate-800 placeholder-slate-400 group-hover:bg-white group-hover:border-[#064E3B]/40 focus:bg-white focus:border-[#064E3B] focus:outline-none focus:ring-2 focus:ring-[#064E3B]/20 transition-all duration-200 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder-slate-500 cursor-pointer shadow-2xs"
                 />
-                <span className="absolute right-3 rounded-md bg-slate-200/60 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                <span className="absolute right-3 rounded-md bg-slate-200/70 border border-slate-300/60 px-1.5 py-0.5 text-[9px] font-bold text-slate-600 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300">
                   Ctrl + K
                 </span>
               </div>
             </div>
 
-            {/* Right Controls: Date, Notifications, Profile Avatar */}
+            {/* Right Controls: Date, Role Switcher, Notifications, Theme, Profile */}
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-3">
               {/* Realtime Date Display */}
               <div className="hidden lg:flex items-center gap-2 rounded-xl bg-slate-100/70 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
-                <Calendar className="h-3.5 w-3.5 text-[#0E5C44] dark:text-[#3FBF75]" />
+                <Calendar className="h-3.5 w-3.5 text-[#064E3B] dark:text-[#3FBF75]" />
                 <span>{tanggalTampil}</span>
               </div>
 
@@ -943,7 +952,7 @@ export default function DashboardLayout() {
                     aria-label="Akses Role"
                     aria-haspopup="menu"
                     aria-expanded={roleAccessOpen}
-                    className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-[#0E5C44] transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+                    className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-[#064E3B] transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
                     title="Masuk sebagai role lain"
                   >
                     <Users className="h-4 w-4" />
@@ -965,7 +974,7 @@ export default function DashboardLayout() {
                             role="menuitem"
                             disabled={Boolean(roleAccessLoading)}
                             onClick={() => accessAsRole(option)}
-                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-[#0E5C44] disabled:cursor-wait disabled:opacity-60 dark:text-slate-200 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
+                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-[#064E3B] disabled:cursor-wait disabled:opacity-60 dark:text-slate-200 dark:hover:bg-emerald-950/50 dark:hover:text-emerald-300"
                           >
                             <span>{option.label}</span>
                             {roleAccessLoading === option.role ? (
@@ -981,7 +990,7 @@ export default function DashboardLayout() {
                 </div>
               )}
 
-              {/* Notification Center (Global) */}
+              {/* Notification Center (Dynamic Notification Icon on Right) */}
               {!isPortalUser && <NotificationCenter />}
 
               {/* Mode Tampilan Switcher (Light / Dark Mode) */}
@@ -992,7 +1001,7 @@ export default function DashboardLayout() {
                   aria-label="Pilih mode tampilan"
                   aria-haspopup="menu"
                   aria-expanded={themeMenuOpen}
-                  className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 transition-all btn-master"
+                  className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 transition-all btn-master"
                   title="Pilih Mode Tampilan"
                 >
                   {isDarkMode ? <Moon className="h-4 w-4 text-emerald-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
@@ -1015,7 +1024,7 @@ export default function DashboardLayout() {
                         setThemeMenuOpen(false)
                       }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${!isDarkMode
-                        ? 'bg-[#0E5C44]/10 text-[#0E5C44] font-bold dark:bg-emerald-500/20 dark:text-emerald-300'
+                        ? 'bg-[#064E3B]/10 text-[#064E3B] font-bold dark:bg-emerald-500/20 dark:text-emerald-300'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                         }`}
                     >
@@ -1023,7 +1032,7 @@ export default function DashboardLayout() {
                         <Sun className="h-4 w-4 text-amber-500" />
                         <span>Light Mode</span>
                       </div>
-                      {!isDarkMode && <span className="h-2 w-2 rounded-full bg-[#0E5C44] dark:bg-emerald-400" />}
+                      {!isDarkMode && <span className="h-2 w-2 rounded-full bg-[#064E3B] dark:bg-emerald-400" />}
                     </button>
 
                     <button
@@ -1035,7 +1044,7 @@ export default function DashboardLayout() {
                         setThemeMenuOpen(false)
                       }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition ${isDarkMode
-                        ? 'bg-[#0E5C44]/10 text-[#0E5C44] font-bold dark:bg-emerald-500/20 dark:text-emerald-300'
+                        ? 'bg-[#064E3B]/10 text-[#064E3B] font-bold dark:bg-emerald-500/20 dark:text-emerald-300'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                         }`}
                     >
@@ -1043,99 +1052,70 @@ export default function DashboardLayout() {
                         <Moon className="h-4 w-4 text-emerald-400" />
                         <span>Night Mode</span>
                       </div>
-                      {isDarkMode && <span className="h-2 w-2 rounded-full bg-[#0E5C44] dark:bg-emerald-400" />}
+                      {isDarkMode && <span className="h-2 w-2 rounded-full bg-[#064E3B] dark:bg-emerald-400" />}
                     </button>
                   </div>
                 )}
               </div>
-
-              {/* User Profile Avatar Dropdown */}
-              <div className="relative" ref={profileDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  aria-label={`Menu ${namaTampil}`}
-                  aria-haspopup="menu"
-                  aria-expanded={profileDropdownOpen}
-                  className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-all shadow-xs dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200 btn-master"
-                >
-                  <div className="h-7 w-7 rounded-full bg-[#0E5C44] text-white flex items-center justify-center font-bold text-xs shadow-sm border border-[#3FBF75]/30">
-                    {namaTampil.charAt(0)}
+                 {/* User Profile Avatar Dropdown (Right side of header) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger className="group flex items-center gap-2.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition-all shadow-xs dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#064E3B] text-[10px] font-bold text-white shadow-sm border border-emerald-400/30">
+                    {namaTampil.charAt(0).toLowerCase()}
                   </div>
-                  <div className="hidden sm:block text-left">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white leading-none">{namaTampil}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">{roleTampil}</p>
-                  </div>
-                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                </button>
-
-                {/* Profile Dropdown Popup */}
-                {profileDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-56 rounded-[18px] bg-white border border-slate-200/80 shadow-2xl overflow-hidden z-50 animate-[masterDropdownSlide_0.2s_ease-out] dark:bg-[#1B2433] dark:border-slate-800">
-                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 dark:bg-slate-800/50 dark:border-slate-800">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">{namaTampil}</p>
-                      <p className="text-[10px] text-slate-500 truncate mt-0.5 dark:text-slate-400">admin@dareliman.sch.id</p>
-                    </div>
-
-                    <div className="p-1.5 space-y-0.5">
-                      <button
-                        onClick={() => {
-                          navigate(isFoundationUser ? '/dashboard/yayasan/profil' : '/dashboard/profil-akun')
-                          setProfileDropdownOpen(false)
-                        }}
-                        className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        <User className="h-4 w-4 text-[#0E5C44] dark:text-[#3FBF75]" />
-                        <span>Lihat Profil</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (isParentRole(roles)) {
-                            navigate('/portal-orangtua?tab=notifications')
-                          } else if (isStudentRole(roles)) {
-                            navigate('/portal-siswa/informasi-sekolah')
-                          } else {
-                            navigate(isFoundationUser ? '/dashboard/yayasan/notifikasi' : '/notifications')
-                          }
-                          setProfileDropdownOpen(false)
-                        }}
-                        className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        <Bell className="h-4 w-4 text-slate-500" />
-                        <span>Notifikasi</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigate(isFoundationUser ? '/dashboard/yayasan/profil' : '/dashboard/pengaturan?tab=keamanan')
-                          setProfileDropdownOpen(false)
-                        }}
-                        className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        <Settings className="h-4 w-4 text-slate-500" />
-                        <span>Pengaturan Akun</span>
-                      </button>
-                    </div>
-
-                    <div className="border-t border-slate-100 p-1.5 dark:border-slate-800">
-                      <button
-                        onClick={() => {
-                          setProfileDropdownOpen(false)
-                          logout()
-                        }}
-                        className="w-full text-left flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition dark:text-rose-400 dark:hover:bg-rose-950/40"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        <span>Keluar Sistem</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  <span className="hidden sm:inline font-medium text-slate-900 dark:text-white">{namaTampil}</span>
+                  <ChevronDown className="size-3.5 text-slate-400 transition-transform group-data-[state=open]:rotate-180" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="min-w-56 p-1.5 border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-[#1B2433]">
+                  <DropdownMenuSection>
+                    <DropdownMenuHeader className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                      Akun ({roleTampil})
+                    </DropdownMenuHeader>
+                    <DropdownMenuItem
+                      onAction={() => navigate(isFoundationUser ? '/dashboard/yayasan/profil' : '/dashboard/profil-akun')}
+                      className="cursor-pointer gap-2.5 py-2 text-xs font-medium text-slate-700 hover:text-emerald-700 dark:text-slate-200"
+                    >
+                      <UserCircle1 className="size-5 text-[#064E3B] dark:text-[#3FBF75]" />
+                      <span>Lihat Profil</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onAction={() => {
+                        if (isParentRole(roles)) {
+                          navigate('/portal-orangtua?tab=notifications')
+                        } else if (isStudentRole(roles)) {
+                          navigate('/portal-siswa/informasi-sekolah')
+                        } else {
+                          navigate(isFoundationUser ? '/dashboard/yayasan/notifikasi' : '/notifications')
+                        }
+                      }}
+                      className="cursor-pointer gap-2.5 py-2 text-xs font-medium text-slate-700 hover:text-emerald-700 dark:text-slate-200"
+                    >
+                      <Bell1 className="size-5 text-slate-400" />
+                      <span>Notifikasi</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onAction={() => navigate(isFoundationUser ? '/dashboard/yayasan/profil' : '/dashboard/pengaturan?tab=keamanan')}
+                      className="cursor-pointer gap-2.5 py-2 text-xs font-medium text-slate-700 hover:text-emerald-700 dark:text-slate-200"
+                    >
+                      <Gear1 className="size-5 text-slate-400" />
+                      <span>Pengaturan Akun</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuSection>
+                  <DropdownMenuSeparator className="-mx-1.5 my-1 border-slate-200 dark:border-slate-800" />
+                  <DropdownMenuItem
+                    onAction={() => logout()}
+                    className="cursor-pointer gap-2.5 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                  >
+                    <Exit className="size-5 text-rose-500" />
+                    <span>Keluar Sistem</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
 
-          {/* Main Page Workspace */}
-          <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 lg:p-6 space-y-8 max-w-7xl w-full mx-auto pb-24 md:pb-10">
+          {/* Main Page Workspace Container (Light Gray bg-slate-50) */}
+          <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 lg:p-6 space-y-6 max-w-7xl w-full mx-auto pb-24 md:pb-10">
             {impersonating && (
               <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
                 <div>
@@ -1158,14 +1138,14 @@ export default function DashboardLayout() {
         </div>
       </div>
 
-      {/* Mobile Bottom Navigation (Responsive Mobile View <= 768px) */}
+      {/* Mobile Bottom Navigation (Responsive Mobile View <= 768px / md:hidden) */}
       <AppBottomNavigation
         items={[
           { to: defaultPortal, label: 'Beranda', icon: LayoutDashboard, end: true },
-           ...(canViewStudents && !isStudentRole(roles) && !isParentRole(roles)
-             ? [{
-                 to: '/dashboard/students',
-                 label: 'Data Siswa',
+          ...(canViewStudents && !isStudentRole(roles) && !isParentRole(roles)
+            ? [{
+                to: '/dashboard/students',
+                label: 'Data Siswa',
                 icon: Database,
               }]
             : []),
@@ -1181,10 +1161,10 @@ export default function DashboardLayout() {
             icon: User,
           },
         ]}
-         actionCenter={(isStudentRole(roles) && can('student.assignment.view')) || (isParentRole(roles) && can('parent.attendance.view')) || canCreateStudent ? {
+        actionCenter={(isStudentRole(roles) && can('student.assignment.view')) || (isParentRole(roles) && can('parent.attendance.view')) || canCreateStudent ? {
           icon: Plus,
           ariaLabel: 'Aksi Cepat',
-           onClick: () => navigate(isStudentRole(roles) ? '/portal-siswa/tugas' : isParentRole(roles) ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add'),
+          onClick: () => navigate(isStudentRole(roles) ? '/portal-siswa/tugas' : isParentRole(roles) ? '/portal-orangtua?tab=attendance' : '/dashboard/students?action=add'),
         } : null}
         onOpenNotifications={() => {
           if (isStudentRole(roles)) navigate('/portal-siswa/informasi-sekolah')
@@ -1194,7 +1174,7 @@ export default function DashboardLayout() {
       />
 
       {/* Floating Action Button (FAB) for Mobile Quick Add */}
-       {!isStudentRole(roles) && !isParentRole(roles) && canCreateStudent && <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />}
+      {!isStudentRole(roles) && !isParentRole(roles) && canCreateStudent && <FAB onClick={() => navigate('/dashboard/students?action=add')} label="Tambah Siswa" />}
 
       {/* Floating Chat Pop-Up & Melayang Button */}
       <FloatingChatWidget />
@@ -1206,3 +1186,4 @@ export default function DashboardLayout() {
     </div>
   )
 }
+

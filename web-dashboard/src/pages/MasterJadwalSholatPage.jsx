@@ -21,6 +21,15 @@ import {
 } from 'lucide-react'
 import { equranService } from '../services/equranService'
 import ActionDropdown from '../components/app/ActionDropdown'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
+import {
+  MasterActionButton,
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+} from '../components/master-data'
 
 export default function MasterJadwalSholatPage() {
   // State for Interactive Testing Form
@@ -46,6 +55,8 @@ export default function MasterJadwalSholatPage() {
   const [filterProvinsi, setFilterProvinsi] = useState('')
   const [filterKabkota, setFilterKabkota] = useState('')
   const [filterSearch, setFilterSearch] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(10)
 
   // Load Provinces on mount
   useEffect(() => {
@@ -243,7 +254,9 @@ export default function MasterJadwalSholatPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Jadwal Sholat' }]} />
+      <MasterDataPage className="education-unit-page sholat-master-page" hideBreadcrumb>
       {/* Toast Notification */}
       {toastMessage && (
         <div
@@ -256,68 +269,30 @@ export default function MasterJadwalSholatPage() {
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 opacity-10 pointer-events-none">
-          <Compass className="w-72 h-72" />
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Master Data Jadwal Sholat</h1>
-            <p className="text-emerald-100 text-sm mt-1 max-w-2xl">
-              Master data sholat menurut daerah Provinsi, Kabupaten dan Kota
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={loadMasterFromDb}
-              className="bg-white/10 hover:bg-white/20 text-white text-sm font-medium px-4 py-2 rounded-xl backdrop-blur-sm border border-white/20 transition-all flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingMaster ? 'animate-spin' : ''}`} /> Refresh DB
-            </button>
-            <button
-              onClick={exportToCsv}
-              disabled={masterList.length === 0}
-              className="bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
-            >
-              <Download className="w-4 h-4" /> Export CSV
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Master Canonical Page Header */}
+      <MasterPageHeader
+        tone="brand"
+        icon={Compass}
+        title="Master Data Jadwal Sholat"
+        description="Master data sholat menurut daerah Provinsi, Kabupaten dan Kota terintegrasi dengan EQuran.id API."
+        actions={
+          <>
+            <MasterActionButton variant="secondary" icon={RefreshCw} onClick={loadMasterFromDb}>
+              Refresh DB
+            </MasterActionButton>
+            <MasterActionButton variant="export" icon={Download} disabled={masterList.length === 0} onClick={exportToCsv}>
+              Export CSV
+            </MasterActionButton>
+          </>
+        }
+      />
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-xl">
-            <Database className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Rekord Master Tersimpan</p>
-            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{masterStats.total_records || masterList.length} Hari</h3>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-teal-100 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl">
-            <Globe className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Provinsi Tercover</p>
-            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{masterStats.total_provinsi || 0} / 34 Provinsi</h3>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-cyan-100 dark:bg-cyan-950/60 text-cyan-600 dark:text-cyan-400 rounded-xl">
-            <MapPin className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Kab/Kota Tercover</p>
-            <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{masterStats.total_kabkota || 0} / 517 Kab/Kota</h3>
-          </div>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={Database} label="Rekord Master Tersimpan" value={`${masterStats.total_records || masterList.length} Hari`} description="Data jadwal dalam DB" variant="success" delay={40} />
+        <MasterStatCard icon={Globe} label="Provinsi Tercover" value={`${masterStats.total_provinsi || 0} / 34`} description="Seluruh provinsi Indonesia" variant="info" delay={80} />
+        <MasterStatCard icon={MapPin} label="Kab/Kota Tercover" value={`${masterStats.total_kabkota || 0} / 517`} description="Kota dan kabupaten" variant="warning" delay={120} />
+      </MasterStatsGrid>
 
       {/* Interactive Testing & API Pull Panel (Postman-style) */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -700,6 +675,7 @@ export default function MasterJadwalSholatPage() {
           </table>
         </div>
       </div>
-    </div>
+    </MasterDataPage>
+    </PageContainer>
   )
 }

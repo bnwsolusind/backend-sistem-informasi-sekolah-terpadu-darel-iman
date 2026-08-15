@@ -41,7 +41,7 @@ export function StudentFormModal({
       setUnitList(units)
     } else {
       educationUnitService.getDaftar().then((res) => {
-        const data = res?.data?.data || res?.data || []
+        const data = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : (res?.data?.data || []))
         if (Array.isArray(data) && data.length > 0) {
           setUnitList(data)
         }
@@ -72,7 +72,7 @@ export function StudentFormModal({
         nisn: initialData.nisn || '',
         nama_lengkap: initialData.nama_lengkap || '',
         jenis_kelamin: initialData.jenis_kelamin || 'L',
-        unit_pendidikan: initialData.unit_pendidikan || 'SDIT',
+        unit_pendidikan: initialData.unit_pendidikan || initialData.unit || 'SDIT',
         tingkat: initialData.tingkat || '1',
         status: initialData.status || 'Aktif',
       })
@@ -158,11 +158,15 @@ export function StudentFormModal({
               className="flex h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
             >
               <option value="">Pilih Unit Pendidikan</option>
-              {unitList.map((u) => (
-                <option key={u.id || u.nama_unit} value={u.nama_unit || u.code || u.name || u.id}>
-                  {u.nama_unit || u.name || u.code}
-                </option>
-              ))}
+              {unitList.map((u) => {
+                const val = typeof u === 'string' ? u : (u.code || u.nama_unit || u.name || u.id || '')
+                const lbl = typeof u === 'string' ? u : (u.nama_unit || u.name || u.code || val)
+                return (
+                  <option key={val || lbl} value={val}>
+                    {lbl}
+                  </option>
+                )
+              })}
             </select>
           </div>
 

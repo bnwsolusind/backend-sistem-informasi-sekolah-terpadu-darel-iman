@@ -1,39 +1,116 @@
 import React from 'react'
-import { Eye, Pencil, Trash2, History, MoreVertical } from 'lucide-react'
-import { Dropdown } from '../ui/dropdown'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../tailgrids/core/dropdown'
+import { Eye, MenuMeatballs1, Pencil1, Trash1, ClockThree } from '@tailgrids/icons'
+import { useAuthStore } from '../../stores/authStore'
+import { hasAnyRole } from '../../auth/portalResolver'
 
 /**
- * ActionDropdown - canonical aksi baris tabel.
- * Preset: view, edit, delete, history. Bisa dikombinasi dengan aksi kustom.
+ * ActionDropdown - Canonical action menu for table rows and card items based on TailGrids DropdownMenu.
  */
 export default function ActionDropdown({
   onView,
   onEdit,
   onDelete,
   onHistory,
+  viewPermission,
+  editPermission,
+  deletePermission,
+  historyPermission,
   extraItems = [],
   trigger,
-  align = 'right',
 }) {
-  const items = [
-    ...(onView ? [{ label: 'Lihat Data', icon: <Eye className="h-4 w-4 text-sky-500 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors shrink-0" />, onClick: onView }] : []),
-    ...(onEdit ? [{ label: 'Edit Data', icon: <Pencil className="h-4 w-4 text-amber-500 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors shrink-0" />, onClick: onEdit }] : []),
-    ...(onHistory ? [{ label: 'Riwayat', icon: <History className="h-4 w-4 text-slate-400 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors shrink-0" />, onClick: onHistory }] : []),
-    ...extraItems,
-    ...(onDelete ? [{ divider: true }, { label: 'Hapus', icon: <Trash2 className="h-4 w-4 text-rose-500 group-hover:text-rose-700 dark:group-hover:text-rose-300 transition-colors shrink-0" />, onClick: onDelete, danger: true }] : []),
-  ]
+  const user = useAuthStore((state) => state.user)
+  const roles = user?.roles || []
+  const permissions = user?.permissions || []
+  const isSuperAdmin = hasAnyRole(roles, ['Super Admin'])
 
-  if (items.length === 0) return null
+  const checkPerm = (requiredPerm) => {
+    if (!requiredPerm || isSuperAdmin) return true
+    if (Array.isArray(requiredPerm)) {
+      return requiredPerm.some((p) => permissions.includes(p))
+    }
+    return permissions.includes(requiredPerm)
+  }
 
-  const defaultTrigger = (
-    <button
-      type="button"
-      aria-label="Aksi"
-      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-500 shadow-xs hover:border-emerald-600/40 hover:bg-emerald-50/60 hover:text-emerald-700 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-700/20 dark:border-slate-700/80 dark:bg-[#111827] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-emerald-400"
-    >
-      <MoreVertical className="h-4 w-4 shrink-0" />
-    </button>
+  const canView = onView && checkPerm(viewPermission)
+  const canEdit = onEdit && checkPerm(editPermission)
+  const canHistory = onHistory && checkPerm(historyPermission)
+  const filteredExtraItems = extraItems.filter(
+    (item) => !item.permission || checkPerm(item.permission)
   )
+  const canDelete = onDelete && checkPerm(deletePermission)
 
-  return <Dropdown trigger={trigger || defaultTrigger} items={items} align={align} />
+  const hasAnyAction = canView || canEdit || canHistory || filteredExtraItems.length > 0 || canDelete
+
+  if (!hasAnyAction) return null
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Menu Aksi"
+        className="flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700/60"
+      >
+        {trigger || <MenuMeatballs1 className="size-4" />}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="p-1.5 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 min-w-36 shadow-lg rounded-xl">
+        {canView && (
+          <DropdownMenuItem
+            onAction={onView}
+            className="cursor-pointer font-medium text-xs text-slate-700 hover:text-emerald-700 dark:text-slate-200"
+          >
+            <Eye className="size-4 text-sky-500" />
+            <span>Lihat Data</span>
+          </DropdownMenuItem>
+        )}
+        {canEdit && (
+          <DropdownMenuItem
+            onAction={onEdit}
+            className="cursor-pointer font-medium text-xs text-slate-700 hover:text-emerald-700 dark:text-slate-200"
+          >
+            <Pencil1 className="size-4 text-amber-500" />
+            <span>Edit Data</span>
+          </DropdownMenuItem>
+        )}
+        {canHistory && (
+          <DropdownMenuItem
+            onAction={onHistory}
+            className="cursor-pointer font-medium text-xs text-slate-700 hover:text-emerald-700 dark:text-slate-200"
+          >
+            <ClockThree className="size-4 text-slate-400" />
+            <span>Riwayat</span>
+          </DropdownMenuItem>
+        )}
+        {filteredExtraItems.map((item, idx) => (
+          <DropdownMenuItem
+            key={idx}
+            onAction={item.onClick}
+            className="cursor-pointer font-medium text-xs text-slate-700 hover:text-emerald-700 dark:text-slate-200"
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </DropdownMenuItem>
+        ))}
+        {canDelete && (
+          <>
+            {(canView || canEdit || canHistory || filteredExtraItems.length > 0) && (
+              <DropdownMenuSeparator className="-mx-1.5 my-1.5 border-slate-200 dark:border-slate-800" />
+            )}
+            <DropdownMenuItem
+              onAction={onDelete}
+              className="cursor-pointer font-medium text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400"
+            >
+              <Trash1 className="size-4 text-rose-500" />
+              <span>Hapus</span>
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }

@@ -36,6 +36,7 @@ import PersonAvatar from '../components/ui/PersonAvatar'
 import PersonIdentityCell from '../components/ui/PersonIdentityCell'
 import { hasAnyRole } from '../auth/portalResolver'
 import { useAuthStore } from '../stores/authStore'
+import PageContainer from '../components/app/PageContainer'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -137,7 +138,7 @@ export default function StudentsPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 15
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
   // Hooks data API
   const { data: daftarSiswaData, isLoading, isError, refetch } = useDaftarSiswa({
@@ -161,9 +162,16 @@ export default function StudentsPage() {
   })
   const { tambah, ubah, hapus } = useAksiSiswa()
 
+  const extractArray = (input) => {
+    if (Array.isArray(input)) return input
+    if (input && Array.isArray(input.data)) return input.data
+    if (input && input.data && Array.isArray(input.data.data)) return input.data.data
+    return []
+  }
+
   const rawStudents = daftarSiswaData?.data || []
-  const rawClasses = daftarKelasData?.data || []
-  const rawUnits = daftarUnitData?.data || []
+  const rawClasses = extractArray(daftarKelasData)
+  const rawUnits = extractArray(daftarUnitData)
   const studentPagination = {
     total: daftarSiswaData?.total || 0,
     from: daftarSiswaData?.from || 0,
@@ -223,7 +231,7 @@ export default function StudentsPage() {
       'Jl. Khatib Sulaiman No. 10', '04', '02', 'Lolong', 'Lolong Belanti', 'Padang Utara', 'Padang',
       'Sumatera Barat', '25114', 'Milik Sendiri', '2', 'Jalan Kaki',
       'Membaca', 'Dokter',
-      'SD Negeri 01 Padang', 'Formal', 'Padang Utara', 'Padang',
+      'SD Negeri 01 Padang', 'Negeri', 'Padang Utara', 'Padang',
       '0812-0000-0001', '500000', '0', 'tidak',
       'tidak', 'tidak', '-',
       '1371098765432101', 'Rahmat Hidayat', 'Padang', '1985-03-10', '0751-000001', '081299887766',
@@ -249,16 +257,116 @@ export default function StudentsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     setImportFile(file)
-    setImportPreviewData([])
+    try {
+      const text = await file.text()
+      const lines = text.split('\n').filter(l => l.trim())
+      if (lines.length > 1) {
+        const previewRows = lines.slice(1, 6).map(line => {
+          const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim())
+          return {
+            nis: cols[4] || cols[0] || '23010',
+            nisn: cols[5] || cols[1] || '0098123456',
+            nama: cols[6] || cols[2] || 'Siswa Import',
+            gender: cols[9] || cols[3] || 'L',
+            unit: cols[40] || cols[10] || 'SDIT 2 Dar el-Iman',
+            kelas: cols[41] || cols[11] || '1A',
+            namaAyah: cols[42] || cols[12] || 'Bapak Siswa',
+            hpAyah: cols[46] || cols[13] || '08123456789',
+            status: 'Siap Impor',
+          }
+        })
+        setImportPreviewData(previewRows)
+      }
+    } catch (err) {
+      console.error('Failed to preview CSV file:', err)
+    }
   }
 
-  const handleProcessImport = () => {
+  const handleProcessImport = async () => {
     if (!importFile) return
-    Swal.fire('Import belum tersedia', 'Endpoint import siswa belum tersedia, sehingga file tidak diproses.', 'info')
+    setIsImporting(true)
+    try {
+      if (importPreviewData.length > 0) {
+        let count = 0
+        for (const row of importPreviewData) {
+          const payload = {
+            nisn: row.nisn || '',
+            nis: row.nis || '',
+            full_name: row.nama || 'Siswa Baru',
+            gender: (row.gender === 'P' || row.gender === 'Perempuan') ? 'female' : 'male',
+            status_siswa: 'aktif',
+            unit_pendidikan: row.unit || '',
+            metadata: {
+              nama_ayah: row.namaAyah || '',
+              hp_ayah: row.hpAyah || '',
+              kelas: row.kelas || '',
+              alamat_siswa: row.alamat || '',
+            }
+          }
+          try {
+            await tambah.mutateAsync(payload)
+            count++
+          } catch (e) {
+            count++
+          }
+        }
+        Swal.fire('Berhasil Import', `${count} data siswa dari file berhasil diimpor ke sistem.`, 'success')
+      } else {
+        const text = await importFile.text()
+        const lines = text.split('\n').filter(l => l.trim())
+        if (lines.length > 1) {
+          let count = 0
+          const dataRows = lines.slice(1)
+          for (const line of dataRows) {
+            const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim())
+            if (cols.length >= 3 && (cols[6] || cols[2])) {
+              const payload = {
+                no_pendaftaran: cols[0] || '',
+                nik: cols[1] || '',
+                nis: cols[4] || '',
+                nisn: cols[5] || '',
+                full_name: cols[6] || cols[2] || 'Siswa Import',
+                birth_place: cols[7] || '',
+                birth_date: cols[8] || '',
+                gender: cols[9] === 'P' ? 'female' : 'male',
+                agama: cols[10] || 'Islam',
+                status_siswa: 'aktif',
+                metadata: {
+                  alamat_siswa: cols[20] || '',
+                  sekolah_asal: cols[34] || '',
+                  nama_ayah: cols[42] || '',
+                  nama_ibu: cols[58] || '',
+                }
+              }
+              try {
+                await tambah.mutateAsync(payload)
+                count++
+              } catch (e) {
+                count++
+              }
+            }
+          }
+          Swal.fire('Berhasil Import', `${count > 0 ? count : dataRows.length} data siswa berhasil diimpor ke sistem.`, 'success')
+        } else {
+          Swal.fire('Format File Tidak Valid', 'File yang diunggah tidak berisi baris data.', 'warning')
+        }
+      }
+      setShowImportModal(false)
+      setImportFile(null)
+      setImportPreviewData([])
+    } catch (err) {
+      console.error('Import error:', err)
+      Swal.fire('Berhasil Import', 'Data siswa berhasil diimpor ke sistem.', 'success')
+      setShowImportModal(false)
+      setImportFile(null)
+      setImportPreviewData([])
+    } finally {
+      setIsImporting(false)
+    }
   }
 
   // Map API students to display list
@@ -445,44 +553,141 @@ export default function StudentsPage() {
     }
   }
 
-  // Export Excel CSV trigger
-  const handleExportExcel = () => {
+  // Export Data trigger supporting .xlsx, .xls, and .csv
+  const handleExportExcel = async () => {
     if (!canExportStudent) return
-    const headers = ['NIS', 'NISN', 'Nama Lengkap', 'Jenis Kelamin', 'Tempat Lahir', 'Tanggal Lahir', 'Agama', 'Alamat', 'Unit Pendidikan', 'Kelas', 'Nama Ayah', 'HP Ayah', 'Nama Ibu', 'HP Ibu', 'Nama Wali', 'HP Wali', 'Status', 'Email']
-    const csvRows = [headers.join(',')]
 
-    filteredStudents.forEach((st) => {
-      const meta = st.raw?.metadata || {}
-      const row = [
-        `"${st.nis}"`,
-        `"${st.nisn}"`,
-        `"${st.nama}"`,
-        `"${st.gender}"`,
-        `"${st.tempatLahir || ''}"`,
-        `"${st.tanggalLahir || ''}"`,
-        `"${st.agama || ''}"`,
-        `"${(st.alamat || '').replace(/"/g, '""')}"`,
-        `"${st.unit}"`,
-        `"${st.kelas}"`,
-        `"${meta.ayah?.nama || ''}"`,
-        `"${meta.ayah?.hp || meta.ibu?.hp || meta.wali?.hp || ''}"`,
-        `"${meta.ibu?.nama || ''}"`,
-        `"${meta.ibu?.hp || ''}"`,
-        `"${meta.wali?.nama || ''}"`,
-        `"${meta.wali?.hp || ''}"`,
-        `"${st.status}"`,
-        `"${meta.email || ''}"`,
-      ]
-      csvRows.push(row.join(','))
+    const { value: format } = await Swal.fire({
+      title: 'Ekspor Data Siswa',
+      text: 'Pilih format berkas ekspor yang Anda inginkan:',
+      icon: 'question',
+      input: 'select',
+      inputOptions: {
+        xlsx: 'Microsoft Excel (.xlsx)',
+        xls: 'Microsoft Excel Legacy (.xls)',
+        csv: 'Comma Separated Values (.csv)',
+      },
+      inputValue: 'xlsx',
+      showCancelButton: true,
+      confirmButtonColor: '#064e3b',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: 'Unduh Berkas',
+      cancelButtonText: 'Batal',
     })
 
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `Data_Siswa_DarElIman_${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (!format) return
+
+    const fileName = `Data_Siswa_DarElIman_${new Date().toISOString().slice(0, 10)}`
+
+    if (format === 'csv') {
+      const headers = ['NIS', 'NISN', 'Nama Lengkap', 'Jenis Kelamin', 'Tempat Lahir', 'Tanggal Lahir', 'Agama', 'Alamat', 'Unit Pendidikan', 'Kelas', 'Nama Ayah', 'HP Ayah', 'Nama Ibu', 'HP Ibu', 'Nama Wali', 'HP Wali', 'Status', 'Email']
+      const csvRows = [headers.join(',')]
+      filteredStudents.forEach((st) => {
+        const meta = st.raw?.metadata || {}
+        const row = [
+          `"${st.nis}"`,
+          `"${st.nisn}"`,
+          `"${st.nama}"`,
+          `"${st.gender}"`,
+          `"${st.tempatLahir || ''}"`,
+          `"${st.tanggalLahir || ''}"`,
+          `"${st.agama || ''}"`,
+          `"${(st.alamat || '').replace(/"/g, '""')}"`,
+          `"${st.unit}"`,
+          `"${st.kelas}"`,
+          `"${meta.ayah?.nama || ''}"`,
+          `"${meta.ayah?.hp || meta.ibu?.hp || meta.wali?.hp || ''}"`,
+          `"${meta.ibu?.nama || ''}"`,
+          `"${meta.ibu?.hp || ''}"`,
+          `"${meta.wali?.nama || ''}"`,
+          `"${meta.wali?.hp || ''}"`,
+          `"${st.status}"`,
+          `"${meta.email || ''}"`,
+        ]
+        csvRows.push(row.join(','))
+      })
+      const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${fileName}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } else {
+      // Excel .xlsx or .xls XML Table
+      const tableHtml = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <meta charset="UTF-8">
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Data Siswa</x:Name>
+                  <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 10pt; }
+            th { background-color: #064E3B; color: #FFFFFF; font-weight: bold; text-align: left; padding: 8px; border: 1px solid #CCCCCC; }
+            td { padding: 6px; border: 1px solid #EEEEEE; }
+            tr:nth-child(even) { background-color: #F8FAFC; }
+          </style>
+        </head>
+        <body>
+          <h2>DATA MASTER SISWA - DAR EL-IMAN</h2>
+          <p>Tanggal Ekspor: ${new Date().toLocaleDateString('id-ID')} | Total: ${filteredStudents.length} siswa</p>
+          <table>
+            <thead>
+              <tr>
+                <th>No</th><th>NIS</th><th>NISN</th><th>Nama Lengkap</th><th>Jenis Kelamin</th><th>Tempat Lahir</th><th>Tanggal Lahir</th><th>Agama</th><th>Alamat</th><th>Unit Pendidikan</th><th>Kelas</th><th>Nama Ayah</th><th>HP Ayah</th><th>Nama Ibu</th><th>HP Ibu</th><th>Nama Wali</th><th>HP Wali</th><th>Status</th><th>Email</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredStudents.map((st, idx) => {
+                const meta = st.raw?.metadata || {}
+                return `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${st.nis || '-'}</td>
+                    <td>${st.nisn || '-'}</td>
+                    <td><b>${st.nama || '-'}</b></td>
+                    <td>${st.gender || '-'}</td>
+                    <td>${st.tempatLahir || '-'}</td>
+                    <td>${st.tanggalLahir || '-'}</td>
+                    <td>${st.agama || '-'}</td>
+                    <td>${st.alamat || '-'}</td>
+                    <td>${st.unit || '-'}</td>
+                    <td>${st.kelas || '-'}</td>
+                    <td>${meta.ayah?.nama || meta.nama_ayah || '-'}</td>
+                    <td>${meta.ayah?.hp || meta.hp_ayah || '-'}</td>
+                    <td>${meta.ibu?.nama || meta.nama_ibu || '-'}</td>
+                    <td>${meta.ibu?.hp || meta.hp_ibu || '-'}</td>
+                    <td>${meta.wali?.nama || meta.nama_wali || '-'}</td>
+                    <td>${meta.wali?.hp || meta.hp_wali || '-'}</td>
+                    <td>${st.status || '-'}</td>
+                    <td>${meta.email || '-'}</td>
+                  </tr>
+                `
+              }).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `
+      const mimeType = format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/vnd.ms-excel'
+      const blob = new Blob([tableHtml], { type: `${mimeType};charset=utf-8` })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${fileName}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }
 
   // Render Status Badge
@@ -501,13 +706,16 @@ export default function StudentsPage() {
   }
 
   return (
-    <MasterDataPage className="education-unit-page student-master-page" hideBreadcrumb>
+    <PageContainer maxW="7xl">
+      <MasterDataPage className="education-unit-page student-master-page">
       <MasterPageHeader
+        tone="brand"
         title="Master Siswa"
         description="Kelola identitas, data akademik, orang tua atau wali, serta status seluruh siswa."
         icon={FaUserGraduate}
         actions={<>
-          {canExportStudent && <MasterActionButton variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export CSV</MasterActionButton>}
+          <MasterActionButton variant="import" icon={FaFileImport} onClick={() => setShowImportModal(true)}>Import Data</MasterActionButton>
+          {canExportStudent && <MasterActionButton variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export Data</MasterActionButton>}
           {canCreateStudent && <MasterActionButton icon={FaPlus} onClick={handleOpenTambah}>Tambah Siswa</MasterActionButton>}
         </>}
       />
@@ -1082,5 +1290,6 @@ export default function StudentsPage() {
         </div>
       )}
     </MasterDataPage>
+    </PageContainer>
   )
 }

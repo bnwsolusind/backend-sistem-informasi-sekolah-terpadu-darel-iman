@@ -1,5 +1,5 @@
 import React from 'react'
-import { Pagination } from '../ui/pagination'
+import { Pagination } from '../tailgrids/core/pagination'
 
 /**
  * AppPagination - canonical pagination.
@@ -12,6 +12,8 @@ export default function AppPagination({
   onPageChange,
   totalItems = 0,
   itemsPerPage = 10,
+  sideLayout = 'full',
+  variant = 'default',
   meta,
 }) {
   const resolvedCurrent = meta?.current_page ?? currentPage ?? 1
@@ -21,13 +23,26 @@ export default function AppPagination({
 
   if (resolvedTotalItems === 0) return null
 
+  const startItem = (resolvedCurrent - 1) * resolvedPerPage + 1
+  const endItem = Math.min(resolvedCurrent * resolvedPerPage, resolvedTotalItems)
+
   return (
-    <Pagination
-      currentPage={resolvedCurrent}
-      totalPages={resolvedTotal}
-      onPageChange={onPageChange}
-      totalItems={resolvedTotalItems}
-      itemsPerPage={resolvedPerPage}
-    />
+    <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">
+        Menampilkan{' '}
+        <span className="font-extrabold text-slate-800 dark:text-white">{startItem}</span> -{' '}
+        <span className="font-extrabold text-slate-800 dark:text-white">{endItem}</span> dari{' '}
+        <span className="font-extrabold text-slate-800 dark:text-white">{resolvedTotalItems}</span> data
+      </p>
+
+      <Pagination
+        currentPage={resolvedCurrent}
+        totalPages={resolvedTotal}
+        sideLayout={sideLayout}
+        variant={variant}
+        onPageChange={onPageChange}
+      />
+    </div>
   )
 }
+

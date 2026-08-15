@@ -7,6 +7,8 @@ import DashboardHeader from '../components/dashboard/DashboardHeader'
 import KpiCardGrid from '../components/dashboard/KpiCardGrid'
 import KpiCard from '../components/dashboard/KpiCard'
 import { SectionCard } from '../components/app'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
 const cards = [
   { key: 'total_siswa', label: 'Total Siswa', icon: Users },
@@ -75,7 +77,9 @@ export default function MonitoringDashboardPage() {
   const alerts = (dashboard?.indikator_kinerja_utama || []).slice(0, 5)
 
   return (
-    <div className="space-y-6 pb-12">
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Pemantauan Real-Time' }]} />
+      <div className="space-y-6 pb-12">
       <DashboardHeader
         title="Ringkasan Operasional"
         subtitle="Pantau status kehadiran, indikator perhatian, dan aktivitas guru mengajar secara real time."
@@ -101,5 +105,6 @@ export default function MonitoringDashboardPage() {
 
       <TeacherMonitoringPanel data={teacherMonitoring} loading={teacherMonitoringLoading} error={teacherMonitoringError} onRetry={loadTeacherMonitoring} />
     </div>
+    </PageContainer>
   )
 }

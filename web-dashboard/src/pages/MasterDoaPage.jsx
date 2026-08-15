@@ -18,6 +18,15 @@ import {
 import Swal from 'sweetalert2'
 import ActionDropdown from '../components/app/ActionDropdown'
 import { equranService } from '../services/equranService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
+import {
+  MasterActionButton,
+  MasterDataPage,
+  MasterPageHeader,
+  MasterStatsGrid,
+  MasterStatCard,
+} from '../components/master-data'
 
 const emptyDoa = {
   id: '',
@@ -42,6 +51,8 @@ export default function MasterDoaPage() {
   const [search, setSearch] = useState('')
   const [grupFilter, setGrupFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(10)
 
   // Modal State for Add / Edit
   const [showModal, setShowModal] = useState(false)
@@ -246,81 +257,34 @@ export default function MasterDoaPage() {
   }, [doas, grupOptions, tagOptions])
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-cyan-900 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-emerald-300" />
-            Kelola Data Do'a & Dzikir
-          </h1>
-          <p className="text-emerald-100/80 text-sm mt-1">
-            Kumpulan do'a-do'a sehari-hari
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-sm backdrop-blur-md border border-white/20 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'Menyinkronkan...' : 'Sync Data Doa (EQuran.id)'}</span>
-          </button>
-
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-bold text-sm shadow-lg transition-all flex items-center gap-2 active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Doa Manual</span>
-          </button>
-        </div>
-      </div>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Doa Harian' }]} />
+      <MasterDataPage className="education-unit-page doa-master-page" hideBreadcrumb>
+      {/* Master Canonical Page Header */}
+      <MasterPageHeader
+        tone="brand"
+        icon={BookOpen}
+        title="Kelola Data Do'a & Dzikir"
+        description="Kumpulan doa-doa harian, dzikir, dan referensi hadits terintegrasi dengan database EQuran.id."
+        actions={
+          <>
+            <MasterActionButton variant="secondary" icon={RefreshCw} disabled={syncing} onClick={handleSync}>
+              {syncing ? 'Menyinkronkan...' : 'Sync EQuran.id'}
+            </MasterActionButton>
+            <MasterActionButton icon={Plus} onClick={handleOpenAdd}>
+              Tambah Doa Manual
+            </MasterActionButton>
+          </>
+        }
+      />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-emerald-50 text-emerald-600">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Total Doa DB</div>
-            <div className="text-xl font-bold text-gray-800">{displayStats.totalDoa}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-teal-50 text-teal-600">
-            <Bookmark className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Kategori / Grup</div>
-            <div className="text-xl font-bold text-gray-800">{displayStats.totalGrup}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-cyan-50 text-cyan-600">
-            <Tag className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Total Tag Unik</div>
-            <div className="text-xl font-bold text-gray-800">{displayStats.totalTag}</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3">
-          <div className="p-3 rounded-lg bg-amber-50 text-amber-600">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 font-medium">Referensi Hadits</div>
-            <div className="text-xl font-bold text-gray-800">{displayStats.totalHadits}</div>
-          </div>
-        </div>
-      </div>
+      <MasterStatsGrid className="education-unit-kpis">
+        <MasterStatCard icon={Layers} label="Total Doa DB" value={displayStats.totalDoa} description="Tersimpan di database" variant="success" delay={40} />
+        <MasterStatCard icon={Bookmark} label="Kategori / Grup" value={displayStats.totalGrup} description="Grup doa harian" variant="info" delay={80} />
+        <MasterStatCard icon={Tag} label="Total Tag Unik" value={displayStats.totalTag} description="Tag pencarian doa" variant="warning" delay={120} />
+        <MasterStatCard icon={ShieldCheck} label="Referensi Hadits" value={displayStats.totalHadits} description="Disertai sumber hadits" variant="neutral" delay={160} />
+      </MasterStatsGrid>
 
       {/* Toolbar Search & Filter */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-3">
@@ -702,6 +666,7 @@ export default function MasterDoaPage() {
           </div>
         </div>
       )}
-    </div>
+    </MasterDataPage>
+    </PageContainer>
   )
 }

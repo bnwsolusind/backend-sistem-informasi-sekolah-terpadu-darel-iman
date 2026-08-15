@@ -2,6 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { AppWindow, Image, LayoutPanelLeft, Palette, RotateCcw, Save, Upload } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { defaultPengaturan, usePengaturanStore } from '../stores/pengaturanStore'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '../components/tailgrids/core/select'
+import { Checkbox } from '../components/tailgrids/core/checkbox'
+import { Label } from '../components/tailgrids/core/label'
+import { Button } from '../components/tailgrids/core/button'
 
 const tabs = [
   { id: 'identitas', label: 'Identitas Situs', icon: Image },
@@ -80,26 +91,40 @@ export default function PengaturanPage() {
 
   return (
     <form onSubmit={submit} className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between dark:border-slate-800 dark:bg-[#1B2433]">
+      <div className="flex flex-col gap-4 rounded-[18px] border border-slate-200 bg-white p-5 shadow-xs md:flex-row md:items-center md:justify-between dark:border-slate-800 dark:bg-[#1B2433]">
         <div>
           <div className="flex items-center gap-2">
             <AppWindow className="h-5 w-5 text-emerald-600" />
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">Pengaturan Situs</h2>
+            <h2 className="text-lg font-black text-slate-900 dark:text-white">Pengaturan Situs & Sidebar</h2>
           </div>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Kelola identitas, tata letak, template, dan warna aplikasi.</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Kelola identitas, tata letak sidebar & header, template, dan warna aplikasi.</p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={reset} className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            appearance="outline"
+            size="sm"
+            onClick={reset}
+            className="border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
             <RotateCcw className="h-4 w-4" /> Reset
-          </button>
-          <button disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#0E5C44] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:-translate-y-0.5 disabled:opacity-60">
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            appearance="fill"
+            size="sm"
+            disabled={saving}
+            pending={saving}
+          >
             <Save className="h-4 w-4" /> {saving ? 'Menyimpan...' : 'Simpan Pengaturan'}
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <section className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+        <section className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-[#1B2433]">
           <div className="flex overflow-x-auto border-b border-slate-200 px-3 dark:border-slate-800">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button key={id} type="button" onClick={() => setActiveTab(id)} className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-4 text-xs font-bold transition ${activeTab === id ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'}`}>
@@ -121,20 +146,82 @@ export default function PengaturanPage() {
             )}
 
             {activeTab === 'layout' && (
-              <div className="grid gap-5 md:grid-cols-2">
-                <Select label="Gaya Header" value={form.header_style} onChange={(v) => update('header_style', v)} options={[['light', 'Terang'], ['solid', 'Warna Solid'], ['transparent', 'Transparan']]}/>
-                <Select label="Gaya Sidebar" value={form.sidebar_style} onChange={(v) => update('sidebar_style', v)} options={[['gradient', 'Gradasi'], ['solid', 'Warna Solid'], ['light', 'Terang']]}/>
-                <Select label="Posisi Sidebar" value={form.sidebar_position} onChange={(v) => update('sidebar_position', v)} options={[['left', 'Kiri'], ['right', 'Kanan']]}/>
-                <div className="space-y-3">
-                  <Toggle label="Header tetap di atas" checked={form.header_sticky} onChange={(v) => update('header_sticky', v)} />
-                  <Toggle label="Sidebar mengecil secara default" checked={form.sidebar_collapsed} onChange={(v) => update('sidebar_collapsed', v)} />
+              <div className="grid gap-6 md:grid-cols-2">
+                <Select value={form.header_style || 'light'} onChange={(v) => update('header_style', String(v))}>
+                  <SelectLabel>Gaya Header</SelectLabel>
+                  <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Pilih gaya header..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem id="light">Terang</SelectItem>
+                    <SelectItem id="solid">Warna Solid</SelectItem>
+                    <SelectItem id="transparent">Transparan</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={form.sidebar_style || 'gradient'} onChange={(v) => update('sidebar_style', String(v))}>
+                  <SelectLabel>Gaya Sidebar</SelectLabel>
+                  <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Pilih gaya sidebar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem id="gradient">Gradasi</SelectItem>
+                    <SelectItem id="solid">Warna Solid</SelectItem>
+                    <SelectItem id="light">Terang</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={form.sidebar_position || 'left'} onChange={(v) => update('sidebar_position', String(v))}>
+                  <SelectLabel>Posisi Sidebar</SelectLabel>
+                  <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Pilih posisi sidebar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem id="left">Kiri</SelectItem>
+                    <SelectItem id="right">Kanan</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="space-y-4 pt-1">
+                  <div className="flex items-center gap-3 rounded-xl border border-slate-200 p-3.5 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    <Checkbox
+                      id="header_sticky"
+                      checked={Boolean(form.header_sticky)}
+                      onChange={(e) => update('header_sticky', e.target.checked)}
+                    />
+                    <Label htmlFor="header_sticky" className="cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-200">
+                      Header tetap di atas (Sticky Header)
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-xl border border-slate-200 p-3.5 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    <Checkbox
+                      id="sidebar_collapsed"
+                      checked={Boolean(form.sidebar_collapsed)}
+                      onChange={(e) => update('sidebar_collapsed', e.target.checked)}
+                    />
+                    <Label htmlFor="sidebar_collapsed" className="cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-200">
+                      Sidebar mengecil secara default (Collapsed)
+                    </Label>
+                  </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'tema' && (
               <div className="space-y-6">
-                <Select label="Kerapatan Template" value={form.template} onChange={(v) => update('template', v)} options={[['modern', 'Modern (Standar)'], ['compact', 'Ringkas'], ['comfortable', 'Lapang']]}/>
+                <Select value={form.template || 'modern'} onChange={(v) => update('template', String(v))}>
+                  <SelectLabel>Kerapatan Template</SelectLabel>
+                  <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Pilih kerapatan template..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem id="modern">Modern (Standar)</SelectItem>
+                    <SelectItem id="compact">Ringkas</SelectItem>
+                    <SelectItem id="comfortable">Lapang</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   {colorFields.map(([key, label]) => (
                     <label key={key} className="space-y-2 text-xs font-bold text-slate-700 dark:text-slate-200">
@@ -151,11 +238,11 @@ export default function PengaturanPage() {
           </div>
         </section>
 
-        <aside className="h-fit rounded-[18px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">Preview Tampilan</h3>
-          <p className="mb-4 mt-1 text-[11px] text-slate-500">Pratinjau otomatis mengikuti pilihan Anda.</p>
+        <aside className="h-fit rounded-[18px] border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-[#1B2433]">
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">Preview Tampilan Sidebar</h3>
+          <p className="mb-4 mt-1 text-[11px] text-slate-500 dark:text-slate-400">Pratinjau otomatis mengikuti konfigurasi sidebar & header pilihan Anda.</p>
           <div style={previewStyle} className="overflow-hidden rounded-2xl border border-slate-200 bg-[var(--preview-body)] shadow-inner">
-            <div className="flex h-52">
+            <div className={`flex h-52 ${form.sidebar_position === 'right' ? 'flex-row-reverse' : ''}`}>
               <div className="w-24 p-2 text-white" style={{ background: form.sidebar_style === 'gradient' ? `linear-gradient(180deg, ${form.sidebar_color}, ${form.sidebar_color}CC)` : form.sidebar_style === 'light' ? '#FFFFFF' : form.sidebar_color, color: form.sidebar_style === 'light' ? '#334155' : '#fff' }}>
                 <div className="mb-4 flex items-center gap-1.5">
                   {previewLogo ? <img src={previewLogo} className="h-6 w-6 rounded object-contain" alt="" /> : <span className="flex h-6 w-6 items-center justify-center rounded bg-[var(--preview-accent)] text-[7px] font-black">{form.logo_text}</span>}
@@ -166,8 +253,8 @@ export default function PengaturanPage() {
               <div className="flex-1">
                 <div className="h-10 border-b border-black/5" style={{ backgroundColor: form.header_style === 'transparent' ? 'transparent' : form.header_color }} />
                 <div className="p-3">
-                  <div className="mb-3 h-8 rounded-lg bg-white/80" />
-                  <div className="grid grid-cols-2 gap-2"><div className="h-14 rounded-lg bg-white/90" /><div className="h-14 rounded-lg bg-white/90" /></div>
+                  <div className="mb-3 h-8 rounded-lg bg-white/80 dark:bg-slate-800/80" />
+                  <div className="grid grid-cols-2 gap-2"><div className="h-14 rounded-lg bg-white/90 dark:bg-slate-800/90" /><div className="h-14 rounded-lg bg-white/90 dark:bg-slate-800/90" /></div>
                 </div>
               </div>
             </div>
@@ -180,14 +267,6 @@ export default function PengaturanPage() {
 
 function Field({ label, value = '', onChange, ...props }) {
   return <label className="space-y-2 text-xs font-bold text-slate-700 dark:text-slate-200"><span>{label}</span><input {...props} required value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-medium outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 dark:border-slate-700 dark:bg-slate-900" /></label>
-}
-
-function Select({ label, value, onChange, options }) {
-  return <label className="space-y-2 text-xs font-bold text-slate-700 dark:text-slate-200"><span>{label}</span><select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900">{options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>
-}
-
-function Toggle({ label, checked, onChange }) {
-  return <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 p-3 text-xs font-bold dark:border-slate-700"><span>{label}</span><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-emerald-600" /></label>
 }
 
 function AssetUpload({ label, accept, preview, fallback, onChange, onRemove }) {

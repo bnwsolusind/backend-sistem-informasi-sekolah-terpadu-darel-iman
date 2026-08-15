@@ -19,6 +19,8 @@ import {
 import { modulSemesterService } from '../services/modulSemesterService'
 import CsvImportModal from '../components/master-data/CsvImportModal'
 import { ActionDropdown, AppBadge, AppDrawer, AppModal, PersonIdentityCell } from '../components/app'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterActionButton,
   MasterDataSection,
@@ -523,8 +525,11 @@ export default function MasterModulSemesterPage() {
   }
 
   return (
-    <MasterDataPage className="education-unit-page" hideBreadcrumb>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Modul Semester' }]} />
+      <MasterDataPage className="education-unit-page">
       <MasterPageHeader
+        tone="brand"
         icon={BookOpen}
         title="Data Modul Semester"
         description="Kelola seluruh modul semester di lingkungan Yayasan sebagai acuan pembelajaran terpadu."
@@ -1523,5 +1528,6 @@ export default function MasterModulSemesterPage() {
         </AppDrawer>
       )}
     </MasterDataPage>
+    </PageContainer>
   )
 }

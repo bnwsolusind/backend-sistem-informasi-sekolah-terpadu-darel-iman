@@ -23,7 +23,10 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { hakAksesService } from '../services/hakAksesService'
+import { getModulLabel, getPermissionLabel } from '../utils/permissionTranslations'
 import UserAccountManagement from '../components/auth/UserAccountManagement'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterDataPage,
   MasterPageHeader,
@@ -139,7 +142,9 @@ function RoleFormModal({ isOpen, onClose, onSubmit, initialData = null, allPermi
                         }`}>
                           {allModulSelected && <CheckCircle className="w-2.5 h-2.5 text-white" />}
                         </div>
-                        <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">{modul}</span>
+                        <span className="text-xs font-extrabold text-slate-800 tracking-wider">
+                          {getModulLabel(modul)} <span className="text-[10px] text-slate-400 font-normal">({modul})</span>
+                        </span>
                       </div>
                       <span className="text-[10px] text-slate-500 font-medium">{perms.filter(p => selectedPerms.includes(p)).length}/{perms.length} dipilih</span>
                     </div>
@@ -153,12 +158,15 @@ function RoleFormModal({ isOpen, onClose, onSubmit, initialData = null, allPermi
                             onChange={() => togglePerm(perm)}
                             className="w-3.5 h-3.5 rounded text-[#054e3b] focus:ring-[#054e3b] border-slate-300"
                           />
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
-                            selectedPerms.includes(perm)
-                              ? 'bg-[#dcfce7] text-[#15803d] border-emerald-200'
-                              : 'bg-slate-100 text-slate-600 border-slate-200'
-                          }`}>
-                            {perm.split('.')[1] || perm}
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                              selectedPerms.includes(perm)
+                                ? 'bg-[#dcfce7] text-[#15803d] border-emerald-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                            title={perm}
+                          >
+                            {getPermissionLabel(perm)}
                           </span>
                         </label>
                       ))}
@@ -365,7 +373,9 @@ function PegawaiRoleModal({ isOpen, onClose, onSubmit, employee = null, availabl
             <div className="space-y-3 max-h-56 overflow-y-auto rounded-2xl border border-slate-200/90 p-4 bg-[#f8fafc]">
               {Object.entries(grouped).map(([modul, perms]) => (
                 <div key={modul} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <span className="text-[11px] font-extrabold uppercase text-slate-700 tracking-wider block mb-2">{modul}</span>
+                  <span className="text-[11px] font-extrabold text-slate-700 tracking-wider block mb-2">
+                    {getModulLabel(modul)} <span className="text-[10px] text-slate-400 font-normal">({modul})</span>
+                  </span>
                   <div className="flex flex-wrap gap-1.5">
                     {perms.map((perm) => (
                       <label key={perm} className="flex items-center gap-1.5 cursor-pointer">
@@ -375,12 +385,15 @@ function PegawaiRoleModal({ isOpen, onClose, onSubmit, employee = null, availabl
                           onChange={() => togglePerm(perm)}
                           className="w-3.5 h-3.5 rounded text-[#054e3b] focus:ring-[#054e3b] border-slate-300"
                         />
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium border ${
-                          selectedPerms.includes(perm)
-                            ? 'bg-[#dcfce7] text-[#15803d] border-emerald-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {perm.split('.')[1] || perm}
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded-full font-medium border ${
+                            selectedPerms.includes(perm)
+                              ? 'bg-[#dcfce7] text-[#15803d] border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`}
+                          title={perm}
+                        >
+                          {getPermissionLabel(perm)}
                         </span>
                       </label>
                     ))}
@@ -622,7 +635,9 @@ export default function MasterHakAksesPage() {
   const ActiveTabIcon = activeTabConfig.icon
 
   return (
-    <MasterDataPage>
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Hak Akses & Role' }]} />
+      <MasterDataPage>
       {/* Page Header */}
       <MasterPageHeader
         tone="brand"
@@ -769,8 +784,8 @@ export default function MasterHakAksesPage() {
                   <td className="py-3.5 px-4">
                     <div className="flex flex-wrap gap-1">
                       {(role.permissions || []).slice(0, 4).map((p) => (
-                        <span key={p} className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                          {p}
+                        <span key={p} className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full" title={p}>
+                          {getPermissionLabel(p)}
                         </span>
                       ))}
                       {(role.permissions || []).length > 4 && (
@@ -825,23 +840,36 @@ export default function MasterHakAksesPage() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
                     <Lock className="w-3 h-3" />
                   </div>
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-800">{group.modul}</span>
+                  <div>
+                    <span className="text-xs font-black tracking-wider text-slate-800 block">{getModulLabel(group.modul)}</span>
+                    <span className="text-[10px] font-mono text-slate-400 font-normal">({group.modul})</span>
+                  </div>
                 </div>
                 <span className="text-[11px] font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">
                   {group.total} izin
                 </span>
               </div>
               {/* Permission List */}
-              <div className="flex flex-wrap gap-2 p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-5">
                 {(group.izin || []).map((perm) => (
-                  <div key={perm.id} className="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-emerald-200 hover:bg-emerald-50/50">
-                    <span className="text-xs font-bold text-slate-700">{perm.name}</span>
+                  <div key={perm.id} className="group flex items-start justify-between gap-2 rounded-xl border border-slate-200/90 bg-slate-50/50 p-3 transition-all hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-xs">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-xs font-extrabold text-slate-800 leading-snug block truncate" title={getPermissionLabel(perm.name)}>
+                          {getPermissionLabel(perm.name)}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400 font-medium block truncate" title={perm.name}>
+                          {perm.name}
+                        </span>
+                      </div>
+                    </div>
                     <button
                       onClick={() => handleDeletePerm(perm)}
-                      className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                      className="text-slate-300 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100 shrink-0 p-1 rounded-md hover:bg-rose-50"
                       title="Hapus izin"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
@@ -990,5 +1018,6 @@ export default function MasterHakAksesPage() {
         isSubmitting={isPegawaiSubmitting}
       />
     </MasterDataPage>
+    </PageContainer>
   )
 }

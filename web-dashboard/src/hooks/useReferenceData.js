@@ -15,13 +15,18 @@ export function useDaftarKelas(params = { per_page: 100 }, options = {}) {
   return useQuery({
     queryKey: ['reference-data', 'classes', params],
     queryFn: () => getClasses(params),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     ...options,
   })
 }
 
-export function useDaftarGuru(params = { per_page: 100 }) {
+export function useDaftarGuru(params = { per_page: 100 }, options = {}) {
   return useQuery({
     queryKey: ['reference-data', 'teachers', params],
     queryFn: () => getTeachers(params),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    ...options,
   })
 }

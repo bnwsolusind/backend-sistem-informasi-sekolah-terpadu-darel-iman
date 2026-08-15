@@ -64,6 +64,7 @@ const OperatorDashboardPage = lazy(() => import('../pages/OperatorDashboardPage'
 const MusyrifDashboardPage = lazy(() => import('../pages/MusyrifDashboardPage'))
 const AlumniPortalPage = lazy(() => import('../pages/AlumniPortalPage'))
 const MonitoringDashboardPage = lazy(() => import('../pages/MonitoringDashboardPage'))
+const MonitoringDivisiPage = lazy(() => import('../pages/MonitoringDivisiPage'))
 const MutabaahPage = lazy(() => import('../pages/MutabaahPage'))
 const MutabaahDashboardPage = lazy(() => import('../pages/mutabaah/MutabaahDashboardPage'))
 const MutabaahRecapPage = lazy(() => import('../pages/mutabaah/MutabaahRecapPage'))
@@ -410,6 +411,16 @@ export const router = createBrowserRouter([
               <PermissionElement any={['dashboard.pemantauan.lihat', 'teacher_monitoring.view']}>
                 <BungkusLazy>
                   <MonitoringDashboardPage />
+                </BungkusLazy>
+              </PermissionElement>
+            ),
+          },
+          {
+            path: 'monitoring-divisi',
+            element: (
+              <PermissionElement any={['divisi.monitoring', 'dashboard.pemantauan.kelola', 'dashboard.pemantauan.lihat']}>
+                <BungkusLazy>
+                  <MonitoringDivisiPage />
                 </BungkusLazy>
               </PermissionElement>
             ),

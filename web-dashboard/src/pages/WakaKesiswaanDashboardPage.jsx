@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { Users, UserCheck, Clock, UserX, FileText, Award } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, UserCheck, Clock, UserX, FileText, Award, RefreshCw } from 'lucide-react'
 
-import DashboardHeader from '../components/dashboard/DashboardHeader'
-import DashboardFilter from '../components/dashboard/DashboardFilter'
-import KpiCardGrid from '../components/dashboard/KpiCardGrid'
-import KpiCard from '../components/dashboard/KpiCard'
+import {
+  AppPageHeader,
+  AppBreadcrumb,
+  AppFilterBar,
+  KpiCard,
+  AppBadge,
+  AppButton,
+  SectionHeader,
+  PageContainer,
+} from '../components/app'
+
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
 
 import { managementDashboardService } from '../services/managementDashboardService'
 
 export default function WakaKesiswaanDashboardPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState(null)
@@ -37,8 +46,8 @@ export default function WakaKesiswaanDashboardPage() {
     fetchDashboard()
   }, [])
 
-  if (loading) return <SkeletonDashboard />
-  if (error) return <ErrorState message={error} onRetry={fetchDashboard} />
+  if (loading && !data) return <SkeletonDashboard />
+  if (error && !data) return <ErrorState message={error} onRetry={fetchDashboard} />
 
   const kpis = data?.kpis || {}
   const context = data?.context || {}
@@ -46,52 +55,99 @@ export default function WakaKesiswaanDashboardPage() {
   const formatNumber = (num) => (num !== undefined && num !== null ? Number(num).toLocaleString('id-ID') : '0')
 
   return (
-    <div className="space-y-6 pb-12">
-      <DashboardHeader
+    <PageContainer maxW="7xl">
+      <div className="space-y-6 pb-12">
+      {/* Breadcrumb Navigation */}
+      <AppBreadcrumb items={[{ label: 'Dashboard Waka Kesiswaan' }]} />
+
+      {/* Header */}
+      <AppPageHeader
+        variant="brand"
         title="Dashboard Waka Kesiswaan"
-        subtitle="Pantau kedisiplinan, keterlambatan, prestasi, dan catatan perilaku siswa"
-        roleName="Waka Kesiswaan"
-        academicYear={context.tahun_ajaran?.nama}
-        semester={context.semester?.nama}
+        eyebrow="Student Affairs & Discipline Oversight"
+        description="Pantau kedisiplinan, keterlambatan gerbang, permohonan izin, prestasi siswa, dan catatan perilaku kesiswaan."
+        welcomeName="Wakil Kesiswaan"
+        chips={[
+          context.tahun_ajaran ? `TA ${context.tahun_ajaran.nama}` : 'TBA 2026/2027',
+          context.semester ? `Semester ${context.semester.nama}` : 'Semester Ganjil',
+          'Scope: Bidang Kesiswaan',
+        ]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <AppButton variant="accent" size="sm" icon={Award} onClick={() => navigate('/dashboard/laporan-siswa')}>
+              Rekap Prestasi
+            </AppButton>
+            <AppButton variant="outline" size="sm" icon={RefreshCw} onClick={fetchDashboard} className="border-white/30 text-white hover:bg-white/10">
+              Segarkan Data
+            </AppButton>
+          </div>
+        }
       />
 
-      <DashboardFilter onReset={fetchDashboard} />
+      {/* Filter Bar */}
+      <AppFilterBar label="Filter Kesiswaan" onReset={fetchDashboard} />
 
-      <KpiCardGrid cols={3}>
-        <KpiCard
-          title="Total Siswa"
-          value={formatNumber(kpis.total_siswa?.total)}
-          icon={Users}
-        />
-        <KpiCard
-          title="Siswa Aktif"
-          value={formatNumber(kpis.siswa_aktif?.total)}
-          icon={UserCheck}
-        />
-        <KpiCard
-          title="Prestasi Siswa"
-          value={formatNumber(kpis.prestasi_siswa?.total)}
-          icon={Award}
-        />
-      </KpiCardGrid>
+      {/* Primary KPI Grid */}
+      <section className="space-y-3">
+        <SectionHeader title="Kondisi Kesiswaan & Prestasi" subtitle="Total populasi siswa aktif dan capaian prestasi terverifikasi" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <KpiCard
+            title="Total Siswa Terdaftar"
+            value={formatNumber(kpis.total_siswa?.total)}
+            icon={Users}
+            colorScheme="emerald"
+            badge="Siswa Total"
+            badgeVariant="success"
+          />
+          <KpiCard
+            title="Siswa Aktif"
+            value={formatNumber(kpis.siswa_aktif?.total)}
+            icon={UserCheck}
+            colorScheme="blue"
+            badge="Aktif Studi"
+            badgeVariant="info"
+          />
+          <KpiCard
+            title="Prestasi Siswa"
+            value={formatNumber(kpis.prestasi_siswa?.total)}
+            icon={Award}
+            colorScheme="amber"
+            badge="Prestasi"
+            badgeVariant="warning"
+          />
+        </div>
+      </section>
 
-      <KpiCardGrid cols={3}>
-        <KpiCard
-          title="Siswa Terlambat Hari Ini"
-          value={formatNumber(kpis.siswa_terlambat?.total)}
-          icon={Clock}
-        />
-        <KpiCard
-          title="Tidak Hadir Hari Ini"
-          value={formatNumber(kpis.siswa_tidak_hadir?.total)}
-          icon={UserX}
-        />
-        <KpiCard
-          title="Catatan Siswa / Perilaku"
-          value={formatNumber(kpis.catatan_siswa?.total)}
-          icon={FileText}
-        />
-      </KpiCardGrid>
+      {/* Secondary Discipline KPIs */}
+      <section className="space-y-3">
+        <SectionHeader title="Monitoring Kedisiplinan & Presensi Harian" subtitle="Tingkat keterlambatan, ketidakhadiran, dan catatan kesiswaan" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <KpiCard
+            title="Siswa Terlambat Hari Ini"
+            value={formatNumber(kpis.siswa_terlambat?.total)}
+            icon={Clock}
+            colorScheme="amber"
+            badge="Scan Gerbang"
+            badgeVariant="warning"
+          />
+          <KpiCard
+            title="Tidak Hadir Hari Ini"
+            value={formatNumber(kpis.siswa_tidak_hadir?.total)}
+            icon={UserX}
+            colorScheme="rose"
+            badge="Tanpa Keterangan"
+            badgeVariant="danger"
+          />
+          <KpiCard
+            title="Catatan Siswa / Perilaku"
+            value={formatNumber(kpis.catatan_siswa?.total)}
+            icon={FileText}
+            colorScheme="indigo"
+            badge="Catatan Kesiswaan"
+          />
+        </div>
+      </section>
     </div>
+    </PageContainer>
   )
 }

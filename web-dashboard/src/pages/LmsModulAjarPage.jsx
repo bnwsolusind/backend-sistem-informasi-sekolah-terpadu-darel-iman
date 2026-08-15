@@ -20,6 +20,8 @@ import {
   User,
 } from 'lucide-react'
 import { lmsModulAjarService } from '../services/lmsModulAjarService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -304,7 +306,11 @@ export default function LmsModulAjarPage({ embedded = false, hideBreadcrumb = fa
   }
 
   return (
-    <MasterDataPage className="education-unit-page modul-ajar-master-page" hideBreadcrumb={embedded || hideBreadcrumb}>
+    <PageContainer maxW="7xl">
+      {!(embedded || hideBreadcrumb) && (
+        <AppBreadcrumb items={[{ label: 'LMS & Akademik', href: '/dashboard' }, { label: 'Modul Ajar' }]} />
+      )}
+      <MasterDataPage className="education-unit-page modul-ajar-master-page" hideBreadcrumb={embedded || hideBreadcrumb}>
       <MasterPageHeader
         tone="brand"
         icon={BookOpen}
@@ -1150,5 +1156,6 @@ export default function LmsModulAjarPage({ embedded = false, hideBreadcrumb = fa
         </div>
       )}
     </MasterDataPage>
+    </PageContainer>
   )
 }

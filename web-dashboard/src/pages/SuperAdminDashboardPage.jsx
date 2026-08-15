@@ -14,7 +14,9 @@ import {
   Activity,
   UserPlus,
   Key,
-  FileText
+  FileText,
+  RefreshCw,
+  Search,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -24,17 +26,22 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  LineChart,
-  Line
 } from 'recharts'
 
-import DashboardHeader from '../components/dashboard/DashboardHeader'
-import DashboardFilter from '../components/dashboard/DashboardFilter'
-import KpiCardGrid from '../components/dashboard/KpiCardGrid'
-import KpiCard from '../components/dashboard/KpiCard'
+import {
+  AppPageHeader,
+  AppBreadcrumb,
+  AppFilterBar,
+  KpiCard,
+  AppDataTable,
+  AppBadge,
+  AppButton,
+  SectionHeader,
+  ActionDropdown,
+  PageContainer,
+} from '../components/app'
+
 import ChartCard from '../components/dashboard/ChartCard'
-import DataTableCard from '../components/dashboard/DataTableCard'
-import QuickActionCard from '../components/dashboard/QuickActionCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
 import KpiQuickViewModal from '../components/KpiQuickViewModal'
@@ -71,233 +78,342 @@ export default function SuperAdminDashboardPage() {
     fetchDashboard()
   }, [])
 
-  if (loading) return <SkeletonDashboard />
-  if (error) return <ErrorState message={error} onRetry={fetchDashboard} />
+  if (loading && !data) return <SkeletonDashboard />
+  if (error && !data) return <ErrorState message={error} onRetry={fetchDashboard} />
 
   const kpis = data?.kpis || {}
   const context = data?.context || {}
   const charts = data?.charts || {}
   const unitSummaries = data?.unit_summaries || []
   const recentLogins = data?.recent_logins || []
-  const recentActivities = data?.recent_activities || []
-
-  const quickActions = [
-    {
-      label: 'Tambah Unit',
-      icon: Plus,
-      onClick: () => navigate('/dashboard/master/unit-pendidikan'),
-      permissions: ['foundation.unit.view']
-    },
-    {
-      label: 'Tambah Pegawai',
-      icon: UserPlus,
-      onClick: () => navigate('/dashboard/employees'),
-      permissions: ['foundation.employee.view']
-    },
-    {
-      label: 'Tambah Siswa',
-      icon: Users,
-      onClick: () => navigate('/dashboard/students'),
-      permissions: ['kesiswaan.data_lengkap_siswa']
-    },
-    {
-      label: 'Kelola Role',
-      icon: Key,
-      onClick: () => navigate('/dashboard/hak-akses'),
-      permissions: ['sistem.hak_akses']
-    },
-    {
-      label: 'Audit Log',
-      icon: FileText,
-      onClick: () => navigate('/dashboard/notifications'),
-      permissions: ['sistem.pengaturan']
-    }
-  ]
 
   const formatNumber = (num) => (num !== undefined && num !== null ? Number(num).toLocaleString('id-ID') : '0')
 
+  const unitColumns = [
+    {
+      key: 'name',
+      label: 'Nama Unit Pendidikan',
+      sortable: true,
+      render: (row) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0E5C44]/10 text-[#0E5C44] font-black text-xs dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]">
+            {(row.code || row.name || 'UN').substring(0, 3).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="font-extrabold text-slate-900 dark:text-white truncate">{row.name}</p>
+            <p className="text-[11px] text-slate-400 font-medium">{row.code || 'Unit Sekolah'}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'siswa_count',
+      label: 'Siswa Aktif',
+      sortable: true,
+      render: (row) => (
+        <span className="font-extrabold text-[#0E5C44] dark:text-[#3FBF75]">
+          {formatNumber(row.siswa_count)} Siswa
+        </span>
+      ),
+    },
+    {
+      key: 'guru_count',
+      label: 'Guru',
+      sortable: true,
+      render: (row) => <span className="font-bold text-slate-800 dark:text-slate-200">{formatNumber(row.guru_count)}</span>,
+    },
+    {
+      key: 'pegawai_count',
+      label: 'Pegawai',
+      sortable: true,
+      hideOnMobile: true,
+      render: (row) => <span className="font-semibold text-slate-600 dark:text-slate-400">{formatNumber(row.pegawai_count)}</span>,
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (row) => (
+        <AppBadge variant={row.status === 'Aktif' || row.status === 'aktif' ? 'success' : 'secondary'} dot>
+          {row.status || 'Aktif'}
+        </AppBadge>
+      ),
+    },
+  ]
+
+  const loginColumns = [
+    {
+      key: 'name',
+      label: 'Nama / Email',
+      render: (row) => (
+        <div className="min-w-0">
+          <p className="font-bold text-slate-900 dark:text-white truncate text-xs">{row.name}</p>
+          <p className="text-[10px] text-slate-400 truncate">{row.email}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'created_at',
+      label: 'Waktu Login',
+      render: (row) => <span className="text-xs text-slate-500 font-medium">{row.created_at || 'Baru saja'}</span>,
+    },
+  ]
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* Header */}
-      <DashboardHeader
-        title="Dashboard Utama Super Admin"
-        subtitle="Pantau dan kelola seluruh unit pendidikan, data master, serta performa sistem terpadu."
-        roleName="Super Admin"
-        academicYear={context.tahun_ajaran?.nama}
-        semester={context.semester?.nama}
-      />
+    <PageContainer maxW="7xl">
+      <div className="space-y-6 pb-12">
+        {/* Breadcrumb Navigation */}
+        <AppBreadcrumb items={[{ label: 'Dashboard Super Admin' }]} />
 
-      {/* Filter */}
-      <DashboardFilter onReset={fetchDashboard} />
+        {/* Header */}
+        <AppPageHeader
+          variant="brand"
+          title="Dashboard Utama Super Admin"
+          eyebrow="System Management & Administration"
+          description="Pantau dan kelola seluruh unit pendidikan, data master, hak akses pengguna, serta performa sistem terpadu."
+          welcomeName="Super Admin"
+          chips={[
+            context.tahun_ajaran ? `Tahun Ajaran ${context.tahun_ajaran.nama}` : 'TBA 2026/2027',
+            context.semester ? `Semester ${context.semester.nama}` : 'Semester Ganjil',
+            'Sistem Manajemen Terpadu',
+          ]}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <AppButton variant="accent" size="sm" icon={Plus} onClick={() => navigate('/dashboard/master/unit-pendidikan')}>
+                Tambah Unit
+              </AppButton>
+              <AppButton variant="outline" size="sm" icon={RefreshCw} onClick={fetchDashboard} className="border-white/30 text-white hover:bg-white/10">
+                Segarkan Data
+              </AppButton>
+            </div>
+          }
+        />
 
-      {/* Primary KPI Grid (System & Enterprise Metrics) */}
-      <KpiCardGrid cols={4}>
-        <KpiCard
-          title="Total Unit Pendidikan"
-          value={formatNumber(kpis.total_units?.total)}
-          icon={Building2}
-          onClick={() => setActiveModal('total_units')}
-        />
-        <KpiCard
-          title="Unit Aktif"
-          value={formatNumber(kpis.active_units?.total)}
-          icon={School}
-          onClick={() => setActiveModal('active_units')}
-        />
-        <KpiCard
-          title="Total Pegawai"
-          value={formatNumber(kpis.total_employees?.total)}
-          icon={UserCheck}
-          onClick={() => setActiveModal('total_employees')}
-        />
-        <KpiCard
-          title="Total Guru"
-          value={formatNumber(kpis.total_teachers?.total)}
-          icon={GraduationCap}
-          onClick={() => setActiveModal('total_teachers')}
-        />
-      </KpiCardGrid>
+        {/* Filter Bar */}
+        <AppFilterBar label="Filter Sistem" onReset={fetchDashboard} />
 
-      {/* Secondary KPI Grid (Academic & User Metrics) */}
-      <KpiCardGrid cols={4}>
-        <KpiCard
-          title="Total Siswa"
-          value={formatNumber(kpis.total_students?.total)}
-          icon={Users}
-          onClick={() => setActiveModal('total_students')}
-        />
-        <KpiCard
-          title="Total Orang Tua"
-          value={formatNumber(kpis.total_parents?.total)}
-          icon={HeartHandshake}
-          onClick={() => setActiveModal('total_parents')}
-        />
-        <KpiCard
-          title="Total Rombel / Kelas"
-          value={formatNumber(kpis.total_rombel?.total || kpis.total_classes?.total)}
-          icon={Layers}
-          onClick={() => setActiveModal('total_rombel')}
-        />
-        <KpiCard
-          title="Total Alumni"
-          value={formatNumber(kpis.total_alumni?.total)}
-          icon={GraduationCap}
-          onClick={() => setActiveModal('total_alumni')}
-        />
-      </KpiCardGrid>
-
-      {/* System Security & User Health KPIs */}
-      <KpiCardGrid cols={3}>
-        <KpiCard
-          title="Pengguna Sistem Aktif"
-          value={formatNumber(kpis.active_users?.total)}
-          icon={ShieldCheck}
-          onClick={() => setActiveModal('active_users')}
-        />
-        <KpiCard
-          title="Role Terdaftar"
-          value={formatNumber(kpis.active_roles?.total)}
-          icon={Key}
-          onClick={() => setActiveModal('active_roles')}
-        />
-        <KpiCard
-          title="User Tanpa Role"
-          value={formatNumber(kpis.users_without_role?.total)}
-          icon={UserX}
-          onClick={() => setActiveModal('users_without_role')}
-        />
-      </KpiCardGrid>
-
-      {/* Quick Actions */}
-      <QuickActionCard title="Aksi Cepat Super Admin" actions={quickActions} />
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard
-          title="Distribusi Siswa per Unit Pendidikan"
-          subtitle="Jumlah siswa aktif yang terdaftar di masing-masing unit"
-          empty={!charts.student_distribution || charts.student_distribution.length === 0}
-        >
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.student_distribution || []}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="name" stroke="#888888" fontSize={11} />
-                <YAxis stroke="#888888" fontSize={11} />
-                <Tooltip />
-                <Bar dataKey="total" fill="#0E5C44" radius={[6, 6, 0, 0]} name="Siswa" />
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Primary KPI Grid */}
+        <section className="space-y-3">
+          <SectionHeader title="Metrik Utama Sistem & Unit" subtitle="Ringkasan agregat dari seluruh modul dan unit pendidikan" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              title="Total Unit Pendidikan"
+              value={formatNumber(kpis.total_units?.total)}
+              icon={Building2}
+              colorScheme="emerald"
+              badge="Terdaftar"
+              badgeVariant="success"
+              onClick={() => setActiveModal('total_units')}
+            />
+            <KpiCard
+              title="Unit Sekolah Aktif"
+              value={formatNumber(kpis.active_units?.total)}
+              icon={School}
+              colorScheme="blue"
+              badge="Aktif"
+              badgeVariant="info"
+              onClick={() => setActiveModal('active_units')}
+            />
+            <KpiCard
+              title="Total Pegawai & Tendik"
+              value={formatNumber(kpis.total_employees?.total)}
+              icon={UserCheck}
+              colorScheme="violet"
+              badge="SDM Staf"
+              badgeVariant="purple"
+              onClick={() => setActiveModal('total_employees')}
+            />
+            <KpiCard
+              title="Total Guru Pengajar"
+              value={formatNumber(kpis.total_teachers?.total)}
+              icon={GraduationCap}
+              colorScheme="indigo"
+              badge="Pendidik"
+              badgeVariant="success"
+              onClick={() => setActiveModal('total_teachers')}
+            />
           </div>
-        </ChartCard>
+        </section>
 
-        <ChartCard
-          title="Distribusi Guru & Pegawai per Unit"
-          subtitle="Perbandingan jumlah guru dan tenaga kependidikan"
-          empty={!charts.staff_distribution || charts.staff_distribution.length === 0}
-        >
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.staff_distribution || []}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="name" stroke="#888888" fontSize={11} />
-                <YAxis stroke="#888888" fontSize={11} />
-                <Tooltip />
-                <Bar dataKey="guru" fill="#1E8E5A" radius={[6, 6, 0, 0]} name="Guru" />
-                <Bar dataKey="pegawai" fill="#3FBF75" radius={[6, 6, 0, 0]} name="Pegawai" />
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Secondary KPI Grid */}
+        <section className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              title="Total Siswa Aktif"
+              value={formatNumber(kpis.total_students?.total)}
+              icon={Users}
+              colorScheme="emerald"
+              badge="Siswa"
+              badgeVariant="success"
+              onClick={() => setActiveModal('total_students')}
+            />
+            <KpiCard
+              title="Total Orang Tua"
+              value={formatNumber(kpis.total_parents?.total)}
+              icon={HeartHandshake}
+              colorScheme="rose"
+              badge="Wali"
+              badgeVariant="warning"
+              onClick={() => setActiveModal('total_parents')}
+            />
+            <KpiCard
+              title="Total Rombel / Kelas"
+              value={formatNumber(kpis.total_rombel?.total || kpis.total_classes?.total)}
+              icon={Layers}
+              colorScheme="blue"
+              badge="Rombel"
+              badgeVariant="info"
+              onClick={() => setActiveModal('total_rombel')}
+            />
+            <KpiCard
+              title="Total Alumni"
+              value={formatNumber(kpis.total_alumni?.total)}
+              icon={GraduationCap}
+              colorScheme="amber"
+              badge="Lulusan"
+              badgeVariant="purple"
+              onClick={() => setActiveModal('total_alumni')}
+            />
           </div>
-        </ChartCard>
-      </div>
+        </section>
 
-      {/* Data Tables Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <DataTableCard
-            title="Ringkasan Unit Pendidikan"
-            subtitle="Daftar unit beserta statistik utama"
-            headers={['No', 'Nama Unit', 'Kode', 'Siswa', 'Guru', 'Pegawai', 'Status']}
-            rows={unitSummaries.map((u, idx) => [
-              idx + 1,
-              <span key="name" className="font-semibold text-slate-900 dark:text-white">{u.name}</span>,
-              u.code,
-              formatNumber(u.siswa_count),
-              formatNumber(u.guru_count),
-              formatNumber(u.pegawai_count),
-              <span key="status" className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                {u.status}
-              </span>
-            ])}
-            emptyMessage="Belum ada unit pendidikan terdaftar."
+        {/* System Security & User Health KPIs */}
+        <section className="space-y-3">
+          <SectionHeader title="Keamanan & Pengguna Sistem" subtitle="Status akun terdaftar, hak akses, dan kesehatan otentikasi" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <KpiCard
+              title="Pengguna Sistem Aktif"
+              value={formatNumber(kpis.active_users?.total)}
+              icon={ShieldCheck}
+              colorScheme="emerald"
+              badge="User"
+              onClick={() => setActiveModal('active_users')}
+            />
+            <KpiCard
+              title="Role Terdaftar"
+              value={formatNumber(kpis.active_roles?.total)}
+              icon={Key}
+              colorScheme="indigo"
+              badge="Spatie Roles"
+              onClick={() => setActiveModal('active_roles')}
+            />
+            <KpiCard
+              title="User Tanpa Role"
+              value={formatNumber(kpis.users_without_role?.total)}
+              icon={UserX}
+              colorScheme="rose"
+              badge="Perlu Action"
+              badgeVariant="danger"
+              onClick={() => setActiveModal('users_without_role')}
+            />
+          </div>
+        </section>
+
+        {/* Quick Action Navigation */}
+        <section className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Aksi Cepat Super Admin</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Pintas manajemen data master dan konfigurasi sistem</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <AppButton variant="secondary" size="sm" icon={Plus} onClick={() => navigate('/dashboard/master/unit-pendidikan')}>
+                Tambah Unit
+              </AppButton>
+              <AppButton variant="secondary" size="sm" icon={UserPlus} onClick={() => navigate('/dashboard/employees')}>
+                Tambah Pegawai
+              </AppButton>
+              <AppButton variant="secondary" size="sm" icon={Users} onClick={() => navigate('/dashboard/students')}>
+                Tambah Siswa
+              </AppButton>
+              <AppButton variant="primary" size="sm" icon={Key} onClick={() => navigate('/dashboard/hak-akses')}>
+                Kelola Role & Permissions
+              </AppButton>
+            </div>
+          </div>
+        </section>
+
+        {/* Charts Section */}
+        <section className="space-y-3">
+          <SectionHeader title="Visualisasi Distribusi SDM & Siswa" subtitle="Grafik perbandingan kesiswaan dan kepegawaian antar unit" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartCard
+              title="Distribusi Siswa per Unit Pendidikan"
+              subtitle="Jumlah siswa aktif terdaftar di masing-masing unit"
+              empty={!charts.student_distribution || charts.student_distribution.length === 0}
+            >
+              <div className="h-64 w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={charts.student_distribution || []}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={11} />
+                    <YAxis stroke="#888888" fontSize={11} />
+                    <Tooltip />
+                    <Bar dataKey="total" fill="#0E5C44" radius={[6, 6, 0, 0]} name="Siswa" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartCard>
+
+            <ChartCard
+              title="Distribusi Guru & Pegawai per Unit"
+              subtitle="Perbandingan jumlah guru dan tenaga kependidikan"
+              empty={!charts.staff_distribution || charts.staff_distribution.length === 0}
+            >
+              <div className="h-64 w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={charts.staff_distribution || []}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={11} />
+                    <YAxis stroke="#888888" fontSize={11} />
+                    <Tooltip />
+                    <Bar dataKey="guru" fill="#1E8E5A" radius={[6, 6, 0, 0]} name="Guru" />
+                    <Bar dataKey="pegawai" fill="#3FBF75" radius={[6, 6, 0, 0]} name="Pegawai" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartCard>
+          </div>
+        </section>
+
+        {/* Data Tables Section */}
+        <section className="space-y-3">
+          <SectionHeader title="Ringkasan Master Unit & Log Sesi User" subtitle="Daftar unit sekolah dan audit sesi login pengguna terbaru" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <AppDataTable
+                title="Ringkasan Master Unit Pendidikan"
+                description="Data statistik unit terdaftar dalam sistem"
+                data={unitSummaries}
+                columns={unitColumns}
+                keyField="id"
+                searchPlaceholder="Cari unit..."
+                onView={(row) => navigate(`/dashboard/master/unit-pendidikan`)}
+              />
+            </div>
+
+            <div className="lg:col-span-1">
+              <AppDataTable
+                title="User Login Terbaru"
+                description="Daftar sesi masuk pengguna terkini"
+                data={recentLogins}
+                columns={loginColumns}
+                keyField="id"
+                showToolbar={false}
+                showPagination={false}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* KPI Detail Modal */}
+        <ModalErrorBoundary onClose={() => setActiveModal(null)}>
+          <KpiQuickViewModal
+            type={activeModal}
+            isOpen={Boolean(activeModal)}
+            onClose={() => setActiveModal(null)}
           />
-        </div>
-
-        <div className="space-y-6">
-          <DataTableCard
-            title="User Login Terbaru"
-            subtitle="Sesi masuk pengguna terbaru"
-            headers={['Nama / Email', 'Waktu']}
-            rows={recentLogins.map((item, idx) => [
-              <div key="user">
-                <div className="font-semibold text-slate-900 dark:text-white text-xs">{item.name}</div>
-                <div className="text-[11px] text-slate-400">{item.email}</div>
-              </div>,
-              <span key="time" className="text-xs text-slate-500">{item.created_at || 'Baru saja'}</span>
-            ])}
-            emptyMessage="Belum ada catatan sesi login terbaru."
-          />
-        </div>
+        </ModalErrorBoundary>
       </div>
-
-      {/* KPI Detail Modal (Real PostgreSQL Data) */}
-      <ModalErrorBoundary onClose={() => setActiveModal(null)}>
-        <KpiQuickViewModal
-          type={activeModal}
-          isOpen={Boolean(activeModal)}
-          onClose={() => setActiveModal(null)}
-        />
-      </ModalErrorBoundary>
-    </div>
+    </PageContainer>
   )
 }

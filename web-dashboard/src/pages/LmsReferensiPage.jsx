@@ -31,6 +31,8 @@ import {
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { lmsReferensiService } from '../services/lmsReferensiService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
 export default function LmsReferensiPage() {
   const [dataReferensi, setDataReferensi] = useState([])
@@ -274,7 +276,9 @@ export default function LmsReferensiPage() {
   }
 
   return (
-    <div className="space-y-6 p-6 min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
+    <PageContainer maxW="7xl">
+      <AppBreadcrumb items={[{ label: 'LMS & Akademik', href: '/dashboard' }, { label: 'Referensi Pembelajaran' }]} />
+      <div className="space-y-6 p-6 min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-8 text-white shadow-xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1026,5 +1030,6 @@ export default function LmsReferensiPage() {
         </div>
       )}
     </div>
+    </PageContainer>
   )
 }

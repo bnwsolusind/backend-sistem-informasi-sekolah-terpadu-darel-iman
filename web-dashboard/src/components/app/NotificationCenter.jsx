@@ -4,6 +4,12 @@ import { Drawer } from '../ui/drawer'
 import { cn } from '../../lib/utils'
 import AppBadge from './AppBadge'
 import { reportService } from '../../services/reportService'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from '../tailgrids/core/hover-card'
+import { AnimatePresence, motion } from 'framer-motion'
 
 const CATEGORIES = [
   { id: 'semua', label: 'Semua' },
@@ -145,26 +151,82 @@ export default function NotificationCenter({
     [filteredItems]
   )
 
+  const [isHoverOpen, setIsHoverOpen] = useState(false)
+
   return (
     <>
-      {/* Notification Bell */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className={cn(
-          'relative rounded-xl border border-slate-200/80 bg-slate-50/80 p-2 text-slate-600 transition-all hover:bg-slate-100 hover:text-[#0E5C44] dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800',
-          bellClassName
-        )}
-        title="Notifikasi Sistem"
-        aria-label={`Notifikasi${resolvedUnread > 0 ? `, ${resolvedUnread} belum dibaca` : ''}`}
-      >
-        <Bell className="h-4 w-4" />
-        {resolvedUnread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs">
-            {resolvedUnread > 9 ? '9+' : resolvedUnread}
-          </span>
-        )}
-      </button>
+      {/* Notification Bell with TailGrids HoverCard */}
+      <HoverCard open={isHoverOpen} onOpenChange={setIsHoverOpen}>
+        <HoverCardTrigger
+          onClick={() => setIsOpen(true)}
+          className={cn(
+            'relative rounded-xl border border-slate-200/80 bg-slate-50/80 p-2 text-slate-600 transition-all hover:bg-slate-100 hover:text-[#0E5C44] dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800',
+            bellClassName
+          )}
+          title="Notifikasi Sistem"
+          aria-label={`Notifikasi${resolvedUnread > 0 ? `, ${resolvedUnread} belum dibaca` : ''}`}
+        >
+          <Bell className="h-4 w-4" />
+          {resolvedUnread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-xs">
+              {resolvedUnread > 9 ? '9+' : resolvedUnread}
+            </span>
+          )}
+        </HoverCardTrigger>
+        <AnimatePresence>
+          {isHoverOpen && (
+            <HoverCardContent className="w-64 p-0 bg-transparent ring-0 shadow-none border-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.92, y: 15, rotateX: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10, rotateX: -5 }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 350,
+                  damping: 25,
+                  mass: 1,
+                }}
+                className="w-64 rounded-xl border border-slate-200 bg-white p-4 text-xs shadow-xl dark:border-slate-800 dark:bg-[#1B2433]"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-full bg-emerald-500/20 text-[#0E5C44] dark:text-[#3FBF75] flex items-center justify-center font-bold">
+                      <Bell className="size-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-[13px]">
+                        Pemberitahuan Sistem
+                      </h4>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        {resolvedUnread > 0 ? `${resolvedUnread} Belum Dibaca` : 'Semua Sudah Dibaca'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[12px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                    {resolvedUnread > 0
+                      ? `Anda memiliki ${resolvedUnread} pemberitahuan baru yang memerlukan perhatian.`
+                      : 'Belum ada notifikasi baru saat ini. Klik icon untuk melihat riwayat log.'}
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden dark:bg-slate-800">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: resolvedUnread > 0 ? '100%' : '30%' }}
+                        transition={{
+                          delay: 0.2,
+                          duration: 0.8,
+                          ease: 'easeInOut',
+                        }}
+                        className={`h-full ${resolvedUnread > 0 ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </HoverCardContent>
+          )}
+        </AnimatePresence>
+      </HoverCard>
 
       {/* Notification Drawer */}
       <Drawer isOpen={isOpen} onClose={() => setIsOpen(false)} title="Pemberitahuan & Activity Log" position="right">

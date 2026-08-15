@@ -30,6 +30,8 @@ import {
   Info,
 } from 'lucide-react'
 import { lmsMediaService } from '../services/lmsMediaService'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
 export default function LmsMediaPage() {
   const [dataMedia, setDataMedia] = useState([])

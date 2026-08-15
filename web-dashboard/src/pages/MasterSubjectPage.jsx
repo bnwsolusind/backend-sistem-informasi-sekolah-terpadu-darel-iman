@@ -24,6 +24,8 @@ import { subjectService } from '../services/subjectService'
 import { masterKurikulumService } from '../services/masterKurikulumService'
 import { educationUnitService } from '../services/educationUnitService'
 import { ActionDropdown, AppBadge, AppButton, AppModal } from '../components/app'
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
 import {
   MasterActionButton,
   MasterDataSection,
@@ -372,12 +374,17 @@ export default function MasterSubjectPage({ embedded = false, hideBreadcrumb = f
   }
 
   return (
-    <MasterDataPage
-      className="education-unit-page subject-master-page"
-      hideBreadcrumb={embedded || hideBreadcrumb}
-    >
+    <PageContainer maxW="7xl">
+      {!(embedded || hideBreadcrumb) && (
+        <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Mata Pelajaran' }]} />
+      )}
+      <MasterDataPage
+        className="education-unit-page subject-master-page"
+        hideBreadcrumb={embedded || hideBreadcrumb}
+      >
       {/* PAGE HEADER */}
       <MasterPageHeader
+        tone="brand"
         icon={BookOpen}
         title="Master Mata Pelajaran"
         description="Kelola referensi mata pelajaran untuk kurikulum, jadwal, penilaian, dan rapor."
@@ -939,5 +946,6 @@ export default function MasterSubjectPage({ embedded = false, hideBreadcrumb = f
       </AppModal>
 
     </MasterDataPage>
+    </PageContainer>
   )
 }

@@ -357,6 +357,7 @@ class RolePermissionSeeder extends Seeder
             'Kepala Sekolah' => [
                 'dashboard.view',
                 'dashboard.pemantauan.lihat',
+                'dashboard.pemantauan.kelola',
                 'employee.view',
                 'divisi.monitoring',
                 'kehadiran.siswa.monitoring',
@@ -803,7 +804,6 @@ class RolePermissionSeeder extends Seeder
             'divisi.laporan_bulanan',
         ];
         $monitoringOnlyRoles = [
-            'Kepala Sekolah', 'kepala_sekolah', 'kepsek',
             'Kepala Bidang Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan',
             'Divisi Bahasa', 'Divisi Program Khusus', 'Wakil Kepala Sekolah',
             'Wakil Kurikulum', 'Wakil Kesiswaan',

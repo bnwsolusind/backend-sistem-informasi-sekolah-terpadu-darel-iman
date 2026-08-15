@@ -184,28 +184,36 @@ export default function JabatanFormModal({
   }
 
   return (
-    <div className="ui-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-labelledby="form-jabatan-title">
-      <div className="ui-modal my-auto flex max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433] sm:max-h-[calc(100vh-2rem)]">
-        {/* Modal Header Bar (Persis Gambar Referensi UI/UX) */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"><Network className="h-5 w-5" /></span>
-            <div><h2 id="form-jabatan-title" className="text-lg font-bold text-slate-900 dark:text-white">{isEdit ? 'Edit Jabatan' : 'Tambah Jabatan'}</h2><p className="text-xs text-slate-500 dark:text-slate-400">Lengkapi informasi jabatan secara bertahap.</p></div>
+    <div
+      id="jabatan-form-modal"
+      className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="form-jabatan-title"
+      tabIndex={-1}
+    >
+      <div className="modal-dialog font-sans w-full max-w-4xl">
+        <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+          {/* Modal Header Bar */}
+          <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"><Network className="h-5 w-5" /></span>
+              <div><h3 id="form-jabatan-title" className="modal-title text-base font-bold text-slate-900 dark:text-white">{isEdit ? 'Edit Jabatan' : 'Tambah Jabatan'}</h3><p className="text-xs text-slate-500 dark:text-slate-400">Lengkapi informasi jabatan secara bertahap.</p></div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-text btn-circle btn-sm absolute end-3 top-3"
+              aria-label="Close"
+              data-overlay="#jabatan-form-modal"
+            >
+              <span className="icon-[tabler--x] size-4"></span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
-            title="Tutup formulir jabatan"
-            aria-label="Tutup formulir jabatan"
-          >
-            <FaTimes className="h-5 w-5" />
-          </button>
-        </div>
 
-        {/* Modal Main Body Grid */}
-        <form onSubmit={handleSubmit(submitHandler)} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col">
+          {/* Modal Main Body Grid */}
+          <form onSubmit={handleSubmit(submitHandler)} className="flex min-h-0 flex-1 flex-col">
+            <div className="modal-body flex min-h-0 flex-1 flex-col overflow-y-auto p-0">
             {/* Left Column: Wizard Stepper Vertikal */}
             <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/60">
               {[
@@ -564,14 +572,15 @@ export default function JabatanFormModal({
             </div>
           </div>
 
-          {/* Modal Bottom Action Footer (Persis Gambar UI/UX Referensi) */}
-          <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
+          {/* Modal Bottom Action Footer */}
+          <div className="modal-footer flex items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              className="btn btn-soft btn-secondary"
+              data-overlay="#jabatan-form-modal"
             >
-              Batal
+              Close
             </button>
 
             <div className="flex items-center gap-2.5">
@@ -579,7 +588,7 @@ export default function JabatanFormModal({
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="rounded-xl bg-[#046c4e] hover:bg-[#03543d] px-6 py-2.5 text-xs font-bold text-white shadow-md transition-colors flex items-center gap-1.5"
+                  className="btn btn-primary inline-flex items-center gap-1.5"
                 >
                   <span>Selanjutnya</span>
                   <span>→</span>
@@ -588,10 +597,10 @@ export default function JabatanFormModal({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-xl bg-[#046c4e] hover:bg-[#03543d] px-6 py-2.5 text-xs font-bold text-white shadow-md disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                  className="btn btn-primary inline-flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <FaCheckCircle className="w-3.5 h-3.5" />
-                  <span>{isSubmitting ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Jabatan'}</span>
+                  <FaCheckCircle className="size-4" />
+                  <span>{isSubmitting ? 'Menyimpan...' : isEdit ? 'Save changes' : 'Save changes'}</span>
                 </button>
               )}
             </div>
@@ -599,5 +608,6 @@ export default function JabatanFormModal({
         </form>
       </div>
     </div>
+  </div>
   )
 }
