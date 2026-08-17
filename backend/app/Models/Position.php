@@ -14,20 +14,16 @@ class Position extends Model
     protected $table = 'positions';
 
     public const LEVEL_JABATAN_MAP = [
-        1 => 'Ketua Yayasan',
-        2 => 'Pengurus Yayasan',
+        1 => 'Pengurus Yayasan',
+        2 => 'Divisi Pendidikan',
         3 => 'Kepala Sekolah',
         4 => 'Wakil Kepala Sekolah',
         5 => 'Kepala Divisi',
-        6 => 'Kepala Tata Usaha',
+        6 => 'Tata Usaha',
         7 => 'Operator Sekolah',
-        8 => 'Bendahara',
-        9 => 'Guru',
-        10 => 'Wali Kelas',
-        11 => 'Pembimbing Tahfizh',
-        12 => 'Staf Administrasi',
-        13 => 'Satpam',
-        14 => 'Cleaning Service',
+        8 => 'Guru',
+        9 => 'Musyrif',
+        10 => 'Staf Administrasi',
     ];
 
     public const SATUAN_KERJA_OPTIONS = [
@@ -104,6 +100,32 @@ class Position extends Model
     public function setDeskripsiAttribute(?string $value): void
     {
         $this->attributes['description'] = $value;
+    }
+
+    /**
+     * Periksa apakah posisi/jabatan ini tergolong struktur Pengurus Yayasan.
+     */
+    public function isPengurusYayasan(): bool
+    {
+        if ((int) $this->level_jabatan === 1) {
+            return true;
+        }
+
+        if ($this->satuan_kerja === 'Pengurus') {
+            return true;
+        }
+
+        $name = strtolower($this->name ?? '');
+        if (str_contains($name, 'pengurus yayasan') || str_contains($name, 'yayasan')) {
+            return true;
+        }
+
+        $levelLabel = strtolower($this->level_label ?? '');
+        if (str_contains($levelLabel, 'pengurus yayasan') || str_contains($levelLabel, 'yayasan')) {
+            return true;
+        }
+
+        return false;
     }
 
     // Relations

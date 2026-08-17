@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             SuperAdminAcceptanceSeeder::class,
             ModulSemesterSeeder::class,
             QrCredentialSeeder::class,
+            PemantauanDivisiSeeder::class,
         ]);
 
         // 5. LMS Core & Content
@@ -77,6 +78,7 @@ class DatabaseSeeder extends Seeder
 
         if (app()->environment(['local', 'development', 'testing'])) {
             $this->call(StudentMutationSeeder::class);
+            $this->call(RekapPrestasiSiswaSeeder::class);
         }
     }
 }

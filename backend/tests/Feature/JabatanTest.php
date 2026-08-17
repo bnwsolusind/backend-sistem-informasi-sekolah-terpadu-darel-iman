@@ -81,4 +81,35 @@ class JabatanTest extends TestCase
         ])->assertUnprocessable()
             ->assertJsonValidationErrors(['satuan_kerja', 'scope_akses']);
     }
+
+    public function test_kepala_sekolah_tidak_dapat_mengubah_atau_menghapus_jabatan_pengurus_yayasan(): void
+    {
+        $positionYayasan = \App\Models\Position::create([
+            'code' => 'JBT-YYS',
+            'name' => 'Pengurus Yayasan',
+            'satuan_kerja' => 'Pengurus',
+            'scope_akses' => 'semua_unit',
+            'level_jabatan' => 1,
+            'is_active' => true,
+        ]);
+
+        $kepsekUser = User::factory()->create();
+        $kepsekUser->assignRole('Kepala Sekolah');
+
+        // Test update restricted
+        $updateResponse = $this->actingAs($kepsekUser)
+            ->putJson("/api/jabatan/{$positionYayasan->id}", [
+                'nama_jabatan' => 'Pengurus Yayasan Modified',
+            ]);
+
+        $updateResponse->assertStatus(403)
+            ->assertJsonPath('status', 'error');
+
+        // Test delete restricted
+        $deleteResponse = $this->actingAs($kepsekUser)
+            ->deleteJson("/api/jabatan/{$positionYayasan->id}");
+
+        $deleteResponse->assertStatus(403)
+            ->assertJsonPath('status', 'error');
+    }
 }

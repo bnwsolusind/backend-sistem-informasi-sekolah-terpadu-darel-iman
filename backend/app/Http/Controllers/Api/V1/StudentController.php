@@ -22,11 +22,17 @@ class StudentController extends Controller
     {
         [$canAccessAllUnits, $unitId] = $this->scopeForUser($request->user());
 
+        $requestedUnitId = $request->validated('unit_id')
+            ?? $request->query('unit_id')
+            ?? $request->query('unit_pendidikan_id');
+
+        $effectiveUnitId = $requestedUnitId ?: $unitId;
+
         $data = $this->studentRepository->paginate(
             search: (string) $request->validated('search', ''),
             perPage: (int) $request->validated('per_page', 15),
-            unitId: $unitId,
-            canAccessAllUnits: $canAccessAllUnits
+            unitId: $effectiveUnitId,
+            canAccessAllUnits: $canAccessAllUnits && empty($requestedUnitId)
         );
 
         return response()->json($data);
@@ -88,6 +94,7 @@ class StudentController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         [$bolehSemuaUnit, $unitPengguna, $employee] = $this->scopeForUser($request->user());
+        $requestedUnitId = $request->query('unit_id') ?? $request->query('unit_pendidikan_id');
 
         $studentQuery = Student::query()
             ->with([
@@ -95,7 +102,11 @@ class StudentController extends Controller
                 'kelas:id,nama_kelas,tingkat',
             ]);
 
-        $this->applyUnitScope($studentQuery, $bolehSemuaUnit, $unitPengguna);
+        if (! empty($requestedUnitId)) {
+            $studentQuery->where('unit_id', $requestedUnitId);
+        } else {
+            $this->applyUnitScope($studentQuery, $bolehSemuaUnit, $unitPengguna);
+        }
 
         $students = $studentQuery
             ->orderBy('full_name')

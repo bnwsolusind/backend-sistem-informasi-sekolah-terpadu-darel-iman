@@ -37,7 +37,7 @@ class CrossUnitReportService
                     || $e->teachings->isNotEmpty()
                     || str_contains(strtolower($posName), 'guru')
                     || str_contains(strtolower($posName), 'pendidik')
-                    || in_array($e->position?->level_jabatan, [9, 10, 11]);
+                    || in_array($e->position?->level_jabatan, [8, 9]);
             })->count();
             $nonGuru = max(0, $totalPegawai - $guru);
 

@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\SimpanJabatanRequest;
 use App\Http\Requests\V1\UbahJabatanRequest;
 use App\Http\Resources\V1\JabatanResource;
+use App\Models\Position;
 use App\Services\JabatanService;
+use App\Support\RoleName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -16,6 +18,18 @@ class JabatanController extends Controller
     public function __construct(
         protected JabatanService $jabatanService
     ) {}
+
+    /**
+     * Helper untuk memeriksa apakah user merupakan Kepala Sekolah
+     */
+    protected function userAdalahKepalaSekolah(?object $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return RoleName::userHasAny($user, ['Kepala Sekolah', 'kepala_sekolah', 'kepsek']);
+    }
 
     /**
      * Dapatkan daftar master jabatan berpaginasi.
@@ -85,8 +99,24 @@ class JabatanController extends Controller
      */
     public function store(SimpanJabatanRequest $request): JsonResponse
     {
-        $userId = $request->user()?->id;
-        $jabatan = $this->jabatanService->simpan($request->validated(), $userId);
+        $user = $request->user();
+        $validated = $request->validated();
+
+        if ($this->userAdalahKepalaSekolah($user)) {
+            $isLevel1 = isset($validated['level_jabatan']) && (int) $validated['level_jabatan'] === 1;
+            $isPengurus = isset($validated['satuan_kerja']) && $validated['satuan_kerja'] === 'Pengurus';
+            $nameLower = strtolower($validated['nama_jabatan'] ?? '');
+
+            if ($isLevel1 || $isPengurus || str_contains($nameLower, 'pengurus yayasan') || str_contains($nameLower, 'yayasan')) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Role Kepala Sekolah tidak diizinkan untuk membuat atau mengubah data jabatan Pengurus Yayasan.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+        }
+
+        $userId = $user?->id;
+        $jabatan = $this->jabatanService->simpan($validated, $userId);
 
         return response()->json([
             'status' => 'success',
@@ -121,7 +151,17 @@ class JabatanController extends Controller
      */
     public function update(UbahJabatanRequest $request, string $id): JsonResponse
     {
-        $userId = $request->user()?->id;
+        $user = $request->user();
+        $existing = Position::withTrashed()->find($id);
+
+        if ($existing && $this->userAdalahKepalaSekolah($user) && $existing->isPengurusYayasan()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Role Kepala Sekolah tidak diizinkan untuk mengubah data jabatan Pengurus Yayasan.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        $userId = $user?->id;
         $jabatan = $this->jabatanService->ubah($id, $request->validated(), $userId);
 
         return response()->json([
@@ -134,8 +174,18 @@ class JabatanController extends Controller
     /**
      * Hapus data jabatan (Soft Delete).
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
+        $user = $request->user();
+        $existing = Position::find($id);
+
+        if ($existing && $this->userAdalahKepalaSekolah($user) && $existing->isPengurusYayasan()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Role Kepala Sekolah tidak diizinkan untuk menghapus data jabatan Pengurus Yayasan.',
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         $berhasil = $this->jabatanService->hapus($id);
 
         if (! $berhasil) {

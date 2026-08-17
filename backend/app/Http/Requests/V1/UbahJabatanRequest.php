@@ -20,7 +20,7 @@ class UbahJabatanRequest extends FormRequest
             'nama_jabatan' => 'sometimes|required|string|max:255',
             'satuan_kerja' => 'sometimes|required|string|in:Pengurus,Bidang Pendidikan,Unit Pendidikan',
             'unit_sekolah_id' => 'nullable|uuid|exists:education_units,id',
-            'level_jabatan' => 'sometimes|required|integer|between:1,14',
+            'level_jabatan' => 'sometimes|required|integer|between:1,10',
             'atasan_langsung_id' => 'nullable|uuid|exists:positions,id',
             'atasan_pegawai_id' => 'nullable|uuid|exists:employees,id',
             'role_sistem_id' => 'nullable|integer|exists:roles,id',
@@ -42,7 +42,7 @@ class UbahJabatanRequest extends FormRequest
         return [
             'nama_jabatan.required' => 'Nama jabatan wajib diisi.',
             'kode_jabatan.unique' => 'Kode jabatan sudah digunakan.',
-            'level_jabatan.between' => 'Level jabatan harus berada antara level 1 hingga 14.',
+            'level_jabatan.between' => 'Level jabatan harus berada antara level 1 hingga 10.',
             'unit_sekolah_id.exists' => 'Unit sekolah tidak valid.',
             'satuan_kerja.required' => 'Satuan kerja wajib dipilih.',
             'atasan_langsung_id.exists' => 'Jabatan atasan langsung tidak ditemukan.',

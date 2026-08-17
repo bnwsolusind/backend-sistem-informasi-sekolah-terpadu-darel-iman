@@ -146,6 +146,16 @@ class FoundationDashboardController extends Controller
             $query->where('unit_id', $request->query('unit_id'));
         }
 
+        if ($request->filled('academic_year_id') && $request->query('academic_year_id') !== 'all') {
+            $ayId = $request->query('academic_year_id');
+            $activeYear = AcademicYear::find($ayId);
+            $yearNum = $activeYear ? (int) substr($activeYear->name, 0, 4) : (int) $ayId;
+            $query->where(function ($q) use ($ayId, $yearNum) {
+                $q->where('tahun_masuk', $yearNum)
+                  ->orWhereHas('kelas', fn ($k) => $k->where('tahun_ajaran_id', $ayId));
+            });
+        }
+
         if ($request->filled('search')) {
             $search = (string) $request->query('search');
             $query->where(function ($q) use ($search) {
@@ -538,6 +548,33 @@ class FoundationDashboardController extends Controller
         $kelas->setAttribute('students_count', $students->count());
 
         return $kelas;
+    }
+
+    /**
+     * Get organizational structure per unit (or all units).
+     */
+    public function structure(Request $request): JsonResponse
+    {
+        $unitId = $request->query('unit_id', 'all');
+        $data = $this->service->getUnitStructure($unitId);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Get organizational structure for a specific unit.
+     */
+    public function unitStructure(string $id): JsonResponse
+    {
+        $data = $this->service->getUnitStructure($id);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $data,
+        ]);
     }
 
     private function serializeTeacher(Teacher $teacher): array

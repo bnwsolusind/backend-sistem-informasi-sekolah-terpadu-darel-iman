@@ -58,7 +58,7 @@ class SdmReportService
               ->orWhereHas('position', function ($p) use ($like) {
                   $p->where('name', $like, '%Guru%')
                     ->orWhere('name', $like, '%Pendidik%')
-                    ->orWhereIn('level_jabatan', [9, 10, 11]);
+                    ->orWhereIn('level_jabatan', [8, 9]);
               });
         };
 
@@ -141,7 +141,7 @@ class SdmReportService
                     || $e->teachings->isNotEmpty()
                     || str_contains(strtolower($posName), 'guru')
                     || str_contains(strtolower($posName), 'pendidik')
-                    || in_array($e->position?->level_jabatan, [9, 10, 11]);
+                    || in_array($e->position?->level_jabatan, [8, 9]);
             })->count();
 
             return [
@@ -193,7 +193,7 @@ class SdmReportService
                     || $e->teachings->isNotEmpty()
                     || str_contains(strtolower($pName), 'guru')
                     || str_contains(strtolower($pName), 'pendidik')
-                    || in_array($e->position?->level_jabatan, [9, 10, 11]);
+                    || in_array($e->position?->level_jabatan, [8, 9]);
             })->count();
 
             $aCount = $subEmployees->filter(function ($e) {
@@ -253,7 +253,7 @@ class SdmReportService
                 || $emp->teachings->isNotEmpty()
                 || str_contains(strtolower($posName), 'guru')
                 || str_contains(strtolower($posName), 'pendidik')
-                || in_array($emp->position?->level_jabatan, [9, 10, 11]);
+                || in_array($emp->position?->level_jabatan, [8, 9]);
             return [
                 'id' => $emp->id,
                 'niy' => $emp->niy ?? $emp->nik ?? '-',
@@ -309,7 +309,7 @@ class SdmReportService
             || $emp->teachings->isNotEmpty()
             || str_contains(strtolower($posName), 'guru')
             || str_contains(strtolower($posName), 'pendidik')
-            || in_array($emp->position?->level_jabatan, [9, 10, 11]);
+            || in_array($emp->position?->level_jabatan, [8, 9]);
 
         $masaKerja = '-';
         if ($emp->tanggal_masuk) {

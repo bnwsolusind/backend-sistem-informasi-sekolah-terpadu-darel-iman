@@ -21,9 +21,26 @@ class EmployeeController extends Controller
         $this->employeeService = $employeeService;
     }
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
-        $stats = $this->employeeService->getDashboardStats();
+        $filters = $request->only(['unit_id', 'jabatan_id', 'status_pegawai', 'status', 'jenis_kelamin']);
+        $emp = Employee::where('user_id', $request->user()->id)->first();
+        $userUnitId = $emp?->unit_id ?? data_get($request->user()->metadata, 'education_unit_id') ?? data_get($request->user()->metadata, 'unit_id');
+
+        $isGlobalUser = $request->user()->hasAnyRole(['Super Admin', 'Ketua Yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan', 'Kepala Bidang Pendidikan']);
+
+        if (empty($filters['unit_id']) && ! $isGlobalUser && $userUnitId) {
+            $filters['unit_id'] = $userUnitId;
+        }
+
+        $filters['allowed_unit_ids'] = $this->accessScopeService
+            ->accessibleEmployees($request->user())
+            ->select('unit_id')
+            ->distinct()
+            ->pluck('unit_id')
+            ->all();
+
+        $stats = $this->employeeService->getDashboardStats($filters);
 
         return response()->json([
             'status' => 'success',
@@ -34,6 +51,15 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'unit_id', 'jabatan_id', 'status_pegawai', 'status', 'jenis_kelamin']);
+        $emp = Employee::where('user_id', $request->user()->id)->first();
+        $userUnitId = $emp?->unit_id ?? data_get($request->user()->metadata, 'education_unit_id') ?? data_get($request->user()->metadata, 'unit_id');
+
+        $isGlobalUser = $request->user()->hasAnyRole(['Super Admin', 'Ketua Yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan', 'Kepala Bidang Pendidikan']);
+
+        if (empty($filters['unit_id']) && ! $isGlobalUser && $userUnitId) {
+            $filters['unit_id'] = $userUnitId;
+        }
+
         $filters['allowed_unit_ids'] = $this->accessScopeService
             ->accessibleEmployees($request->user())
             ->select('unit_id')
@@ -71,6 +97,7 @@ class EmployeeController extends Controller
     {
         $data = $request->validated();
         $this->assertUnitScope($request, $data['unit_id'] ?? null);
+        $this->assertPositionScope($request, $data['jabatan_id'] ?? null);
         $employee = $this->employeeService->create($data);
 
         return response()->json([
@@ -85,6 +112,7 @@ class EmployeeController extends Controller
         $this->scopedEmployee($request, $id);
         $data = $request->validated();
         $this->assertUnitScope($request, $data['unit_id'] ?? null);
+        $this->assertPositionScope($request, $data['jabatan_id'] ?? null);
         $employee = $this->employeeService->update($id, $data);
 
         return response()->json([
@@ -105,9 +133,29 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function positions()
+    public function positions(Request $request)
     {
-        $positions = $this->employeeService->getPositions();
+        $user = $request->user();
+        $isFoundationUser = $user && $user->hasAnyRole([
+            'Super Admin', 'super_admin',
+            'Ketua Yayasan', 'ketua_yayasan',
+            'Pengurus Yayasan', 'pengurus_yayasan',
+            'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan',
+            'Kepala Bidang Pendidikan', 'divisi_pendidikan',
+        ]);
+
+        $query = \App\Models\Position::query();
+
+        if (! $isFoundationUser) {
+            $query->whereNotIn('level_jabatan', [1, 2])
+                  ->where(function ($q) {
+                      $q->whereNull('scope_akses')
+                        ->orWhereNotIn('scope_akses', ['semua_unit', 'lintas_unit']);
+                  });
+        }
+
+        $positions = $query->orderBy('level_jabatan')->orderBy('code')->get();
 
         return response()->json([
             'status' => 'success',
@@ -171,5 +219,29 @@ class EmployeeController extends Controller
             403,
             'Unit pegawai berada di luar cakupan akun.'
         );
+    }
+
+    private function assertPositionScope(Request $request, ?string $positionId): void
+    {
+        if (! $positionId) {
+            return;
+        }
+
+        $user = $request->user();
+        $isFoundationUser = $user && $user->hasAnyRole([
+            'Super Admin', 'super_admin',
+            'Ketua Yayasan', 'ketua_yayasan',
+            'Pengurus Yayasan', 'pengurus_yayasan',
+            'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan',
+            'Kepala Bidang Pendidikan', 'divisi_pendidikan',
+        ]);
+
+        if (! $isFoundationUser) {
+            $pos = \App\Models\Position::find($positionId);
+            if ($pos && in_array((int) $pos->level_jabatan, [1, 2], true)) {
+                abort(403, 'Kepala Sekolah tidak memiliki hak akses untuk menentukan atau mengubah posisi Pengurus Yayasan dan Divisi Pendidikan.');
+            }
+        }
     }
 }

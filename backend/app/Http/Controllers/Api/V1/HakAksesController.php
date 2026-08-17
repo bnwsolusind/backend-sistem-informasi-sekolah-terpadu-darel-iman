@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AccessScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ use Illuminate\Validation\Rules\Password;
 
 class HakAksesController extends Controller
 {
+    public function __construct(
+        private readonly AccessScopeService $accessScope,
+    ) {}
+
     // ─────────────────────────────────────────────────
     // ROLE CRUD
     // ─────────────────────────────────────────────────
@@ -257,8 +262,10 @@ class HakAksesController extends Controller
     /**
      * Ringkasan statistik hak akses.
      */
-    public function stats(): JsonResponse
+    public function stats(Request $request): JsonResponse
     {
+        $scopedEmployeesCount = $this->accessScope->accessibleEmployees($request->user())->count();
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -266,12 +273,13 @@ class HakAksesController extends Controller
                 'total_permission' => Permission::count(),
                 'total_modul' => Permission::get()->groupBy(fn ($p) => explode('.', $p->name)[0])->count(),
                 'role_tanpa_user' => Role::withCount('users')->get()->filter(fn ($r) => $r->users_count === 0)->count(),
+                'total_pegawai_unit' => $scopedEmployeesCount,
             ],
         ]);
     }
 
     // ─────────────────────────────────────────────────
-    // PEGAWAI HAK AKSES (MENARIK DATA PEGAWAI)
+    // PEGAWAI HAK AKSES (MENARIK DATA PEGAWAI BERDASARKAN UNIT)
     // ─────────────────────────────────────────────────
 
     /**
@@ -283,15 +291,21 @@ class HakAksesController extends Controller
         $unitId = $request->get('unit_id', '');
         $jabatanId = $request->get('jabatan_id', '');
 
-        $query = Employee::with(['unit', 'position', 'user', 'user.roles', 'user.permissions', 'role'])
+        if ($unitId) {
+            $this->accessScope->assertEducationUnitAccess($request->user(), (string) $unitId);
+        }
+
+        $query = $this->accessScope->accessibleEmployees($request->user())
+            ->with(['unit', 'position', 'user', 'user.roles', 'user.permissions', 'role'])
             ->orderBy('nama_lengkap');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('nama_lengkap', 'ilike', "%{$search}%")
-                    ->orWhere('niy', 'ilike', "%{$search}%")
-                    ->orWhere('nik', 'ilike', "%{$search}%")
-                    ->orWhere('email', 'ilike', "%{$search}%");
+                $likeOp = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+                $q->where('nama_lengkap', $likeOp, "%{$search}%")
+                    ->orWhere('niy', $likeOp, "%{$search}%")
+                    ->orWhere('nik', $likeOp, "%{$search}%")
+                    ->orWhere('email', $likeOp, "%{$search}%");
             });
         }
 
@@ -367,7 +381,7 @@ class HakAksesController extends Controller
             'password' => ['nullable', 'string', Password::min(8)->mixedCase()->letters()->numbers()->symbols()],
         ]);
 
-        $employee = Employee::findOrFail($employeeId);
+        $employee = $this->accessScope->accessibleEmployees($request->user())->findOrFail($employeeId);
 
         try {
             DB::transaction(function () use ($employee, $validated) {
@@ -413,3 +427,4 @@ class HakAksesController extends Controller
         }
     }
 }
+

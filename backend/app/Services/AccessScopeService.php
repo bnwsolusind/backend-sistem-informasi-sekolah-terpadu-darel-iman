@@ -22,7 +22,8 @@ class AccessScopeService
         if ($this->hasAnyRole($user, [
             'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
             'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
-            'Bendahara Yayasan', 'bendahara_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Sekolah', 'kepala_sekolah', 'kepsek',
+            'Waka Kurikulum', 'waka_kurikulum', 'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'tata_usaha',
         ])) {
             return EducationUnit::query();
         }
@@ -38,6 +39,11 @@ class AccessScopeService
         $employee = Employee::query()->where('user_id', $user->id)->first();
         if ($employee && $employee->unit_id) {
             return EducationUnit::query()->whereKey($employee->unit_id);
+        }
+
+        $userUnitId = data_get($user->metadata, 'education_unit_id') ?? data_get($user->metadata, 'unit_id');
+        if ($userUnitId) {
+            return EducationUnit::query()->whereKey($userUnitId);
         }
 
         $student = Student::query()->where('user_id', $user->id)->first();
@@ -57,7 +63,7 @@ class AccessScopeService
             return EducationUnit::query()->whereIn('id', $unitIds);
         }
 
-        return EducationUnit::query()->whereRaw('1 = 0');
+        return EducationUnit::query();
     }
 
     /**

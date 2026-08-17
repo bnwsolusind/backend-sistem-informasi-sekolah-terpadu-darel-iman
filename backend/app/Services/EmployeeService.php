@@ -16,24 +16,48 @@ class EmployeeService
         $this->employeeRepository = $employeeRepository;
     }
 
-    public function getDashboardStats()
+    public function getDashboardStats(array $filters = [])
     {
-        $totalPegawai = Employee::count();
-        $totalAktif = Employee::where('status', 'Aktif')->count();
-        $totalGuru = Employee::whereHas('position', function ($q) {
-            $q->where('name', 'like', '%Guru%');
-        })->count();
-        $totalTUOperator = Employee::whereHas('position', function ($q) {
-            $q->where('name', 'like', '%Tata Usaha%')
-                ->orWhere('name', 'like', '%Operator%');
+        $query = Employee::query();
+
+        if (! empty($filters['unit_id']) && $filters['unit_id'] !== 'all') {
+            $query->where('unit_id', $filters['unit_id']);
+        } elseif (array_key_exists('allowed_unit_ids', $filters) && is_array($filters['allowed_unit_ids'])) {
+            $query->whereIn('unit_id', $filters['allowed_unit_ids']);
+        }
+
+        $totalPegawai = (clone $query)->count();
+        $totalAktif = (clone $query)->where('status', 'Aktif')->count();
+
+        $like = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
+
+        $totalGuru = (clone $query)->where(function ($q) use ($like) {
+            $q->whereHas('teacher')
+              ->orWhereHas('teachings')
+              ->orWhere('status_pegawai', $like, '%Guru%')
+              ->orWhereHas('position', function ($p) use ($like) {
+                  $p->where('name', $like, '%Guru%')
+                    ->orWhere('name', $like, '%Pendidik%')
+                    ->orWhere('name', $like, '%Wali Kelas%');
+              });
         })->count();
 
-        $byUnit = Employee::selectRaw('unit_id, count(*) as count')
+        $totalTUOperator = (clone $query)->where(function ($q) use ($like) {
+            $q->whereHas('position', function ($p) use ($like) {
+                $p->where('name', $like, '%Tata Usaha%')
+                  ->orWhere('name', $like, '%Operator%')
+                  ->orWhere('name', $like, '%Staf%')
+                  ->orWhere('name', $like, '%Bendahara%')
+                  ->orWhere('name', $like, '%Keamanan%');
+            });
+        })->count();
+
+        $byUnit = (clone $query)->selectRaw('unit_id, count(*) as count')
             ->with('unit')
             ->groupBy('unit_id')
             ->get();
 
-        $byJabatan = Employee::selectRaw('jabatan_id, count(*) as count')
+        $byJabatan = (clone $query)->selectRaw('jabatan_id, count(*) as count')
             ->with('position')
             ->groupBy('jabatan_id')
             ->get();

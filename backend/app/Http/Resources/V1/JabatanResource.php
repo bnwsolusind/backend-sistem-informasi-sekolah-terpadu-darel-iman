@@ -23,8 +23,8 @@ class JabatanResource extends JsonResource
                 'nama' => $this->unitSekolah->nama_unit ?? $this->unitSekolah->name,
                 'kode' => $this->unitSekolah->kode_unit ?? $this->unitSekolah->code,
             ] : null,
-            'level_jabatan' => $this->level_jabatan ?? 9,
-            'level_label' => Position::LEVEL_JABATAN_MAP[$this->level_jabatan ?? 9] ?? 'Guru',
+            'level_jabatan' => $this->level_jabatan ?? 8,
+            'level_label' => Position::LEVEL_JABATAN_MAP[$this->level_jabatan ?? 8] ?? 'Guru',
             'atasan_langsung_id' => $this->atasan_langsung_id,
             'atasan_langsung' => $this->relationLoaded('atasanLangsung') && $this->atasanLangsung ? [
                 'id' => $this->atasanLangsung->id,

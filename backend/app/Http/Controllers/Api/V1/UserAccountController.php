@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AccessScopeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,15 +14,40 @@ use Illuminate\Validation\Rules\Password;
 
 class UserAccountController extends Controller
 {
+    public function __construct(
+        private readonly AccessScopeService $accessScope,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         $search = trim((string) $request->query('search', ''));
+        $unitId = trim((string) $request->query('unit_id', ''));
+
+        if ($unitId) {
+            $this->accessScope->assertEducationUnitAccess($request->user(), $unitId);
+        }
+
+        $accessibleUnitIds = $this->accessScope->accessibleEducationUnits($request->user())->pluck('id');
+        $isGlobalAdmin = $this->isGlobalAdmin($request->user());
 
         $users = User::query()
-            ->with('roles:id,name')
+            ->with(['roles:id,name', 'employee.unit', 'student.educationUnit'])
             ->when($request->query('status') === 'aktif', fn ($query) => $query->where('is_active', true))
             ->when($request->query('status') === 'nonaktif', fn ($query) => $query->where('is_active', false))
             ->when($request->query('role_status') === 'without_role', fn ($query) => $query->doesntHave('roles'))
+            ->when($unitId !== '', function ($query) use ($unitId) {
+                $query->where(function ($q) use ($unitId) {
+                    $q->whereHas('employee', fn ($e) => $e->where('unit_id', $unitId))
+                      ->orWhereHas('student', fn ($s) => $s->where('unit_id', $unitId));
+                });
+            })
+            ->when(! $isGlobalAdmin && $unitId === '', function ($query) use ($accessibleUnitIds, $request) {
+                $query->where(function ($q) use ($accessibleUnitIds, $request) {
+                    $q->where('id', $request->user()->id)
+                      ->orWhereHas('employee', fn ($e) => $e->whereIn('unit_id', $accessibleUnitIds))
+                      ->orWhereHas('student', fn ($s) => $s->whereIn('unit_id', $accessibleUnitIds));
+                });
+            })
             ->when($search, fn ($query) => $query->where(function ($query) use ($search) {
                 $operator = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
                 $query->where('name', $operator, "%{$search}%")
@@ -57,7 +83,7 @@ class UserAccountController extends Controller
             ]);
             $user->syncRoles([$validated['role']]);
 
-            return $user->load('roles:id,name');
+            return $user->load(['roles:id,name', 'employee.unit', 'student.educationUnit']);
         });
 
         return response()->json([
@@ -67,16 +93,19 @@ class UserAccountController extends Controller
         ], 201);
     }
 
-    public function show(User $user): JsonResponse
+    public function show(Request $request, User $user): JsonResponse
     {
+        $this->assertUserAccess($request->user(), $user);
+
         return response()->json([
             'success' => true,
-            'data' => $this->serialize($user->load('roles:id,name')),
+            'data' => $this->serialize($user->load(['roles:id,name', 'employee.unit', 'student.educationUnit'])),
         ]);
     }
 
     public function update(Request $request, User $user): JsonResponse
     {
+        $this->assertUserAccess($request->user(), $user);
         $validated = $request->validate($this->rules($user, false));
 
         $removingOwnAdminAccess = $request->user()->is($user)
@@ -102,12 +131,13 @@ class UserAccountController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Akun {$user->name} berhasil diperbarui.",
-            'data' => $this->serialize($user->fresh('roles:id,name')),
+            'data' => $this->serialize($user->fresh(['roles:id,name', 'employee.unit', 'student.educationUnit'])),
         ]);
     }
 
     public function resetPassword(Request $request, User $user): JsonResponse
     {
+        $this->assertUserAccess($request->user(), $user);
         $validated = $request->validate([
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->letters()->numbers()->symbols()],
         ]);
@@ -131,6 +161,7 @@ class UserAccountController extends Controller
 
     public function destroy(Request $request, User $user): JsonResponse
     {
+        $this->assertUserAccess($request->user(), $user);
         abort_if($request->user()->is($user), 422, 'Anda tidak dapat menghapus akun yang sedang digunakan.');
 
         if ($user->hasRole('Super Admin')) {
@@ -154,6 +185,31 @@ class UserAccountController extends Controller
         ]);
     }
 
+    private function isGlobalAdmin(User $user): bool
+    {
+        return $user->hasAnyRole([
+            'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
+            'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan',
+        ]);
+    }
+
+    private function assertUserAccess(User $authUser, User $targetUser): void
+    {
+        if ($this->isGlobalAdmin($authUser) || $authUser->is($targetUser)) {
+            return;
+        }
+
+        $accessibleUnitIds = $this->accessScope->accessibleEducationUnits($authUser)->pluck('id');
+        $targetUnitId = $targetUser->employee?->unit_id ?? $targetUser->student?->unit_id;
+
+        abort_unless(
+            $targetUnitId && $accessibleUnitIds->contains($targetUnitId),
+            403,
+            'Akun pengguna berada di luar cakupan unit pendidikan Anda.'
+        );
+    }
+
     private function rules(?User $user = null, bool $withPassword = true): array
     {
         $rules = [
@@ -173,6 +229,14 @@ class UserAccountController extends Controller
 
     private function serialize(User $user): array
     {
+        $unit = $user->employee?->unit ? [
+            'id' => $user->employee->unit->id,
+            'nama' => $user->employee->unit->nama_unit ?? $user->employee->unit->name ?? '-',
+        ] : ($user->student?->educationUnit ? [
+            'id' => $user->student->educationUnit->id,
+            'nama' => $user->student->educationUnit->nama_unit ?? $user->student->educationUnit->name ?? '-',
+        ] : null);
+
         return [
             'id' => $user->id,
             'name' => $user->name,
@@ -180,9 +244,11 @@ class UserAccountController extends Controller
             'phone' => $user->phone,
             'is_active' => $user->is_active,
             'roles' => $user->roles->pluck('name')->values(),
+            'unit' => $unit,
             'must_change_password' => (bool) data_get($user->metadata, 'must_change_password', false),
             'last_password_reset_at' => data_get($user->metadata, 'password_reset_at'),
             'created_at' => $user->created_at,
         ];
     }
 }
+

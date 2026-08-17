@@ -9,6 +9,7 @@ use App\Services\Reports\MutationReportService;
 use App\Services\Reports\GraduationReportService;
 use App\Services\Reports\AlumniReportService;
 use App\Services\Reports\CrossUnitReportService;
+use App\Services\Reports\AchievementReportService;
 use App\Exports\FoundationReportExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -24,6 +25,7 @@ class FoundationReportController extends Controller
     protected GraduationReportService $graduationService;
     protected AlumniReportService $alumniService;
     protected CrossUnitReportService $crossUnitService;
+    protected AchievementReportService $achievementService;
 
     public function __construct(
         SdmReportService $sdmService,
@@ -31,7 +33,8 @@ class FoundationReportController extends Controller
         MutationReportService $mutationService,
         GraduationReportService $graduationService,
         AlumniReportService $alumniService,
-        CrossUnitReportService $crossUnitService
+        CrossUnitReportService $crossUnitService,
+        AchievementReportService $achievementService
     ) {
         $this->sdmService = $sdmService;
         $this->studentService = $studentService;
@@ -39,6 +42,7 @@ class FoundationReportController extends Controller
         $this->graduationService = $graduationService;
         $this->alumniService = $alumniService;
         $this->crossUnitService = $crossUnitService;
+        $this->achievementService = $achievementService;
     }
 
     public function sdm(Request $request): JsonResponse
@@ -146,6 +150,25 @@ class FoundationReportController extends Controller
         ]);
     }
 
+    public function prestasi(Request $request): JsonResponse
+    {
+        $data = $this->achievementService->getReport($request->all());
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Laporan Rekapitulasi Prestasi Siswa berhasil dimuat.',
+            'data' => $data,
+        ]);
+    }
+
+    public function prestasiDetail(string $id): JsonResponse
+    {
+        $detail = $this->achievementService->getDetail($id);
+        return response()->json([
+            'status' => 'success',
+            'data' => $detail,
+        ]);
+    }
+
     public function export(Request $request, string $type)
     {
         $format = strtolower($request->query('format', 'excel'));
@@ -158,6 +181,7 @@ class FoundationReportController extends Controller
             'kelulusan' => $this->graduationService->getReport($request->all()),
             'alumni' => $this->alumniService->getReport($request->all()),
             'lintas-unit' => $this->crossUnitService->getReport($request->all()),
+            'prestasi' => $this->achievementService->getReport($request->all()),
             default => throw new \InvalidArgumentException("Jenis laporan '{$type}' tidak valid."),
         };
 

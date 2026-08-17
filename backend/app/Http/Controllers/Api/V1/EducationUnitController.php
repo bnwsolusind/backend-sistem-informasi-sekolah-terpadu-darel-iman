@@ -218,7 +218,7 @@ class EducationUnitController extends Controller
                 ->orWhereHas('teachings', fn ($teaching) => $teaching->where('aktif', true))
                 ->orWhereHas('position', function ($position) {
                     $position
-                        ->whereIn('level_jabatan', [9, 10, 11])
+                        ->whereIn('level_jabatan', [8, 9])
                         ->orWhere(function ($name) {
                             $likeOp = DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
                             $name->where('name', $likeOp, '%guru%')

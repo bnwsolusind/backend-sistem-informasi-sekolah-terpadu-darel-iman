@@ -204,13 +204,68 @@ class DefaultRoleUserSeeder extends Seeder
             }
         }
 
-        // Reconcile the old local-only Super Admin portal fixture without
-        // deleting business rows: one account must not masquerade as student,
-        // parent, and employee simultaneously.
-        $superAdminUser = $users['Super Admin'];
-        Employee::query()->where('user_id', $superAdminUser->id)->update(['user_id' => null]);
-        Student::query()->where('user_id', $superAdminUser->id)->update(['user_id' => null]);
-        ParentModel::query()->where('user_id', $superAdminUser->id)->update(['user_id' => null]);
+        // === Konfigurasi Akun Super Admin: Mengisi Seluruh Role Akses Sistem & Memiliki Unit Utama ===
+        $superAdminUser = $users['Super Admin'] ?? User::where('email', 'superadmin@school-erp.local')->first();
+        if ($superAdminUser) {
+            // 1. Berikan SELURUH role akses sistem yang ada di database kepada Super Admin
+            $allRoleNames = Role::pluck('name')->toArray();
+            $superAdminUser->syncRoles($allRoleNames);
+
+            // 2. Hubungkan Super Admin ke satu Unit Utama (misal: Unit Pertama yang Aktif)
+            $primaryUnit = $unit ?? EducationUnit::where('is_active', true)->orderBy('code')->first();
+            $posKetuaYayasan = \App\Models\Position::where('code', 'JBT-001')->first()
+                ?? \App\Models\Position::where('level_jabatan', 1)->first();
+
+            if ($primaryUnit) {
+                // Tautkan Employee record untuk Super Admin
+                $superAdminEmp = Employee::query()->updateOrCreate(
+                    ['niy' => 'NIY-SUPERADMIN'],
+                    [
+                        'user_id' => $superAdminUser->id,
+                        'unit_id' => $primaryUnit->id,
+                        'jabatan_id' => $posKetuaYayasan?->id,
+                        'nik' => '1371000000000001',
+                        'nama_lengkap' => 'Super Admin',
+                        'nama_panggilan' => 'SuperAdmin',
+                        'gelar_depan' => 'Ust.',
+                        'gelar_belakang' => 'S.Pd.',
+                        'jenis_kelamin' => 'L',
+                        'status_pegawai' => 'Tetap',
+                        'status' => 'Aktif',
+                        'no_hp' => $superAdminUser->phone ?? '081299990001',
+                        'email' => $superAdminUser->email,
+                        'metadata' => [
+                            'fixture' => 'superadmin_multi_role',
+                            'education_unit_id' => $primaryUnit->id,
+                        ],
+                    ]
+                );
+
+                // Tautkan Teacher record untuk Super Admin (agar bisa menjadi Guru / Wali Kelas juga)
+                Teacher::query()->updateOrCreate(
+                    ['user_id' => $superAdminUser->id],
+                    [
+                        'employee_id' => $superAdminEmp->id,
+                        'employee_number' => 'NIY-SUPERADMIN',
+                        'full_name' => 'Super Admin',
+                        'email' => $superAdminUser->email,
+                        'phone' => $superAdminUser->phone ?? '081299990001',
+                        'metadata' => ['fixture' => 'superadmin_teacher'],
+                    ]
+                );
+
+                // Perbarui metadata user superadmin
+                $existingMeta = $superAdminUser->metadata ?? [];
+                $superAdminUser->update([
+                    'metadata' => array_merge($existingMeta, [
+                        'education_unit_id' => $primaryUnit->id,
+                        'unit_code' => $primaryUnit->code,
+                        'unit_name' => $primaryUnit->name,
+                        'multi_role_enabled' => true,
+                    ]),
+                ]);
+            }
+        }
 
         $parentUser = $users['Orang Tua'];
         $parent = ParentModel::withTrashed()->updateOrCreate(

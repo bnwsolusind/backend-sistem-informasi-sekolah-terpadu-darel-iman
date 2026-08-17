@@ -23,7 +23,9 @@ class DataDummyPegawaiSeeder extends Seeder
         $unitSmait = $units->firstWhere('level', 'SMAIT')?->id ?? $defaultUnitId;
         $unitTkit = $units->firstWhere('level', 'TKIT')?->id ?? $defaultUnitId;
 
-        $posKepsek = $positions->firstWhere('code', 'JBT-003')?->id;
+        $posKepsek = $positions->firstWhere('code', 'JBT-003')?->id
+            ?? $positions->firstWhere('level_jabatan', 3)?->id
+            ?? $positions->firstWhere('name', 'Kepala Sekolah')?->id;
         $posWakepsek = $positions->firstWhere('code', 'JBT-004')?->id;
         $posGuruKelas = $positions->firstWhere('code', 'JBT-009')?->id ?? $positions->firstWhere('code', 'JBT-010')?->id;
         $posGuruMapel = $positions->firstWhere('code', 'JBT-009')?->id;
@@ -163,6 +165,167 @@ class DataDummyPegawaiSeeder extends Seeder
                     ],
                 ],
             ],
+            [
+                'niy' => 'NIY-201003002',
+                'nik' => '1371021203850002',
+                'nama_lengkap' => 'Abdullah',
+                'nama_panggilan' => 'Ust. Abdullah',
+                'gelar_depan' => 'Ust.',
+                'gelar_belakang' => 'S.Pd.I',
+                'jenis_kelamin' => 'L',
+                'tempat_lahir' => 'Padang',
+                'tanggal_lahir' => '1985-03-12',
+                'agama' => 'Islam',
+                'foto' => '',
+                'unit_id' => $unitSdit,
+                'jabatan_id' => $posKepsek,
+                'status_pegawai' => 'Tetap',
+                'tanggal_masuk' => '2010-03-12',
+                'status' => 'Aktif',
+                'no_hp' => '081267890101',
+                'email' => 'abdullah.headmaster@simsit.sch.id',
+                'alamat' => 'Jl. Lima Puluh Kota No. 12',
+                'provinsi' => 'Sumatera Barat',
+                'kota' => '50 Kota',
+                'kecamatan' => 'Payakumbuh',
+                'kelurahan' => 'Koto Nan Ampek',
+                'kode_pos' => '26211',
+            ],
+            [
+                'niy' => 'NIY-201508004',
+                'nik' => '1371021508900004',
+                'nama_lengkap' => 'Rahmawati',
+                'nama_panggilan' => 'Ustdh. Rahmawati',
+                'gelar_depan' => 'Ustdh.',
+                'gelar_belakang' => 'S.Pd',
+                'jenis_kelamin' => 'P',
+                'tempat_lahir' => '50 Kota',
+                'tanggal_lahir' => '1990-08-15',
+                'agama' => 'Islam',
+                'foto' => '',
+                'unit_id' => $unitSdit,
+                'jabatan_id' => $posGuruKelas,
+                'status_pegawai' => 'Tetap',
+                'tanggal_masuk' => '2015-08-15',
+                'status' => 'Aktif',
+                'no_hp' => '081345678902',
+                'email' => 'rahmawati.teacher@simsit.sch.id',
+                'alamat' => 'Jl. Lima Puluh Kota No. 45',
+                'provinsi' => 'Sumatera Barat',
+                'kota' => '50 Kota',
+                'kecamatan' => 'Harau',
+                'kelurahan' => 'Tanjung Pati',
+                'kode_pos' => '26261',
+            ],
+            [
+                'niy' => 'NIY-201201005',
+                'nik' => '1371022011880005',
+                'nama_lengkap' => 'Ahmad Ridwan',
+                'nama_panggilan' => 'Ust. Ridwan',
+                'gelar_depan' => 'Ust.',
+                'gelar_belakang' => 'M.Ag',
+                'jenis_kelamin' => 'L',
+                'tempat_lahir' => 'Payakumbuh',
+                'tanggal_lahir' => '1988-11-20',
+                'agama' => 'Islam',
+                'foto' => '',
+                'unit_id' => $unitSdit,
+                'jabatan_id' => $posGuruMapel,
+                'status_pegawai' => 'Tetap',
+                'tanggal_masuk' => '2012-01-20',
+                'status' => 'Aktif',
+                'no_hp' => '081123456789',
+                'email' => 'ahmad.ridwan@simsit.sch.id',
+                'alamat' => 'Jl. Sudirman No. 8',
+                'provinsi' => 'Sumatera Barat',
+                'kota' => 'Payakumbuh',
+                'kecamatan' => 'Payakumbuh Barat',
+                'kelurahan' => 'Pakan Sinayan',
+                'kode_pos' => '26224',
+            ],
+            [
+                'niy' => 'NIY-201803001',
+                'nik' => '1371021002940001',
+                'nama_lengkap' => 'Siti Sarah',
+                'nama_panggilan' => 'Siti Sarah',
+                'gelar_depan' => '',
+                'gelar_belakang' => 'S.T',
+                'jenis_kelamin' => 'P',
+                'tempat_lahir' => 'Payakumbuh',
+                'tanggal_lahir' => '1994-02-10',
+                'agama' => 'Islam',
+                'foto' => '',
+                'unit_id' => $unitSdit,
+                'jabatan_id' => $posOperator,
+                'status_pegawai' => 'Tetap',
+                'tanggal_masuk' => '2018-03-10',
+                'status' => 'Aktif',
+                'no_hp' => '082198765432',
+                'email' => 'sitisarah.admin@simsit.sch.id',
+                'alamat' => 'Jl. A. Yani No. 15',
+                'provinsi' => 'Sumatera Barat',
+                'kota' => 'Payakumbuh',
+                'kecamatan' => 'Payakumbuh Utara',
+                'kelurahan' => 'Tiakar',
+                'kode_pos' => '26218',
+            ],
+        ];
+
+        // 20 Data Guru & Pegawai Tambahan Khusus SDIT 1 Dar el-Iman - 50 Kota
+        $additionalGuru = [
+            ['nama' => 'Ust. Zulkifli, S.Pd.I', 'gender' => 'L', 'jabatan' => $posGuruMapel],
+            ['nama' => 'Ustdh. Laila Fitri, S.Pd', 'gender' => 'P', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ust. Ilham Rabbani, M.Pd', 'gender' => 'L', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ustdh. Fatimah Syahidah, S.Pd.I', 'gender' => 'P', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ust. Hamzah As-Suyuthi, S.Pd', 'gender' => 'L', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ustdh. Aisyah Humaira, S.Si', 'gender' => 'P', 'jabatan' => $posGuruMapel],
+            ['nama' => 'Ust. Salman Al-Farisi, S.Hum', 'gender' => 'L', 'jabatan' => $posGuruMapel],
+            ['nama' => 'Ustdh. Maryam Khadijah, S.Pd', 'gender' => 'P', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ust. Bilal Ramadan, S.Or', 'gender' => 'L', 'jabatan' => $posGuruMapel],
+            ['nama' => 'Ustdh. Zahra Nurul, S.Pd.I', 'gender' => 'P', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ust. Umar Khadafi, S.Pd', 'gender' => 'L', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ustdh. Khadijah Laila, S.Pd', 'gender' => 'P', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ust. Ali Imran, S.Pd.I', 'gender' => 'L', 'jabatan' => $posGuruMapel],
+            ['nama' => 'Ustdh. Safiyah Azzahra, S.Sos', 'gender' => 'P', 'jabatan' => $posTU],
+            ['nama' => 'Ust. Hasan Basri, S.Kom', 'gender' => 'L', 'jabatan' => $posOperator],
+            ['nama' => 'Ustdh. Mutia Rahmi, S.Pd', 'gender' => 'P', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ust. Ridwan Syah, S.Pd.I', 'gender' => 'L', 'jabatan' => $posGuruMapel],
+            ['nama' => 'Ustdh. Nurul Aini, S.Pd', 'gender' => 'P', 'jabatan' => $posGuruKelas],
+            ['nama' => 'Ust. Faruq Al-Hafizh, S.Pd.I', 'gender' => 'L', 'jabatan' => $posGuruMapel],
+            ['nama' => 'Ustdh. Annisa Thahirah, S.Pd', 'gender' => 'P', 'jabatan' => $posWakepsek],
+        ];
+
+        foreach ($additionalGuru as $idx => $g) {
+            $niyCode = 'NIY-202409'.str_pad($idx + 10, 3, '0', STR_PAD_LEFT);
+            $dummyEmployees[] = [
+                'niy' => $niyCode,
+                'nik' => '137102'.str_pad($idx + 10, 10, '0', STR_PAD_LEFT),
+                'nama_lengkap' => str_replace(['Ust. ', 'Ustdh. '], '', $g['nama']),
+                'nama_panggilan' => $g['nama'],
+                'gelar_depan' => str_contains($g['nama'], 'Ustdh.') ? 'Ustdh.' : 'Ust.',
+                'gelar_belakang' => str_contains($g['nama'], 'S.Pd.I') ? 'S.Pd.I' : (str_contains($g['nama'], 'M.Pd') ? 'M.Pd' : 'S.Pd'),
+                'jenis_kelamin' => $g['gender'],
+                'tempat_lahir' => 'Payakumbuh',
+                'tanggal_lahir' => '1992-05-15',
+                'agama' => 'Islam',
+                'foto' => '',
+                'unit_id' => $unitSdit,
+                'jabatan_id' => $g['jabatan'],
+                'status_pegawai' => 'Tetap',
+                'tanggal_masuk' => '2020-07-01',
+                'status' => 'Aktif',
+                'no_hp' => '08127000'.str_pad($idx + 10, 4, '0', STR_PAD_LEFT),
+                'email' => strtolower(str_replace(['Ust. ', 'Ustdh. ', ' ', ',', '.'], '', $g['nama'])).'@dareliman.sch.id',
+                'alamat' => 'Jl. Lima Puluh Kota No. '.($idx + 10),
+                'provinsi' => 'Sumatera Barat',
+                'kota' => '50 Kota',
+                'kecamatan' => 'Harau',
+                'kelurahan' => 'Tanjung Pati',
+                'kode_pos' => '26261',
+            ];
+        }
+
+        $moreEmployees = [
             [
                 'niy' => 'NIY-201608040',
                 'nik' => '1371041802900002',
@@ -453,6 +616,10 @@ class DataDummyPegawaiSeeder extends Seeder
             ],
         ];
 
+        foreach ($moreEmployees as $item) {
+            $dummyEmployees[] = $item;
+        }
+
         foreach ($dummyEmployees as $data) {
             $teachings = $data['metadata']['teachings'] ?? [];
 
@@ -517,6 +684,133 @@ class DataDummyPegawaiSeeder extends Seeder
                             'aktif' => true,
                         ]);
                     }
+                }
+            }
+        }
+
+        // === Pastikan setiap dari 15 Unit Pendidikan memiliki Pegawai yang Mengisi Seluruh Posisi Jabatan (17 Posisi per Unit) ===
+        $allUnits = EducationUnit::all();
+        $positions = Position::all();
+        $guruRole = \Spatie\Permission\Models\Role::where('name', 'Guru')->where('guard_name', 'web')->first();
+        $defaultHashedPassword = \Illuminate\Support\Facades\Hash::make('Password123!');
+
+        $positionTemplates = [
+            ['code' => 'JBT-003', 'level' => 3, 'title' => 'Kepala Sekolah', 'role' => 'Kepala Sekolah'],
+            ['code' => 'JBT-004', 'level' => 4, 'title' => 'Wakil Kurikulum', 'role' => 'Wakil Kepala Sekolah'],
+            ['code' => 'JBT-020', 'level' => 4, 'title' => 'Wakil Kesiswaan/Kesantrian', 'role' => 'Wakil Kepala Sekolah'],
+            ['code' => 'JBT-021', 'level' => 4, 'title' => 'Wakil Humas & Progsus', 'role' => 'Wakil Kepala Sekolah'],
+            ['code' => 'JBT-025', 'level' => 5, 'title' => 'Kepala Divisi Unit', 'role' => 'Kepala Divisi'],
+            ['code' => 'JBT-006', 'level' => 6, 'title' => 'Kepala Tata Usaha', 'role' => 'Tata Usaha'],
+            ['code' => 'JBT-007', 'level' => 7, 'title' => 'Operator Sekolah', 'role' => 'Tata Usaha'],
+            ['code' => 'JBT-010', 'level' => 8, 'title' => 'Wali Kelas', 'role' => 'Wali Kelas'],
+            ['code' => 'JBT-009', 'level' => 8, 'title' => 'Guru Mapel Matematika', 'role' => 'Guru'],
+            ['code' => 'JBT-009', 'level' => 8, 'title' => 'Guru Mapel Bahasa & Sains', 'role' => 'Guru'],
+            ['code' => 'JBT-022', 'level' => 8, 'title' => 'Guru Bimbingan Konseling', 'role' => 'Guru'],
+            ['code' => 'JBT-024', 'level' => 8, 'title' => 'Pembina Ekstrakurikuler', 'role' => 'Guru'],
+            ['code' => 'JBT-011', 'level' => 9, 'title' => 'Guru Tahfizh', 'role' => 'Guru'],
+            ['code' => 'JBT-023', 'level' => 9, 'title' => 'Musyrif Kesantrian / Asrama', 'role' => 'Guru'],
+            ['code' => 'JBT-008', 'level' => 10, 'title' => 'Bendahara Sekolah', 'role' => 'Tata Usaha'],
+            ['code' => 'JBT-012', 'level' => 10, 'title' => 'Staf Administrasi', 'role' => 'Tata Usaha'],
+            ['code' => 'JBT-013', 'level' => 10, 'title' => 'Staf Keamanan / Satpam', 'role' => 'Tata Usaha'],
+        ];
+
+        $maleNameList = [
+            'Rizky Pratama', 'Hafiz Azhar', 'Hamzah Saifullah', 'Irfan Hilmi',
+            'Khairul Umam', 'Lukman Hakim', 'Muhammad Farhan', 'Naufal Azmi',
+            'Rizky Ramadhan', 'Syahrul Ramadhan', 'Taufik Hidayat', 'Usman Al-Ghazali',
+            'Yahya Ayyash', 'Zainuddin Fanani', 'Arif Rahman', 'Bayu Pratama',
+            'Doni Kusuma', 'Eko Prasetyo', 'Gilang Ramadhan', 'Hadi Sucipto'
+        ];
+
+        $femaleNameList = [
+            'Aisyah Ridwan', 'Annisa Zahra', 'Dewi Sartika', 'Fitri Handayani',
+            'Hana Pertiwi', 'Indah Permata', 'Laila Majnun', 'Marlina Putri',
+            'Nadia Syakira', 'Nurul Laili', 'Rahmawati', 'Siti Maryam',
+            'Tari Kusuma', 'Umi Kulsum', 'Winda Asri', 'Yulia Safitri',
+            'Zahra Amalia', 'Dian Lestari', 'Eka Rahayu', 'Gita Gutawa'
+        ];
+
+        foreach ($allUnits as $unitIndex => $unit) {
+            for ($pIndex = 0; $pIndex < count($positionTemplates); $pIndex++) {
+                $template = $positionTemplates[$pIndex];
+                $posModel = $positions->firstWhere('code', $template['code'])
+                    ?? $positions->firstWhere('level_jabatan', $template['level']);
+
+                if ($template['level'] === 3 && ! empty($unit->metadata['principal_name'])) {
+                    $principalName = $unit->metadata['principal_name'];
+                    $isFemale = (str_contains($principalName, 'Ustzh') || str_contains($principalName, 'Maryam') || str_contains($principalName, 'Nurul') || str_contains($principalName, 'Yuliana') || str_contains($principalName, 'Siti'));
+                    $fullName = $principalName;
+                    $cleanName = preg_replace('/^(Ust\.|Ustzh\.|Dr\.)\s*/i', '', $principalName);
+                    $panggilan = explode(' ', trim($cleanName))[0] ?? 'Kepsek';
+                    $gelarDepan = $isFemale ? 'Ustzh.' : 'Ust.';
+                } else {
+                    $isFemale = ($pIndex % 2 === 1);
+                    $namePool = $isFemale ? $femaleNameList : $maleNameList;
+                    $personName = $namePool[($unitIndex * 17 + $pIndex) % count($namePool)];
+                    $gelarDepan = $isFemale ? 'Ustzh.' : 'Ust.';
+                    $fullName = "{$gelarDepan} {$personName}, S.Pd.";
+                    $panggilan = explode(' ', $personName)[0];
+                }
+
+                $niyNum = 201500000 + ($unitIndex + 1) * 100 + ($pIndex + 1);
+                $nikNum = '1371' . str_pad((string) ($unitIndex + 1), 2, '0', STR_PAD_LEFT) . '00' . str_pad((string) ($pIndex + 1), 6, '0', STR_PAD_LEFT);
+                $slugCode = strtolower(str_replace(['-', ' '], '', $unit->code));
+                $email = "pegawai." . str_pad((string) ($pIndex + 1), 2, '0', STR_PAD_LEFT) . ".{$slugCode}@dareliman.sch.id";
+
+                $roleTarget = \Spatie\Permission\Models\Role::where('name', $template['role'])->where('guard_name', 'web')->first()
+                    ?? $guruRole;
+
+                $empRecord = Employee::updateOrCreate(
+                    [
+                        'unit_id' => $unit->id,
+                        'niy' => "NIY-{$niyNum}",
+                    ],
+                    [
+                        'nik' => $nikNum,
+                        'nama_lengkap' => $fullName,
+                        'nama_panggilan' => $panggilan,
+                        'gelar_depan' => $gelarDepan,
+                        'gelar_belakang' => 'S.Pd.',
+                        'jenis_kelamin' => $isFemale ? 'P' : 'L',
+                        'tempat_lahir' => 'Padang',
+                        'tanggal_lahir' => '1985-05-15',
+                        'agama' => 'Islam',
+                        'unit_id' => $unit->id,
+                        'jabatan_id' => $posModel?->id,
+                        'status_pegawai' => ($pIndex < 10) ? 'Tetap' : 'Kontrak',
+                        'tanggal_masuk' => '2018-07-01',
+                        'status' => 'Aktif',
+                        'no_hp' => '0812' . str_pad((string) ($unitIndex * 17 + $pIndex + 1), 8, '0', STR_PAD_LEFT),
+                        'email' => $email,
+                        'alamat' => $unit->metadata['address'] ?? 'Kota Padang',
+                        'provinsi' => 'Sumatera Barat',
+                        'kota' => $unit->metadata['city'] ?? 'Padang',
+                        'metadata' => [
+                            'position_history' => [
+                                ['jabatan' => "{$template['title']} {$unit->name}", 'tgl_mulai' => '2018-07-01', 'keterangan' => 'Pengangkatan Pegawai'],
+                            ],
+                        ],
+                    ]
+                );
+
+                $loginUser = User::query()->where('email', strtolower($email))->first();
+                if (! $loginUser) {
+                    $loginUser = User::query()->create([
+                        'name' => $empRecord->nama_lengkap,
+                        'email' => strtolower($email),
+                        'password' => $defaultHashedPassword,
+                        'phone' => PhoneNormalizer::normalize((string) $empRecord->no_hp),
+                        'is_active' => true,
+                    ]);
+                }
+
+                $empRecord->update([
+                    'user_id' => $loginUser->id,
+                    'role_id' => $roleTarget?->id,
+                ]);
+
+                if ($roleTarget) {
+                    $loginUser->syncRoles([$roleTarget->name]);
                 }
             }
         }

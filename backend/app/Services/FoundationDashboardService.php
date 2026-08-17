@@ -86,7 +86,7 @@ class FoundationDashboardService
               ->orWhereHas('position', function ($p) use ($like) {
                   $p->where('name', $like, '%Guru%')
                     ->orWhere('name', $like, '%Pendidik%')
-                    ->orWhereIn('level_jabatan', [9, 10, 11]);
+                    ->orWhereIn('level_jabatan', [8, 9]);
               });
         });
         $totalGuru = (clone $guruQuery)->count();
@@ -189,7 +189,7 @@ class FoundationDashboardService
                       ->orWhereHas('position', function ($p) use ($like) {
                           $p->where('name', $like, '%Guru%')
                             ->orWhere('name', $like, '%Pendidik%')
-                            ->orWhereIn('level_jabatan', [9, 10, 11]);
+                            ->orWhereIn('level_jabatan', [8, 9]);
                       });
                 });
             },
@@ -435,7 +435,7 @@ class FoundationDashboardService
                           ->orWhereHas('teachings')
                           ->orWhereHas('position', fn ($p) => $p->where('name', $like, '%Guru%')
                               ->orWhere('name', $like, '%Pendidik%')
-                              ->orWhereIn('level_jabatan', [9, 10, 11]));
+                              ->orWhereIn('level_jabatan', [8, 9]));
                     });
                 },
                 'students as siswa_aktif_count' => fn ($q) => $q->where('is_active', true),
@@ -525,7 +525,7 @@ class FoundationDashboardService
                 || $e->teachings->isNotEmpty()
                 || str_contains(strtolower($j), 'guru')
                 || str_contains(strtolower($j), 'pendidik')
-                || in_array($e->position?->level_jabatan, [9, 10, 11]);
+                || in_array($e->position?->level_jabatan, [8, 9]);
         })->count();
         $pegawaiCount = $pegawaiList->count();
         $siswaCount = Student::where('unit_id', $id)->where('is_active', true)->count();
@@ -570,6 +570,98 @@ class FoundationDashboardService
                 'semester' => $activeSemester ? ucfirst($activeSemester->name ?? 'Ganjil') : 'Ganjil',
             ],
             'unit' => $unit,
+        ];
+    }
+
+    /**
+     * Get organizational structure for a given unit (or all units).
+     */
+    public function getUnitStructure(?string $unitId = null): array
+    {
+        $query = Position::with([
+            'unitSekolah',
+            'atasanLangsung',
+            'atasanPegawai',
+            'employees' => function ($q) use ($unitId) {
+                $q->where(function ($sq) {
+                    $sq->where('status', 'aktif')->orWhere('status', 'Aktif')->orWhereNull('status');
+                });
+                if (! empty($unitId) && $unitId !== 'all') {
+                    $q->where('unit_id', $unitId);
+                }
+            },
+        ])->where('is_active', true);
+
+        if (! empty($unitId) && $unitId !== 'all') {
+            $query->where(function ($q) use ($unitId) {
+                $q->where('unit_sekolah_id', $unitId)
+                  ->orWhereNull('unit_sekolah_id')
+                  ->orWhere('satuan_kerja', 'Pengurus');
+            });
+        }
+
+        $positions = $query->orderBy('urutan')->orderBy('level_jabatan')->get();
+
+        $selectedUnit = null;
+        if (! empty($unitId) && $unitId !== 'all') {
+            $unit = EducationUnit::find($unitId);
+            if ($unit) {
+                $selectedUnit = [
+                    'id' => $unit->id,
+                    'name' => $unit->name,
+                    'code' => $unit->code,
+                ];
+            }
+        }
+
+        $structuredLevels = [];
+        $levelGroups = $positions->groupBy('level_jabatan');
+
+        foreach ($levelGroups as $levelNum => $posList) {
+            $levelName = Position::LEVEL_JABATAN_MAP[$levelNum] ?? "Level {$levelNum}";
+            $items = $posList->map(function ($pos) {
+                $assignedEmployees = $pos->employees->map(function ($emp) {
+                    return [
+                        'id' => $emp->id,
+                        'nama_lengkap' => $emp->nama_lengkap,
+                        'niy' => $emp->niy ?? $emp->nik ?? '-',
+                        'foto' => $emp->foto ?? $emp->photo ?? null,
+                        'email' => $emp->email ?? '-',
+                        'no_hp' => $emp->no_hp ?? '-',
+                        'status' => $emp->status ?? 'Aktif',
+                        'unit_name' => $emp->unit?->name ?? '-',
+                    ];
+                });
+
+                return [
+                    'id' => $pos->id,
+                    'code' => $pos->code,
+                    'name' => $pos->name,
+                    'satuan_kerja' => $pos->satuan_kerja,
+                    'level_jabatan' => $pos->level_jabatan,
+                    'level_label' => Position::LEVEL_JABATAN_MAP[$pos->level_jabatan] ?? "Level {$pos->level_jabatan}",
+                    'atasan_nama' => $pos->atasanPegawai?->nama_lengkap ?? $pos->atasanLangsung?->name ?? 'Pengurus Yayasan',
+                    'warna' => $pos->warna ?? '#3B82F6',
+                    'ikon' => $pos->ikon ?? 'UserCheck',
+                    'unit' => $pos->unitSekolah ? ['id' => $pos->unitSekolah->id, 'name' => $pos->unitSekolah->name] : null,
+                    'employees' => $assignedEmployees->values(),
+                    'total_employees' => $assignedEmployees->count(),
+                ];
+            });
+
+            $structuredLevels[] = [
+                'level' => (int) $levelNum,
+                'title' => $levelName,
+                'positions' => $items->values(),
+            ];
+        }
+
+        usort($structuredLevels, fn ($a, $b) => $a['level'] <=> $b['level']);
+
+        return [
+            'unit' => $selectedUnit,
+            'total_positions' => $positions->count(),
+            'levels' => $structuredLevels,
         ];
     }
 }

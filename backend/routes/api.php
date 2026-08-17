@@ -47,7 +47,211 @@ use App\Http\Controllers\Api\V1\LmsMediaController;
 use App\Http\Controllers\Api\V1\LmsModulAjarController;
 use App\Http\Controllers\Api\V1\LmsPengumpulanTugasController;
 use App\Http\Controllers\Api\V1\LmsPenugasanController;
-use App\Http\Controllers\Api\V1\LmsPresensiController;
+Route::get('/seed-sdit1-data', function () {
+    try {
+        $unit = \App\Models\EducationUnit::where('code', 'SDIT-01')->first()
+            ?? \App\Models\EducationUnit::where('name', 'LIKE', '%SDIT 1%')->first()
+            ?? \App\Models\EducationUnit::first();
+
+        if (! $unit) {
+            return response()->json(['error' => 'No unit found'], 404);
+        }
+
+        $unitId = $unit->id;
+
+        // 1. Assign unit_id to all unassigned students & employees
+        \App\Models\Student::whereNull('unit_id')->update(['unit_id' => $unitId]);
+        \App\Models\Employee::whereNull('unit_id')->update(['unit_id' => $unitId]);
+
+        // 2. Ensure 20 Teachers for SDIT 1
+        $pos = \App\Models\Jabatan::first();
+        $posId = $pos ? $pos->id : null;
+
+        $additionalGuru = [
+            ['nama' => 'Ust. Zulkifli, S.Pd.I', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Laila Fitri, S.Pd', 'gender' => 'P'],
+            ['nama' => 'Ust. Ilham Rabbani, M.Pd', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Fatimah Syahidah, S.Pd.I', 'gender' => 'P'],
+            ['nama' => 'Ust. Hamzah As-Suyuthi, S.Pd', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Aisyah Humaira, S.Si', 'gender' => 'P'],
+            ['nama' => 'Ust. Salman Al-Farisi, S.Hum', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Maryam Khadijah, S.Pd', 'gender' => 'P'],
+            ['nama' => 'Ust. Bilal Ramadan, S.Or', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Zahra Nurul, S.Pd.I', 'gender' => 'P'],
+            ['nama' => 'Ust. Umar Khadafi, S.Pd', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Khadijah Laila, S.Pd', 'gender' => 'P'],
+            ['nama' => 'Ust. Ali Imran, S.Pd.I', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Safiyah Azzahra, S.Sos', 'gender' => 'P'],
+            ['nama' => 'Ust. Hasan Basri, S.Kom', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Mutia Rahmi, S.Pd', 'gender' => 'P'],
+            ['nama' => 'Ust. Ridwan Syah, S.Pd.I', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Nurul Aini, S.Pd', 'gender' => 'P'],
+            ['nama' => 'Ust. Faruq Al-Hafizh, S.Pd.I', 'gender' => 'L'],
+            ['nama' => 'Ustdh. Annisa Thahirah, S.Pd', 'gender' => 'P'],
+        ];
+
+        foreach ($additionalGuru as $idx => $g) {
+            $niy = 'NIY-202409'.str_pad($idx + 10, 3, '0', STR_PAD_LEFT);
+            \App\Models\Employee::updateOrCreate(
+                ['niy' => $niy],
+                [
+                    'unit_id' => $unitId,
+                    'jabatan_id' => $posId,
+                    'nama_lengkap' => str_replace(['Ust. ', 'Ustdh. '], '', $g['nama']),
+                    'nama_panggilan' => $g['nama'],
+                    'jenis_kelamin' => $g['gender'],
+                    'status_pegawai' => 'Tetap',
+                    'status' => 'Aktif',
+                    'email' => strtolower(str_replace(['Ust. ', 'Ustdh. ', ' ', ',', '.'], '', $g['nama'])).'@dareliman.sch.id',
+                    'no_hp' => '08127000'.str_pad($idx + 10, 4, '0', STR_PAD_LEFT),
+                    'alamat' => 'Jl. Lima Puluh Kota No. '.($idx + 10),
+                ]
+            );
+        }
+
+        // 3. Ensure 20 Students for SDIT 1
+        $additionalSiswa = [
+            ['nis' => '23011', 'nama' => 'Bilal Ramadan', 'gender' => 'male', 'kelas' => 'Kelas 5A'],
+            ['nis' => '23012', 'nama' => 'Laila Fitriani', 'gender' => 'female', 'kelas' => 'Kelas 5B'],
+            ['nis' => '23013', 'nama' => 'Zulkifli Mansur', 'gender' => 'male', 'kelas' => 'Kelas 6A'],
+            ['nis' => '23014', 'nama' => 'Safiyah Nabila', 'gender' => 'female', 'kelas' => 'Kelas 6B'],
+            ['nis' => '23015', 'nama' => 'Ali Imran Al-Hafizh', 'gender' => 'male', 'kelas' => 'Kelas 5A'],
+            ['nis' => '23016', 'nama' => 'Maryam Salimah', 'gender' => 'female', 'kelas' => 'Kelas 5B'],
+            ['nis' => '23017', 'nama' => 'Salman Al-Farisi', 'gender' => 'male', 'kelas' => 'Kelas 6A'],
+            ['nis' => '23018', 'nama' => 'Hasan Al-Banna', 'gender' => 'male', 'kelas' => 'Kelas 6B'],
+            ['nis' => '23019', 'nama' => 'Mutia Rahmah', 'gender' => 'female', 'kelas' => 'Kelas 5A'],
+            ['nis' => '23020', 'nama' => 'Ilham Rabbani', 'gender' => 'male', 'kelas' => 'Kelas 6A'],
+            ['nis' => '23021', 'nama' => 'Annisa Thahirah', 'gender' => 'female', 'kelas' => 'Kelas 4A'],
+            ['nis' => '23022', 'nama' => 'Faruq Abdillah', 'gender' => 'male', 'kelas' => 'Kelas 4A'],
+            ['nis' => '23023', 'nama' => 'Siti Nurhaliza', 'gender' => 'female', 'kelas' => 'Kelas 4B'],
+            ['nis' => '23024', 'nama' => 'Usman Al-Qarni', 'gender' => 'male', 'kelas' => 'Kelas 4B'],
+            ['nis' => '23025', 'nama' => 'Ruqayyah Mufidah', 'gender' => 'female', 'kelas' => 'Kelas 3A'],
+            ['nis' => '23026', 'nama' => 'Zubair Bin Awwam', 'gender' => 'male', 'kelas' => 'Kelas 3A'],
+            ['nis' => '23027', 'nama' => 'Juwayriyah Azizah', 'gender' => 'female', 'kelas' => 'Kelas 3B'],
+            ['nis' => '23028', 'nama' => 'Talhah Ubaidillah', 'gender' => 'male', 'kelas' => 'Kelas 3B'],
+            ['nis' => '23029', 'nama' => 'Ummu Sulaim', 'gender' => 'female', 'kelas' => 'Kelas 2A'],
+            ['nis' => '23030', 'nama' => 'Sa\'ad Bin Abi Waqqas', 'gender' => 'male', 'kelas' => 'Kelas 2A'],
+        ];
+
+        foreach ($additionalSiswa as $s) {
+            \App\Models\Student::updateOrCreate(
+                ['nis' => $s['nis']],
+                [
+                    'unit_id' => $unitId,
+                    'full_name' => $s['nama'],
+                    'gender' => $s['gender'],
+                    'birth_place' => '50 Kota',
+                    'birth_date' => '2015-05-10',
+                    'address' => 'Jl. Lima Puluh Kota',
+                    'is_active' => true,
+                ]
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'SDIT 1 Data Seeded Successfully!',
+            'employees_sdit1_count' => \App\Models\Employee::where('unit_id', $unitId)->count(),
+            'students_sdit1_count' => \App\Models\Student::where('unit_id', $unitId)->count(),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json(['error' => $e->getMessage(), 'line' => $e->getLine()], 500);
+    }
+});
+
+Route::get('/seed-all-units', function (\Illuminate\Http\Request $request) {
+    set_time_limit(300);
+    ini_set('memory_limit', '512M');
+    if ($request->query('check')) {
+        $unitBreakdown = \App\Models\EducationUnit::all()->map(function ($u) {
+            return [
+                'id' => $u->id,
+                'code' => $u->code,
+                'name' => $u->name,
+                'students_count' => \App\Models\Student::where('unit_id', $u->id)->count(),
+                'employees_count' => \App\Models\Employee::where('unit_id', $u->id)->count(),
+                'classes_count' => \App\Models\Kelas::where('unit_pendidikan_id', $u->id)->count(),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'units_count' => \App\Models\EducationUnit::count(),
+            'employees_count' => \App\Models\Employee::count(),
+            'students_count' => \App\Models\Student::count(),
+            'breakdown' => $unitBreakdown,
+        ]);
+    }
+    $results = [];
+    try {
+        try {
+            (new \Database\Seeders\DataDummyUnitPendidikanSeeder())->run();
+            $results['units_seeder'] = 'OK';
+        } catch (\Throwable $e) {
+            $results['units_seeder_error'] = $e->getMessage() . ' line ' . $e->getLine() . ' in ' . $e->getFile();
+        }
+
+        try {
+            (new \Database\Seeders\MasterJabatanSeeder())->run();
+            $results['jabatan_seeder'] = 'OK';
+        } catch (\Throwable $e) {
+            $results['jabatan_seeder_error'] = $e->getMessage() . ' line ' . $e->getLine() . ' in ' . $e->getFile();
+        }
+
+        try {
+            (new \Database\Seeders\DataDummyPegawaiSeeder())->run();
+            $results['pegawai_seeder'] = 'OK';
+        } catch (\Throwable $e) {
+            $results['pegawai_seeder_error'] = $e->getMessage() . ' line ' . $e->getLine() . ' in ' . $e->getFile();
+        }
+
+        try {
+            (new \Database\Seeders\DataDummySiswaSeeder())->run();
+            $results['siswa_seeder'] = 'OK';
+        } catch (\Throwable $e) {
+            $results['siswa_seeder_error'] = $e->getMessage() . ' line ' . $e->getLine() . ' in ' . $e->getFile();
+        }
+
+        try {
+            (new \Database\Seeders\DefaultRoleUserSeeder())->run();
+            $results['default_role_user_seeder'] = 'OK';
+        } catch (\Throwable $e) {
+            $results['default_role_user_seeder_error'] = $e->getMessage() . ' line ' . $e->getLine() . ' in ' . $e->getFile();
+        }
+
+        if (request()->has('check')) {
+            $unitBreakdown = \App\Models\EducationUnit::all()->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'code' => $u->code,
+                    'name' => $u->name,
+                    'students_count' => \App\Models\Student::where('unit_id', $u->id)->count(),
+                    'employees_count' => \App\Models\Employee::where('unit_id', $u->id)->count(),
+                    'classes_count' => \App\Models\Kelas::where('unit_pendidikan_id', $u->id)->count(),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'units_count' => \App\Models\EducationUnit::count(),
+                'employees_count' => \App\Models\Employee::count(),
+                'students_count' => \App\Models\Student::count(),
+                'breakdown' => $unitBreakdown,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Proses seeding 15 Unit Pendidikan selesai!',
+            'results' => $results,
+            'units_count' => \App\Models\EducationUnit::count(),
+            'employees_count' => \App\Models\Employee::count(),
+            'students_count' => \App\Models\Student::count(),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json(['error' => $e->getMessage(), 'line' => $e->getLine(), 'file' => $e->getFile()], 500);
+    }
+});
 use App\Http\Controllers\Api\V1\LmsRaporController;
 use App\Http\Controllers\Api\V1\LmsReferensiController;
 use App\Http\Controllers\Api\V1\MasterKurikulumController;
@@ -171,6 +375,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [FoundationDashboardController::class, 'index']);
         Route::get('/units', [FoundationDashboardController::class, 'units']);
         Route::get('/units/{id}', [FoundationDashboardController::class, 'unitDetail']);
+        Route::get('/units/{id}/structure', [FoundationDashboardController::class, 'unitStructure']);
+        Route::get('/structure', [FoundationDashboardController::class, 'structure']);
         Route::get('/employees', [FoundationDashboardController::class, 'employees']);
         Route::get('/employees/{id}', [FoundationDashboardController::class, 'employeeDetail']);
         Route::get('/teachers', [FoundationDashboardController::class, 'teachers']);
@@ -205,6 +411,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/alumni', [FoundationReportController::class, 'alumni']);
             Route::get('/alumni/detail/{id}', [FoundationReportController::class, 'alumniDetail']);
             Route::get('/lintas-unit', [FoundationReportController::class, 'lintasUnit']);
+            Route::get('/prestasi', [FoundationReportController::class, 'prestasi']);
+            Route::get('/prestasi/detail/{id}', [FoundationReportController::class, 'prestasiDetail']);
             Route::get('/{type}/export', [FoundationReportController::class, 'export'])
                 ->middleware('can:foundation.report.export');
         });

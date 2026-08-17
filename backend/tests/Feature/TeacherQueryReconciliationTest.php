@@ -31,7 +31,7 @@ class TeacherQueryReconciliationTest extends TestCase
             'id' => (string) Str::uuid(),
             'code' => 'JBT-GURU-1',
             'name' => 'Guru Mata Pelajaran',
-            'level_jabatan' => 9,
+            'level_jabatan' => 8,
             'is_active' => true,
         ]);
 
@@ -39,7 +39,7 @@ class TeacherQueryReconciliationTest extends TestCase
             'id' => (string) Str::uuid(),
             'code' => 'JBT-STAFF-1',
             'name' => 'Staf Administrasi',
-            'level_jabatan' => 12,
+            'level_jabatan' => 10,
             'is_active' => true,
         ]);
 
@@ -82,7 +82,7 @@ class TeacherQueryReconciliationTest extends TestCase
             'id' => (string) Str::uuid(),
             'code' => 'JBT-PENDIDIK-1',
             'name' => 'Tenaga Pendidik Al-Qur\'an',
-            'level_jabatan' => 11,
+            'level_jabatan' => 9,
             'is_active' => true,
         ]);
 
@@ -122,7 +122,7 @@ class TeacherQueryReconciliationTest extends TestCase
             'id' => (string) Str::uuid(),
             'code' => 'JBT-GENERAL-1',
             'name' => 'Karyawan',
-            'level_jabatan' => 12,
+            'level_jabatan' => 10,
             'is_active' => true,
         ]);
 
@@ -170,7 +170,7 @@ class TeacherQueryReconciliationTest extends TestCase
             'id' => (string) Str::uuid(),
             'code' => 'JBT-GURU-A',
             'name' => 'Guru Kelas',
-            'level_jabatan' => 9,
+            'level_jabatan' => 8,
             'is_active' => true,
         ]);
 

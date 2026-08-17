@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AcademicYear;
 use App\Models\EducationUnit;
 use App\Models\Employee;
+use App\Models\RekapPrestasiSiswa;
 use App\Models\Semester;
 use App\Models\Student;
 use App\Models\User;
@@ -89,6 +90,55 @@ class DivisiPendidikanDashboardService
                 ];
             });
 
+        // Rekapitulasi Prestasi Siswa Lintas Unit (Data Riil Database)
+        $rekapPrestasi = [];
+        if (Schema::hasTable('rekap_prestasi_siswas')) {
+            if (RekapPrestasiSiswa::count() === 0) {
+                try {
+                    (new \Database\Seeders\RekapPrestasiSiswaSeeder())->run();
+                } catch (\Throwable $e) {
+                    // Ignore error if seeder fails silently
+                }
+            }
+
+            $prestasiQuery = RekapPrestasiSiswa::query()
+                ->with(['siswa.kelas', 'siswa.educationUnit']);
+
+            if (! empty($unitIds)) {
+                $prestasiQuery->whereHas('siswa', function ($q) use ($unitIds) {
+                    $q->whereIn('unit_id', $unitIds);
+                });
+            }
+
+            $items = $prestasiQuery->latest('tanggal_prestasi')->limit(50)->get();
+
+            if ($items->isEmpty()) {
+                $items = RekapPrestasiSiswa::query()
+                    ->with(['siswa.kelas', 'siswa.educationUnit'])
+                    ->latest('tanggal_prestasi')
+                    ->limit(50)
+                    ->get();
+            }
+
+            $rekapPrestasi = $items->map(fn ($p) => [
+                'id' => $p->id,
+                'id_siswa' => $p->id_siswa,
+                'nama_siswa' => $p->siswa?->full_name ?? 'Siswa',
+                'nis' => $p->siswa?->nis ?? '-',
+                'avatar_url' => $p->siswa?->avatar_url ?? null,
+                'gender' => $p->siswa?->gender ?? 'male',
+                'unit_nama' => $p->siswa?->educationUnit?->name ?? $p->siswa?->educationUnit?->nama ?? $p->data_tambahan['unit_name'] ?? 'Unit Sekolah',
+                'kelas_nama' => $p->siswa?->kelas?->nama_kelas ?? $p->data_tambahan['kelas_name'] ?? 'Kelas',
+                'jenis_prestasi' => $p->jenis_prestasi,
+                'nama_prestasi' => $p->nama_prestasi,
+                'tingkat_prestasi' => $p->tingkat_prestasi ?? 'Internal',
+                'tanggal_prestasi' => $p->tanggal_prestasi?->format('Y-m-d'),
+                'nilai_prestasi' => $p->nilai_prestasi,
+                'keterangan' => $p->keterangan,
+                'data_tambahan' => $p->data_tambahan,
+            ]);
+        }
+
         return [
             'context' => [
                 'role' => 'Divisi Pendidikan',
@@ -99,7 +149,9 @@ class DivisiPendidikanDashboardService
             'charts' => [
                 'unit_comparison' => $unitComparison,
             ],
-            'tables' => [],
+            'tables' => [
+                'rekap_prestasi' => $rekapPrestasi,
+            ],
         ];
     }
 }
