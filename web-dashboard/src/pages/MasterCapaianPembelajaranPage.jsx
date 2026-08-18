@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   BookOpen,
   RefreshCw,
@@ -10,6 +10,7 @@ import {
   ChevronRight,
   FileText,
   Upload,
+  Plus,
 } from 'lucide-react'
 import CsvImportModal from '../components/master-data/CsvImportModal'
 import ActionDropdown from '../components/app/ActionDropdown'
@@ -20,6 +21,7 @@ import { masterKurikulumService } from '../services/masterKurikulumService'
 import { subjectService } from '../services/subjectService'
 import PageContainer from '../components/app/PageContainer'
 import AppBreadcrumb from '../components/app/AppBreadcrumb'
+import { useAuthStore } from '../stores/authStore'
 import {
   MasterDataPage,
   MasterActionButton,
@@ -33,7 +35,7 @@ import {
   MasterStatusBadge,
 } from '../components/master-data'
 
-export default function MasterCapaianPembelajaranPage({ embedded = false, hideBreadcrumb = false }) {
+export default function MasterCapaianPembelajaranPage({ embedded = false, hideBreadcrumb = false, hidePageHeader = false }) {
   const [dataCp, setDataCp] = useState([])
   const [units, setUnits] = useState([])
   const [tahunAjarans, setTahunAjarans] = useState([])
@@ -64,6 +66,59 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
     per_page: 15,
   })
 
+  // User Auth & Teacher Scoping
+  const user = useAuthStore((state) => state.user)
+
+  const userRoles = useMemo(() => {
+    if (!user?.roles) return []
+    return user.roles.map((r) => (typeof r === 'string' ? r : r.name || r.role_name || ''))
+  }, [user])
+
+  const isGuru = useMemo(() => {
+    const rList = userRoles.map((r) => r.toLowerCase())
+    const mainRole = String(user?.role || '').toLowerCase()
+    return (
+      rList.some((r) => r.includes('guru') || r.includes('wali_kelas') || r.includes('wali kelas')) ||
+      mainRole.includes('guru')
+    )
+  }, [userRoles, user?.role])
+
+  const teacherUnitIds = useMemo(() => {
+    if (!user) return []
+    const ids = []
+    if (user.unit_id) ids.push(String(user.unit_id))
+    if (user.unit_pendidikan_id) ids.push(String(user.unit_pendidikan_id))
+    if (user.education_unit_id) ids.push(String(user.education_unit_id))
+    if (user.unit?.id) ids.push(String(user.unit.id))
+    if (user.school_info?.id) ids.push(String(user.school_info.id))
+    if (Array.isArray(user.units)) {
+      user.units.forEach((u) => ids.push(String(typeof u === 'object' ? u.id : u)))
+    }
+    if (Array.isArray(user.unit_ids)) {
+      user.unit_ids.forEach((u) => ids.push(String(u)))
+    }
+    return Array.from(new Set(ids))
+  }, [user])
+
+  const teacherSubjectIds = useMemo(() => {
+    if (!user) return []
+    const ids = []
+    const rawList =
+      user.subject_ids ||
+      user.subjects ||
+      user.mata_pelajaran_ids ||
+      user.mata_pelajaran ||
+      user.teacher_subjects ||
+      user.assigned_subjects ||
+      []
+    if (Array.isArray(rawList)) {
+      rawList.forEach((s) => ids.push(String(typeof s === 'object' ? s.id : s)))
+    }
+    if (user.subject_id) ids.push(String(user.subject_id))
+    if (user.mata_pelajaran_id) ids.push(String(user.mata_pelajaran_id))
+    return Array.from(new Set(ids))
+  }, [user])
+
   // Modal State
   const [modalOpen, setModalOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -82,6 +137,44 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
     urutan: 1,
     status: true,
   })
+
+  const availableUnitsForModal = useMemo(() => {
+    if (isGuru && teacherUnitIds.length > 0) {
+      const filtered = units.filter((u) => teacherUnitIds.includes(String(u.id)))
+      return filtered.length > 0 ? filtered : units
+    }
+    return units
+  }, [isGuru, teacherUnitIds, units])
+
+  const availableKurikulumsForModal = useMemo(() => {
+    let list = kurikulums
+    const targetUnit = formData.unit_pendidikan_id || (isGuru && teacherUnitIds.length > 0 ? teacherUnitIds[0] : '')
+    if (targetUnit) {
+      list = list.filter(
+        (k) =>
+          !k.unit_pendidikan_id ||
+          String(k.unit_pendidikan_id) === String(targetUnit) ||
+          String(k.unit_id) === String(targetUnit)
+      )
+    }
+    return list
+  }, [kurikulums, formData.unit_pendidikan_id, isGuru, teacherUnitIds])
+
+  const availableSubjectsForModal = useMemo(() => {
+    let list = subjects
+    const targetUnit = formData.unit_pendidikan_id || (isGuru && teacherUnitIds.length > 0 ? teacherUnitIds[0] : '')
+    if (targetUnit) {
+      list = list.filter((s) => !s.unit_pendidikan_id || String(s.unit_pendidikan_id) === String(targetUnit))
+    }
+    if (formData.kurikulum_id) {
+      list = list.filter((s) => !s.kurikulum_id || String(s.kurikulum_id) === String(formData.kurikulum_id))
+    }
+    if (isGuru && teacherSubjectIds.length > 0) {
+      const guruSubjects = list.filter((s) => teacherSubjectIds.includes(String(s.id)))
+      if (guruSubjects.length > 0) list = guruSubjects
+    }
+    return list
+  }, [subjects, formData.unit_pendidikan_id, formData.kurikulum_id, isGuru, teacherUnitIds, teacherSubjectIds])
 
   const loadDropdownMasterData = async () => {
     try {
@@ -164,11 +257,34 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
       })
     } else {
       setEditingItem(null)
+      const defaultUnit = isGuru && teacherUnitIds.length > 0
+        ? teacherUnitIds[0]
+        : (units.length > 0 ? units[0].id : '')
+
+      let matchingKur = kurikulums
+      if (defaultUnit) {
+        matchingKur = kurikulums.filter((k) => !k.unit_pendidikan_id || String(k.unit_pendidikan_id) === String(defaultUnit))
+      }
+      const defaultKur = matchingKur.length > 0 ? matchingKur[0].id : (kurikulums.length > 0 ? kurikulums[0].id : '')
+
+      let matchingSub = subjects
+      if (defaultUnit) {
+        matchingSub = matchingSub.filter((s) => !s.unit_pendidikan_id || String(s.unit_pendidikan_id) === String(defaultUnit))
+      }
+      if (defaultKur) {
+        matchingSub = matchingSub.filter((s) => !s.kurikulum_id || String(s.kurikulum_id) === String(defaultKur))
+      }
+      if (isGuru && teacherSubjectIds.length > 0) {
+        const guruSubs = matchingSub.filter((s) => teacherSubjectIds.includes(String(s.id)))
+        if (guruSubs.length > 0) matchingSub = guruSubs
+      }
+      const defaultSub = matchingSub.length > 0 ? matchingSub[0].id : (subjects.length > 0 ? subjects[0].id : '')
+
       setFormData({
-        unit_pendidikan_id: units.length > 0 ? units[0].id : '',
+        unit_pendidikan_id: defaultUnit,
         tahun_ajaran_id: tahunAjarans.length > 0 ? tahunAjarans[0].id : '',
-        kurikulum_id: kurikulums.length > 0 ? kurikulums[0].id : '',
-        mata_pelajaran_id: subjects.length > 0 ? subjects[0].id : '',
+        kurikulum_id: defaultKur,
+        mata_pelajaran_id: defaultSub,
         kode_cp: `CP-MAPEL-${dataCp.length + 1}`,
         nama_cp: '',
         deskripsi: '',
@@ -179,6 +295,55 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
       })
     }
     setModalOpen(true)
+  }
+
+  const handleUnitChangeInForm = (newUnitId) => {
+    let matchingKur = kurikulums
+    if (newUnitId) {
+      matchingKur = kurikulums.filter((k) => !k.unit_pendidikan_id || String(k.unit_pendidikan_id) === String(newUnitId))
+    }
+    const newKurId = matchingKur.length > 0 ? matchingKur[0].id : ''
+
+    let matchingSub = subjects
+    if (newUnitId) {
+      matchingSub = matchingSub.filter((s) => !s.unit_pendidikan_id || String(s.unit_pendidikan_id) === String(newUnitId))
+    }
+    if (newKurId) {
+      matchingSub = matchingSub.filter((s) => !s.kurikulum_id || String(s.kurikulum_id) === String(newKurId))
+    }
+    if (isGuru && teacherSubjectIds.length > 0) {
+      const guruSubs = matchingSub.filter((s) => teacherSubjectIds.includes(String(s.id)))
+      if (guruSubs.length > 0) matchingSub = guruSubs
+    }
+    const newSubId = matchingSub.length > 0 ? matchingSub[0].id : ''
+
+    setFormData({
+      ...formData,
+      unit_pendidikan_id: newUnitId,
+      kurikulum_id: newKurId,
+      mata_pelajaran_id: newSubId,
+    })
+  }
+
+  const handleKurikulumChangeInForm = (newKurId) => {
+    let matchingSub = subjects
+    if (formData.unit_pendidikan_id) {
+      matchingSub = matchingSub.filter((s) => !s.unit_pendidikan_id || String(s.unit_pendidikan_id) === String(formData.unit_pendidikan_id))
+    }
+    if (newKurId) {
+      matchingSub = matchingSub.filter((s) => !s.kurikulum_id || String(s.kurikulum_id) === String(newKurId))
+    }
+    if (isGuru && teacherSubjectIds.length > 0) {
+      const guruSubs = matchingSub.filter((s) => teacherSubjectIds.includes(String(s.id)))
+      if (guruSubs.length > 0) matchingSub = guruSubs
+    }
+    const newSubId = matchingSub.length > 0 ? matchingSub[0].id : ''
+
+    setFormData({
+      ...formData,
+      kurikulum_id: newKurId,
+      mata_pelajaran_id: newSubId,
+    })
   }
 
   const handleCloseModal = () => {
@@ -279,13 +444,14 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
         hideBreadcrumb={embedded || hideBreadcrumb}
       >
       {/* Hero Banner */}
-      <MasterPageHeader
-        tone="brand"
-        icon={BookOpen}
-        title="Master Capaian Pembelajaran (CP)"
-        description="Kelola Master Capaian Pembelajaran (CP) berbasis Kurikulum, Unit Pendidikan, dan Mata Pelajaran sebagai fondasi utama penyusunan Tujuan Pembelajaran (TP) & Modul Ajar."
-        actions={<><MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton><MasterActionButton onClick={() => handleOpenModal()}>Tambah CP Baru</MasterActionButton></>}
-      />
+      {!hidePageHeader && (
+        <MasterPageHeader
+          tone="brand"
+          icon={BookOpen}
+          title="Master Capaian Pembelajaran (CP)"
+          description="Kelola Master Capaian Pembelajaran (CP) berbasis Kurikulum, Unit Pendidikan, dan Mata Pelajaran sebagai fondasi utama penyusunan Tujuan Pembelajaran (TP) & Modul Ajar."
+        />
+      )}
 
       <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} title="Capaian Pembelajaran" onImport={handleImport} columns={[
         { key: 'unit_pendidikan_id' }, { key: 'tahun_ajaran_id' }, { key: 'kurikulum_id', required: true }, { key: 'mata_pelajaran_id', required: true },
@@ -325,58 +491,93 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
       )}
 
       <section className="overflow-hidden rounded-[var(--master-card-radius,18px)] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]" aria-labelledby="cp-table-title">
-      <div className="border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
-        <h2 id="cp-table-title" className="text-base font-bold text-slate-900 dark:text-white">Data Capaian Pembelajaran</h2>
-        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data sesuai filter dan kewenangan pengguna.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+        <div>
+          <h2 id="cp-table-title" className="text-base font-bold text-slate-900 dark:text-white">Data Capaian Pembelajaran</h2>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data sesuai filter dan kewenangan pengguna.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton>
+          <MasterActionButton icon={Plus} onClick={() => handleOpenModal()}>Tambah CP Baru</MasterActionButton>
+        </div>
       </div>
 
-      {/* Canonical DataTable toolbar */}
-      <MasterFilterBar
-        className="!rounded-none !border-0 !border-b !border-slate-200/80 !shadow-none dark:!border-slate-700"
-        search={
+      {/* 2-Row Toolbar: Row 1 = Search, Row 2 = Filters */}
+      <div className="border-b border-slate-200/80 p-4 dark:border-slate-700 bg-slate-50/50 dark:bg-[#161F2E] space-y-3">
+        {/* Row 1: Search Input */}
+        <div className="w-full">
           <MasterSearchInput
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             placeholder="Cari kode atau nama CP..."
           />
-        }
-        filters={
-          <>
-            <MasterFilterSelect value={selectedUnit} onChange={(e) => { setSelectedUnit(e.target.value); setPage(1) }}>
-              <option value="">Semua Unit</option>
-              {units.map((item) => <option key={item.id} value={item.id}>{item.name || item.code}</option>)}
-            </MasterFilterSelect>
-            <MasterFilterSelect value={selectedTahun} onChange={(e) => { setSelectedTahun(e.target.value); setPage(1) }}>
-              <option value="">Semua Tahun Ajaran</option>
-              {tahunAjarans.map((item) => <option key={item.id} value={item.id}>{item.tahun || item.name}</option>)}
-            </MasterFilterSelect>
-            <MasterFilterSelect value={selectedKurikulum} onChange={(e) => { setSelectedKurikulum(e.target.value); setSelectedSubject(''); setPage(1) }}>
-              <option value="">Semua Kurikulum</option>
-              {kurikulums.map((item) => <option key={item.id} value={item.id}>{item.nama_kurikulum || item.kode_kurikulum}</option>)}
-            </MasterFilterSelect>
-            <MasterFilterSelect value={selectedSubject} onChange={(e) => { setSelectedSubject(e.target.value); setPage(1) }}>
-              <option value="">Semua Mata Pelajaran</option>
-              {subjects
-                .filter((item) => !selectedKurikulum || item.kurikulum_id === selectedKurikulum)
-                .map((item) => <option key={item.id} value={item.id}>{item.nama_mapel || item.name}</option>)}
-            </MasterFilterSelect>
-            <MasterFilterSelect value={selectedStatus} onChange={(e) => { setSelectedStatus(e.target.value); setPage(1) }}>
-              <option value="">Semua Status</option>
-              <option value="aktif">Aktif</option>
-              <option value="tidak_aktif">Nonaktif</option>
-            </MasterFilterSelect>
-            <button
-              type="button"
-              onClick={() => {
-                setSearch(''); setSelectedUnit(''); setSelectedTahun(''); setSelectedKurikulum(''); setSelectedSubject(''); setSelectedStatus(''); setPage(1)
-              }}
-              className="inline-flex h-12 shrink-0 items-center gap-2 rounded-[14px] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              <RefreshCw className="h-4 w-4" /> Reset
-            </button>
-          </>
-        }
-      />
+        </div>
+
+        {/* Row 2: Filter Group */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full">
+          <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 shrink-0">Filter:</span>
+          
+          <MasterFilterSelect
+            className="grow sm:grow-0 min-w-[140px]"
+            value={selectedUnit}
+            onChange={(e) => { setSelectedUnit(e.target.value); setPage(1) }}
+          >
+            <option value="">Semua Unit</option>
+            {units.map((item) => <option key={item.id} value={item.id}>{item.name || item.code}</option>)}
+          </MasterFilterSelect>
+
+          <MasterFilterSelect
+            className="grow sm:grow-0 min-w-[160px]"
+            value={selectedTahun}
+            onChange={(e) => { setSelectedTahun(e.target.value); setPage(1) }}
+          >
+            <option value="">Semua Tahun Ajaran</option>
+            {tahunAjarans.map((item) => <option key={item.id} value={item.id}>{item.tahun || item.name}</option>)}
+          </MasterFilterSelect>
+
+          <MasterFilterSelect
+            className="grow sm:grow-0 min-w-[150px]"
+            value={selectedKurikulum}
+            onChange={(e) => { setSelectedKurikulum(e.target.value); setSelectedSubject(''); setPage(1) }}
+          >
+            <option value="">Semua Kurikulum</option>
+            {kurikulums.map((item) => <option key={item.id} value={item.id}>{item.nama_kurikulum || item.kode_kurikulum}</option>)}
+          </MasterFilterSelect>
+
+          <MasterFilterSelect
+            className="grow sm:grow-0 min-w-[170px]"
+            value={selectedSubject}
+            onChange={(e) => { setSelectedSubject(e.target.value); setPage(1) }}
+          >
+            <option value="">Semua Mata Pelajaran</option>
+            {subjects
+              .filter((item) => !selectedKurikulum || item.kurikulum_id === selectedKurikulum)
+              .map((item) => <option key={item.id} value={item.id}>{item.nama_mapel || item.name}</option>)}
+          </MasterFilterSelect>
+
+          <MasterFilterSelect
+            className="grow sm:grow-0 min-w-[135px]"
+            value={selectedStatus}
+            onChange={(e) => { setSelectedStatus(e.target.value); setPage(1) }}
+          >
+            <option value="">Semua Status</option>
+            <option value="aktif">Aktif</option>
+            <option value="tidak_aktif">Nonaktif</option>
+          </MasterFilterSelect>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearch(''); setSelectedUnit(''); setSelectedTahun(''); setSelectedKurikulum(''); setSelectedSubject(''); setSelectedStatus(''); setPage(1)
+            }}
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-1.5 rounded-[var(--master-control-radius,14px)] border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:border-slate-700 dark:bg-[#111827] dark:text-slate-200 dark:hover:border-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-all cursor-pointer"
+            title="Reset Filter"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
 
       {/* Main Table */}
       <MasterDataTable className="!rounded-none !border-0 !shadow-none">
@@ -510,11 +711,11 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
                   </label>
                   <select
                     value={formData.unit_pendidikan_id}
-                    onChange={(e) => setFormData({ ...formData, unit_pendidikan_id: e.target.value })}
+                    onChange={(e) => handleUnitChangeInForm(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
                   >
                     <option value="">-- Pilih Unit --</option>
-                    {units.map((u) => (
+                    {availableUnitsForModal.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.name || u.code}
                       </option>
@@ -548,12 +749,12 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
                   </label>
                   <select
                     value={formData.kurikulum_id}
-                    onChange={(e) => setFormData({ ...formData, kurikulum_id: e.target.value })}
+                    onChange={(e) => handleKurikulumChangeInForm(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
                     required
                   >
                     <option value="">-- Pilih Kurikulum --</option>
-                    {kurikulums.map((k) => (
+                    {availableKurikulumsForModal.map((k) => (
                       <option key={k.id} value={k.id}>
                         {k.nama_kurikulum || k.kode_kurikulum}
                       </option>
@@ -572,7 +773,7 @@ export default function MasterCapaianPembelajaranPage({ embedded = false, hideBr
                     required
                   >
                     <option value="">-- Pilih Mata Pelajaran --</option>
-                    {subjects.map((s) => (
+                    {availableSubjectsForModal.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.nama_mapel || s.name}
                       </option>

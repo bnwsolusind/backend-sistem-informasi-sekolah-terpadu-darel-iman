@@ -62,7 +62,7 @@ export default function JabatanImportModal({ isOpen, onClose, onImport, isSubmit
 	        nama_jabatan: 'Koordinator Ekstrakurikuler',
 	        satuan_kerja: 'Unit Pendidikan',
 	        scope_akses: 'siswa_binaan',
-        level_jabatan: 5,
+        level_jabatan: 8,
         urutan: 15,
         warna: '#3B82F6',
         ikon: 'UserCheck',

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Activity,
   BookOpen,
@@ -29,7 +29,7 @@ import { lmsAktivitasBelajarService } from '../services/lmsAktivitasBelajarServi
 import PageContainer from '../components/app/PageContainer'
 import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
-export default function LmsAktivitasBelajarPage() {
+export default function LmsAktivitasBelajarPage({ embedded = false, hideBreadcrumb = false, hidePageHeader = false, tabNav = null }) {
   const [dataAktivitas, setDataAktivitas] = useState([])
   const [optionsModulAjar, setOptionsModulAjar] = useState([])
   const [optionsJenis, setOptionsJenis] = useState([
@@ -51,6 +51,13 @@ export default function LmsAktivitasBelajarPage() {
     penutup: 0,
     aktif: 0,
     draft: 0,
+  })
+
+  // KPI Modal State
+  const [kpiModalOpen, setKpiModalOpen] = useState(false)
+  const [kpiModalCategory, setKpiModalCategory] = useState({
+    title: '',
+    items: [],
   })
 
   const [loading, setLoading] = useState(true)
@@ -105,6 +112,37 @@ export default function LmsAktivitasBelajarPage() {
     } catch (err) {
       console.error('Gagal mengambil statistik aktivitas:', err)
     }
+  }
+
+  const computedStats = useMemo(() => {
+    return {
+      total: dataAktivitas.length,
+      pendahuluan: dataAktivitas.filter((a) => a.jenis_aktivitas === 'Pendahuluan').length,
+      inti: dataAktivitas.filter((a) => a.jenis_aktivitas === 'Inti').length,
+      penutup: dataAktivitas.filter((a) => a.jenis_aktivitas === 'Penutup' || a.jenis_aktivitas === 'Refleksi').length,
+    }
+  }, [dataAktivitas])
+
+  const handleOpenKpiModal = (type) => {
+    let title = ''
+    let items = []
+
+    if (type === 'total') {
+      title = 'Total Aktivitas Belajar Terdaftar'
+      items = dataAktivitas
+    } else if (type === 'pendahuluan') {
+      title = 'Daftar Aktivitas Pendahuluan (Orientasi & Apersepsi)'
+      items = dataAktivitas.filter((a) => a.jenis_aktivitas === 'Pendahuluan')
+    } else if (type === 'inti') {
+      title = 'Daftar Aktivitas Kegiatan Inti (Eksplorasi & Praktik)'
+      items = dataAktivitas.filter((a) => a.jenis_aktivitas === 'Inti')
+    } else if (type === 'penutup') {
+      title = 'Daftar Aktivitas Penutup & Refleksi'
+      items = dataAktivitas.filter((a) => a.jenis_aktivitas === 'Penutup' || a.jenis_aktivitas === 'Refleksi')
+    }
+
+    setKpiModalCategory({ title, items })
+    setKpiModalOpen(true)
   }
 
   const fetchOptions = async () => {
@@ -282,28 +320,30 @@ export default function LmsAktivitasBelajarPage() {
   return (
     <div className="space-y-6 pb-12 transition-all duration-300">
       {/* Top Banner / Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 sm:p-8 text-white shadow-xl">
-        <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
-          <Activity className="w-80 h-80 text-white" />
-        </div>
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold text-white/90 mb-3">
-              <Sparkles className="w-3.5 h-3.5" /> LMS — Rencana Aktivitas Belajar
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Aktivitas Belajar</h1>
-            <p className="text-white/80 text-sm mt-1 max-w-xl">
-              Kelola alur skenario kegiatan pembelajaran (Pendahuluan, Inti, Penutup, Diskusi, Tugas, dll.) terintegrasi dengan Modul Ajar.
-            </p>
+      {!hidePageHeader && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 sm:p-8 text-white shadow-xl">
+          <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+            <Activity className="w-80 h-80 text-white" />
           </div>
-          <button
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0E5C44] font-bold text-sm shadow-lg hover:bg-emerald-50 hover:scale-[1.03] active:scale-95 transition-all duration-200"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" /> Tambah Aktivitas
-          </button>
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold text-white/90 mb-3">
+                <Sparkles className="w-3.5 h-3.5" /> LMS — Rencana Aktivitas Belajar
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Aktivitas Belajar</h1>
+              <p className="text-white/80 text-sm mt-1 max-w-xl">
+                Kelola alur skenario kegiatan pembelajaran (Pendahuluan, Inti, Penutup, Diskusi, Tugas, dll.) terintegrasi dengan Modul Ajar.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenCreateModal}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0E5C44] font-bold text-sm shadow-lg hover:bg-emerald-50 hover:scale-[1.03] active:scale-95 transition-all duration-200"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" /> Tambah Aktivitas
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Alert Messages */}
       {successMsg && (
@@ -332,10 +372,13 @@ export default function LmsAktivitasBelajarPage() {
 
       {/* KPI Stats Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('total')}
+          className="group p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Aktivitas</p>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</h3>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider group-hover:text-[#0E5C44]">Total Aktivitas</p>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{computedStats.total}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Kegiatan Terdaftar</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-[#0E5C44] dark:text-emerald-400">
@@ -343,39 +386,51 @@ export default function LmsAktivitasBelajarPage() {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('pendahuluan')}
+          className="group p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Pendahuluan</p>
-            <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{stats.pendahuluan}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Orientasi & Apersepsi</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider group-hover:text-blue-600">Pendahuluan</p>
+            <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{computedStats.pendahuluan}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Orientasi &amp; Apersepsi</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Clock className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('inti')}
+          className="group p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kegiatan Inti</p>
-            <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{stats.inti}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Eksplorasi & Praktik</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider group-hover:text-emerald-600">Kegiatan Inti</p>
+            <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{computedStats.inti}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Eksplorasi &amp; Praktik</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <Layers className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('penutup')}
+          className="group p-5 rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 flex items-center justify-between hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Penutup & Refleksi</p>
-            <h3 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{stats.penutup}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Evaluasi & Kesimpulan</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider group-hover:text-purple-600">Penutup &amp; Refleksi</p>
+            <h3 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">{computedStats.penutup}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Evaluasi &amp; Kesimpulan</p>
           </div>
           <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
             <Tag className="w-6 h-6" />
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation Card (below KPI grid) */}
+      {tabNav}
 
       {/* Main Table Card Container */}
       <div className="rounded-2xl bg-white dark:bg-[#1B2433] border border-gray-100 dark:border-gray-800 shadow-xl/5 overflow-hidden">
@@ -623,6 +678,96 @@ export default function LmsAktivitasBelajarPage() {
           </div>
         )}
       </div>
+
+      {/* KPI DETAIL MODAL */}
+      {kpiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#1B2433] w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-gradient-to-r from-[#0E5C44] to-[#1E8E5A] p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                  <Activity className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{kpiModalCategory.title}</h3>
+                  <p className="text-xs text-emerald-100 mt-0.5">
+                    Menampilkan {kpiModalCategory.items.length} aktivitas terdaftar
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="text-emerald-100 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {kpiModalCategory.items.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-semibold text-sm">Tidak ada data aktivitas dalam kategori ini.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        <th className="py-3 px-4 text-center w-12">No</th>
+                        <th className="py-3 px-4">Nama Aktivitas</th>
+                        <th className="py-3 px-4">Jenis</th>
+                        <th className="py-3 px-4">Modul Ajar</th>
+                        <th className="py-3 px-4 text-center">Waktu</th>
+                        <th className="py-3 px-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                      {kpiModalCategory.items.map((item, idx) => (
+                        <tr key={item.id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                          <td className="py-3 px-4 text-center text-slate-400 text-xs font-medium">{idx + 1}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-100">{item.nama_aktivitas}</td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium border ${getJenisBadgeColor(item.jenis_aktivitas)}`}>
+                              {item.jenis_aktivitas}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
+                            {item.modul_ajar?.judul_modul || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-center text-xs font-semibold text-slate-700 dark:text-slate-200">
+                            {item.waktu} mnt
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => {
+                                setKpiModalOpen(false)
+                                handleOpenDetail(item)
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-[#0E5C44] dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs hover:bg-emerald-100 transition-colors"
+                            >
+                              Detail
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/40">
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Form Tambah / Edit */}
       {isModalOpen && (

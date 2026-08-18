@@ -26,7 +26,9 @@ import {
 import Swal from 'sweetalert2'
 import CetakKartuSiswaModal from '../components/siswa/CetakKartuSiswaModal'
 import StudentFormModal from '../components/siswa/StudentFormModal'
+import StudentLeaderAnalyticsSection from '../components/siswa/StudentLeaderAnalyticsSection'
 import ActionDropdown from '../components/app/ActionDropdown'
+import { Button } from '../components/tailgrids/core/button'
 import AppBadge from '../components/app/AppBadge'
 import { useDaftarKelas } from '../hooks/useReferenceData'
 import { useAksiSiswa, useDaftarSiswa } from '../hooks/useStudents'
@@ -37,6 +39,7 @@ import PersonIdentityCell from '../components/ui/PersonIdentityCell'
 import { hasAnyRole } from '../auth/portalResolver'
 import { useAuthStore } from '../stores/authStore'
 import PageContainer from '../components/app/PageContainer'
+import { Download1, Upload1, Plus as PlusIcon } from '@tailgrids/icons'
 import {
   MasterActionButton,
   MasterDataPage,
@@ -88,11 +91,22 @@ export default function StudentsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const user = useAuthStore((state) => state.user)
   const permissions = user?.permissions || []
-  const isSuperAdmin = hasAnyRole(user?.roles || [], ['Super Admin'])
-  const canCreateStudent = isSuperAdmin || permissions.includes('student.create')
-  const canUpdateStudent = isSuperAdmin || permissions.includes('student.update')
-  const canDeleteStudent = isSuperAdmin || permissions.includes('student.delete')
-  const canExportStudent = isSuperAdmin || permissions.includes('student.export')
+  const userRoles = useMemo(() => user?.roles || [], [user])
+  const isSuperAdmin = hasAnyRole(userRoles, ['Super Admin', 'super_admin'])
+  const isKepalaSekolah = useMemo(() => hasAnyRole(userRoles, ['Kepala Sekolah', 'kepala_sekolah', 'kepsek']), [userRoles])
+  const isDivisiPendidikan = useMemo(() => hasAnyRole(userRoles, ['Divisi Pendidikan', 'divisi_pendidikan']), [userRoles])
+  const isLeaderRole = useMemo(() => {
+    return (
+      isSuperAdmin ||
+      isKepalaSekolah ||
+      isDivisiPendidikan ||
+      hasAnyRole(userRoles, ['Yayasan', 'Pengurus Yayasan', 'Ketua Yayasan', 'sekretaris_yayasan', 'bendahara_yayasan'])
+    )
+  }, [isSuperAdmin, isKepalaSekolah, isDivisiPendidikan, userRoles])
+  const canCreateStudent = isSuperAdmin || isKepalaSekolah || isDivisiPendidikan || permissions.includes('student.create')
+  const canUpdateStudent = isSuperAdmin || isKepalaSekolah || isDivisiPendidikan || permissions.includes('student.update')
+  const canDeleteStudent = isSuperAdmin || isKepalaSekolah || permissions.includes('student.delete')
+  const canExportStudent = isSuperAdmin || isKepalaSekolah || isDivisiPendidikan || permissions.includes('student.export')
   const [step, setStep] = useState(1)
 
   // Filters
@@ -145,6 +159,7 @@ export default function StudentsPage() {
     page: currentPage,
     per_page: itemsPerPage,
     search: searchQuery || undefined,
+    unit_id: unitFilter || undefined,
   })
   const { data: daftarKelasData } = useDaftarKelas(
     { per_page: 200 },
@@ -157,8 +172,8 @@ export default function StudentsPage() {
     staleTime: 5 * 60 * 1000,
   })
   const { data: studentDashboardData, isLoading: isSummaryLoading } = useQuery({
-    queryKey: ['students-dashboard-summary'],
-    queryFn: studentService.getDashboard,
+    queryKey: ['students-dashboard-summary', unitFilter],
+    queryFn: () => studentService.getDashboard({ unit_id: unitFilter || undefined }),
   })
   const { tambah, ubah, hapus } = useAksiSiswa()
 
@@ -218,12 +233,6 @@ export default function StudentsPage() {
       'Alamat Instansi Ibu', 'Alamat Rumah Ibu',
       // Data Wali
       'NIK Wali', 'Nama Wali', 'HP Wali', 'WA Wali', 'Pekerjaan Wali', 'Alamat Wali',
-      // Akademik
-      'Unit Pendidikan', 'NIS Pembayaran', 'Tahun Ajaran Masuk', 'Tahun Ajaran Berjalan',
-      'Status Siswa', 'Status Orang Tua (Umum/Pegawai)', 'NIY Ortu Jika Pegawai',
-      'Wali Kelas', 'NIY Wali Kelas',
-    ]
-    const sampleRow = [
       'PDK-2024-001', '1371234567890123', 'AK.2014.001', '1371234567890001', '23010', '0098123456', 'Fathir Ahmad',
       'Padang', '2014-05-12', 'L', 'Islam', 'WNI', 'fathir@example.com',
       '1', '2', '0', '35', '130',
@@ -515,7 +524,11 @@ export default function StudentsPage() {
   }
 
   const handleOpenDetail = (student) => {
-    setSelectedStudent(student)
+    if (!student) return
+    const match = formattedStudents.find(
+      (s) => String(s.id) === String(student.id) || (s.nama && student.nama && s.nama.toLowerCase() === student.nama.toLowerCase())
+    )
+    setSelectedStudent(match || student)
     setActiveDetailTab('siswa')
     setShowDetailModal(true)
   }
@@ -649,8 +662,8 @@ export default function StudentsPage() {
             </thead>
             <tbody>
               ${filteredStudents.map((st, idx) => {
-                const meta = st.raw?.metadata || {}
-                return `
+        const meta = st.raw?.metadata || {}
+        return `
                   <tr>
                     <td>${idx + 1}</td>
                     <td>${st.nis || '-'}</td>
@@ -673,7 +686,7 @@ export default function StudentsPage() {
                     <td>${meta.email || '-'}</td>
                   </tr>
                 `
-              }).join('')}
+      }).join('')}
             </tbody>
           </table>
         </body>
@@ -706,590 +719,662 @@ export default function StudentsPage() {
   }
 
   return (
-    <PageContainer maxW="7xl">
-      <MasterDataPage className="education-unit-page student-master-page">
-      <MasterPageHeader
-        tone="brand"
-        title="Master Siswa"
-        description="Kelola identitas, data akademik, orang tua atau wali, serta status seluruh siswa."
-        icon={FaUserGraduate}
-        actions={<>
-          <MasterActionButton variant="import" icon={FaFileImport} onClick={() => setShowImportModal(true)}>Import Data</MasterActionButton>
-          {canExportStudent && <MasterActionButton variant="export" icon={FaFileExcel} onClick={handleExportExcel}>Export Data</MasterActionButton>}
-          {canCreateStudent && <MasterActionButton icon={FaPlus} onClick={handleOpenTambah}>Tambah Siswa</MasterActionButton>}
-        </>}
-      />
+    <PageContainer maxW="7xl" className="space-y-6 pb-12">
+      <MasterDataPage hideBreadcrumb className="education-unit-page student-master-page">
 
-      {/* Quick Summary Cards */}
-      <MasterStatsGrid className="education-unit-kpis">
-        <MasterStatCard loading={isSummaryLoading} icon={FaUserGraduate} label="Total Siswa" value={studentStats.total_siswa ?? 0} description="Terdaftar di sistem" variant="success" delay={40} />
-        <MasterStatCard
-          icon={FaMale}
-          label="Siswa Laki-laki"
-          loading={isSummaryLoading}
-          value={genderStats.laki_laki ?? 0}
-          description="Berdasarkan data siswa"
-          variant="info"
-          delay={80}
-        />
-        <MasterStatCard
-          icon={FaFemale}
-          label="Siswa Perempuan"
-          loading={isSummaryLoading}
-          value={genderStats.perempuan ?? 0}
-          description="Berdasarkan data siswa"
-          variant="danger"
-          delay={120}
-        />
-        <MasterStatCard
-          icon={FaCheckCircle}
-          label="Status Aktif"
-          loading={isSummaryLoading}
-          value={studentStats.siswa_aktif ?? 0}
-          description="Berstatus aktif"
-          variant="warning"
-          delay={160}
-        />
-      </MasterStatsGrid>
+        {/* Quick Summary Cards */}
+        <MasterStatsGrid className="education-unit-kpis">
+          <MasterStatCard loading={isSummaryLoading} icon={FaUserGraduate} label="Total Siswa" value={studentStats.total_siswa ?? 0} description="Terdaftar di sistem" variant="success" delay={40} />
+          <MasterStatCard
+            icon={FaMale}
+            label="Siswa Laki-laki"
+            loading={isSummaryLoading}
+            value={genderStats.laki_laki ?? 0}
+            description="Berdasarkan data siswa"
+            variant="info"
+            delay={80}
+          />
+          <MasterStatCard
+            icon={FaFemale}
+            label="Siswa Perempuan"
+            loading={isSummaryLoading}
+            value={genderStats.perempuan ?? 0}
+            description="Berdasarkan data siswa"
+            variant="danger"
+            delay={120}
+          />
+          <MasterStatCard
+            icon={FaCheckCircle}
+            label="Status Aktif"
+            loading={isSummaryLoading}
+            value={studentStats.siswa_aktif ?? 0}
+            description="Berstatus aktif"
+            variant="warning"
+            delay={160}
+          />
+        </MasterStatsGrid>
 
-      {/* Unified Master Data Section */}
-      <MasterDataSection
-        title="Daftar Siswa"
-        description="Data siswa sesuai filter dan kewenangan pengguna."
-        countLabel={`${Number(studentPagination.total || filteredStudents.length).toLocaleString('id-ID')} siswa`}
-        search={{
-          value: searchInput,
-          onValueChange: (value) => setSearchInput(value),
-          placeholder: 'Cari NIS, NISN, atau nama siswa...',
-          'aria-label': 'Cari siswa',
-        }}
-        filters={
-          <>
-            <MasterFilterSelect
-              aria-label="Filter unit pendidikan"
-              value={unitFilter}
-              onChange={(e) => { setUnitFilter(e.target.value); setCurrentPage(1) }}
-            >
-              <option value="">Semua Unit Pendidikan</option>
-              {rawUnits.map((u) => (
-                <option key={u.id || u.nama_unit} value={u.nama_unit || u.name || u.id}>{u.nama_unit || u.name}</option>
-              ))}
-            </MasterFilterSelect>
+        {/* Analytics & Achievement Showcase Section for Kepala Sekolah & Divisi Pendidikan */}
+        {isLeaderRole && (
+          <StudentLeaderAnalyticsSection
+            students={formattedStudents}
+            dashboardStats={studentDashboardData?.laporan_siswa ? {
+              siswa_baru: studentDashboardData.laporan_siswa.siswa_baru,
+              mutasi_keluar: studentDashboardData.laporan_siswa.mutasi_keluar,
+              siswa_nonaktif: studentStats.siswa_nonaktif,
+            } : studentStats}
+            selectedUnit={unitFilter}
+            units={rawUnits}
+            onUnitChange={(val) => { setUnitFilter(val); setCurrentPage(1) }}
+            selectedKelas={kelasFilter}
+            classes={rawClasses}
+            onKelasChange={(val) => { setKelasFilter(val); setCurrentPage(1) }}
+            isKepalaSekolah={isKepalaSekolah}
+            isDivisiPendidikan={isDivisiPendidikan}
+            onSelectStudent={handleOpenDetail}
+            onOpenImport={() => setShowImportModal(true)}
+            onOpenExport={handleExportExcel}
+            onOpenAdd={handleOpenTambah}
+            canExportStudent={canExportStudent}
+            canCreateStudent={canCreateStudent}
+          />
+        )}
 
-            <MasterFilterSelect
-              aria-label="Filter kelas"
-              value={kelasFilter}
-              onChange={(e) => { setKelasFilter(e.target.value); setCurrentPage(1) }}
-            >
-              <option value="">Semua Kelas</option>
-              {rawClasses.map((c) => (
-                <option key={c.id || c.nama_kelas} value={c.nama_kelas || c.name || c.id}>{c.nama_kelas || c.name}</option>
-              ))}
-            </MasterFilterSelect>
-
-            <MasterFilterSelect
-              aria-label="Filter status"
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
-            >
-              <option value="">Semua Status</option>
-              <option value="aktif">Aktif</option>
-              <option value="mutasi">Mutasi</option>
-              <option value="lulus">Lulus</option>
-              <option value="nonaktif">Nonaktif</option>
-            </MasterFilterSelect>
-          </>
-        }
-        onReset={() => {
-          setSearchInput('')
-          setUnitFilter('')
-          setKelasFilter('')
-          setStatusFilter('')
-          setCurrentPage(1)
-        }}
-        resetDisabled={!searchInput && !unitFilter && !kelasFilter && !statusFilter}
-        isLoading={isLoading}
-        isError={isError}
-        errorTitle="Data siswa gagal dimuat"
-        errorMessage="Periksa koneksi server kemudian coba kembali."
-        onRetry={refetch}
-        isEmpty={!isLoading && !isError && paginatedStudents.length === 0}
-        emptyTitle="Siswa tidak ditemukan"
-        emptyDescription="Tidak ada data siswa yang cocok dengan kriteria filter."
-        pagination={{
-          meta: {
-            total: studentPagination.total || filteredStudents.length,
-            from: studentPagination.from || 1,
-            to: studentPagination.to || filteredStudents.length,
-            last_page: studentPagination.lastPage || 1,
-            current_page: currentPage,
-          },
-          page: currentPage,
-          onPageChange: setCurrentPage,
-        }}
-      >
-        <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar siswa">
-          <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
-            <tr>
-              <th className="w-[6%] px-2 py-3 text-center">No</th>
-              <th className="w-[34%] px-3 py-3 font-bold">Identitas Siswa</th>
-              <th className="hidden w-[29%] px-3 py-3 font-bold md:table-cell">Orang Tua / Wali</th>
-              <th className="hidden w-[11%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
-              <th className="w-[20%] px-2 py-3 text-center font-bold">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
-            {paginatedStudents.map((item, idx) => (
-              <tr key={item.id} className="edu-row align-middle transition-colors hover:bg-emerald-50/40 dark:hover:bg-slate-800/50" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
-                <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">
-                  {(studentPagination.from || 1) + idx}
-                </td>
-                <td className="px-3 py-3">
-                  <div className="min-w-0">
-                    <PersonIdentityCell src={item.foto} name={item.nama} subtitle={`NIS ${item.nis} · NISN ${item.nisn || '-'}`} />
-                    <span className="mt-1 block min-w-0 pl-11">
-                      <small className="mt-0.5 block truncate text-[9px] font-semibold text-emerald-700 dark:text-emerald-300" title={`${item.unit} · Kelas ${item.kelas}`}>
-                        {item.unit} · Kelas {item.kelas}
-                      </small>
-                      <small className="mt-0.5 block truncate text-[9px] font-medium text-slate-500 md:hidden" title={item.orangTua}>Ortu: {item.orangTua} ({item.noHp || '-'})</small>
-                      <small className={`mt-0.5 text-[9px] font-bold sm:hidden ${(item.status || '').toLowerCase() === 'aktif' ? 'text-emerald-700' : 'text-amber-600'}`}>• {item.status}</small>
-                    </span>
-                  </div>
-                </td>
-                <td className="hidden px-3 py-3 md:table-cell">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{(item.orangTua || 'W').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
-                    <span className="min-w-0">
-                      <strong className="block truncate text-xs text-slate-800 dark:text-slate-100" title={item.orangTua}>{item.orangTua}</strong>
-                      <small className="mt-1 block whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
-                        {item.noHp || '-'}
-                      </small>
-                    </span>
-                  </div>
-                </td>
-                <td className="hidden whitespace-nowrap px-3 py-3 text-center sm:table-cell">{renderStatusBadge(item.status)}</td>
-                <td className="px-3 py-3 text-center">
-                  <div className="flex items-center justify-center">
-                    <ActionDropdown
-                      onView={() => handleOpenDetail(item)}
-                      onEdit={canUpdateStudent ? () => handleOpenEdit(item) : undefined}
-                      onDelete={canDeleteStudent ? () => handleDelete(item) : undefined}
-                      extraItems={[{
-                        label: 'Cetak Kartu',
-                        icon: <FaPrint className="h-4 w-4 text-emerald-600" />,
-                        onClick: () => { setStudentToPrint(item); setShowCetakModal(true) },
-                      }]}
-                    />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </MasterDataSection>
-
-      {/* POP UP MODAL 1: DETAIL SISWA */}
-      {showDetailModal && selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-6">
-
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                  <FaUserGraduate className="text-lg" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Detail Siswa</h3>
-                  <p className="text-[11px] font-medium text-slate-500">Informasi lengkap siswa dan data pendukung.</p>
+        {/* Unified Master Data Section */}
+        <MasterDataSection
+          title="Daftar Siswa"
+          description="Data siswa sesuai filter dan kewenangan pengguna."
+          countLabel={`${Number(studentPagination.total || filteredStudents.length).toLocaleString('id-ID')} siswa`}
+          actions={
+            <div className="flex items-center gap-2.5 flex-nowrap shrink-0 overflow-x-auto py-1">
+              {/* Import Button (Soft Sky Blue Squircle) */}
+              <div className="group relative inline-flex">
+                <button
+                  type="button"
+                  title="Import Data Siswa"
+                  aria-label="Import Data Siswa"
+                  className="flex size-10 items-center justify-center rounded-2xl bg-sky-100/90 text-sky-600 hover:bg-sky-500 hover:text-white dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-500 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-sky-500/30 cursor-pointer shadow-2xs"
+                  onClick={() => setShowImportModal(true)}
+                >
+                  <Upload1 className="size-5 transition-colors" />
+                </button>
+                <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                  <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                  Import Data
                 </div>
               </div>
-              <button onClick={() => setShowDetailModal(false)}
-                aria-label="Tutup detail siswa"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
-                <FaTimes className="text-base" />
-              </button>
-            </div>
 
-            {/* Modal Content */}
-            <div className="max-h-[75vh] overflow-y-auto bg-white p-5">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-
-                {/* Left: Profile Overview Card */}
-                <div className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4 text-xs">
-                  {/* Photo + Name + Status */}
-                  <div className="flex items-start gap-3">
-                    <PersonAvatar src={selectedStudent.foto} name={selectedStudent.nama} size="detail" className="border-2 border-emerald-600 shadow" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-sm font-extrabold text-slate-900 leading-tight">{selectedStudent.nama}</h3>
-                        {renderStatusBadge(selectedStudent.status)}
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 font-medium">NIS: {selectedStudent.nis} | NISN: {selectedStudent.nisn}</p>
-                      <p className="text-[11px] text-emerald-800 font-semibold mt-0.5">{selectedStudent.unit}</p>
-                    </div>
-                  </div>
-
-                  {/* Biodata Singkat */}
-                  <div className="space-y-2.5 border-t border-slate-100 pt-3">
-                    {[
-                      { label: 'Tempat, Tgl Lahir', value: `${selectedStudent.tempatLahir}, ${selectedStudent.tanggalLahir}` },
-                      { label: 'Jenis Kelamin', value: selectedStudent.gender },
-                      { label: 'Agama', value: selectedStudent.agama || 'Islam' },
-                      { label: 'Kelas', value: selectedStudent.kelas },
-                    ].map(item => (
-                      <div key={item.label} className="flex justify-between items-start gap-2">
-                        <span className="text-slate-500 shrink-0">{item.label}:</span>
-                        <span className="font-semibold text-slate-800 text-right">{item.value || '-'}</span>
-                      </div>
-                    ))}
+              {/* Export Button (Soft Amber Squircle) */}
+              {canExportStudent && (
+                <div className="group relative inline-flex">
+                  <button
+                    type="button"
+                    title="Export Data Siswa"
+                    aria-label="Export Data Siswa"
+                    className="flex size-10 items-center justify-center rounded-2xl bg-amber-100/90 text-amber-600 hover:bg-amber-500 hover:text-white dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-500 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-amber-500/30 cursor-pointer shadow-2xs"
+                    onClick={handleExportExcel}
+                  >
+                    <Download1 className="size-5 transition-colors" />
+                  </button>
+                  <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                    <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                    Export Data
                   </div>
                 </div>
+              )}
 
-                {/* Right: Tabbed Detail */}
-                <div className="lg:col-span-8 space-y-4">
-                  {/* Tab Navigation + Content */}
-                  <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    {/* Tabs Header */}
-                    <div className="flex gap-0 border-b border-slate-200 overflow-x-auto">
+              {/* Tambah Button (Soft Emerald Squircle) */}
+              {canCreateStudent && (
+                <div className="group relative inline-flex">
+                  <button
+                    type="button"
+                    title="Tambah Siswa"
+                    aria-label="Tambah Siswa"
+                    className="flex size-10 items-center justify-center rounded-2xl bg-emerald-100/90 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-emerald-600/30 cursor-pointer shadow-2xs"
+                    onClick={handleOpenTambah}
+                  >
+                    <PlusIcon className="size-5 transition-colors" />
+                  </button>
+                  <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                    <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                    Tambah Siswa
+                  </div>
+                </div>
+              )}
+            </div>
+          }
+          search={{
+            value: searchInput,
+            onValueChange: (value) => setSearchInput(value),
+            placeholder: 'Cari NIS, NISN, atau nama siswa...',
+            'aria-label': 'Cari siswa',
+          }}
+          filters={
+            <>
+              <MasterFilterSelect
+                aria-label="Filter unit pendidikan"
+                value={unitFilter}
+                onChange={(e) => { setUnitFilter(e.target.value); setCurrentPage(1) }}
+              >
+                <option value="">Semua Unit Pendidikan</option>
+                {rawUnits.map((u) => (
+                  <option key={u.id || u.nama_unit} value={u.nama_unit || u.name || u.id}>{u.nama_unit || u.name}</option>
+                ))}
+              </MasterFilterSelect>
+
+              <MasterFilterSelect
+                aria-label="Filter kelas"
+                value={kelasFilter}
+                onChange={(e) => { setKelasFilter(e.target.value); setCurrentPage(1) }}
+              >
+                <option value="">Semua Kelas</option>
+                {rawClasses.map((c) => (
+                  <option key={c.id || c.nama_kelas} value={c.nama_kelas || c.name || c.id}>{c.nama_kelas || c.name}</option>
+                ))}
+              </MasterFilterSelect>
+
+              <MasterFilterSelect
+                aria-label="Filter status"
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
+              >
+                <option value="">Semua Status</option>
+                <option value="aktif">Aktif</option>
+                <option value="mutasi">Mutasi</option>
+                <option value="lulus">Lulus</option>
+                <option value="nonaktif">Nonaktif</option>
+              </MasterFilterSelect>
+            </>
+          }
+          onReset={() => {
+            setSearchInput('')
+            setUnitFilter('')
+            setKelasFilter('')
+            setStatusFilter('')
+            setCurrentPage(1)
+          }}
+          resetDisabled={!searchInput && !unitFilter && !kelasFilter && !statusFilter}
+          isLoading={isLoading}
+          isError={isError}
+          errorTitle="Data siswa gagal dimuat"
+          errorMessage="Periksa koneksi server kemudian coba kembali."
+          onRetry={refetch}
+          isEmpty={!isLoading && !isError && paginatedStudents.length === 0}
+          emptyTitle="Siswa tidak ditemukan"
+          emptyDescription="Tidak ada data siswa yang cocok dengan kriteria filter."
+          pagination={{
+            meta: {
+              total: studentPagination.total || filteredStudents.length,
+              from: studentPagination.from || 1,
+              to: studentPagination.to || filteredStudents.length,
+              last_page: studentPagination.lastPage || 1,
+              current_page: currentPage,
+            },
+            page: currentPage,
+            onPageChange: setCurrentPage,
+          }}
+        >
+          <table className="w-full table-fixed text-left text-sm text-slate-600" aria-label="Daftar siswa">
+            <thead className="border-b border-slate-200/80 bg-slate-50/80 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+              <tr>
+                <th className="w-[6%] px-2 py-3 text-center">No</th>
+                <th className="w-[34%] px-3 py-3 font-bold">Identitas Siswa</th>
+                <th className="hidden w-[29%] px-3 py-3 font-bold md:table-cell">Orang Tua / Wali</th>
+                <th className="hidden w-[11%] px-2 py-3 text-center font-bold sm:table-cell">Status</th>
+                <th className="w-[20%] px-2 py-3 text-center font-bold">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
+              {paginatedStudents.map((item, idx) => (
+                <tr key={item.id} className="edu-row align-middle transition-colors hover:bg-emerald-50/40 dark:hover:bg-slate-800/50" style={{ animationDelay: `${Math.min(idx, 8) * 35}ms` }}>
+                  <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">
+                    {(studentPagination.from || 1) + idx}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="min-w-0">
+                      <PersonIdentityCell src={item.foto} name={item.nama} subtitle={`NIS ${item.nis} · NISN ${item.nisn || '-'}`} />
+                      <span className="mt-1 block min-w-0 pl-11">
+                        <small className="mt-0.5 block truncate text-[9px] font-semibold text-emerald-700 dark:text-emerald-300" title={`${item.unit} · Kelas ${item.kelas}`}>
+                          {item.unit} · Kelas {item.kelas}
+                        </small>
+                        <small className="mt-0.5 block truncate text-[9px] font-medium text-slate-500 md:hidden" title={item.orangTua}>Ortu: {item.orangTua} ({item.noHp || '-'})</small>
+                        <small className={`mt-0.5 text-[9px] font-bold sm:hidden ${(item.status || '').toLowerCase() === 'aktif' ? 'text-emerald-700' : 'text-amber-600'}`}>• {item.status}</small>
+                      </span>
+                    </div>
+                  </td>
+                  <td className="hidden px-3 py-3 md:table-cell">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{(item.orangTua || 'W').split(' ').slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</span>
+                      <span className="min-w-0">
+                        <strong className="block truncate text-xs text-slate-800 dark:text-slate-100" title={item.orangTua}>{item.orangTua}</strong>
+                        <small className="mt-1 block whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+                          {item.noHp || '-'}
+                        </small>
+                      </span>
+                    </div>
+                  </td>
+                  <td className="hidden whitespace-nowrap px-3 py-3 text-center sm:table-cell">{renderStatusBadge(item.status)}</td>
+                  <td className="px-3 py-3 text-center">
+                    <div className="flex items-center justify-center">
+                      <ActionDropdown
+                        onView={() => handleOpenDetail(item)}
+                        onEdit={canUpdateStudent ? () => handleOpenEdit(item) : undefined}
+                        onDelete={canDeleteStudent ? () => handleDelete(item) : undefined}
+                        extraItems={[{
+                          label: 'Cetak Kartu',
+                          icon: <FaPrint className="h-4 w-4 text-emerald-600" />,
+                          onClick: () => { setStudentToPrint(item); setShowCetakModal(true) },
+                        }]}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </MasterDataSection>
+
+        {/* POP UP MODAL 1: DETAIL SISWA */}
+        {showDetailModal && selectedStudent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm overflow-y-auto">
+            <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden my-6">
+
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <FaUserGraduate className="text-lg" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Detail Siswa</h3>
+                    <p className="text-[11px] font-medium text-slate-500">Informasi lengkap siswa dan data pendukung.</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowDetailModal(false)}
+                  aria-label="Tutup detail siswa"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
+                  <FaTimes className="text-base" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="max-h-[75vh] overflow-y-auto bg-white p-5">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+
+                  {/* Left: Profile Overview Card */}
+                  <div className="lg:col-span-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4 text-xs">
+                    {/* Photo + Name + Status */}
+                    <div className="flex items-start gap-3">
+                      <PersonAvatar src={selectedStudent.foto} name={selectedStudent.nama} size="detail" className="border-2 border-emerald-600 shadow" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-extrabold text-slate-900 leading-tight">{selectedStudent.nama}</h3>
+                          {renderStatusBadge(selectedStudent.status)}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 font-medium">NIS: {selectedStudent.nis} | NISN: {selectedStudent.nisn}</p>
+                        <p className="text-[11px] text-emerald-800 font-semibold mt-0.5">{selectedStudent.unit}</p>
+                      </div>
+                    </div>
+
+                    {/* Biodata Singkat */}
+                    <div className="space-y-2.5 border-t border-slate-100 pt-3">
                       {[
-                        { key: 'siswa', label: 'Data Siswa' },
-                        { key: 'orangTua', label: 'Orang Tua / Wali' },
-                        { key: 'akademik', label: 'Akademik' },
-                        { key: 'riwayat', label: 'Riwayat' },
-                        { key: 'dokumen', label: 'Dokumen' },
-                      ].map(({ key, label }) => (
-                        <button key={key} onClick={() => setActiveDetailTab(key)}
-                          className={`px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition ${
-                            activeDetailTab === key
-                              ? 'border-emerald-700 text-emerald-900 font-extrabold bg-emerald-50/50'
-                              : 'border-transparent text-slate-500 hover:text-slate-700'
-                          }`}>
-                          {label}
-                        </button>
+                        { label: 'Tempat, Tgl Lahir', value: `${selectedStudent.tempatLahir}, ${selectedStudent.tanggalLahir}` },
+                        { label: 'Jenis Kelamin', value: selectedStudent.gender },
+                        { label: 'Agama', value: selectedStudent.agama || 'Islam' },
+                        { label: 'Kelas', value: selectedStudent.kelas },
+                      ].map(item => (
+                        <div key={item.label} className="flex justify-between items-start gap-2">
+                          <span className="text-slate-500 shrink-0">{item.label}:</span>
+                          <span className="font-semibold text-slate-800 text-right">{item.value || '-'}</span>
+                        </div>
                       ))}
                     </div>
-
-                    {/* Tab Content */}
-                    <div className="p-4 text-xs space-y-2">
-                      {(() => {
-                        const rawMeta = selectedStudent.raw?.metadata || {}
-                        const parentRel = selectedStudent.raw?.parent || {}
-                        const parentsPivot = selectedStudent.raw?.parents_pivot || selectedStudent.raw?.parents || []
-                        const meta = {
-                          ...rawMeta,
-                          nama_ayah: rawMeta.nama_ayah || rawMeta.ayah?.nama || rawMeta.orang_tua?.nama_ayah || parentRel.full_name || parentRel.name || parentsPivot[0]?.full_name,
-                          nama_ibu: rawMeta.nama_ibu || rawMeta.ibu?.nama || rawMeta.orang_tua?.nama_ibu,
-                          nama_wali: rawMeta.nama_wali || rawMeta.wali?.nama || rawMeta.orang_tua?.nama_wali,
-                          hp_ayah: rawMeta.hp_ayah || rawMeta.ayah?.hp || rawMeta.orang_tua?.no_hp || parentRel.phone || parentRel.no_hp || parentsPivot[0]?.phone,
-                          hp_ibu: rawMeta.hp_ibu || rawMeta.ibu?.hp || rawMeta.orang_tua?.no_hp,
-                          hp_wali: rawMeta.hp_wali || rawMeta.wali?.hp || rawMeta.orang_tua?.no_hp,
-                        }
-                        const DRow = ({ label, val }) => (
-                          <p><span className="font-bold text-slate-700">{label}:</span>{' '}
-                            <span className="text-slate-800">{val || '-'}</span>
-                          </p>
-                        )
-                        if (activeDetailTab === 'siswa') return (
-                          <div className="space-y-2">
-                            <DRow label="NIS" val={selectedStudent.nis} />
-                            <DRow label="NISN" val={selectedStudent.nisn} />
-                            <DRow label="No Pendaftaran" val={meta.no_pendaftaran} />
-                            <DRow label="NIK" val={meta.nik} />
-                            <DRow label="No KK" val={meta.no_kk} />
-                            <DRow label="No Registrasi Akta Lahir" val={meta.no_registrasi_akta_lahir} />
-                            <DRow label="Kewarganegaraan" val={meta.kewarganegaraan || 'WNI'} />
-                            <DRow label="Email" val={meta.email} />
-                            <DRow label="Anak Ke-" val={meta.anak_ke} />
-                            <DRow label="Jumlah Saudara" val={meta.jumlah_saudara} />
-                            <DRow label="Jumlah Saudara Tiri" val={meta.jumlah_saudara_tiri} />
-                            <DRow label="Berat Badan" val={meta.berat_badan ? `${meta.berat_badan} kg` : null} />
-                            <DRow label="Tinggi Badan" val={meta.tinggi_badan ? `${meta.tinggi_badan} cm` : null} />
-                            <DRow label="Riwayat Penyakit" val={meta.riwayat_penyakit} />
-                            <hr className="border-slate-100 my-2" />
-                            <DRow label="Alamat Lengkap" val={selectedStudent.alamat || meta.alamat_siswa} />
-                            <DRow label="RT/RW" val={meta.rt && meta.rw ? `${meta.rt} / ${meta.rw}` : null} />
-                            <DRow label="Dusun/Jalan" val={meta.dusun} />
-                            <DRow label="Kelurahan" val={meta.kelurahan} />
-                            <DRow label="Kecamatan" val={meta.kecamatan} />
-                            <DRow label="Kota/Kabupaten" val={meta.kota_kabupaten} />
-                            <DRow label="Provinsi" val={meta.provinsi} />
-                            <DRow label="Kode Pos" val={meta.kode_pos} />
-                            <DRow label="Jenis Tempat Tinggal" val={meta.jenis_tempat_tinggal} />
-                            <DRow label="Jarak ke Sekolah" val={meta.jarak_tempuh_ke_sekolah ? `${meta.jarak_tempuh_ke_sekolah} km` : null} />
-                            <DRow label="Moda Transportasi" val={meta.moda_transportasi} />
-                            <hr className="border-slate-100 my-2" />
-                            <DRow label="Hobi" val={meta.hobi} />
-                            <DRow label="Cita-cita" val={meta.cita_cita} />
-                          </div>
-                        )
-                        if (activeDetailTab === 'orangTua') return (
-                          <div className="space-y-2">
-                            <p className="font-bold text-emerald-800 border-b border-emerald-100 pb-1.5 mb-2">Data Ayah Kandung</p>
-                            <DRow label="NIK Ayah" val={meta.nik_ayah} />
-                            <DRow label="Nama Ayah" val={meta.nama_ayah} />
-                            <DRow label="Tempat, Tgl Lahir Ayah" val={meta.tempat_lahir_ayah && meta.tgl_lahir_ayah ? `${meta.tempat_lahir_ayah}, ${meta.tgl_lahir_ayah}` : (meta.tempat_lahir_ayah || meta.tgl_lahir_ayah)} />
-                            <DRow label="Telfon / HP Ayah" val={meta.telfon_ayah || meta.hp_ayah} />
-                            <DRow label="No WA Ayah" val={meta.nomor_wa_ayah} />
-                            <DRow label="Pendidikan Terakhir Ayah" val={meta.pendidikan_terakhir_ayah} />
-                            <DRow label="Pekerjaan Ayah" val={meta.pekerjaan_ayah} />
-                            <DRow label="Instansi / Jabatan Ayah" val={meta.instansi_pekerjaan_ayah && meta.jabatan_pekerjaan_ayah ? `${meta.instansi_pekerjaan_ayah} — ${meta.jabatan_pekerjaan_ayah}` : (meta.instansi_pekerjaan_ayah || meta.jabatan_pekerjaan_ayah)} />
-                            <DRow label="Penghasilan Ayah" val={meta.penghasilan_ayah ? `Rp ${Number(meta.penghasilan_ayah).toLocaleString('id-ID')}` : null} />
-                            <DRow label="Alamat Rumah Ayah" val={meta.alamat_ayah} />
-                            <hr className="border-slate-100 my-2" />
-                            <p className="font-bold text-blue-800 border-b border-blue-100 pb-1.5 mb-2">Data Ibu Kandung</p>
-                            <DRow label="NIK Ibu" val={meta.nik_ibu} />
-                            <DRow label="Nama Ibu" val={meta.nama_ibu} />
-                            <DRow label="Tempat, Tgl Lahir Ibu" val={meta.tempat_lahir_ibu && meta.tgl_lahir_ibu ? `${meta.tempat_lahir_ibu}, ${meta.tgl_lahir_ibu}` : (meta.tempat_lahir_ibu || meta.tgl_lahir_ibu)} />
-                            <DRow label="Telfon / HP Ibu" val={meta.telfon_ibu || meta.hp_ibu} />
-                            <DRow label="No WA Ibu" val={meta.nomor_wa_ibu} />
-                            <DRow label="Pendidikan Terakhir Ibu" val={meta.pendidikan_terakhir_ibu} />
-                            <DRow label="Pekerjaan Ibu" val={meta.pekerjaan_ibu} />
-                            <DRow label="Instansi / Jabatan Ibu" val={meta.instansi_pekerjaan_ibu && meta.jabatan_pekerjaan_ibu ? `${meta.instansi_pekerjaan_ibu} — ${meta.jabatan_pekerjaan_ibu}` : (meta.instansi_pekerjaan_ibu || meta.jabatan_pekerjaan_ibu)} />
-                            <DRow label="Penghasilan Ibu" val={meta.penghasilan_ibu ? `Rp ${Number(meta.penghasilan_ibu).toLocaleString('id-ID')}` : null} />
-                            <DRow label="Alamat Rumah Ibu" val={meta.alamat_ibu} />
-                            {(meta.nama_wali || meta.hp_wali) && (<>
-                              <hr className="border-slate-100 my-2" />
-                              <p className="font-bold text-slate-700 border-b border-slate-100 pb-1.5 mb-2">Data Wali</p>
-                              <DRow label="NIK Wali" val={meta.nik_wali} />
-                              <DRow label="Nama Wali" val={meta.nama_wali} />
-                              <DRow label="HP / WA Wali" val={meta.hp_wali || meta.nomor_wa_wali} />
-                              <DRow label="Pekerjaan Wali" val={meta.pekerjaan_wali} />
-                              <DRow label="Alamat Wali" val={meta.alamat_wali} />
-                            </>)}
-                          </div>
-                        )
-                        if (activeDetailTab === 'akademik') return (
-                          <div className="space-y-2">
-                            <DRow label="Unit Pendidikan" val={selectedStudent.unit} />
-                            <DRow label="Kelas" val={selectedStudent.kelas} />
-                            <DRow label="Tahun Ajaran Masuk" val={meta.tahun_ajaran_masuk} />
-                            <DRow label="Tahun Ajaran Berjalan" val={meta.tahun_ajaran_berjalan} />
-                            <DRow label="Status Siswa" val={selectedStudent.status} />
-                            <DRow label="NIS Pembayaran" val={meta.nis_pembayaran} />
-                            <DRow label="Wali Kelas" val={meta.wali_kelas} />
-                            <DRow label="NIY Wali Kelas" val={meta.niy_wali_kelas} />
-                            <DRow label="Status Orang Tua" val={meta.status_orang_tua} />
-                            <DRow label="NIY Ortu (Jika Pegawai)" val={meta.niy_ortu_jika_pegawai} />
-                            <hr className="border-slate-100 my-2" />
-                            <DRow label="Sekolah Asal" val={meta.sekolah_asal} />
-                            <DRow label="Status Sekolah Asal" val={meta.status_sekolah_asal} />
-                            <DRow label="Nominal SPP" val={meta.nominal_spp ? `Rp ${Number(meta.nominal_spp).toLocaleString('id-ID')}` : null} />
-                            <DRow label="Penerima KPS/PKH" val={meta.penerima_kps_pkh} />
-                            <DRow label="Punya KIP" val={meta.apakah_punya_kip} />
-                            <DRow label="Layak Menerima PIP" val={meta.apakah_layak_menerima_pip} />
-                            <DRow label="Alasan Menolak PIP" val={meta.alasan_menolak_pip} />
-                          </div>
-                        )
-                        if (activeDetailTab === 'riwayat') return (
-                          <div className="space-y-2">
-                            <DRow label="Tanggal Masuk" val={meta.tanggal_masuk} />
-                            <DRow label="No Induk Sebelumnya" val={meta.no_induk_sebelumnya} />
-                            <DRow label="Beasiswa" val={meta.beasiswa} />
-                            <DRow label="Catatan" val={meta.catatan} />
-                            <p className="text-slate-400 mt-2">Riwayat keaktifan & kehadiran tercatat di sistem absensi.</p>
-                          </div>
-                        )
-                        if (activeDetailTab === 'dokumen') return (
-                          <div className="space-y-2">
-                            <DRow label="Foto Siswa (URL)" val={meta.foto_url} />
-                            <DRow label="No Registrasi Akta Lahir" val={meta.no_registrasi_akta_lahir} />
-                            <DRow label="No Kartu Keluarga" val={meta.no_kk} />
-                            <p className="text-slate-400 mt-2">Status dokumen fisik dikelola secara manual oleh admin TU.</p>
-                          </div>
-                        )
-                        return null
-                      })()}
-                    </div>
                   </div>
 
-                  {/* Quick Actions Card — sesuai gambar */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">AKSI CEPAT</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {canUpdateStudent && (
-                        <button onClick={() => handleOpenEdit(selectedStudent)}
-                          className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition">
-                          <FaEdit /> Edit Data
+                  {/* Right: Tabbed Detail */}
+                  <div className="lg:col-span-8 space-y-4">
+                    {/* Tab Navigation + Content */}
+                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                      {/* Tabs Header */}
+                      <div className="flex gap-0 border-b border-slate-200 overflow-x-auto">
+                        {[
+                          { key: 'siswa', label: 'Data Siswa' },
+                          { key: 'orangTua', label: 'Orang Tua / Wali' },
+                          { key: 'akademik', label: 'Akademik' },
+                          { key: 'riwayat', label: 'Riwayat' },
+                          { key: 'dokumen', label: 'Dokumen' },
+                        ].map(({ key, label }) => (
+                          <button key={key} onClick={() => setActiveDetailTab(key)}
+                            className={`px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition ${activeDetailTab === key
+                              ? 'border-emerald-700 text-emerald-900 font-extrabold bg-emerald-50/50'
+                              : 'border-transparent text-slate-500 hover:text-slate-700'
+                              }`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Tab Content */}
+                      <div className="p-4 text-xs space-y-2">
+                        {(() => {
+                          const rawMeta = selectedStudent.raw?.metadata || {}
+                          const parentRel = selectedStudent.raw?.parent || {}
+                          const parentsPivot = selectedStudent.raw?.parents_pivot || selectedStudent.raw?.parents || []
+                          const meta = {
+                            ...rawMeta,
+                            nama_ayah: rawMeta.nama_ayah || rawMeta.ayah?.nama || rawMeta.orang_tua?.nama_ayah || parentRel.full_name || parentRel.name || parentsPivot[0]?.full_name,
+                            nama_ibu: rawMeta.nama_ibu || rawMeta.ibu?.nama || rawMeta.orang_tua?.nama_ibu,
+                            nama_wali: rawMeta.nama_wali || rawMeta.wali?.nama || rawMeta.orang_tua?.nama_wali,
+                            hp_ayah: rawMeta.hp_ayah || rawMeta.ayah?.hp || rawMeta.orang_tua?.no_hp || parentRel.phone || parentRel.no_hp || parentsPivot[0]?.phone,
+                            hp_ibu: rawMeta.hp_ibu || rawMeta.ibu?.hp || rawMeta.orang_tua?.no_hp,
+                            hp_wali: rawMeta.hp_wali || rawMeta.wali?.hp || rawMeta.orang_tua?.no_hp,
+                          }
+                          const DRow = ({ label, val }) => (
+                            <p><span className="font-bold text-slate-700">{label}:</span>{' '}
+                              <span className="text-slate-800">{val || '-'}</span>
+                            </p>
+                          )
+                          if (activeDetailTab === 'siswa') return (
+                            <div className="space-y-2">
+                              <DRow label="NIS" val={selectedStudent.nis} />
+                              <DRow label="NISN" val={selectedStudent.nisn} />
+                              <DRow label="No Pendaftaran" val={meta.no_pendaftaran} />
+                              <DRow label="NIK" val={meta.nik} />
+                              <DRow label="No KK" val={meta.no_kk} />
+                              <DRow label="No Registrasi Akta Lahir" val={meta.no_registrasi_akta_lahir} />
+                              <DRow label="Kewarganegaraan" val={meta.kewarganegaraan || 'WNI'} />
+                              <DRow label="Email" val={meta.email} />
+                              <DRow label="Anak Ke-" val={meta.anak_ke} />
+                              <DRow label="Jumlah Saudara" val={meta.jumlah_saudara} />
+                              <DRow label="Jumlah Saudara Tiri" val={meta.jumlah_saudara_tiri} />
+                              <DRow label="Berat Badan" val={meta.berat_badan ? `${meta.berat_badan} kg` : null} />
+                              <DRow label="Tinggi Badan" val={meta.tinggi_badan ? `${meta.tinggi_badan} cm` : null} />
+                              <DRow label="Riwayat Penyakit" val={meta.riwayat_penyakit} />
+                              <hr className="border-slate-100 my-2" />
+                              <DRow label="Alamat Lengkap" val={selectedStudent.alamat || meta.alamat_siswa} />
+                              <DRow label="RT/RW" val={meta.rt && meta.rw ? `${meta.rt} / ${meta.rw}` : null} />
+                              <DRow label="Dusun/Jalan" val={meta.dusun} />
+                              <DRow label="Kelurahan" val={meta.kelurahan} />
+                              <DRow label="Kecamatan" val={meta.kecamatan} />
+                              <DRow label="Kota/Kabupaten" val={meta.kota_kabupaten} />
+                              <DRow label="Provinsi" val={meta.provinsi} />
+                              <DRow label="Kode Pos" val={meta.kode_pos} />
+                              <DRow label="Jenis Tempat Tinggal" val={meta.jenis_tempat_tinggal} />
+                              <DRow label="Jarak ke Sekolah" val={meta.jarak_tempuh_ke_sekolah ? `${meta.jarak_tempuh_ke_sekolah} km` : null} />
+                              <DRow label="Moda Transportasi" val={meta.moda_transportasi} />
+                              <hr className="border-slate-100 my-2" />
+                              <DRow label="Hobi" val={meta.hobi} />
+                              <DRow label="Cita-cita" val={meta.cita_cita} />
+                            </div>
+                          )
+                          if (activeDetailTab === 'orangTua') return (
+                            <div className="space-y-2">
+                              <p className="font-bold text-emerald-800 border-b border-emerald-100 pb-1.5 mb-2">Data Ayah Kandung</p>
+                              <DRow label="NIK Ayah" val={meta.nik_ayah} />
+                              <DRow label="Nama Ayah" val={meta.nama_ayah} />
+                              <DRow label="Tempat, Tgl Lahir Ayah" val={meta.tempat_lahir_ayah && meta.tgl_lahir_ayah ? `${meta.tempat_lahir_ayah}, ${meta.tgl_lahir_ayah}` : (meta.tempat_lahir_ayah || meta.tgl_lahir_ayah)} />
+                              <DRow label="Telfon / HP Ayah" val={meta.telfon_ayah || meta.hp_ayah} />
+                              <DRow label="No WA Ayah" val={meta.nomor_wa_ayah} />
+                              <DRow label="Pendidikan Terakhir Ayah" val={meta.pendidikan_terakhir_ayah} />
+                              <DRow label="Pekerjaan Ayah" val={meta.pekerjaan_ayah} />
+                              <DRow label="Instansi / Jabatan Ayah" val={meta.instansi_pekerjaan_ayah && meta.jabatan_pekerjaan_ayah ? `${meta.instansi_pekerjaan_ayah} — ${meta.jabatan_pekerjaan_ayah}` : (meta.instansi_pekerjaan_ayah || meta.jabatan_pekerjaan_ayah)} />
+                              <DRow label="Penghasilan Ayah" val={meta.penghasilan_ayah ? `Rp ${Number(meta.penghasilan_ayah).toLocaleString('id-ID')}` : null} />
+                              <DRow label="Alamat Rumah Ayah" val={meta.alamat_ayah} />
+                              <hr className="border-slate-100 my-2" />
+                              <p className="font-bold text-blue-800 border-b border-blue-100 pb-1.5 mb-2">Data Ibu Kandung</p>
+                              <DRow label="NIK Ibu" val={meta.nik_ibu} />
+                              <DRow label="Nama Ibu" val={meta.nama_ibu} />
+                              <DRow label="Tempat, Tgl Lahir Ibu" val={meta.tempat_lahir_ibu && meta.tgl_lahir_ibu ? `${meta.tempat_lahir_ibu}, ${meta.tgl_lahir_ibu}` : (meta.tempat_lahir_ibu || meta.tgl_lahir_ibu)} />
+                              <DRow label="Telfon / HP Ibu" val={meta.telfon_ibu || meta.hp_ibu} />
+                              <DRow label="No WA Ibu" val={meta.nomor_wa_ibu} />
+                              <DRow label="Pendidikan Terakhir Ibu" val={meta.pendidikan_terakhir_ibu} />
+                              <DRow label="Pekerjaan Ibu" val={meta.pekerjaan_ibu} />
+                              <DRow label="Instansi / Jabatan Ibu" val={meta.instansi_pekerjaan_ibu && meta.jabatan_pekerjaan_ibu ? `${meta.instansi_pekerjaan_ibu} — ${meta.jabatan_pekerjaan_ibu}` : (meta.instansi_pekerjaan_ibu || meta.jabatan_pekerjaan_ibu)} />
+                              <DRow label="Penghasilan Ibu" val={meta.penghasilan_ibu ? `Rp ${Number(meta.penghasilan_ibu).toLocaleString('id-ID')}` : null} />
+                              <DRow label="Alamat Rumah Ibu" val={meta.alamat_ibu} />
+                              {(meta.nama_wali || meta.hp_wali) && (<>
+                                <hr className="border-slate-100 my-2" />
+                                <p className="font-bold text-slate-700 border-b border-slate-100 pb-1.5 mb-2">Data Wali</p>
+                                <DRow label="NIK Wali" val={meta.nik_wali} />
+                                <DRow label="Nama Wali" val={meta.nama_wali} />
+                                <DRow label="HP / WA Wali" val={meta.hp_wali || meta.nomor_wa_wali} />
+                                <DRow label="Pekerjaan Wali" val={meta.pekerjaan_wali} />
+                                <DRow label="Alamat Wali" val={meta.alamat_wali} />
+                              </>)}
+                            </div>
+                          )
+                          if (activeDetailTab === 'akademik') return (
+                            <div className="space-y-2">
+                              <DRow label="Unit Pendidikan" val={selectedStudent.unit} />
+                              <DRow label="Kelas" val={selectedStudent.kelas} />
+                              <DRow label="Tahun Ajaran Masuk" val={meta.tahun_ajaran_masuk} />
+                              <DRow label="Tahun Ajaran Berjalan" val={meta.tahun_ajaran_berjalan} />
+                              <DRow label="Status Siswa" val={selectedStudent.status} />
+                              <DRow label="NIS Pembayaran" val={meta.nis_pembayaran} />
+                              <DRow label="Wali Kelas" val={meta.wali_kelas} />
+                              <DRow label="NIY Wali Kelas" val={meta.niy_wali_kelas} />
+                              <DRow label="Status Orang Tua" val={meta.status_orang_tua} />
+                              <DRow label="NIY Ortu (Jika Pegawai)" val={meta.niy_ortu_jika_pegawai} />
+                              <hr className="border-slate-100 my-2" />
+                              <DRow label="Sekolah Asal" val={meta.sekolah_asal} />
+                              <DRow label="Status Sekolah Asal" val={meta.status_sekolah_asal} />
+                              <DRow label="Nominal SPP" val={meta.nominal_spp ? `Rp ${Number(meta.nominal_spp).toLocaleString('id-ID')}` : null} />
+                              <DRow label="Penerima KPS/PKH" val={meta.penerima_kps_pkh} />
+                              <DRow label="Punya KIP" val={meta.apakah_punya_kip} />
+                              <DRow label="Layak Menerima PIP" val={meta.apakah_layak_menerima_pip} />
+                              <DRow label="Alasan Menolak PIP" val={meta.alasan_menolak_pip} />
+                            </div>
+                          )
+                          if (activeDetailTab === 'riwayat') return (
+                            <div className="space-y-2">
+                              <DRow label="Tanggal Masuk" val={meta.tanggal_masuk} />
+                              <DRow label="No Induk Sebelumnya" val={meta.no_induk_sebelumnya} />
+                              <DRow label="Beasiswa" val={meta.beasiswa} />
+                              <DRow label="Catatan" val={meta.catatan} />
+                              <p className="text-slate-400 mt-2">Riwayat keaktifan & kehadiran tercatat di sistem absensi.</p>
+                            </div>
+                          )
+                          if (activeDetailTab === 'dokumen') return (
+                            <div className="space-y-2">
+                              <DRow label="Foto Siswa (URL)" val={meta.foto_url} />
+                              <DRow label="No Registrasi Akta Lahir" val={meta.no_registrasi_akta_lahir} />
+                              <DRow label="No Kartu Keluarga" val={meta.no_kk} />
+                              <p className="text-slate-400 mt-2">Status dokumen fisik dikelola secara manual oleh admin TU.</p>
+                            </div>
+                          )
+                          return null
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Quick Actions Card — sesuai gambar */}
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">AKSI CEPAT</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {canUpdateStudent && (
+                          <button onClick={() => handleOpenEdit(selectedStudent)}
+                            className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800 hover:bg-amber-100 transition">
+                            <FaEdit /> Edit Data
+                          </button>
+                        )}
+                        <button onClick={() => { setStudentToPrint(selectedStudent); setShowCetakModal(true) }}
+                          className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition">
+                          <FaPrint /> Cetak Kartu Siswa
                         </button>
-                      )}
-                      <button onClick={() => { setStudentToPrint(selectedStudent); setShowCetakModal(true) }}
-                        className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition">
-                        <FaPrint /> Cetak Kartu Siswa
-                      </button>
-                      {canDeleteStudent && (
-                        <button onClick={() => handleDelete(selectedStudent)}
-                          className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition">
-                          <FaTrash /> Hapus Data
-                        </button>
-                      )}
+                        {canDeleteStudent && (
+                          <button onClick={() => handleDelete(selectedStudent)}
+                            className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 transition">
+                            <FaTrash /> Hapus Data
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-3">
-              <button type="button" onClick={() => setShowDetailModal(false)}
-                className="rounded-xl border border-slate-300 bg-white px-6 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm">
-                Tutup
-              </button>
+              {/* Footer */}
+              <div className="flex justify-end border-t border-slate-200 bg-slate-50 px-6 py-3">
+                <button type="button" onClick={() => setShowDetailModal(false)}
+                  className="rounded-xl border border-slate-300 bg-white px-6 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm">
+                  Tutup
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* POP UP MODAL 2: TAMBAH / EDIT SISWA FORM */}
-      <StudentFormModal
-        isOpen={showFormModal}
-        onClose={() => setShowFormModal(false)}
-        initialData={isEdit ? selectedStudent : null}
-        onSubmit={handleFormSubmitCallback}
-        classes={rawClasses}
-        units={rawUnits}
-      />
+        {/* POP UP MODAL 2: TAMBAH / EDIT SISWA FORM */}
+        <StudentFormModal
+          isOpen={showFormModal}
+          onClose={() => setShowFormModal(false)}
+          initialData={isEdit ? selectedStudent : null}
+          onSubmit={handleFormSubmitCallback}
+          classes={rawClasses}
+          units={rawUnits}
+        />
 
-      {/* POP UP MODAL 3: CETAK KARTU SISWA */}
-      {showCetakModal && (
-        <CetakKartuSiswaModal student={studentToPrint} onClose={() => setShowCetakModal(false)} />
-      )}
+        {/* POP UP MODAL 3: CETAK KARTU SISWA */}
+        {showCetakModal && (
+          <CetakKartuSiswaModal student={studentToPrint} onClose={() => setShowCetakModal(false)} />
+        )}
 
-      {/* POP UP MODAL 4: DASHBOARD IMPORT DATA SISWA */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
-            {/* Header Modal */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
-                  <FaFileImport className="text-base" />
-                </div>
-                <div>
-                  <h2 className="text-base font-extrabold text-slate-900">Dashboard Import Data Siswa</h2>
-                  <p className="text-xs text-slate-500">Unggah file Excel atau CSV untuk mengimpor banyak siswa secara massal</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-              {/* Step 1: Download Template */}
-              <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <FaFileExcel className="text-2xl text-emerald-600 shrink-0" />
+        {/* POP UP MODAL 4: DASHBOARD IMPORT DATA SISWA */}
+        {showImportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+              {/* Header Modal */}
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                    <FaFileImport className="text-base" />
+                  </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">Unduh Format Template Import</h4>
-                    <p className="text-[11px] text-slate-500">Gunakan format file ini agar kolom data sesuai dengan sistem ERP.</p>
+                    <h2 className="text-base font-extrabold text-slate-900">Dashboard Import Data Siswa</h2>
+                    <p className="text-xs text-slate-500">Unggah file Excel atau CSV untuk mengimpor banyak siswa secara massal</p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={handleDownloadTemplateSiswa}
-                  className="flex items-center gap-1.5 rounded-xl border border-emerald-600 bg-white px-3.5 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition shadow-xs whitespace-nowrap"
+                  onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
                 >
-                  <FaDownload className="text-emerald-600" /> Unduh Template
+                  <FaTimes />
                 </button>
               </div>
 
-              {/* Step 2: Upload Dropzone */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-2">Unggah File (Excel / CSV)</label>
-                <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-6 text-center hover:bg-slate-50 cursor-pointer transition">
-                  <FaUpload className="text-3xl text-emerald-700 mb-2" />
-                  <span className="text-xs font-bold text-slate-800">
-                    {importFile ? importFile.name : 'Klik untuk memilih file Excel atau CSV'}
-                  </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5">
-                    {importFile ? `${(importFile.size / 1024).toFixed(1)} KB` : 'Format disukai: .csv, .xlsx, .xls (Maks. 5MB)'}
-                  </span>
-                  <input
-                    type="file"
-                    accept=".csv, .xlsx, .xls"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </label>
+              {/* Modal Body */}
+              <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                {/* Step 1: Download Template */}
+                <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <FaFileExcel className="text-2xl text-emerald-600 shrink-0" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">Unduh Format Template Import</h4>
+                      <p className="text-[11px] text-slate-500">Gunakan format file ini agar kolom data sesuai dengan sistem ERP.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplateSiswa}
+                    className="flex items-center gap-1.5 rounded-xl border border-emerald-600 bg-white px-3.5 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 transition shadow-xs whitespace-nowrap"
+                  >
+                    <FaDownload className="text-emerald-600" /> Unduh Template
+                  </button>
+                </div>
+
+                {/* Step 2: Upload Dropzone */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-2">Unggah File (Excel / CSV)</label>
+                  <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-6 text-center hover:bg-slate-50 cursor-pointer transition">
+                    <FaUpload className="text-3xl text-emerald-700 mb-2" />
+                    <span className="text-xs font-bold text-slate-800">
+                      {importFile ? importFile.name : 'Klik untuk memilih file Excel atau CSV'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">
+                      {importFile ? `${(importFile.size / 1024).toFixed(1)} KB` : 'Format disukai: .csv, .xlsx, .xls (Maks. 5MB)'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".csv, .xlsx, .xls"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Step 3: Preview Table */}
+                {importPreviewData.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-800">Preview Data yang Siap Diimpor ({importPreviewData.length} baris)</h4>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                        Format Sesuai
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="w-full text-left text-xs text-slate-600">
+                        <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+                          <tr>
+                            <th className="py-2 px-3">NIS</th>
+                            <th className="py-2 px-3">NISN</th>
+                            <th className="py-2 px-3">Nama Siswa</th>
+                            <th className="py-2 px-3">JK</th>
+                            <th className="py-2 px-3">Unit Pendidikan</th>
+                            <th className="py-2 px-3">Kelas</th>
+                            <th className="py-2 px-3">Nama Ayah</th>
+                            <th className="py-2 px-3">HP Ayah</th>
+                            <th className="py-2 px-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {importPreviewData.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 font-medium">{row.nis}</td>
+                              <td className="py-2 px-3">{row.nisn}</td>
+                              <td className="py-2 px-3 font-bold text-slate-800">{row.nama}</td>
+                              <td className="py-2 px-3">{row.gender}</td>
+                              <td className="py-2 px-3">{row.unit}</td>
+                              <td className="py-2 px-3 font-semibold">{row.kelas}</td>
+                              <td className="py-2 px-3">{row.namaAyah}</td>
+                              <td className="py-2 px-3">{row.hpAyah}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                                  {row.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Step 3: Preview Table */}
-              {importPreviewData.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold text-slate-800">Preview Data yang Siap Diimpor ({importPreviewData.length} baris)</h4>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
-                      Format Sesuai
-                    </span>
-                  </div>
-                   <div className="overflow-x-auto rounded-xl border border-slate-200">
-                     <table className="w-full text-left text-xs text-slate-600">
-                       <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
-                         <tr>
-                           <th className="py-2 px-3">NIS</th>
-                           <th className="py-2 px-3">NISN</th>
-                           <th className="py-2 px-3">Nama Siswa</th>
-                           <th className="py-2 px-3">JK</th>
-                           <th className="py-2 px-3">Unit Pendidikan</th>
-                           <th className="py-2 px-3">Kelas</th>
-                           <th className="py-2 px-3">Nama Ayah</th>
-                           <th className="py-2 px-3">HP Ayah</th>
-                           <th className="py-2 px-3">Status</th>
-                         </tr>
-                       </thead>
-                       <tbody className="divide-y divide-slate-100">
-                         {importPreviewData.map((row, idx) => (
-                           <tr key={idx} className="hover:bg-slate-50">
-                             <td className="py-2 px-3 font-medium">{row.nis}</td>
-                             <td className="py-2 px-3">{row.nisn}</td>
-                             <td className="py-2 px-3 font-bold text-slate-800">{row.nama}</td>
-                             <td className="py-2 px-3">{row.gender}</td>
-                             <td className="py-2 px-3">{row.unit}</td>
-                             <td className="py-2 px-3 font-semibold">{row.kelas}</td>
-                             <td className="py-2 px-3">{row.namaAyah}</td>
-                             <td className="py-2 px-3">{row.hpAyah}</td>
-                             <td className="py-2 px-3 text-center">
-                               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                                 {row.status}
-                               </span>
-                             </td>
-                           </tr>
-                         ))}
-                       </tbody>
-                     </table>
-                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Action Footer */}
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-6 py-4">
-              <button
-                type="button"
-                onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!importFile || isImporting}
-                onClick={handleProcessImport}
-                className="flex items-center gap-2 rounded-xl bg-[#064e3b] px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 transition"
-              >
-                {isImporting ? 'Memproses Import...' : 'Proses Import Data'}
-              </button>
+              {/* Modal Action Footer */}
+              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowImportModal(false); setImportFile(null); setImportPreviewData([]) }}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={!importFile || isImporting}
+                  onClick={handleProcessImport}
+                  className="flex items-center gap-2 rounded-xl bg-[#064e3b] px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-800 disabled:opacity-50 transition"
+                >
+                  {isImporting ? 'Memproses Import...' : 'Proses Import Data'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </MasterDataPage>
+        )}
+      </MasterDataPage>
     </PageContainer>
   )
 }

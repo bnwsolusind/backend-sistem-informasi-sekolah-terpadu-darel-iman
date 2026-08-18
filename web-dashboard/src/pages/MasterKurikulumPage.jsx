@@ -29,7 +29,7 @@ import {
 const JENIS_LIST = ['SIT', 'Merdeka', 'Nasional', 'Pesantren', 'Lokal', 'Lainnya']
 const JENJANG_LIST = ['TK', 'PAUD', 'SD', 'MI', 'SMP', 'MTs', 'SMA', 'MA', 'Pesantren']
 
-export default function MasterKurikulumPage() {
+export default function MasterKurikulumPage({ embedded = false, hidePageHeader = false, hideBreadcrumb = false }) {
   const queryClient = useQueryClient()
 
   // Filter & Pagination States
@@ -317,29 +317,30 @@ export default function MasterKurikulumPage() {
     }
   }
 
+  const shouldHideBreadcrumb = embedded || hideBreadcrumb
+  const shouldHideHeader = embedded || hidePageHeader
+
+  const pageActions = (
+    <>
+      <MasterActionButton variant="import" icon={Upload} onClick={() => setIsImportModalOpen(true)}>Import Data</MasterActionButton>
+      <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>Export CSV</MasterActionButton>
+      <MasterActionButton icon={Plus} onClick={handleOpenFormTambah}>Tambah Kurikulum</MasterActionButton>
+    </>
+  )
+
   return (
     <PageContainer maxW="7xl">
-      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Data Kurikulum' }]} />
-      <MasterDataPage className="education-unit-page">
-      <MasterPageHeader
-        tone="brand"
-        icon={BookOpen}
-        title="Master Data Kurikulum"
-        description="Kelola seluruh kurikulum pendidikan yang digunakan oleh setiap Unit Pendidikan Sekolah Islam Terpadu."
-        actions={
-          <>
-            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>
-              Export CSV
-            </MasterActionButton>
-            <MasterActionButton variant="import" icon={Upload} onClick={() => setIsImportModalOpen(true)}>
-              Import Data
-            </MasterActionButton>
-            <MasterActionButton icon={Plus} onClick={handleOpenFormTambah}>
-              Tambah Kurikulum
-            </MasterActionButton>
-          </>
-        }
-      />
+      {!shouldHideBreadcrumb && <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Data Kurikulum' }]} />}
+      <MasterDataPage className="education-unit-page" hideBreadcrumb={shouldHideBreadcrumb}>
+      {!shouldHideHeader && (
+        <MasterPageHeader
+          tone="brand"
+          icon={BookOpen}
+          title="Master Data Kurikulum"
+          description="Kelola seluruh kurikulum pendidikan yang digunakan oleh setiap Unit Pendidikan Sekolah Islam Terpadu."
+          actions={pageActions}
+        />
+      )}
 
       <MasterStatsGrid className="education-unit-kpis">
         <MasterStatCard

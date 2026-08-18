@@ -21,14 +21,34 @@ function Sparkline({ data = [], color = '#3FBF75', className = '' }) {
   )
 }
 
+const colorMap = {
+  emerald: 'bg-[#0E5C44] dark:bg-[#3FBF75]',
+  blue: 'bg-sky-500 dark:bg-sky-400',
+  violet: 'bg-violet-500 dark:bg-violet-400',
+  amber: 'bg-amber-500 dark:bg-amber-400',
+  rose: 'bg-rose-500 dark:bg-rose-400',
+  indigo: 'bg-indigo-500 dark:bg-indigo-400',
+  slate: 'bg-slate-500 dark:bg-slate-400',
+}
+
+const bgMap = {
+  emerald: 'bg-[#0E5C44]/10 dark:bg-[#3FBF75]/10',
+  blue: 'bg-sky-100 dark:bg-sky-900/30',
+  violet: 'bg-violet-100 dark:bg-violet-900/30',
+  amber: 'bg-amber-100 dark:bg-amber-900/30',
+  rose: 'bg-rose-100 dark:bg-rose-900/30',
+  indigo: 'bg-indigo-100 dark:bg-indigo-900/30',
+  slate: 'bg-slate-100 dark:bg-slate-800',
+}
+
 const toneMap = {
-  emerald: 'bg-[#0E5C44]/10 text-[#0E5C44] border-emerald-100 dark:bg-[#3FBF75]/20 dark:text-[#3FBF75] dark:border-emerald-900/40',
-  green: 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-900',
-  blue: 'bg-sky-50 text-sky-700 border-sky-100 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-900',
-  violet: 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950/60 dark:text-violet-300 dark:border-violet-900',
-  amber: 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-900',
-  rose: 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-900',
-  indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-900',
+  emerald: 'bg-[#0E5C44]/10 text-[#0E5C44] dark:bg-[#3FBF75]/20 dark:text-[#3FBF75]',
+  blue: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
+  violet: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  rose: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+  indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+  slate: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
 }
 
 /**
@@ -53,7 +73,13 @@ export default function KpiCard({
   onRetry,
   empty = false,
   className = '',
+  progress,
+  progressColorScheme,
 }) {
+  const progressColor = progressColorScheme ? (colorMap[progressColorScheme] || colorMap.emerald) : (colorMap[colorScheme] || colorMap.emerald)
+  const progressBg = progressColorScheme ? (bgMap[progressColorScheme] || bgMap.emerald) : (bgMap[colorScheme] || bgMap.emerald)
+  const clampedProgress = progress !== undefined && progress !== null ? Math.max(0, Math.min(100, Number(progress))) : null
+
   if (loading) {
     return <AppSkeleton variant="card" className={cn('h-[118px] rounded-[18px]', className)} />
   }
@@ -132,6 +158,20 @@ export default function KpiCard({
           </div>
         )}
       </div>
+
+      {clampedProgress !== null && (
+        <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+          <div className="h-1.5 w-full rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${clampedProgress}%`, backgroundColor: progressColor }}
+            />
+          </div>
+          <p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-400 text-right">
+            {clampedProgress}% progress
+          </p>
+        </div>
+      )}
 
       {trend !== undefined && trend !== null && (
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800/80">

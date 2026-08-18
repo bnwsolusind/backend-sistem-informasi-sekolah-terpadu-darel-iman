@@ -89,4 +89,45 @@ export default function BreadcrumbsDividersPreview() {
     </div>
   );
 }
+
+---
+
+## 3. Standard AppBreadcrumb Page Integration Pattern (Employees & Students Standard)
+
+Untuk konsistensi navigasi di seluruh halaman aplikasi (seperti `StudentsPage`, `EmployeesPage`, `EducationUnitsPage`, `MasterJabatanPage`), gunakan wrapper kanonikal `AppBreadcrumb` (`@/components/app/AppBreadcrumb`):
+
+### Fitur Utama `AppBreadcrumb`:
+1. **Otomatis Beranda**: Menambahkan item pertama `Beranda` dengan ikon `Home` yang mengarah ke `/dashboard`.
+2. **Pemisah Ikon Chevron**: Menggunakan `ChevronRight` berwarna abu-abu halus antar item.
+3. **Item Aktif Halaman**: Item terakhir pada array `items` otomatis menjadi item aktif (`font-bold text-slate-800 dark:text-slate-200`) tanpa link.
+4. **Responisif & Truncate**: Mendukung pemangkasan teks otomatis (*truncate*) pada layar sempit.
+
+### Contoh Implementasi di Halaman Aplikasi:
+
+```jsx
+import PageContainer from '../components/app/PageContainer'
+import AppBreadcrumb from '../components/app/AppBreadcrumb'
+
+export default function StudentsPage() {
+  return (
+    <PageContainer maxW="7xl" className="space-y-6 pb-12">
+      {/* Breadcrumb Kanonikal (Tiru dari EmployeesPage) */}
+      <AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Data Siswa' }]} />
+
+      {/* Konten Halaman */}
+    </PageContainer>
+  )
+}
 ```
+
+```jsx
+// Halaman Data Pegawai (EmployeesPage):
+<AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Data Pegawai' }]} />
+
+// Halaman Data Siswa (StudentsPage):
+<AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Data Siswa' }]} />
+
+// Halaman Unit Pendidikan (EducationUnitsPage):
+<AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Unit Pendidikan' }]} />
+```
+

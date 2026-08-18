@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   MessageSquare,
   BookOpen,
@@ -28,7 +28,7 @@ import Swal from 'sweetalert2'
 import { lmsDiskusiService } from '../services/lmsDiskusiService'
 import { lmsModulAjarService } from '../services/lmsModulAjarService'
 
-export default function LmsDiskusiPage() {
+export default function LmsDiskusiPage({ embedded = false, hideBreadcrumb = false, hidePageHeader = false, tabNav = null }) {
   const [dataDiskusi, setDataDiskusi] = useState([])
   const [optionsModulAjar, setOptionsModulAjar] = useState([])
   const [optionsKategori, setOptionsKategori] = useState([
@@ -52,6 +52,13 @@ export default function LmsDiskusiPage() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  // KPI Modal State
+  const [kpiModalOpen, setKpiModalOpen] = useState(false)
+  const [kpiModalCategory, setKpiModalCategory] = useState({
+    title: '',
+    items: [],
+  })
 
   // Filters & Pagination
   const [search, setSearch] = useState('')
@@ -111,6 +118,44 @@ export default function LmsDiskusiPage() {
     } catch (err) {
       console.error('Gagal mengambil statistik diskusi:', err)
     }
+  }
+
+  const computedStats = useMemo(() => {
+    const total_diskusi = dataDiskusi.length
+    const diskusi_aktif = dataDiskusi.filter((d) => d.status === 'aktif').length
+    const diskusi_pinned = dataDiskusi.filter((d) => d.is_pinned).length
+    const diskusi_ditutup = dataDiskusi.filter((d) => d.status === 'ditutup').length
+    const total_komentar = dataDiskusi.reduce((acc, d) => acc + (d.komentar_count || d.komentars_count || (d.komentar ? d.komentar.length : 0)), 0)
+
+    return {
+      total_diskusi,
+      diskusi_aktif,
+      diskusi_pinned,
+      diskusi_ditutup,
+      total_komentar,
+    }
+  }, [dataDiskusi])
+
+  const handleOpenKpiModal = (type) => {
+    let title = ''
+    let items = []
+
+    if (type === 'total') {
+      title = 'Total Forum Diskusi Kelas'
+      items = dataDiskusi
+    } else if (type === 'aktif') {
+      title = 'Daftar Diskusi Aktif'
+      items = dataDiskusi.filter((d) => d.status === 'aktif')
+    } else if (type === 'komentar') {
+      title = 'Daftar Diskusi Berkomentar'
+      items = dataDiskusi
+    } else if (type === 'interaksi') {
+      title = 'Interaksi Forum Diskusi Kelas'
+      items = dataDiskusi
+    }
+
+    setKpiModalCategory({ title, items })
+    setKpiModalOpen(true)
   }
 
   const fetchOptions = async () => {
@@ -398,29 +443,31 @@ export default function LmsDiskusiPage() {
   return (
     <div className="min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] p-4 md:p-8 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-300">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 md:p-8 text-white shadow-xl mb-8">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-200 text-sm font-semibold tracking-wide uppercase mb-1">
-              <Sparkles className="w-4 h-4" /> LMS Modul Ajar Terpadu
+      {!hidePageHeader && (
+        <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 md:p-8 text-white shadow-xl mb-8">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-emerald-200 text-sm font-semibold tracking-wide uppercase mb-1">
+                <Sparkles className="w-4 h-4" /> LMS Modul Ajar Terpadu
+              </div>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+                Forum Diskusi Kelas
+              </h1>
+              <p className="mt-2 text-emerald-100 max-w-2xl text-sm md:text-base leading-relaxed">
+                Ruang kolaborasi dan tanya jawab interaktif antara Guru dan Siswa berbasis Modul Ajar untuk meningkatkan keterlibatan belajar.
+              </p>
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Forum Diskusi Kelas
-            </h1>
-            <p className="mt-2 text-emerald-100 max-w-2xl text-sm md:text-base leading-relaxed">
-              Ruang kolaborasi dan tanya jawab interaktif antara Guru dan Siswa berbasis Modul Ajar untuk meningkatkan keterlibatan belajar.
-            </p>
-          </div>
-          <div>
-            <button
-              onClick={handleOpenCreateModal}
-              className="inline-flex items-center gap-2 bg-white text-[#0E5C44] font-bold px-5 py-3 rounded-xl shadow-lg hover:bg-emerald-50 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm md:text-base"
-            >
-              <Plus className="w-5 h-5" /> Buat Diskusi Baru
-            </button>
+            <div>
+              <button
+                onClick={handleOpenCreateModal}
+                className="inline-flex items-center gap-2 bg-white text-[#0E5C44] font-bold px-5 py-3 rounded-xl shadow-lg hover:bg-emerald-50 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm md:text-base"
+              >
+                <Plus className="w-5 h-5" /> Buat Diskusi Baru
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Notifications Alert */}
       {successMsg && (
@@ -449,14 +496,17 @@ export default function LmsDiskusiPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:-translate-y-1 transition-all duration-300">
+        <div
+          onClick={() => handleOpenKpiModal('total')}
+          className="group bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-300"
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider group-hover:text-[#0E5C44]">
                 Total Diskusi
               </p>
               <h3 className="text-2xl font-black mt-1 text-slate-900 dark:text-white">
-                {stats.total_diskusi}
+                {computedStats.total_diskusi}
               </h3>
             </div>
             <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-[#0E5C44] dark:text-emerald-400">
@@ -464,20 +514,23 @@ export default function LmsDiskusiPage() {
             </div>
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{stats.diskusi_pinned} pinned</span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{computedStats.diskusi_pinned} pinned</span>
             <span>•</span>
-            <span>{stats.diskusi_ditutup} ditutup</span>
+            <span>{computedStats.diskusi_ditutup} ditutup</span>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:-translate-y-1 transition-all duration-300">
+        <div
+          onClick={() => handleOpenKpiModal('aktif')}
+          className="group bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-300"
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider group-hover:text-emerald-600">
                 Diskusi Aktif
               </p>
               <h3 className="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">
-                {stats.diskusi_aktif}
+                {computedStats.diskusi_aktif}
               </h3>
             </div>
             <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-[#1E8E5A] dark:text-emerald-400">
@@ -489,14 +542,17 @@ export default function LmsDiskusiPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:-translate-y-1 transition-all duration-300">
+        <div
+          onClick={() => handleOpenKpiModal('komentar')}
+          className="group bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-300"
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider group-hover:text-blue-600">
                 Total Komentar
               </p>
               <h3 className="text-2xl font-black mt-1 text-slate-900 dark:text-white">
-                {stats.total_komentar}
+                {computedStats.total_komentar}
               </h3>
             </div>
             <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
@@ -504,20 +560,21 @@ export default function LmsDiskusiPage() {
             </div>
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span>Tanggapan & Pertanyaan</span>
+            <span>Tanggapan &amp; Pertanyaan</span>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:-translate-y-1 transition-all duration-300">
+        <div
+          onClick={() => handleOpenKpiModal('interaksi')}
+          className="group bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-300"
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
-                Interaksi Guru & Siswa
+              <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider group-hover:text-purple-600">
+                Interaksi Forum
               </p>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{stats.komentar_guru} Guru</span>
-                <span className="text-slate-400">/</span>
-                <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{stats.komentar_siswa} Siswa</span>
+                <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{computedStats.total_diskusi} Diskusi</span>
               </div>
             </div>
             <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
@@ -529,6 +586,9 @@ export default function LmsDiskusiPage() {
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation Card (below KPI grid) */}
+      {tabNav}
 
       {/* Filter & Search Bar */}
       <div className="bg-white dark:bg-[#1B2433] p-5 rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm mb-6">
@@ -796,6 +856,96 @@ export default function LmsDiskusiPage() {
           </div>
         )}
       </div>
+
+      {/* KPI DETAIL MODAL */}
+      {kpiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#1B2433] w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-gradient-to-r from-[#0E5C44] to-[#1E8E5A] p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                  <MessageSquare className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{kpiModalCategory.title}</h3>
+                  <p className="text-xs text-emerald-100 mt-0.5">
+                    Menampilkan {kpiModalCategory.items.length} diskusi terdaftar
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="text-emerald-100 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {kpiModalCategory.items.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-semibold text-sm">Tidak ada data diskusi dalam kategori ini.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        <th className="py-3 px-4 text-center w-12">No</th>
+                        <th className="py-3 px-4">Judul Diskusi</th>
+                        <th className="py-3 px-4">Kategori</th>
+                        <th className="py-3 px-4">Modul Ajar</th>
+                        <th className="py-3 px-4 text-center">Status</th>
+                        <th className="py-3 px-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                      {kpiModalCategory.items.map((item, idx) => (
+                        <tr key={item.id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                          <td className="py-3 px-4 text-center text-slate-400 text-xs font-medium">{idx + 1}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-100">{item.judul}</td>
+                          <td className="py-3 px-4 text-xs font-medium text-slate-600 dark:text-slate-300">
+                            {item.kategori || 'Umum'}
+                          </td>
+                          <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
+                            {item.modul_ajar?.judul_modul || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${item.status === 'aktif' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                              {item.status || 'aktif'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => {
+                                setKpiModalOpen(false)
+                                handleOpenThread(item)
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-[#0E5C44] dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs hover:bg-emerald-100 transition-colors"
+                            >
+                              Lihat Thread
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/40">
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal CRUD Form */}
       {isModalOpen && (

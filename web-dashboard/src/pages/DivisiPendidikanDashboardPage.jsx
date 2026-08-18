@@ -35,6 +35,7 @@ import {
 import ChartCard from '../components/dashboard/ChartCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
 import ErrorState from '../components/dashboard/ErrorState'
+import StudentAchievementRecapSection from '../components/dashboard/StudentAchievementRecapSection'
 
 import { managementDashboardService } from '../services/managementDashboardService'
 
@@ -72,6 +73,7 @@ export default function DivisiPendidikanDashboardPage() {
   const kpis = data?.kpis || {}
   const context = data?.context || {}
   const charts = data?.charts || {}
+  const tables = data?.tables || {}
 
   const formatNumber = (num) => (num !== undefined && num !== null ? Number(num).toLocaleString('id-ID') : '0')
 
@@ -171,6 +173,9 @@ export default function DivisiPendidikanDashboardPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400">Navigasi langsung ke modul kurikulum dan pengawasan akademik</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <AppButton variant="secondary" size="sm" icon={BookOpen} onClick={() => navigate('/dashboard/monitoring-tahfizh-ibadah-non-pesantren')}>
+              Monitoring Non-Pesantren
+            </AppButton>
             <AppButton variant="secondary" size="sm" icon={FileSpreadsheet} onClick={() => navigate('/dashboard/monitoring-divisi')}>
               Input Monitoring Divisi
             </AppButton>
@@ -209,6 +214,14 @@ export default function DivisiPendidikanDashboardPage() {
           </div>
         </ChartCard>
       </section>
+
+      {/* Rekapitulasi Prestasi Siswa Lintas Unit (Data Riil Database) */}
+      <StudentAchievementRecapSection
+        achievements={tables.rekap_prestasi || []}
+        title="Rekapitulasi Prestasi Siswa Lintas Unit"
+        subtitle="Monitoring capaian Tahfizh Al-Qur’an, Santri Pesantren, Sepakbola/Olahraga, dan Lomba Pembelajaran seluruh unit dipantau"
+        onRefresh={fetchDashboard}
+      />
     </div>
     </PageContainer>
   )

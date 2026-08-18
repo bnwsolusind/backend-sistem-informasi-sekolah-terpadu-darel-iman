@@ -25,8 +25,9 @@ import {
   List,
 } from 'lucide-react'
 import { lmsBankSoalService } from '../services/lmsBankSoalService'
+import ActionDropdown from '../components/app/ActionDropdown'
 
-export default function LmsBankSoalPage() {
+export default function LmsBankSoalPage({ embedded, hidePageHeader, tabNav }) {
   const [dataList, setDataList] = useState([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0 })
@@ -396,33 +397,43 @@ export default function LmsBankSoalPage() {
         </div>
       )}
 
-      {/* Hero Banner Header */}
-      <div className="bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] rounded-[18px] p-6 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 opacity-15 pointer-events-none">
-          <HelpCircle className="w-72 h-72 text-white" />
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-200 text-xs font-semibold uppercase tracking-wider mb-1">
-              <Sparkles className="w-4 h-4" /> Evaluasi & Penilaian Digital
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Bank Soal Ujian</h1>
-            <p className="text-emerald-100 text-sm mt-1 max-w-xl">
-              Kelola repositori butir soal terintegrasi Kisi-kisi Ujian dengan dukungan Pilihan Ganda, Esai, Benar-Salah, dan Menjodohkan.
-            </p>
+      {/* Hero Banner Header (Hidden when embedded) */}
+      {!embedded && !hidePageHeader && (
+        <div className="bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] rounded-[18px] p-6 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 opacity-15 pointer-events-none">
+            <HelpCircle className="w-72 h-72 text-white" />
           </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0E5C44] font-semibold text-sm shadow-md hover:bg-emerald-50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" /> Tambah Soal Baru
-          </button>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-emerald-200 text-xs font-semibold uppercase tracking-wider mb-1">
+                <Sparkles className="w-4 h-4" /> Evaluasi & Penilaian Digital
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Bank Soal Ujian</h1>
+              <p className="text-emerald-100 text-sm mt-1 max-w-xl">
+                Kelola repositori butir soal terintegrasi Kisi-kisi Ujian dengan dukungan Pilihan Ganda, Esai, Benar-Salah, dan Menjodohkan.
+              </p>
+            </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0E5C44] font-semibold text-sm shadow-md hover:bg-emerald-50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Plus className="w-4 h-4" /> Tambah Soal Baru
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* KPI Stats Cards */}
+      {/* KPI Stats Cards (Interactive Click Filters) */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, tipe_soal: '' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.tipe_soal === ''
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk melihat semua soal"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Soal</span>
             <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-[#0E5C44] dark:text-emerald-400">
@@ -433,7 +444,15 @@ export default function LmsBankSoalPage() {
           <span className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 block">{stats.total_aktif} Status Aktif</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, tipe_soal: 'pg' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.tipe_soal === 'pg'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter soal Pilihan Ganda (PG)"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Pilihan Ganda</span>
             <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
@@ -444,7 +463,15 @@ export default function LmsBankSoalPage() {
           <span className="text-[11px] text-gray-400 mt-1 block">Tipe PG</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, tipe_soal: 'esai' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.tipe_soal === 'esai'
+              ? 'border-purple-500 ring-2 ring-purple-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter soal Esai / Essay"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Essay / Esai</span>
             <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
@@ -455,7 +482,15 @@ export default function LmsBankSoalPage() {
           <span className="text-[11px] text-gray-400 mt-1 block">Uraian / Manual</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, tipe_soal: 'benar_salah' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.tipe_soal === 'benar_salah'
+              ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter soal Benar / Salah"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Benar / Salah</span>
             <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
@@ -466,7 +501,15 @@ export default function LmsBankSoalPage() {
           <span className="text-[11px] text-gray-400 mt-1 block">Tipe B/S</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow col-span-2 md:col-span-1">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, tipe_soal: 'menjodohkan' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] col-span-2 md:col-span-1 ${
+            filters.tipe_soal === 'menjodohkan'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter soal Menjodohkan"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Menjodohkan</span>
             <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
@@ -478,71 +521,100 @@ export default function LmsBankSoalPage() {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Cari soal, kode, indikator..."
-            value={filters.search}
-            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#111827] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
-          />
+      {/* Tab Navigation (Pindahkan di atas card datatable) */}
+      {tabNav && <div className="my-2">{tabNav}</div>}
+
+      {/* Main Datatable Card with Integrated Header & Filter Toolbar */}
+      <div className="bg-white dark:bg-[#1B2433] rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden space-y-0">
+        {/* Toolbar Baris 1: Title + Action Button */}
+        <div className="p-4 sm:px-6 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50 dark:bg-[#111827]/40">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0E5C44] dark:text-emerald-400 flex items-center justify-center font-bold">
+              <HelpCircle className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">Daftar Bank Soal Ujian (Repository Soal)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Pilihan ganda, esai, benar-salah, dan menjodohkan</p>
+            </div>
+            <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-[#0E5C44] dark:bg-emerald-950/80 dark:text-emerald-300">
+              {stats.total_soal}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0E5C44] text-white text-xs font-semibold hover:bg-emerald-700 transition"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Soal Baru
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <select
-            value={filters.kisi_kisi_id}
-            onChange={(e) => setFilters((prev) => ({ ...prev, kisi_kisi_id: e.target.value }))}
-            className="px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
-          >
-            <option value="">Semua Kisi-kisi Ujian</option>
-            {options.kisi_kisi.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.judul_kisi} ({k.jenis_ujian})
-              </option>
-            ))}
-          </select>
+        {/* Toolbar Baris 2: Search + Integrated Filters */}
+        <div className="p-4 sm:px-6 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1B2433] flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari soal, kode, indikator..."
+              value={filters.search}
+              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#111827] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
+            />
+          </div>
 
-          <select
-            value={filters.tipe_soal}
-            onChange={(e) => setFilters((prev) => ({ ...prev, tipe_soal: e.target.value }))}
-            className="px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
-          >
-            <option value="">Semua Tipe Soal</option>
-            <option value="pg">Pilihan Ganda</option>
-            <option value="esai">Essay / Esai</option>
-            <option value="benar_salah">Benar / Salah</option>
-            <option value="menjodohkan">Menjodohkan</option>
-          </select>
+          <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+            <select
+              value={filters.kisi_kisi_id}
+              onChange={(e) => setFilters((prev) => ({ ...prev, kisi_kisi_id: e.target.value }))}
+              className="h-9 px-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
+            >
+              <option value="">Semua Kisi-kisi Ujian</option>
+              {options.kisi_kisi.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.judul_kisi} ({k.jenis_ujian})
+                </option>
+              ))}
+            </select>
 
-          <select
-            value={filters.tingkat_kesulitan}
-            onChange={(e) => setFilters((prev) => ({ ...prev, tingkat_kesulitan: e.target.value }))}
-            className="px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
-          >
-            <option value="">Tingkat Kesulitan</option>
-            <option value="mudah">Mudah</option>
-            <option value="sedang">Sedang</option>
-            <option value="sulit">Sulit</option>
-          </select>
+            <select
+              value={filters.tipe_soal}
+              onChange={(e) => setFilters((prev) => ({ ...prev, tipe_soal: e.target.value }))}
+              className="h-9 px-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
+            >
+              <option value="">Semua Tipe Soal</option>
+              <option value="pg">Pilihan Ganda</option>
+              <option value="esai">Essay / Esai</option>
+              <option value="benar_salah">Benar / Salah</option>
+              <option value="menjodohkan">Menjodohkan</option>
+            </select>
 
-          <button
-            onClick={() => {
-              setFilters({ search: '', kisi_kisi_id: '', tipe_soal: '', tingkat_kesulitan: '', status: '' })
-              fetchData(1)
-            }}
-            className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Reset Filter"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+            <select
+              value={filters.tingkat_kesulitan}
+              onChange={(e) => setFilters((prev) => ({ ...prev, tingkat_kesulitan: e.target.value }))}
+              className="h-9 px-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
+            >
+              <option value="">Tingkat Kesulitan</option>
+              <option value="mudah">Mudah</option>
+              <option value="sedang">Sedang</option>
+              <option value="sulit">Sulit</option>
+            </select>
+
+            <button
+              onClick={() => {
+                setFilters({ search: '', kisi_kisi_id: '', tipe_soal: '', tingkat_kesulitan: '', status: '' })
+                fetchData(1)
+              }}
+              className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Reset Filter"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Main Table Card */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-8 text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-[#0E5C44] animate-spin mx-auto" />
@@ -632,39 +704,21 @@ export default function LmsBankSoalPage() {
                     </td>
 
                     <td className="py-3.5 px-4 text-right align-top">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => {
-                            setViewingItem(item)
-                            setShowDetailModal(true)
-                          }}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition"
-                          title="Preview Detail"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenModal(item)}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition"
-                          title="Edit"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDuplicate(item.id)}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition"
-                          title="Duplikasi"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <ActionDropdown
+                        onView={() => {
+                          setViewingItem(item)
+                          setShowDetailModal(true)
+                        }}
+                        onEdit={() => handleOpenModal(item)}
+                        onDelete={() => handleDelete(item.id)}
+                        extraItems={[
+                          {
+                            label: 'Duplikasi Soal',
+                            icon: <Copy className="size-4 text-purple-500" />,
+                            onClick: () => handleDuplicate(item.id),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

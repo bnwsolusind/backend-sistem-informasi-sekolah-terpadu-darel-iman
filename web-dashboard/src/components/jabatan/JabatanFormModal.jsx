@@ -10,7 +10,7 @@ const jabatanSchema = z.object({
   nama_jabatan: z.string().min(2, { message: 'Nama jabatan minimal 2 karakter' }),
   satuan_kerja: z.enum(['Pengurus', 'Bidang Pendidikan', 'Unit Pendidikan']),
   unit_sekolah_id: z.string().optional().nullable(),
-  level_jabatan: z.coerce.number().min(1, { message: 'Pilih level jabatan (1-14)' }).max(14),
+  level_jabatan: z.coerce.number().min(1, { message: 'Pilih level jabatan (1-10)' }).max(10),
   atasan_langsung_id: z.string().optional().nullable(),
   atasan_pegawai_id: z.string().optional().nullable(),
   role_sistem_id: z.string().optional().nullable(),
@@ -57,20 +57,16 @@ const PRESET_IKON = [
 
 // Fallback statis Level Jabatan — dipakai jika API options belum terpenuhi
 const LEVEL_JABATAN_OPTIONS = [
-  { value: 1,  label: 'Level 1 - Ketua Yayasan' },
-  { value: 2,  label: 'Level 2 - Pengurus Yayasan' },
+  { value: 1,  label: 'Level 1 - Pengurus Yayasan' },
+  { value: 2,  label: 'Level 2 - Divisi Pendidikan' },
   { value: 3,  label: 'Level 3 - Kepala Sekolah' },
   { value: 4,  label: 'Level 4 - Wakil Kepala Sekolah' },
   { value: 5,  label: 'Level 5 - Kepala Divisi' },
-  { value: 6,  label: 'Level 6 - Kepala Tata Usaha' },
+  { value: 6,  label: 'Level 6 - Tata Usaha' },
   { value: 7,  label: 'Level 7 - Operator Sekolah' },
-  { value: 8,  label: 'Level 8 - Bendahara' },
-  { value: 9,  label: 'Level 9 - Guru' },
-  { value: 10, label: 'Level 10 - Wali Kelas' },
-  { value: 11, label: 'Level 11 - Pembimbing Tahfizh' },
-  { value: 12, label: 'Level 12 - Staf Administrasi' },
-  { value: 13, label: 'Level 13 - Satpam' },
-  { value: 14, label: 'Level 14 - Cleaning Service' },
+  { value: 8,  label: 'Level 8 - Guru' },
+  { value: 9,  label: 'Level 9 - Musyrif' },
+  { value: 10, label: 'Level 10 - Staf Administrasi' },
 ]
 
 export default function JabatanFormModal({
@@ -80,6 +76,7 @@ export default function JabatanFormModal({
   initialData = null,
   options = {},
   isSubmitting = false,
+  isKepalaSekolah = false,
 }) {
   const isEdit = Boolean(initialData?.id)
   const [currentStep, setCurrentStep] = useState(1)
@@ -99,7 +96,7 @@ export default function JabatanFormModal({
       nama_jabatan: '',
       satuan_kerja: 'Unit Pendidikan',
       unit_sekolah_id: '',
-      level_jabatan: 9,
+      level_jabatan: 8,
       atasan_langsung_id: '',
       atasan_pegawai_id: '',
       role_sistem_id: '',
@@ -129,7 +126,7 @@ export default function JabatanFormModal({
           nama_jabatan: initialData.nama_jabatan || initialData.name || '',
           satuan_kerja: initialData.satuan_kerja || 'Unit Pendidikan',
           unit_sekolah_id: initialData.unit_sekolah_id || '',
-          level_jabatan: initialData.level_jabatan || 9,
+          level_jabatan: initialData.level_jabatan || 8,
           atasan_langsung_id: initialData.atasan_langsung_id || '',
           atasan_pegawai_id: initialData.atasan_pegawai_id || '',
           role_sistem_id: initialData.role_sistem_id ? String(initialData.role_sistem_id) : '',
@@ -148,7 +145,7 @@ export default function JabatanFormModal({
           nama_jabatan: '',
           satuan_kerja: 'Unit Pendidikan',
           unit_sekolah_id: '',
-          level_jabatan: 9,
+          level_jabatan: 8,
           atasan_langsung_id: '',
           atasan_pegawai_id: '',
           role_sistem_id: '',
@@ -273,7 +270,9 @@ export default function JabatanFormModal({
 	                          { value: 'Pengurus', label: 'Pengurus' },
 	                          { value: 'Bidang Pendidikan', label: 'Bidang Pendidikan' },
 	                          { value: 'Unit Pendidikan', label: 'Unit Pendidikan' },
-	                        ]).map((item) => (
+	                        ])
+                          .filter((item) => !isKepalaSekolah || item.value !== 'Pengurus')
+                          .map((item) => (
 	                          <option key={item.value} value={item.value}>{item.label}</option>
 	                        ))}
 	                      </select>
@@ -362,11 +361,13 @@ export default function JabatanFormModal({
                         className="w-full rounded-xl border border-slate-200/90 px-4 py-2.5 text-sm text-[#0f172a] focus:border-[#054e3b] focus:ring-2 focus:ring-[#054e3b]/10 focus:outline-none transition-all bg-white"
                       >
                         <option value="">-- Pilih Level Jabatan --</option>
-                        {(options.level_jabatan?.length > 0 ? options.level_jabatan : LEVEL_JABATAN_OPTIONS).map((lvl) => (
-                          <option key={lvl.value} value={lvl.value}>
-                            {lvl.label}
-                          </option>
-                        ))}
+                        {(options.level_jabatan?.length > 0 ? options.level_jabatan : LEVEL_JABATAN_OPTIONS)
+                          .filter((lvl) => !isKepalaSekolah || Number(lvl.value) !== 1)
+                          .map((lvl) => (
+                            <option key={lvl.value} value={lvl.value}>
+                              {lvl.label}
+                            </option>
+                          ))}
                       </select>
                       {errors.level_jabatan && (
                         <p className="mt-1 text-xs text-rose-500">{errors.level_jabatan.message}</p>

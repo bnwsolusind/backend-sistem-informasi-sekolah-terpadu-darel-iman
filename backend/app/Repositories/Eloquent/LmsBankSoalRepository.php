@@ -2,14 +2,47 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Models\Employee;
 use App\Models\LmsBankSoal;
+use App\Models\Teacher;
 use App\Repositories\Contracts\LmsBankSoalRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
 {
+    protected function applyTeacherScope($query)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return $query;
+        }
+
+        $adminRoles = ['superadmin', 'yayasan', 'ketuayayasan', 'pengurusyayasan', 'sekretarisyayasan', 'bendaharayayasan', 'kepalasekolah', 'tatausaha', 'tu', 'divisipendidikan'];
+        $userRoles = $user->getRoleNames()->map(fn ($r) => strtolower((string) preg_replace('/[\s_-]+/', '', $r)));
+
+        if ($userRoles->intersect($adminRoles)->isNotEmpty()) {
+            return $query;
+        }
+
+        $employee = Employee::where('user_id', $user->id)->first();
+        $teacher = Teacher::where('user_id', $user->id)->first() ?? ($employee ? Teacher::where('employee_id', $employee->id)->first() : null);
+
+        $teacherIds = array_values(array_filter(array_unique([
+            $employee?->id,
+            $teacher?->id,
+        ])));
+
+        return $query->where(function ($q) use ($teacherIds, $user) {
+            $q->where('created_by', $user->id);
+            if (! empty($teacherIds)) {
+                $q->orWhereHas('kisiKisi', fn ($qk) => $qk->whereIn('guru_id', $teacherIds)->orWhere('created_by', $user->id));
+            }
+        });
+    }
+
     public function getFiltered(array $filters = [], int $perPage = 15, string $orderBy = 'created_at', string $orderDir = 'desc'): LengthAwarePaginator
     {
         $query = LmsBankSoal::with([
@@ -18,6 +51,8 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
             'kisiKisi.kelas:id,nama_kelas',
             'subject:id,name,code',
         ]);
+
+        $this->applyTeacherScope($query);
 
         if (! empty($filters['with_trashed']) && filter_var($filters['with_trashed'], FILTER_VALIDATE_BOOLEAN)) {
             $query->withTrashed();
@@ -141,6 +176,7 @@ class LmsBankSoalRepository implements LmsBankSoalRepositoryInterface
     public function getStats(array $filters = []): array
     {
         $query = LmsBankSoal::query();
+        $this->applyTeacherScope($query);
 
         if (! empty($filters['kisi_kisi_id'])) {
             $query->where('kisi_kisi_id', $filters['kisi_kisi_id']);

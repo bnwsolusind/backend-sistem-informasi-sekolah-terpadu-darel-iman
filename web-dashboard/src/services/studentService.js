@@ -1,8 +1,8 @@
 import { api } from './api'
 
 export const studentService = {
-  getDashboard: async () => {
-    const { data } = await api.get('/students/dashboard')
+  getDashboard: async (params = {}) => {
+    const { data } = await api.get('/students/dashboard', { params })
     return data
   },
 
@@ -45,6 +45,18 @@ export const studentService = {
 
   hapus: async (id) => {
     const { data } = await api.delete(`/students/${id}`)
+    return data
+  },
+
+  pindahKelas: async (studentId, targetKelasId, studentObj = {}) => {
+    const payload = {
+      nis: studentObj.nis || studentObj.metadata?.nis || '000',
+      full_name: studentObj.full_name || studentObj.nama || 'Siswa',
+      gender: studentObj.gender || 'male',
+      unit_id: studentObj.unit_id || studentObj.unit_pendidikan_id || studentObj.education_unit_id,
+      kelas_id: targetKelasId,
+    }
+    const { data } = await api.put(`/students/${studentId}`, payload)
     return data
   },
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../stores/authStore'
 import {
   Search,
   X,
@@ -55,6 +56,7 @@ const SYSTEM_INDEX = [
   { title: 'Laporan Siswa & Kelulusan', type: 'Laporan', link: '/dashboard/laporan-siswa', desc: 'Statistik kesiswaan per unit' },
   { title: 'Laporan Alumni', type: 'Laporan', link: '/dashboard/laporan-alumni', desc: 'Tracer study & perguruan tinggi' },
   { title: 'Laporan SDM & Guru', type: 'Laporan', link: '/dashboard/yayasan/laporan/sdm', desc: 'Statistik kepegawaian yayasan' },
+  { title: 'Laporan Rekapitulasi Prestasi Siswa', type: 'Laporan', link: '/dashboard/yayasan/laporan/prestasi', desc: 'Rekapitulasi prestasi per unit, kepala sekolah, dan divisi' },
 ]
 
 const TYPE_ICONS = {
@@ -70,6 +72,8 @@ const TYPE_ICONS = {
 
 export default function GlobalSearchModal({ isOpen, onClose }) {
   const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+  const roles = user?.roles || []
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState('Semua')
   const inputRef = useRef(null)
@@ -108,6 +112,22 @@ export default function GlobalSearchModal({ isOpen, onClose }) {
   const tabs = ['Semua', 'Siswa', 'Guru', 'Pegawai', 'Mapel', 'Unit', 'Kelas', 'Portal', 'Laporan']
 
   const filtered = SYSTEM_INDEX.filter((item) => {
+    if (item.link?.includes('/akademik/nilai-rapor') || item.link?.includes('/lms/penilaian') || item.link?.includes('/lms/rapor')) {
+      const isDenied = roles.some((r) => [
+        'yayasan', 'ketuayayasan', 'pengurusyayasan', 'sekretarisyayasan', 'bendaharayayasan',
+        'kepalasekolah', 'divisipendidikan'
+      ].includes(String(r).toLowerCase().replace(/[\s_-]+/g, '')))
+      const isSuperAdmin = roles.some((r) => String(r).toLowerCase().replace(/[\s_-]+/g, '').includes('superadmin'))
+      if (isDenied && !isSuperAdmin) return false
+    }
+    if (item.link?.includes('/portal-guru') || item.link?.includes('/dashboard/musyrif')) {
+      const isDenied = roles.some((r) => [
+        'yayasan', 'ketuayayasan', 'pengurusyayasan', 'sekretarisyayasan', 'bendaharayayasan', 'pengurus',
+        'kepalasekolah', 'kepsek'
+      ].includes(String(r).toLowerCase().replace(/[\s_-]+/g, '')))
+      const isSuperAdmin = roles.some((r) => String(r).toLowerCase().replace(/[\s_-]+/g, '').includes('superadmin'))
+      if (isDenied && !isSuperAdmin) return false
+    }
     const matchesTab = activeTab === 'Semua' || item.type === activeTab
     const q = query.toLowerCase().trim()
     const matchesQuery = !q || item.title.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q) || item.type.toLowerCase().includes(q)

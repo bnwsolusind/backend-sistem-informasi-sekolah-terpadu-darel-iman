@@ -2370,8 +2370,22 @@ body {
 }
 
 .attendance-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 18px;
+}
+
+@media (max-width: 1200px) {
+  .attendance-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .attendance-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .attendance-summary-card {
@@ -2419,6 +2433,8 @@ body {
 
 .tone-green .summary-icon { color: #078357; background: #eaf7f1; }
 .tone-green .summary-value span { color: #12a968; }
+.tone-purple .summary-icon { color: #8b5cf6; background: #f3e8ff; }
+.tone-purple .summary-value span { color: #7c3aed; }
 .tone-blue .summary-icon { color: #3182f6; background: #edf4ff; }
 .tone-blue .summary-value span { color: #3182f6; }
 .tone-orange .summary-icon { color: #ff8a1f; background: #fff2e6; }
@@ -5419,10 +5435,12 @@ th {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
   }
 
   .master-data-section__filters > *:not(.master-data-section__reset) {
-    flex: 1 1 140px;
+    flex: 1 1 130px;
+    max-width: 190px;
   }
 
   .master-data-section__reset {

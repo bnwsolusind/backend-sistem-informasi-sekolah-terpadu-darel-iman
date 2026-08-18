@@ -22,6 +22,7 @@ class AttendanceWorkflowController extends Controller
     public function __construct(
         private AttendanceAccessService $access,
         private AttendanceAuditService $audit,
+        private \App\Services\AccessScopeService $accessScopeService,
     ) {}
 
     private function permit(Request $request, array $permissions, array $roles = []): void
@@ -696,29 +697,116 @@ class AttendanceWorkflowController extends Controller
 
     public function report(Request $request): JsonResponse
     {
-        $this->permit($request, ['lesson_attendance.export', 'homeroom_attendance.export', 'student_attendance.view_own'], ['Guru', 'Wali Kelas', 'Siswa']);
-        $query = LmsPresensi::query()->with(['siswa:id,nis,nisn,full_name', 'jadwalPelajaran.subject:id,code,name']);
+        $this->permit($request, ['lesson_attendance.export', 'homeroom_attendance.export', 'student_attendance.view_own'], [
+            'Guru', 'Wali Kelas', 'Siswa', 'Kepala Sekolah', 'kepala_sekolah', 'kepsek',
+            'Yayasan', 'Pengurus Yayasan', 'Ketua Yayasan', 'Divisi Pendidikan', 'Tata Usaha', 'Admin',
+        ]);
+        $query = LmsPresensi::query()->with([
+            'siswa:id,nis,nisn,full_name,gender,photo,photo_thumb,kelas_id,unit_id,is_active',
+            'siswa.kelas:id,nama_kelas,kode_kelas,unit_pendidikan_id',
+            'siswa.kelas.unitPendidikan:id,code,name,level',
+            'siswa.educationUnit:id,code,name,level',
+            'jadwalPelajaran.subject:id,code,name',
+            'jadwalPelajaran.kelas:id,nama_kelas,kode_kelas,unit_pendidikan_id',
+            'jadwalPelajaran.kelas.unitPendidikan:id,code,name,level',
+        ]);
         $user = $request->user();
-        if (! $user->hasRole('Super Admin')) {
+
+        $isFoundationAdmin = $user->hasAnyRole([
+            'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
+            'Pengurus Yayasan', 'pengurus_yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
+            'Bendahara Yayasan', 'bendahara_yayasan',
+        ]);
+
+        if (! $isFoundationAdmin) {
             if ($user->hasRole('Siswa')) {
                 $query->where('siswa_id', $this->access->student($user)?->id ?? '__none__');
+            } elseif ($user->hasAnyRole(['Kepala Sekolah', 'kepala_sekolah', 'kepsek', 'Divisi Pendidikan', 'Tata Usaha', 'Admin'])) {
+                $unitIds = $this->accessScopeService->accessibleEducationUnits($user)->pluck('id')->filter()->values();
+                if ($request->filled('unit_id')) {
+                    $requestedUnit = $request->string('unit_id')->toString();
+                    $this->accessScopeService->assertEducationUnitAccess($user, $requestedUnit);
+                    $unitIds = collect([$requestedUnit]);
+                }
+                if ($unitIds->isNotEmpty()) {
+                    $query->where(function ($q) use ($unitIds) {
+                        $q->whereHas('siswa', function ($sq) use ($unitIds) {
+                            $sq->where(function ($sq2) use ($unitIds) {
+                                $sq2->whereIn('unit_id', $unitIds)
+                                    ->orWhere(function ($sq3) use ($unitIds) {
+                                        $sq3->whereNull('unit_id')
+                                            ->whereHas('kelas', fn ($kq) => $kq->whereIn('unit_pendidikan_id', $unitIds));
+                                    });
+                            });
+                        })->orWhereHas('jadwalPelajaran.kelas', function ($jq) use ($unitIds) {
+                            $jq->whereIn('unit_pendidikan_id', $unitIds);
+                        });
+                    })
+                    ->whereDoesntHave('siswa', function ($sq) use ($unitIds) {
+                        $sq->whereNotNull('unit_id')->whereNotIn('unit_id', $unitIds);
+                    })
+                    ->whereDoesntHave('jadwalPelajaran.kelas', function ($jq) use ($unitIds) {
+                        $jq->whereNotNull('unit_pendidikan_id')->whereNotIn('unit_pendidikan_id', $unitIds);
+                    });
+                }
             } elseif ($user->hasRole('Wali Kelas')) {
                 $query->whereHas('jadwalPelajaran', fn ($q) => $q->whereIn('kelas_id', $this->access->homeroomClasses($user)->pluck('id')));
             } else {
                 $query->whereIn('jadwal_pelajaran_id', $this->access->teacherSchedules($user)->select('id'));
             }
         }
-        $query->when($request->filled('date_from'), fn ($q) => $q->whereDate('tanggal', '>=', $request->date('date_from')))
+
+        if ($isFoundationAdmin && $request->filled('unit_id')) {
+            $requestedUnit = $request->string('unit_id')->toString();
+            $unitIds = collect([$requestedUnit]);
+            $query->where(function ($q) use ($unitIds) {
+                $q->whereHas('siswa', function ($sq) use ($unitIds) {
+                    $sq->where(function ($sq2) use ($unitIds) {
+                        $sq2->whereIn('unit_id', $unitIds)
+                            ->orWhere(function ($sq3) use ($unitIds) {
+                                $sq3->whereNull('unit_id')
+                                    ->whereHas('kelas', fn ($kq) => $kq->whereIn('unit_pendidikan_id', $unitIds));
+                            });
+                    });
+                })->orWhereHas('jadwalPelajaran.kelas', function ($jq) use ($unitIds) {
+                    $jq->whereIn('unit_pendidikan_id', $unitIds);
+                });
+            })
+            ->whereDoesntHave('siswa', function ($sq) use ($unitIds) {
+                $sq->whereNotNull('unit_id')->whereNotIn('unit_id', $unitIds);
+            })
+            ->whereDoesntHave('jadwalPelajaran.kelas', function ($jq) use ($unitIds) {
+                $jq->whereNotNull('unit_pendidikan_id')->whereNotIn('unit_pendidikan_id', $unitIds);
+            });
+        }
+
+        // Only include active students (is_active = true)
+        $query->whereHas('siswa', function ($sq) {
+            $sq->where('is_active', true);
+            if (\Illuminate\Support\Facades\Schema::hasColumn('students', 'status')) {
+                $sq->whereNotIn('status', ['Berhenti', 'Lulus', 'Nonaktif', 'berhenti', 'lulus', 'nonaktif']);
+            }
+        });
+
+        $query->when($request->filled('class_id'), function ($q) use ($request) {
+            $classId = $request->string('class_id')->toString();
+            $q->where(function ($sq) use ($classId) {
+                $sq->whereHas('jadwalPelajaran', fn ($jq) => $jq->where('kelas_id', $classId))
+                  ->orWhereHas('siswa', fn ($sq2) => $sq2->where('kelas_id', $classId));
+            });
+        })
+            ->when($request->filled('student_id'), fn ($q) => $q->where('siswa_id', $request->string('student_id')->toString()))
+            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('tanggal', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('tanggal', '<=', $request->date('date_to')))
-            ->when($request->filled('status'), fn ($q) => $q->where('status_hadir', $request->string('status')))
-            ->when($request->filled('subject_id'), fn ($q) => $q->whereHas('jadwalPelajaran', fn ($sq) => $sq->where('subject_id', $request->string('subject_id'))));
+            ->when($request->filled('status'), fn ($q) => $q->where('status_hadir', $request->string('status')->toString()))
+            ->when($request->filled('subject_id'), fn ($q) => $q->whereHas('jadwalPelajaran', fn ($sq) => $sq->where('subject_id', $request->string('subject_id')->toString())));
 
         $rows = $query->get();
 
         return response()->json(['success' => true, 'data' => [
             'summary' => [
                 'total' => $rows->count(),
-                'present' => $rows->whereIn('status_hadir', ['hadir', 'terlambat'])->count(),
+                'present' => $rows->where('status_hadir', 'hadir')->count(),
                 'late' => $rows->where('status_hadir', 'terlambat')->count(),
                 'permission' => $rows->where('status_hadir', 'izin')->count(),
                 'sick' => $rows->where('status_hadir', 'sakit')->count(),

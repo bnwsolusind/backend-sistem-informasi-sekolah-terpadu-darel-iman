@@ -373,6 +373,18 @@ export default function MasterSubjectPage({ embedded = false, hideBreadcrumb = f
     }
   }
 
+  const pageActions = (
+    <>
+      <MasterActionButton variant="import" icon={Upload} onClick={() => setIsImportModalOpen(true)}>Impor</MasterActionButton>
+      <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>Excel</MasterActionButton>
+      <MasterActionButton variant="export" icon={FileText} onClick={handleExportPdf}>PDF</MasterActionButton>
+      <MasterActionButton variant="import" icon={ChartNoAxesColumn} onClick={() => setIsStatisticsModalOpen(true)}>Statistik</MasterActionButton>
+      <MasterActionButton onClick={handleOpenFormTambah}>Tambah Mata Pelajaran</MasterActionButton>
+    </>
+  )
+
+  const shouldHideHeader = embedded || hidePageHeader
+
   return (
     <PageContainer maxW="7xl">
       {!(embedded || hideBreadcrumb) && (
@@ -383,21 +395,15 @@ export default function MasterSubjectPage({ embedded = false, hideBreadcrumb = f
         hideBreadcrumb={embedded || hideBreadcrumb}
       >
       {/* PAGE HEADER */}
-      <MasterPageHeader
-        tone="brand"
-        icon={BookOpen}
-        title="Master Mata Pelajaran"
-        description="Kelola referensi mata pelajaran untuk kurikulum, jadwal, penilaian, dan rapor."
-        actions={
-          <>
-            <MasterActionButton variant="import" icon={Upload} onClick={() => setIsImportModalOpen(true)}>Impor</MasterActionButton>
-            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportExcel}>Excel</MasterActionButton>
-            <MasterActionButton variant="export" icon={FileText} onClick={handleExportPdf}>PDF</MasterActionButton>
-            <MasterActionButton variant="import" icon={ChartNoAxesColumn} onClick={() => setIsStatisticsModalOpen(true)}>Statistik</MasterActionButton>
-            <MasterActionButton onClick={handleOpenFormTambah}>Tambah Mata Pelajaran</MasterActionButton>
-          </>
-        }
-      />
+      {!shouldHideHeader && (
+        <MasterPageHeader
+          tone="brand"
+          icon={BookOpen}
+          title="Master Mata Pelajaran"
+          description="Kelola referensi mata pelajaran untuk kurikulum, jadwal, penilaian, dan rapor."
+          actions={pageActions}
+        />
+      )}
 
       {/* KPI STATISTIC CARDS */}
       <MasterStatsGrid className="education-unit-kpis">
@@ -410,6 +416,7 @@ export default function MasterSubjectPage({ embedded = false, hideBreadcrumb = f
         title="Daftar Mata Pelajaran"
         description="Data mata pelajaran sesuai filter dan kewenangan pengguna."
         countLabel={`${Number(meta.total ?? stats.total ?? 0).toLocaleString('id-ID')} mapel`}
+        actions={pageActions}
         search={{
           value: search,
           onValueChange: (value) => { setSearch(value); setPage(1) },

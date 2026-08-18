@@ -576,7 +576,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('students', StudentController::class)->only(['store'])
         ->middleware('permission:student.create|sistem.master_data');
     Route::apiResource('students', StudentController::class)->only(['update'])
-        ->middleware('permission:student.update|sistem.master_data');
+        ->middleware('permission:student.update|student.edit|academic.manage|academic.view|kesiswaan.data_lengkap_siswa|foundation.student.view|sistem.master_data');
     Route::apiResource('students', StudentController::class)->only(['destroy'])
         ->middleware('permission:student.delete|sistem.master_data');
     Route::get('/student-card-settings', [\App\Http\Controllers\Api\V1\StudentCardSettingController::class, 'show']);
@@ -1100,7 +1100,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Teacher Portal Routes (/api/teacher/*)
-    Route::prefix('teacher')->middleware('role:Guru|guru|Guru Mata Pelajaran|guru_mata_pelajaran|Guru PAI|Pembimbing|Wali Kelas|walas|wali_kelas|Guru Tahfizh|guru_tahfizh|Musyrif|musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|guru_bk|Super Admin|super_admin|super-admin|Superadmin')->group(function () {
+    Route::prefix('teacher')->middleware('role:Guru|guru|Guru Mata Pelajaran|guru_mata_pelajaran|Guru PAI|Pembimbing|Wali Kelas|walas|wali_kelas|Guru Tahfizh|guru_tahfizh|Musyrif|musyrif|Musyrifah|Musyrif / Musyrifah|Guru BK|guru_bk|Super Admin|super_admin|super-admin|Superadmin|Kepala Sekolah|kepala_sekolah|KepalaSekolah|kepsek|Divisi Pendidikan|divisi_pendidikan|Kepala Bidang Pendidikan|Yayasan|Ketua Yayasan|ketua_yayasan|sekretaris_yayasan|bendahara_yayasan|pengurus_yayasan|Pengurus Yayasan|Pengurus')->group(function () {
              Route::get('/step04/schedules', [Step04TeacherController::class, 'schedules'])
                  ->middleware('permission:teacher.schedule.view');
              Route::post('/teaching-attendance/scan', [Step04TeacherController::class, 'scan'])

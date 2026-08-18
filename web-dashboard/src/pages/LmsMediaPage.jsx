@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   FileText,
   Video,
@@ -33,7 +33,7 @@ import { lmsMediaService } from '../services/lmsMediaService'
 import PageContainer from '../components/app/PageContainer'
 import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
-export default function LmsMediaPage() {
+export default function LmsMediaPage({ embedded = false, hideBreadcrumb = false, hidePageHeader = false, tabNav = null }) {
   const [dataMedia, setDataMedia] = useState([])
   const [optionsMateri, setOptionsMateri] = useState([])
   const [tipeOptions, setTipeOptions] = useState([
@@ -56,6 +56,13 @@ export default function LmsMediaPage() {
     total_image: 0,
     total_link: 0,
     total_materi: 0,
+  })
+
+  // KPI Modal State
+  const [kpiModalOpen, setKpiModalOpen] = useState(false)
+  const [kpiModalCategory, setKpiModalCategory] = useState({
+    title: '',
+    items: [],
   })
 
   const [loading, setLoading] = useState(true)
@@ -106,8 +113,51 @@ export default function LmsMediaPage() {
         setStats(statsRes.data)
       }
     } catch (err) {
-      console.error('Gagal memuat opsi/statistik media:', err)
+      console.error('Failed to load initial options and stats:', err)
     }
+  }
+
+  const computedStats = useMemo(() => {
+    return {
+      total_media: dataMedia.length,
+      total_pdf: dataMedia.filter((m) => m.tipe_file === 'pdf').length,
+      total_video: dataMedia.filter((m) => m.tipe_file === 'video').length,
+      total_audio: dataMedia.filter((m) => m.tipe_file === 'audio').length,
+      total_ppt: dataMedia.filter((m) => m.tipe_file === 'ppt').length,
+      total_word: dataMedia.filter((m) => m.tipe_file === 'word' || m.tipe_file === 'doc').length,
+      total_link: dataMedia.filter((m) => m.tipe_file === 'link' || !!m.url_eksternal).length,
+    }
+  }, [dataMedia])
+
+  const handleOpenKpiModal = (type) => {
+    let title = ''
+    let items = []
+
+    if (type === 'total') {
+      title = 'Total Media Pembelajaran'
+      items = dataMedia
+    } else if (type === 'pdf') {
+      title = 'Daftar Media Dokumen PDF'
+      items = dataMedia.filter((m) => m.tipe_file === 'pdf')
+    } else if (type === 'video') {
+      title = 'Daftar Video Pembelajaran'
+      items = dataMedia.filter((m) => m.tipe_file === 'video')
+    } else if (type === 'audio') {
+      title = 'Daftar Audio / Podcast'
+      items = dataMedia.filter((m) => m.tipe_file === 'audio')
+    } else if (type === 'ppt') {
+      title = 'Daftar Slide Presentasi PPT'
+      items = dataMedia.filter((m) => m.tipe_file === 'ppt')
+    } else if (type === 'word') {
+      title = 'Daftar Dokumen Office / Word'
+      items = dataMedia.filter((m) => m.tipe_file === 'word' || m.tipe_file === 'doc')
+    } else if (type === 'link') {
+      title = 'Daftar Tautan URL / Link'
+      items = dataMedia.filter((m) => m.tipe_file === 'link' || !!m.url_eksternal)
+    }
+
+    setKpiModalCategory({ title, items })
+    setKpiModalOpen(true)
   }
 
   const fetchDaftarMedia = async () => {
@@ -301,34 +351,36 @@ export default function LmsMediaPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-[1600px] mx-auto min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
       {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 sm:p-8 text-white shadow-xl shadow-[#0E5C44]/15">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-medium tracking-wide">
-              <Sparkles className="w-4 h-4 text-emerald-200" />
-              <span>Modul LMS Terpadu</span>
+      {!hidePageHeader && (
+        <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-6 sm:p-8 text-white shadow-xl shadow-[#0E5C44]/15">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-medium tracking-wide">
+                <Sparkles className="w-4 h-4 text-emerald-200" />
+                <span>Modul LMS Terpadu</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Media Pembelajaran (Multi-Format)
+              </h1>
+              <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed opacity-90">
+                Kelola seluruh lampiran berkas dan sumber media pembelajaran terpadu (PDF, Video, Audio, Presentasi PPT, Dokumen Word, Gambar, & Link Eksternal) untuk mendukung proses belajar mengajar interaktif.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Media Pembelajaran (Multi-Format)
-            </h1>
-            <p className="text-emerald-50 text-sm max-w-2xl leading-relaxed opacity-90">
-              Kelola seluruh lampiran berkas dan sumber media pembelajaran terpadu (PDF, Video, Audio, Presentasi PPT, Dokumen Word, Gambar, & Link Eksternal) untuk mendukung proses belajar mengajar interaktif.
-            </p>
+            <div className="flex items-center gap-3 self-start md:self-auto">
+              <button
+                onClick={handleOpenCreateModal}
+                className="inline-flex items-center gap-2 px-5 py-3 bg-white text-[#0E5C44] font-bold text-sm rounded-[14px] shadow-lg hover:bg-emerald-50 transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-white/40"
+              >
+                <Plus className="w-5 h-5 stroke-[2.5]" />
+                <span>Tambah Media Baru</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3 self-start md:self-auto">
-            <button
-              onClick={handleOpenCreateModal}
-              className="inline-flex items-center gap-2 px-5 py-3 bg-white text-[#0E5C44] font-bold text-sm rounded-[14px] shadow-lg hover:bg-emerald-50 transition-all transform hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-white/40"
-            >
-              <Plus className="w-5 h-5 stroke-[2.5]" />
-              <span>Tambah Media Baru</span>
-            </button>
-          </div>
+          {/* Decorative blur elements */}
+          <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute left-1/2 top-0 w-48 h-48 bg-emerald-300/10 rounded-full blur-2xl pointer-events-none" />
         </div>
-        {/* Decorative blur elements */}
-        <div className="absolute -right-12 -bottom-12 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute left-1/2 top-0 w-48 h-48 bg-emerald-300/10 rounded-full blur-2xl pointer-events-none" />
-      </div>
+      )}
 
       {/* Alert Messages */}
       {successMsg && (
@@ -357,69 +409,93 @@ export default function LmsMediaPage() {
 
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-        <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleOpenKpiModal('total')}
+          className="group p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider group-hover:text-[#0E5C44]">Total</span>
             <Layers className="w-4 h-4 text-[#0E5C44]" />
           </div>
-          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{stats.total_media || 0}</p>
+          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{computedStats.total_media}</p>
           <span className="text-[11px] text-slate-400">Media Pembelajaran</span>
         </div>
 
-        <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleOpenKpiModal('pdf')}
+          className="group p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-red-500 uppercase tracking-wider">PDF</span>
             <FileText className="w-4 h-4 text-red-500" />
           </div>
-          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{stats.total_pdf || 0}</p>
+          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{computedStats.total_pdf}</p>
           <span className="text-[11px] text-slate-400">Dokumen PDF</span>
         </div>
 
-        <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleOpenKpiModal('video')}
+          className="group p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-blue-500 uppercase tracking-wider">Video</span>
             <Video className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{stats.total_video || 0}</p>
+          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{computedStats.total_video}</p>
           <span className="text-[11px] text-slate-400">Video Pembelajaran</span>
         </div>
 
-        <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleOpenKpiModal('audio')}
+          className="group p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-purple-500 uppercase tracking-wider">Audio</span>
             <Music className="w-4 h-4 text-purple-500" />
           </div>
-          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{stats.total_audio || 0}</p>
+          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{computedStats.total_audio}</p>
           <span className="text-[11px] text-slate-400">Podcast / Audio</span>
         </div>
 
-        <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleOpenKpiModal('ppt')}
+          className="group p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">PPT</span>
             <Presentation className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{stats.total_ppt || 0}</p>
+          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{computedStats.total_ppt}</p>
           <span className="text-[11px] text-slate-400">Slide Presentasi</span>
         </div>
 
-        <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleOpenKpiModal('word')}
+          className="group p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">Word</span>
             <FileCode className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{stats.total_word || 0}</p>
+          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{computedStats.total_word}</p>
           <span className="text-[11px] text-slate-400">Dokumen Office</span>
         </div>
 
-        <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+        <div
+          onClick={() => handleOpenKpiModal('link')}
+          className="group p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-teal-500 uppercase tracking-wider">Link</span>
             <LinkIcon className="w-4 h-4 text-teal-500" />
           </div>
-          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{stats.total_link || 0}</p>
+          <p className="text-2xl font-extrabold mt-2 text-slate-900 dark:text-white">{computedStats.total_link}</p>
           <span className="text-[11px] text-slate-400">Tautan Eksternal</span>
         </div>
       </div>
+
+      {/* Tab Navigation Card (below KPI grid) */}
+      {tabNav}
 
       {/* Filter Bar & Controls */}
       <div className="p-4 rounded-[18px] bg-white dark:bg-[#1B2433] border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
@@ -653,6 +729,88 @@ export default function LmsMediaPage() {
           </div>
         </div>
       </div>
+
+      {/* KPI DETAIL MODAL */}
+      {kpiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#1B2433] w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-gradient-to-r from-[#0E5C44] to-[#1E8E5A] p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                  <Layers className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{kpiModalCategory.title}</h3>
+                  <p className="text-xs text-emerald-100 mt-0.5">
+                    Menampilkan {kpiModalCategory.items.length} file media terdaftar
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="text-emerald-100 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {kpiModalCategory.items.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <Layers className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-semibold text-sm">Tidak ada data media dalam kategori ini.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        <th className="py-3 px-4 text-center w-12">No</th>
+                        <th className="py-3 px-4">Nama File / Judul</th>
+                        <th className="py-3 px-4">Tipe File</th>
+                        <th className="py-3 px-4">Materi Pembelajaran</th>
+                        <th className="py-3 px-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                      {kpiModalCategory.items.map((item, idx) => (
+                        <tr key={item.id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                          <td className="py-3 px-4 text-center text-slate-400 text-xs font-medium">{idx + 1}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-100">{item.nama_file}</td>
+                          <td className="py-3 px-4">{getTipeBadge(item.tipe_file)}</td>
+                          <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
+                            {item.materi?.judul || 'Tanpa Judul Materi'}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => {
+                                setKpiModalOpen(false)
+                                handleOpenPreviewModal(item)
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-[#0E5C44] dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs hover:bg-emerald-100 transition-colors"
+                            >
+                              Detail
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/40">
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Form Create / Edit */}
       {modalOpen && (

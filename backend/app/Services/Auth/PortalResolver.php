@@ -38,8 +38,18 @@ class PortalResolver
      */
     public function resolve(User $user): array
     {
+        $isRestricted = !$this->hasAnyRole($user, ['Super Admin', 'Superadmin', 'super_admin'])
+            && $this->hasAnyRole($user, [
+                'Yayasan', 'Ketua Yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan',
+                'ketua_yayasan', 'pengurus_yayasan', 'sekretaris_yayasan', 'bendahara_yayasan',
+                'Kepala Sekolah', 'kepala_sekolah', 'kepsek'
+            ]);
+
         $matches = collect(self::WORKSPACES)
             ->filter(fn (array $workspace) => $this->hasAnyRole($user, $workspace['roles']))
+            ->when($isRestricted, fn ($collection) => $collection->reject(
+                fn (array $workspace) => in_array($workspace['key'], ['teacher', 'musyrif'], true)
+            ))
             ->values();
 
         if ($matches->isEmpty() && $user->employee()->exists()) {

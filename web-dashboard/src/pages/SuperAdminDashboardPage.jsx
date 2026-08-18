@@ -40,6 +40,8 @@ import {
   ActionDropdown,
   PageContainer,
 } from '../components/app'
+import { Button } from '../components/tailgrids/core/button'
+import Progress from '../components/tailgrids/core/progress'
 
 import ChartCard from '../components/dashboard/ChartCard'
 import SkeletonDashboard from '../components/dashboard/SkeletonDashboard'
@@ -200,6 +202,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.total_units?.total)}
               icon={Building2}
               colorScheme="emerald"
+              progress={Math.min(100, (kpis.total_units?.total || 0) * 6.67)}
+              progressColorScheme="emerald"
               badge="Terdaftar"
               badgeVariant="success"
               onClick={() => setActiveModal('total_units')}
@@ -209,6 +213,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.active_units?.total)}
               icon={School}
               colorScheme="blue"
+              progress={kpis.total_units?.total ? Math.min(100, ((kpis.active_units?.total || 0) / (kpis.total_units?.total || 1)) * 100) : 100}
+              progressColorScheme="blue"
               badge="Aktif"
               badgeVariant="info"
               onClick={() => setActiveModal('active_units')}
@@ -218,6 +224,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.total_employees?.total)}
               icon={UserCheck}
               colorScheme="violet"
+              progress={Math.min(100, (kpis.total_employees?.total || 0) * 2.7)}
+              progressColorScheme="violet"
               badge="SDM Staf"
               badgeVariant="purple"
               onClick={() => setActiveModal('total_employees')}
@@ -227,6 +235,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.total_teachers?.total)}
               icon={GraduationCap}
               colorScheme="indigo"
+              progress={kpis.total_employees?.total ? Math.min(100, ((kpis.total_teachers?.total || 0) / (kpis.total_employees?.total || 1)) * 100) : 100}
+              progressColorScheme="indigo"
               badge="Pendidik"
               badgeVariant="success"
               onClick={() => setActiveModal('total_teachers')}
@@ -242,6 +252,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.total_students?.total)}
               icon={Users}
               colorScheme="emerald"
+              progress={Math.min(100, (kpis.total_students?.total || 0) * 3)}
+              progressColorScheme="emerald"
               badge="Siswa"
               badgeVariant="success"
               onClick={() => setActiveModal('total_students')}
@@ -251,6 +263,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.total_parents?.total)}
               icon={HeartHandshake}
               colorScheme="rose"
+              progress={kpis.total_students?.total ? Math.min(100, ((kpis.total_parents?.total || 0) / (kpis.total_students?.total || 1)) * 100) : 100}
+              progressColorScheme="rose"
               badge="Wali"
               badgeVariant="warning"
               onClick={() => setActiveModal('total_parents')}
@@ -260,6 +274,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.total_rombel?.total || kpis.total_classes?.total)}
               icon={Layers}
               colorScheme="blue"
+              progress={Math.min(100, ((kpis.total_rombel?.total || kpis.total_classes?.total || 0) * 1.4))}
+              progressColorScheme="blue"
               badge="Rombel"
               badgeVariant="info"
               onClick={() => setActiveModal('total_rombel')}
@@ -269,6 +285,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.total_alumni?.total)}
               icon={GraduationCap}
               colorScheme="amber"
+              progress={Math.min(100, (kpis.total_alumni?.total || 0) * 33)}
+              progressColorScheme="amber"
               badge="Lulusan"
               badgeVariant="purple"
               onClick={() => setActiveModal('total_alumni')}
@@ -285,6 +303,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.active_users?.total)}
               icon={ShieldCheck}
               colorScheme="emerald"
+              progress={kpis.total_users?.total ? Math.min(100, ((kpis.active_users?.total || 0) / (kpis.total_users?.total || 1)) * 100) : 100}
+              progressColorScheme="emerald"
               badge="User"
               onClick={() => setActiveModal('active_users')}
             />
@@ -293,6 +313,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.active_roles?.total)}
               icon={Key}
               colorScheme="indigo"
+              progress={Math.min(100, (kpis.active_roles?.total || 0) * 10)}
+              progressColorScheme="indigo"
               badge="Spatie Roles"
               onClick={() => setActiveModal('active_roles')}
             />
@@ -301,6 +323,8 @@ export default function SuperAdminDashboardPage() {
               value={formatNumber(kpis.users_without_role?.total)}
               icon={UserX}
               colorScheme="rose"
+              progress={kpis.total_users?.total ? Math.min(100, ((kpis.users_without_role?.total || 0) / (kpis.total_users?.total || 1)) * 100) : 0}
+              progressColorScheme="rose"
               badge="Perlu Action"
               badgeVariant="danger"
               onClick={() => setActiveModal('users_without_role')}
@@ -316,18 +340,18 @@ export default function SuperAdminDashboardPage() {
               <p className="text-xs text-slate-500 dark:text-slate-400">Pintas manajemen data master dan konfigurasi sistem</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <AppButton variant="secondary" size="sm" icon={Plus} onClick={() => navigate('/dashboard/master/unit-pendidikan')}>
+              <Button variant="primary" appearance="outline" size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => navigate('/dashboard/master/unit-pendidikan')}>
                 Tambah Unit
-              </AppButton>
-              <AppButton variant="secondary" size="sm" icon={UserPlus} onClick={() => navigate('/dashboard/employees')}>
+              </Button>
+              <Button variant="primary" appearance="outline" size="sm" icon={<UserPlus className="h-3.5 w-3.5" />} onClick={() => navigate('/dashboard/employees')}>
                 Tambah Pegawai
-              </AppButton>
-              <AppButton variant="secondary" size="sm" icon={Users} onClick={() => navigate('/dashboard/students')}>
+              </Button>
+              <Button variant="primary" appearance="outline" size="sm" icon={<Users className="h-3.5 w-3.5" />} onClick={() => navigate('/dashboard/students')}>
                 Tambah Siswa
-              </AppButton>
-              <AppButton variant="primary" size="sm" icon={Key} onClick={() => navigate('/dashboard/hak-akses')}>
+              </Button>
+              <Button variant="primary" appearance="fill" size="sm" icon={<Key className="h-3.5 w-3.5" />} onClick={() => navigate('/dashboard/hak-akses')}>
                 Kelola Role & Permissions
-              </AppButton>
+              </Button>
             </div>
           </div>
         </section>

@@ -28,7 +28,20 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sessionNotice, setSessionNotice] = useState('')
   const [workspaceOptions, setWorkspaceOptions] = useState([])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const reason = params.get('reason')
+    if (reason === 'inactivity') {
+      setSessionNotice('Sesi Anda telah berakhir karena tidak ada aktivitas selama 15 menit. Silakan masuk kembali.')
+    } else if (reason === 'browser_mismatch') {
+      setSessionNotice('Status login memerlukan autentikasi baru saat berpindah browser/link. Silakan masuk kembali.')
+    } else if (reason === 'expired') {
+      setSessionNotice('Sesi login Anda telah kedaluwarsa. Silakan masuk kembali.')
+    }
+  }, [])
 
   // QR Modal scanner state
   const [showQrModal, setShowQrModal] = useState(false)
@@ -131,7 +144,7 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
       })
 
       if (!result.token || !result.user) throw new Error('Respons autentikasi tidak valid.')
-      setSession({ token: result.token, user: result.user })
+      setSession({ token: result.token, user: result.user, loginTime: new Date().toISOString() })
       if (onLoginSuccess) onLoginSuccess(result)
       else if (onNavigate) onNavigate(6)
     } catch (err) {
@@ -162,7 +175,7 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
       })
 
       if (!result.token || !result.user) throw new Error('Respons autentikasi tidak valid.')
-      setSession({ token: result.token, user: result.user })
+      setSession({ token: result.token, user: result.user, loginTime: new Date().toISOString() })
       setWorkspaceOptions([])
       if (onLoginSuccess) onLoginSuccess(result)
       else if (onNavigate) onNavigate(6)
@@ -189,6 +202,7 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
       setSession({
         token: result.token,
         user: result.user,
+        loginTime: new Date().toISOString(),
       })
 
       setShowQrModal(false)
@@ -246,6 +260,14 @@ export default function LoginCard({ onNavigate, onLoginSuccess }) {
 
         {/* Form Input */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Session Notice Banner */}
+          {sessionNotice && (
+            <div className="flex items-center gap-2.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 text-xs font-medium animate-fade-in">
+              <FiAlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>{sessionNotice}</span>
+            </div>
+          )}
+
           {/* Error Banner */}
           {error && (
             <div className="flex items-center gap-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl p-3 text-xs font-medium animate-fade-in">

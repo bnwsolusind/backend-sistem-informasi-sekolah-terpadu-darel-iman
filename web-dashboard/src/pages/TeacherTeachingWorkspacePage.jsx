@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react'
 import ActionDropdown from '../components/app/ActionDropdown'
+import { AppModal } from '../components/app'
 import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
   Award,
   BarChart3,
+  BookMarked,
   BookOpen,
   Calendar,
   CalendarDays,
@@ -48,6 +50,7 @@ import {
   Sparkles,
   Trash2,
   TrendingUp,
+  Trophy,
   UserCheck,
   User,
   Users,
@@ -56,6 +59,9 @@ import {
   Zap
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../stores/authStore'
+import { hasAnyRole } from '../auth/portalResolver'
+import { Avatar, AvatarFallback, AvatarImage } from '../components/tailgrids/core/avatar'
 import api from '../services/api'
 import { equranService } from '../services/equranService'
 import {
@@ -75,6 +81,27 @@ export default function TeacherTeachingWorkspacePage() {
 
   // Teacher Profile state (Guru Logged In)
   const [teacherProfile, setTeacherProfile] = useState(null)
+
+  // Auth Store & Role Evaluation
+  const user = useAuthStore((state) => state.user)
+  const userRoles = React.useMemo(() => user?.roles || [], [user])
+
+  const isPengurusYayasan = React.useMemo(() => hasAnyRole(userRoles, [
+    'Yayasan', 'Ketua Yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan',
+    'ketua_yayasan', 'pengurus_yayasan', 'sekretaris_yayasan', 'bendahara_yayasan', 'Super Admin', 'SuperAdmin', 'Admin'
+  ]), [userRoles])
+
+  const isKepalaSekolahOrDivisiPendidikan = React.useMemo(() => !isPengurusYayasan && hasAnyRole(userRoles, [
+    'Kepala Sekolah', 'kepala_sekolah', 'KepalaSekolah', 'kepsek',
+    'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Bidang Pendidikan', 'Divisi Kurikulum'
+  ]), [isPengurusYayasan, userRoles])
+
+  const isGuru = !isPengurusYayasan && !isKepalaSekolahOrDivisiPendidikan
+
+  // Multi-unit Tahfizh Leaderboard state
+  const [educationUnits, setEducationUnits] = useState([])
+  const [selectedTahfizhUnit, setSelectedTahfizhUnit] = useState('semua')
+  const [tahfizhSearch, setTahfizhSearch] = useState('')
 
   // Primary data states
   const [classes, setClasses] = useState([])
@@ -112,6 +139,14 @@ export default function TeacherTeachingWorkspacePage() {
   // Dedicated Buka Presensi Session Modal Popup state
   const [showPresensiModal, setShowPresensiModal] = useState(false)
   const [presensiModalSchedule, setPresensiModalSchedule] = useState(null)
+  const [showMulaiMengajarModal, setShowMulaiMengajarModal] = useState(false)
+
+  // Tahfizh Form Interactive Search Popup Modals
+  const [showStudentSearchModal, setShowStudentSearchModal] = useState(false)
+  const [showSetoranTypeModal, setShowSetoranTypeModal] = useState(false)
+  const [showSurahSearchModal, setShowSurahSearchModal] = useState(false)
+  const [studentModalSearch, setStudentModalSearch] = useState('')
+  const [surahModalSearch, setSurahModalSearch] = useState('')
 
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportFormat, setExportFormat] = useState('xlsx')
@@ -245,6 +280,7 @@ export default function TeacherTeachingWorkspacePage() {
     if (activeTab === 'penugasan') fetchAssignments()
     if (activeTab === 'penilaian') fetchStudentsForClass()
     if (activeTab === 'tahfizh') {
+      fetchEducationUnits()
       fetchStudentsForClass()
       fetchTahfizh()
       fetchQuranSurahs()
@@ -305,13 +341,26 @@ export default function TeacherTeachingWorkspacePage() {
   const fetchStudentsForClass = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/teacher/students', { params: { class_id: selectedClass || undefined, per_page: 100 } })
+      const params = (isPengurusYayasan || isKepalaSekolahOrDivisiPendidikan)
+        ? { per_page: 500 }
+        : { class_id: selectedClass || undefined, per_page: 100 }
+
+      let res = await api.get('/teacher/students', { params }).catch(() => null)
+      if (!res?.data?.data && (isPengurusYayasan || isKepalaSekolahOrDivisiPendidikan)) {
+        res = await api.get('/students', { params }).catch(() => null)
+      }
+
       if (res?.data?.data) {
         const responseData = res.data.data
-        const rawStudents = Array.isArray(responseData) ? responseData : responseData.data
+        const rawStudents = Array.isArray(responseData) ? responseData : responseData.data || []
         const stdList = (rawStudents || []).map((student) => ({
           ...student,
+          id: student.id,
           nama_lengkap: student.nama_lengkap || student.full_name || student.name || 'Siswa',
+          nis: student.nis || student.nisn || '',
+          unit_name: student.education_unit?.name || student.unit?.name || student.kelas?.unit_pendidikan?.name || student.unit_name || 'Unit Sekolah',
+          class_name: student.kelas?.nama_kelas || student.class_name || selectedClassName || 'Kelas -',
+          education_unit_id: student.education_unit_id || student.unit_id || student.kelas?.unit_pendidikan_id || '',
         }))
         setStudents(stdList)
 
@@ -373,11 +422,34 @@ export default function TeacherTeachingWorkspacePage() {
     }
   }
 
+  const fetchEducationUnits = async () => {
+    try {
+      const res = await api.get('/education-units').catch(() => null)
+      if (res?.data?.data) {
+        const list = Array.isArray(res.data.data) ? res.data.data : res.data.data.data || []
+        setEducationUnits(list)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const fetchTahfizh = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/teacher/tahfizh', { params: { class_id: selectedClass || undefined, per_page: 200 } })
-      if (res?.data?.data?.data) setTahfizhLogs(res.data.data.data)
+      const params = (isPengurusYayasan || isKepalaSekolahOrDivisiPendidikan)
+        ? { per_page: 500 }
+        : { class_id: selectedClass || undefined, per_page: 200 }
+
+      let res = await api.get('/teacher/tahfizh', { params }).catch(() => null)
+      if (!res?.data?.data?.data && (isPengurusYayasan || isKepalaSekolahOrDivisiPendidikan)) {
+        res = await api.get('/tahfizh/report', { params }).catch(() => null)
+      }
+      if (res?.data?.data?.data) {
+        setTahfizhLogs(res.data.data.data)
+      } else if (Array.isArray(res?.data?.data)) {
+        setTahfizhLogs(res.data.data)
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -495,6 +567,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'jadwal',
       title: 'Jadwal Mengajar',
       icon: Calendar,
+      tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60',
       count: schedules.length || 4,
       badge: '4 Sesi',
       badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
@@ -503,9 +576,22 @@ export default function TeacherTeachingWorkspacePage() {
       quickText: 'Lihat Jadwal',
     },
     {
+      id: 'mulai-mengajar',
+      title: 'Mulai Mengajar',
+      icon: Play,
+      tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60',
+      count: 'Sesi',
+      badge: 'Sesi Aktif',
+      badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
+      sub: 'Mulai Sesi Kelas',
+      progress: 100,
+      quickText: 'Mulai Mengajar',
+    },
+    {
       id: 'presensi',
       title: 'Presensi Siswa',
       icon: UserCheck,
+      tone: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200/60',
       count: students.length || 28,
       badge: '25 Hadir',
       badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
@@ -517,6 +603,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'materi',
       title: 'Materi Belajar',
       icon: BookOpen,
+      tone: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200/60',
       count: materials.length || 12,
       badge: 'Active',
       badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
@@ -528,6 +615,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'penugasan',
       title: 'Penugasan',
       icon: FileText,
+      tone: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200/60',
       count: assignments.length || 6,
       badge: 'Aktif',
       badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
@@ -539,6 +627,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'penilaian',
       title: 'Penilaian',
       icon: BarChart3,
+      tone: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200/60',
       count: '72%',
       badge: 'Terekap',
       badgeColor: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300',
@@ -550,6 +639,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'tahfizh',
       title: 'Tahfizh Al-Qur\'an',
       icon: GraduationCap,
+      tone: 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border-teal-200/60',
       count: tahfizhLogs.length || 42,
       badge: 'Hafalan',
       badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
@@ -561,6 +651,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'mutabaah',
       title: 'Mutabaah Yaumiyyah',
       icon: Heart,
+      tone: 'bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300 border-pink-200/60',
       count: 'Dinamis',
       badge: 'Sesuai Template',
       badgeColor: 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300',
@@ -572,6 +663,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'catatan',
       title: 'Catatan Siswa',
       icon: MessageSquare,
+      tone: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200/60',
       count: studentNotes.length || 5,
       badge: 'Monitoring',
       badgeColor: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
@@ -583,6 +675,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'chat',
       title: 'Komunikasi Orang Tua',
       icon: MessageSquare,
+      tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60',
       count: 'Pesan',
       badge: 'Chat Guru',
       badgeColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
@@ -594,6 +687,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'log-absensi',
       title: 'Log Absensi Guru',
       icon: Clock,
+      tone: 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border-teal-200/60',
       count: '22 Hari',
       badge: '100% Hadir',
       badgeColor: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300',
@@ -605,6 +699,7 @@ export default function TeacherTeachingWorkspacePage() {
       id: 'jadwal-lengkap',
       title: 'Jadwal Lengkap',
       icon: CalendarDays,
+      tone: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-sky-200/60',
       count: 'Ganjil',
       badge: 'Resmi',
       badgeColor: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
@@ -616,6 +711,15 @@ export default function TeacherTeachingWorkspacePage() {
 
   const handleCardClick = (cardItem) => {
     if (!cardItem) return
+    if (cardItem.id === 'mulai-mengajar') {
+      setShowMulaiMengajarModal(true)
+      return
+    }
+    if (cardItem.id === 'presensi') {
+      openPresensiModal(getCurrentSchedule() || schedules[0] || null)
+      changeTab('presensi')
+      return
+    }
     changeTab(cardItem.id)
   }
 
@@ -664,15 +768,30 @@ export default function TeacherTeachingWorkspacePage() {
       student.metadata?.card_number,
       student.metadata?.qr_code,
       student.metadata?.rfid_uid,
-    ].some((value) => value != null && String(value).trim().toLowerCase() === cardCode)) || null
+      student.nama_lengkap,
+    ].some((value) => value != null && String(value).trim().toLowerCase() === cardCode)) || 
+    students.find((s) => cardCode.length > 2 && (String(s.nis || '').includes(cardCode) || String(s.nisn || '').includes(cardCode))) || null
   }
 
   const identifyStudentCard = async (rawIdentifier, method = selectedMethod) => {
     const methodLabel = method === 'rfid' ? 'RFID Kartu Siswa' : 'QR Code Kartu Siswa'
     const identifier = String(rawIdentifier || '').trim()
-    if (!identifier || !['qr', 'rfid'].includes(method)) return false
+    if (!identifier) return false
 
     setScanProcessing(true)
+
+    // Instant local identification & status update to Hadir
+    const matchedStudent = findStudentByCardCode(identifier)
+    if (matchedStudent) {
+      markStudentAttendance(matchedStudent, methodLabel, 'Hadir')
+      setLastScannedResult({
+        student: matchedStudent,
+        method: methodLabel,
+        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+      })
+      addToast('success', 'Presensi QR Kartu Berhasil!', `${matchedStudent.nama_lengkap} langsung terupdate HADIR pada jam pelajaran ini.`)
+    }
+
     try {
       let activeSchedule = getCurrentSchedule()
       if (!activeSchedule?.id) {
@@ -687,39 +806,42 @@ export default function TeacherTeachingWorkspacePage() {
           }) || availableSchedules[0]
         }
       }
-      if (!activeSchedule?.id) throw new Error('Pilih kelas dan jadwal mengajar terlebih dahulu.')
-      const response = await api.post(`/lesson-attendance/identify-card/${method}`, {
-        schedule_id: activeSchedule.id,
-        identifier,
-      })
-      const result = response?.data?.data
-      if (!result?.student) throw new Error(response?.data?.message || 'Kartu siswa tidak berhasil diidentifikasi.')
 
-      const student = students.find((item) => item.id === result.student.id) || {
-        ...result.student,
-        nama_lengkap: result.student.nama_lengkap || result.student.full_name || 'Siswa',
+      if (activeSchedule?.id) {
+        const response = await api.post(`/lesson-attendance/identify-card/${method === 'rfid' ? 'rfid' : 'qr'}`, {
+          schedule_id: activeSchedule.id,
+          identifier,
+        })
+        const result = response?.data?.data
+        if (result?.student) {
+          const student = students.find((item) => item.id === result.student.id) || {
+            ...result.student,
+            nama_lengkap: result.student.nama_lengkap || result.student.full_name || 'Siswa',
+          }
+          markStudentAttendance(student, methodLabel, 'Hadir')
+          setLastScannedResult({
+            student,
+            method: methodLabel,
+            time: new Date(result.identified_at || Date.now()).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+          })
+          if (!matchedStudent) {
+            addToast('success', 'Presensi Server Berhasil', `${student.nama_lengkap} terupdate HADIR pada jam pelajaran ini.`)
+          }
+        }
       }
-      markStudentAttendance(student, methodLabel, 'Hadir')
-      setLastScannedResult({ student, method: methodLabel, time: new Date(result.identified_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) })
-      addToast('success', 'Kartu Dikenali', `${student.nama_lengkap || student.full_name} ditandai hadir melalui ${methodLabel}.`)
       return true
     } catch (error) {
-      const localStudent = findStudentByCardCode(identifier)
-      if (localStudent && !error?.response) {
-        markStudentAttendance(localStudent, methodLabel, 'Hadir')
-        setLastScannedResult({ student: localStudent, method: `${methodLabel} (lokal)`, time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) })
-        addToast('warning', 'Mode Lokal Digunakan', `${localStudent.nama_lengkap} dikenali, tetapi koneksi ke server belum tersedia.`)
+      if (matchedStudent) {
         return true
-      } else {
-        const message = error?.response?.data?.message || error?.message || 'Kartu siswa tidak berhasil diidentifikasi.'
-        setLastScannedResult({ error: true, code: identifier, method: methodLabel, message })
-        addToast('error', 'Identifikasi Gagal', message)
-        return false
       }
+      const message = error?.response?.data?.message || error?.message || 'QR Code kartu siswa tidak berhasil diidentifikasi.'
+      setLastScannedResult({ error: true, code: identifier, method: methodLabel, message })
+      addToast('error', 'Identifikasi Gagal', message)
+      return false
     } finally {
       setScanProcessing(false)
       setScanInput('')
-      setTimeout(() => scanInputRef.current?.focus(), 0)
+      setTimeout(() => scanInputRef.current?.focus(), 50)
     }
   }
 
@@ -1106,6 +1228,7 @@ export default function TeacherTeachingWorkspacePage() {
   }
   const activeAssignments = assignments.filter((assignment) => !['selesai', 'closed', 'archived'].includes(String(assignment.status || '').toLowerCase())).length
   const selectedTahfizhSurah = quranSurahs.find((surah) => Number(surah.nomor) === Number(tahfizhForm.surah_number))
+  const selectedTahfizhStudent = students.find((student) => student.id === tahfizhForm.student_id) || null
   const selectedStudentTahfizhLogs = tahfizhLogs
     .filter((log) => log.student_id === tahfizhForm.student_id)
     .sort((first, second) => String(second.record_date || '').localeCompare(String(first.record_date || '')))
@@ -1134,15 +1257,116 @@ export default function TeacherTeachingWorkspacePage() {
     return nextSurah ? { surahNumber: Number(nextSurah.nomor), ayatStart: 1, ayatEnd: Math.min(previousRangeSize, Number(nextSurah.jumlah_ayat)), repeated: false } : { surahNumber: Number(latestLog.hafalan_surah_number), ayatStart: Number(latestLog.hafalan_ayah_start), ayatEnd: Number(latestLog.hafalan_ayah_end), repeated: true }
   }
   const automaticTahfizhTarget = getAutomaticTahfizhTarget(previousTahfizhLog)
-  const tahfizhByStudent = students.map((student) => {
-    const studentLogs = tahfizhLogs
-      .filter((log) => log.student_id === student.id)
-      .sort((first, second) => String(second.record_date || '').localeCompare(String(first.record_date || '')))
-    const latest = studentLogs[0]
-    const totalAyat = studentLogs.reduce((total, log) => total + Math.max(Number(log.hafalan_ayah_end || 0) - Number(log.hafalan_ayah_start || 0) + 1, 0), 0)
-    const completedSurahs = new Set(studentLogs.map((log) => log.hafalan_surah_number).filter(Boolean)).size
-    return { student, latest, totalAyat, completedSurahs, totalSetoran: studentLogs.length }
-  })
+  const sortedTahfizhLeaderboard = React.useMemo(() => {
+    // Merge students from API students state and from tahfizhLogs database records
+    const studentMap = new Map()
+
+    students.forEach((s) => {
+      if (s?.id) {
+        studentMap.set(s.id, {
+          ...s,
+          nama_lengkap: s.nama_lengkap || s.full_name || s.name || 'Siswa',
+          nis: s.nis || s.nisn || '',
+          unit_name: s.education_unit?.name || s.unit?.name || s.kelas?.unit_pendidikan?.name || s.unit_name || 'Unit Sekolah',
+          class_name: s.kelas?.nama_kelas || s.class_name || selectedClassName || 'Kelas -',
+        })
+      }
+    })
+
+    tahfizhLogs.forEach((log) => {
+      if (log.student?.id && !studentMap.has(log.student.id)) {
+        const s = log.student
+        studentMap.set(s.id, {
+          ...s,
+          id: s.id,
+          nama_lengkap: s.nama_lengkap || s.full_name || s.name || 'Siswa',
+          nis: s.nis || s.nisn || '',
+          unit_name: s.education_unit?.name || s.unit?.name || log.class_model?.unit_pendidikan?.name || s.unit_name || 'Unit Sekolah',
+          class_name: log.class_model?.nama_kelas || s.kelas?.nama_kelas || s.class_name || 'Kelas -',
+        })
+      }
+    })
+
+    const allStudentsList = Array.from(studentMap.values())
+
+    let list = allStudentsList.map((student) => {
+      const studentLogs = tahfizhLogs
+        .filter((log) => log.student_id === student.id || log.student?.id === student.id)
+        .sort((first, second) => String(second.record_date || '').localeCompare(String(first.record_date || '')))
+      const latest = studentLogs[0] || null
+      const totalAyat = studentLogs.reduce((total, log) => total + Math.max(Number(log.hafalan_ayah_end || 0) - Number(log.hafalan_ayah_start || 0) + 1, 0), 0)
+      const completedSurahs = new Set(studentLogs.map((log) => log.hafalan_surah_number).filter(Boolean)).size
+      const unitName = student.unit_name || student.education_unit?.name || student.unit?.name || student.kelas?.unit_pendidikan?.name || 'Unit Sekolah'
+      const className = student.class_name || student.kelas?.nama_kelas || selectedClassName || 'Kelas -'
+
+      return { student, latest, totalAyat, completedSurahs, totalSetoran: studentLogs.length, unitName, className }
+    })
+
+    // Filter out students without setoran when viewing broad foundation/unit leaderboard
+    if ((isPengurusYayasan || isKepalaSekolahOrDivisiPendidikan) && list.some((item) => item.totalSetoran > 0)) {
+      list = list.filter((item) => item.totalSetoran > 0 || item.totalAyat > 0)
+    }
+
+    // Role-Based Scope Filtering
+    if (isPengurusYayasan) {
+      if (selectedTahfizhUnit && selectedTahfizhUnit !== 'semua') {
+        list = list.filter((item) =>
+          item.unitName.toLowerCase().includes(selectedTahfizhUnit.toLowerCase()) ||
+          item.student.education_unit_id === selectedTahfizhUnit ||
+          item.student.unit_id === selectedTahfizhUnit
+        )
+      }
+    } else if (isKepalaSekolahOrDivisiPendidikan) {
+      const userUnit = teacherProfile?.education_unit || user?.education_unit?.name || user?.unit_name || ''
+      if (selectedTahfizhUnit && selectedTahfizhUnit !== 'semua') {
+        list = list.filter((item) =>
+          item.unitName.toLowerCase().includes(selectedTahfizhUnit.toLowerCase()) ||
+          item.student.education_unit_id === selectedTahfizhUnit ||
+          item.student.unit_id === selectedTahfizhUnit
+        )
+      } else if (userUnit) {
+        list = list.filter((item) => item.unitName.toLowerCase().includes(userUnit.toLowerCase()))
+      }
+    }
+
+    // Search Query Filtering
+    if (tahfizhSearch) {
+      const q = tahfizhSearch.toLowerCase()
+      list = list.filter((item) =>
+        (item.student.nama_lengkap || '').toLowerCase().includes(q) ||
+        (item.student.nis || item.student.nisn || '').toLowerCase().includes(q) ||
+        (item.unitName || '').toLowerCase().includes(q) ||
+        (item.className || '').toLowerCase().includes(q)
+      )
+    }
+
+    // Sort descending by highest Tahfizh hafalan ("hafalan tahfizh terbanyak")
+    return list.sort((a, b) => {
+      if (b.totalAyat !== a.totalAyat) return b.totalAyat - a.totalAyat
+      if (b.completedSurahs !== a.completedSurahs) return b.completedSurahs - a.completedSurahs
+      return b.totalSetoran - a.totalSetoran
+    })
+  }, [students, tahfizhLogs, selectedTahfizhUnit, tahfizhSearch, isPengurusYayasan, isKepalaSekolahOrDivisiPendidikan, teacherProfile, user, selectedClassName])
+
+  const top5TahfizhStudents = React.useMemo(() => {
+    return sortedTahfizhLeaderboard.slice(0, 5)
+  }, [sortedTahfizhLeaderboard])
+
+  const unitStatsSummary = React.useMemo(() => {
+    const map = {}
+    sortedTahfizhLeaderboard.forEach((item) => {
+      const uName = item.unitName
+      if (!map[uName]) {
+        map[uName] = { unitName: uName, totalStudents: 0, totalSetoran: 0, totalAyat: 0, topStudent: item }
+      }
+      map[uName].totalStudents += 1
+      map[uName].totalSetoran += item.totalSetoran
+      map[uName].totalAyat += item.totalAyat
+    })
+    return Object.values(map)
+  }, [sortedTahfizhLeaderboard])
+
+  const tahfizhByStudent = sortedTahfizhLeaderboard
 
   const openTahfizhForm = (student = null) => {
     setTahfizhForm({ student_id: student?.id || '', class_id: getCurrentClassId(), type: 'Ziyadah', juz: 30, surah_number: '', ayat_start: 1, ayat_end: 1, kelancaran: 'Sangat Lancar', tajwid: 'Baik', makhraj: 'Baik', notes_teacher: '' })
@@ -1251,12 +1475,6 @@ export default function TeacherTeachingWorkspacePage() {
         <MasterStatCard icon={FileText} label="Penugasan Aktif" value={activeAssignments} description={`${assignments.length} total penugasan`} variant="neutral" delay={160} />
       </MasterStatsGrid>
 
-      {activeTab === 'jadwal' && (
-        <div id="teacher-step04-panel">
-          <TeacherTeachingSessionPanel onNotify={addToast} />
-        </div>
-      )}
-
       <section className="rounded-[18px] border border-slate-200/80 bg-white p-4 shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]" aria-label="Filter dan navigasi workspace guru">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 lg:pb-0">
@@ -1291,93 +1509,43 @@ export default function TeacherTeachingWorkspacePage() {
             <MasterActionButton variant="export" icon={Download} className="!h-11" onClick={() => setShowExportModal(true)}>Export</MasterActionButton>
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-3 lg:grid-cols-5 dark:border-slate-800" role="tablist" aria-label="Modul pengajaran">
-          {cardModulesList.map((mod) => {
-          const Icon = mod.icon
-          const isActive = activeTab === mod.id
-          return (
-            <button
-              type="button"
-              key={mod.id}
-              onClick={() => handleCardClick(mod)}
-              role="tab"
-              aria-selected={isActive}
-              className={`inline-flex h-12 min-w-0 items-center justify-start gap-2 rounded-xl border px-3 text-left text-xs font-bold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-emerald-700/20 ${isActive ? 'border-emerald-700 bg-emerald-700 text-white shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-emerald-950/30'}`}
-            >
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isActive ? 'bg-white/15' : 'bg-white text-emerald-700 shadow-sm dark:bg-slate-800 dark:text-emerald-300'}`}><Icon className="h-4 w-4" /></span>
-              <span className="min-w-0 truncate">{mod.title}</span>
-            </button>
-          )
-          })}
+        <div className="mt-3.5 border-t border-slate-100 pt-3.5 dark:border-slate-800" role="tablist" aria-label="Modul pengajaran">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 gap-2.5">
+            {cardModulesList.map((mod) => {
+              const Icon = mod.icon
+              const isActive = activeTab === mod.id
+              return (
+                <button
+                  type="button"
+                  key={mod.id}
+                  onClick={() => handleCardClick(mod)}
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all text-center group ${
+                    isActive
+                      ? 'border-emerald-600 bg-emerald-50/90 dark:bg-emerald-950/60 shadow-md ring-2 ring-emerald-600/30'
+                      : 'border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-md'
+                  }`}
+                >
+                  <div className={`p-2 rounded-xl border ${mod.tone || 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60'} mb-1.5 shrink-0 group-hover:scale-110 transition ${isActive ? 'ring-2 ring-emerald-500/40' : ''}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className={`font-bold text-[10.5px] leading-tight transition-colors ${
+                    isActive ? 'text-emerald-900 dark:text-emerald-200 font-black' : 'text-slate-800 dark:text-slate-200 group-hover:text-emerald-700 dark:group-hover:text-emerald-400'
+                  }`}>
+                    {mod.title}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </section>
 
       {/* ── MAIN WORKSPACE CONTENT PIPELINE ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Sidebar ringkasan dan aksi cepat */}
-        <aside className="space-y-5 lg:order-2 lg:col-span-3">
-          {/* Quick Action Card - 2 Column Grid */}
-          <div className="bg-white dark:bg-[#1B2433] p-5 rounded-[20px] border border-slate-200/80 dark:border-slate-700/80 shadow-[var(--shadow-soft-xl)] space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="p-2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-xl">
-                <Zap className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Quick Action Guru</h3>
-                <p className="text-[10px] text-slate-400">Modal instant & tanpa reload</p>
-              </div>
-            </div>
-
-            {/* 2-Column Grid Buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                 { title: 'Mulai Mengajar', icon: Play, tone: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200/60', action: () => { changeTab('jadwal'); window.setTimeout(() => document.getElementById('teacher-step04-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) } },
-                { title: 'Input Presensi', icon: UserCheck, tone: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200/60', action: () => changeTab('presensi') },
-                { title: 'Tambah Materi', icon: BookOpen, tone: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200/60', action: () => { setEditingId(null); setMateriForm({ judul: '', subject_id: '', class_id: selectedClass, ringkasan: '', isi: '', status: 'published' }); setModalType('materi'); setShowModal(true) } },
-                { title: 'Tambah Tugas', icon: FileText, tone: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200/60', action: () => { setEditingId(null); setTugasForm({ judul: '', subject_id: '', class_id: selectedClass, instruksi: '', deadline: '', bobot: 100 }); setModalType('tugas'); setShowModal(true) } },
-                { title: 'Input Nilai', icon: BarChart3, tone: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200/60', action: () => changeTab('penilaian') },
-                { title: 'Input Tahfizh', icon: GraduationCap, tone: 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border-teal-200/60', action: () => { setModalType('tahfizh'); setShowModal(true) } },
-                { title: 'Input Mutabaah', icon: Heart, tone: 'bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300 border-pink-200/60', action: () => changeTab('mutabaah') },
-                { title: 'Catatan Siswa', icon: MessageSquare, tone: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200/60', action: () => changeTab('catatan') },
-                { title: 'Lihat Log Absen', icon: Clock, tone: 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border-teal-200/60', action: () => changeTab('log-absensi') },
-                { title: 'Lihat Jadwal', icon: CalendarDays, tone: 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border-sky-200/60', action: () => changeTab('jadwal-lengkap') },
-              ].map((act) => {
-                const Icon = act.icon
-                return (
-                  <button
-                    key={act.title}
-                    onClick={act.action}
-                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-md transition text-center group"
-                  >
-                    <div className={`p-2 rounded-xl border ${act.tone} mb-1.5 shrink-0 group-hover:scale-110 transition`}>
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <span className="font-bold text-[10.5px] text-slate-800 dark:text-slate-200 leading-tight group-hover:text-emerald-700 dark:group-hover:text-emerald-400">
-                      {act.title}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]">
-            <h3 className="flex items-center gap-2 border-b border-slate-100 pb-3 text-xs font-bold uppercase tracking-wider text-emerald-700 dark:border-slate-800 dark:text-emerald-400"><TrendingUp className="h-4 w-4" /> Ringkasan Workspace</h3>
-            {[
-              { label: 'Jadwal mengajar', value: schedules.length, icon: CalendarDays },
-              { label: 'Siswa terdaftar', value: students.length, icon: Users },
-              { label: 'Materi belajar', value: materials.length, icon: BookOpen },
-              { label: 'Penugasan', value: assignments.length, icon: FileText },
-              { label: 'Catatan siswa', value: studentNotes.length, icon: MessageSquare },
-            ].map((item) => {
-              const Icon = item.icon
-              return <div key={item.label} className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-900/60"><span className="rounded-lg bg-white p-2 text-emerald-700 shadow-sm dark:bg-slate-800 dark:text-emerald-300"><Icon className="h-4 w-4" /></span><span className="flex-1 text-xs font-semibold text-slate-600 dark:text-slate-300">{item.label}</span><strong className="text-sm text-slate-900 dark:text-white">{item.value}</strong></div>
-            })}
-          </div>
-        </aside>
-
+      <div className="w-full">
         {/* Konten utama workspace */}
-        <main className="space-y-6 lg:order-1 lg:col-span-9">
+        <main className="space-y-6 w-full">
           {/* TAB 1: JADWAL MENGAJAR */}
           {activeTab === 'jadwal' && (
             <div className="space-y-5">
@@ -1760,41 +1928,417 @@ export default function TeacherTeachingWorkspacePage() {
 
           {/* TAB 6: TAHFIZH */}
           {activeTab === 'tahfizh' && (
-            <section className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]" aria-labelledby="tahfizh-heading">
-              <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">Monitoring Hafalan</p>
-                  <h3 id="tahfizh-heading" className="mt-1 text-lg font-black text-slate-900 dark:text-white">Jurnal Setoran Tahfizh Al-Qur'an</h3>
-                  <p className="mt-1 text-xs text-slate-500">Daftar siswa yang diajar pada rombel {selectedClassName}</p>
+            <section className="space-y-5" aria-labelledby="tahfizh-heading">
+              {/* Header Card & Scope Banner */}
+              <div className="rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]">
+                <div className="flex flex-col gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400">
+                        {isPengurusYayasan ? 'Monitoring Konsolidasi Yayasan' : isKepalaSekolahOrDivisiPendidikan ? 'Monitoring Unit Pimpinan' : 'Monitoring Rombel Binaan'}
+                      </p>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                        isPengurusYayasan
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                          : isKepalaSekolahOrDivisiPendidikan
+                          ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
+                          : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      }`}>
+                        {isPengurusYayasan ? (
+                          <>• Scope: Seluruh Unit (Yayasan)</>
+                        ) : isKepalaSekolahOrDivisiPendidikan ? (
+                          <>• Scope: Unit Pimpinan ({teacherProfile?.education_unit || user?.education_unit?.name || 'Kepala Sekolah / Divisi'})</>
+                        ) : (
+                          <>• Scope: Kelas {selectedClassName}</>
+                        )}
+                      </span>
+                    </div>
+                    <h3 id="tahfizh-heading" className="mt-1 text-lg font-black text-slate-900 dark:text-white">
+                      {isPengurusYayasan
+                        ? 'Leaderboard Pencapaian Hafalan Tahfizh Seluruh Unit'
+                        : isKepalaSekolahOrDivisiPendidikan
+                        ? `Leaderboard Hafalan Tahfizh Terbanyak — ${teacherProfile?.education_unit || user?.education_unit?.name || 'Unit Pimpinan'}`
+                        : `Jurnal & Ranking Setoran Tahfizh Al-Qur'an — Kelas ${selectedClassName}`}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {isPengurusYayasan
+                        ? 'Menampilkan konsolidasi pencapaian hafalan tahfizh terbanyak dari seluruh unit pendidikan di bawah naungan yayasan.'
+                        : isKepalaSekolahOrDivisiPendidikan
+                        ? 'Menampilkan peringkat pencapaian hafalan tahfizh terbanyak siswa dari masing-masing unit yang Anda pimpin.'
+                        : `Daftar siswa yang diajar pada rombel ${selectedClassName} diurutkan berdasarkan pencapaian hafalan terbanyak.`}
+                    </p>
+                  </div>
+                  <button
+                    type="button" onClick={() => openTahfizhForm()}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 text-xs font-bold text-white shadow-lg shadow-emerald-900/15 transition hover:bg-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                  >
+                    <Plus className="h-4 w-4" /> Input Setoran
+                  </button>
                 </div>
-                <button
-                  type="button" onClick={() => openTahfizhForm()}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-800 px-4 text-xs font-bold text-white shadow-lg shadow-emerald-900/15 hover:bg-emerald-900"
-                >
-                  <Plus className="h-4 w-4" /> Input Setoran
-                </button>
+
+                {/* Filter Toolbar */}
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={tahfizhSearch}
+                      onChange={(e) => setTahfizhSearch(e.target.value)}
+                      placeholder="Cari nama siswa, NIS, unit, atau kelas..."
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    />
+                  </div>
+
+                  {(isPengurusYayasan || isKepalaSekolahOrDivisiPendidikan) && (
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="filter-unit-tahfizh" className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0">
+                        Filter Unit:
+                      </label>
+                      <select
+                        id="filter-unit-tahfizh"
+                        value={selectedTahfizhUnit}
+                        onChange={(e) => setSelectedTahfizhUnit(e.target.value)}
+                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      >
+                        <option value="semua">✨ Semua Unit Pendidikan</option>
+                        {educationUnits.map((u) => (
+                          <option key={u.id || u.nama || u.name} value={u.nama || u.name || u.id}>
+                            {u.nama || u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-                <div className="divide-y divide-slate-100 md:hidden dark:divide-slate-800">
-                  {tahfizhByStudent.map(({ student, latest, totalAyat, completedSurahs, totalSetoran }, index) => <article key={student.id} className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-bold text-slate-400">{String(index + 1).padStart(2, '0')} · {selectedClassName}</p><h4 className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{student.nama_lengkap}</h4><p className="text-[10px] text-slate-500">{student.nis || student.nisn || 'NIS belum tersedia'}</p></div><span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">{totalAyat} ayat</span></div><div className="mt-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">{latest ? <><p className="text-xs font-bold text-slate-800 dark:text-slate-100">Juz {latest.metadata?.juz || '-'} · {latest.hafalan_surah_name}</p><p className="mt-1 text-[10px] text-slate-500">Ayat {latest.hafalan_ayah_start}–{latest.hafalan_ayah_end} · {latest.record_date}</p></> : <p className="text-xs text-slate-400">Belum ada setoran Tahfizh.</p>}<p className="mt-2 text-[10px] text-slate-500">{completedSurahs} surah · {totalSetoran} setoran</p></div><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={() => openTahfizhDetail(student)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 text-[11px] font-bold text-sky-700"><Eye className="h-3.5 w-3.5" /> Lihat Detail</button><button type="button" onClick={() => openTahfizhForm(student)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-800 text-[11px] font-bold text-white"><Plus className="h-3.5 w-3.5" /> Input Tahfizh</button></div></article>)}
+              {/* TOP 5 CARDS ("5 Terbaik di 5 Card") */}
+              {top5TahfizhStudents.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-800 shadow-sm dark:bg-amber-950/60 dark:text-amber-300">
+                        <Trophy className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                          5 Terbaik Pencapaian Hafalan Tahfizh Al-Qur'an
+                        </h4>
+                        <p className="text-[10px] text-slate-500">
+                          Kartu profil santri dengan pencapaian hafalan terbanyak (Rank #1 s.d. #5)
+                        </p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                      🏆 Top 5 Leaderboard
+                    </span>
+                  </div>
+
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                    {top5TahfizhStudents.map(({ student, latest, totalAyat, completedSurahs, totalSetoran, unitName, className }, index) => {
+                      const getInitials = (name = '') => {
+                        return name.split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'S'
+                      }
+                      const avatarUrl = student.foto_url || student.avatar || student.foto || student.user?.avatar_url || null
+                      const rankLabel = index === 0 ? '🥇 Rank #1' : index === 1 ? '🥈 Rank #2' : index === 2 ? '🥉 Rank #3' : `🏅 Rank #${index + 1}`
+                      const rankBadgeStyle = index === 0 ? 'bg-amber-500 text-white shadow-amber-500/20'
+                        : index === 1 ? 'bg-slate-500 text-white shadow-slate-500/20'
+                        : index === 2 ? 'bg-orange-500 text-white shadow-orange-500/20'
+                        : 'bg-emerald-700 text-white shadow-emerald-700/20'
+                      const borderGlow = index === 0 ? 'border-amber-300/90 shadow-amber-100/60 dark:border-amber-500/50'
+                        : index === 1 ? 'border-slate-300/90 shadow-slate-100/60 dark:border-slate-600/50'
+                        : index === 2 ? 'border-orange-300/90 shadow-orange-100/60 dark:border-orange-500/50'
+                        : 'border-slate-200/80 dark:border-slate-700/80'
+
+                      const surahName = latest?.hafalan_surah_name || 'Belum setoran'
+                      const ayahRange = latest ? `Ayat ${latest.hafalan_ayah_start}–${latest.hafalan_ayah_end}` : '—'
+                      const juzNum = latest ? (latest.metadata?.juz || getQuranJuz(latest.hafalan_surah_number, latest.hafalan_ayah_start)) : '—'
+
+                      return (
+                        <article
+                          key={student.id || index}
+                          className={`group relative flex flex-col justify-between rounded-2xl border bg-white p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:bg-[#1B2433] ${borderGlow}`}
+                        >
+                          {/* Rank Badge & Unit Label */}
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black shadow-sm ${rankBadgeStyle}`}>
+                              {rankLabel}
+                            </span>
+                            <span className="truncate rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300 max-w-[90px]" title={unitName}>
+                              {unitName}
+                            </span>
+                          </div>
+
+                          {/* Profil & Avatar */}
+                          <div className="mt-3 flex items-center gap-3">
+                            <Avatar size="lg" className="shrink-0 ring-2 ring-emerald-500/20">
+                              {avatarUrl && <AvatarImage src={avatarUrl} alt={student.nama_lengkap} />}
+                              <AvatarFallback className="bg-emerald-100 font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs">
+                                {getInitials(student.nama_lengkap)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <h5 className="truncate text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors" title={student.nama_lengkap}>
+                                {student.nama_lengkap}
+                              </h5>
+                              <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                NIS: {student.nis || student.nisn || '—'}
+                              </p>
+                              <span className="mt-1 inline-block rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                {className}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Detail Hafalan Tahfizh (Nama Surah, Ayat, Juz, Total Surah & Total Ayat) */}
+                          <div className="mt-3.5 space-y-2 rounded-xl bg-slate-50 p-3 text-[11px] dark:bg-slate-800/60">
+                            {/* Nama Surah */}
+                            <div className="flex items-center justify-between gap-1 border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
+                              <span className="text-[10px] font-bold text-slate-400 shrink-0">Nama Surah:</span>
+                              <span className="truncate font-extrabold text-slate-900 dark:text-white text-right" title={surahName}>
+                                {surahName}
+                              </span>
+                            </div>
+
+                            {/* Ayat & Juz */}
+                            <div className="grid grid-cols-2 gap-1 text-[10px]">
+                              <div>
+                                <span className="block font-bold text-slate-400">Ayat:</span>
+                                <span className="font-extrabold text-emerald-700 dark:text-emerald-400">{ayahRange}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="block font-bold text-slate-400">Juz:</span>
+                                <span className="inline-flex rounded bg-emerald-100 px-1.5 py-0.5 font-black text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                  Juz {juzNum}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Total Surah & Total Ayat Footer Summary */}
+                            <div className="mt-2 border-t border-slate-200/80 pt-2 grid grid-cols-2 gap-1.5 text-center dark:border-slate-700/80">
+                              <div className="rounded-lg bg-white p-1.5 shadow-2xs dark:bg-slate-900/60">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Total Surah</p>
+                                <p className="text-xs font-black text-slate-800 dark:text-slate-100">{completedSurahs} Surah</p>
+                              </div>
+                              <div className="rounded-lg bg-emerald-100/70 p-1.5 shadow-2xs dark:bg-emerald-950/60">
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">Total Ayat</p>
+                                <p className="text-xs font-black text-emerald-900 dark:text-emerald-200">{totalAyat} Ayat</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="mt-3 grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openTahfizhDetail(student)}
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-xl border border-sky-200 bg-sky-50 text-[10px] font-bold text-sky-700 transition hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300"
+                            >
+                              <Eye className="h-3 w-3" /> Detail
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openTahfizhForm(student)}
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-xl bg-emerald-800 text-[10px] font-bold text-white transition hover:bg-emerald-900"
+                            >
+                              <Plus className="h-3 w-3" /> Setor
+                            </button>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
                 </div>
+              )}
+
+              {/* Multi-Unit Summary Cards (For Pengurus Yayasan & Kepala Sekolah) */}
+              {(isPengurusYayasan || isKepalaSekolahOrDivisiPendidikan) && unitStatsSummary.length > 0 && (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {unitStatsSummary.map((unitStat) => (
+                    <div key={unitStat.unitName} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-700/80 dark:bg-[#1B2433]">
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                          <Award className="h-4 w-4" />
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-extrabold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          {unitStat.totalStudents} Santri
+                        </span>
+                      </div>
+                      <h4 className="mt-3 truncate text-sm font-black text-slate-900 dark:text-white">{unitStat.unitName}</h4>
+                      <div className="mt-2 flex items-baseline justify-between border-t border-slate-100 pt-2 dark:border-slate-800">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400">Total Hafalan</p>
+                          <p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-400">{unitStat.totalAyat} ayat</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-slate-400">Top Hafiz Unit</p>
+                          <p className="truncate text-xs font-bold text-slate-800 dark:text-slate-200 max-w-[110px]" title={unitStat.topStudent?.student?.nama_lengkap}>
+                            🥇 {unitStat.topStudent?.student?.nama_lengkap?.split(' ')[0] || '-'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Leaderboard Table (Ranked from Most/Top Tahfizh Hafalan) */}
+              <div className="overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-[var(--shadow-soft-xl)] dark:border-slate-700/80 dark:bg-[#1B2433]">
+                <div className="divide-y divide-slate-100 md:hidden dark:divide-slate-800">
+                  {tahfizhByStudent.map(({ student, latest, totalAyat, completedSurahs, totalSetoran, unitName, className }, index) => (
+                    <article key={student.id} className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                            index === 0 ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                            index === 1 ? 'bg-slate-200 text-slate-800 border border-slate-300' :
+                            index === 2 ? 'bg-orange-100 text-orange-800 border border-orange-300' :
+                            'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                          }`}>
+                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                          </span>
+                          <div className="min-w-0">
+                            <h4 className="truncate text-sm font-black text-slate-900 dark:text-white">{student.nama_lengkap}</h4>
+                            <p className="text-[10px] text-slate-500">{student.nis || student.nisn || 'NIS N/A'} · {className}</p>
+                          </div>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          {totalAyat} ayat
+                        </span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
+                          {unitName}
+                        </span>
+                      </div>
+                      <div className="mt-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                        {latest ? (
+                          <>
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                              Juz {latest.metadata?.juz || '-'} · {latest.hafalan_surah_name}
+                            </p>
+                            <p className="mt-1 text-[10px] text-slate-500">
+                              Ayat {latest.hafalan_ayah_start}–{latest.hafalan_ayah_end} · {latest.record_date}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-slate-400">Belum ada setoran Tahfizh.</p>
+                        )}
+                        <p className="mt-2 text-[10px] text-slate-500">{completedSurahs} surah · {totalSetoran} setoran</p>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => openTahfizhDetail(student)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 text-[11px] font-bold text-sky-700 transition hover:bg-sky-100">
+                          <Eye className="h-3.5 w-3.5" /> Lihat Detail
+                        </button>
+                        <button type="button" onClick={() => openTahfizhForm(student)} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-800 text-[11px] font-bold text-white transition hover:bg-emerald-900">
+                          <Plus className="h-3.5 w-3.5" /> Input Tahfizh
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
                 <table className="hidden w-full table-fixed text-left text-[11px] md:table">
-                  <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-slate-800/70"><tr><th className="p-3">No</th><th className="p-3">Siswa</th><th className="p-3">Pencapaian Tahfizh</th><th className="p-3">Setoran Terakhir</th><th className="p-3 text-center">Total</th><th className="p-3 text-right">Aksi</th></tr></thead>
+                  <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-slate-800/70">
+                    <tr>
+                      <th className="w-16 p-3 text-center">Rank</th>
+                      <th className="p-3">Siswa / Santri</th>
+                      <th className="p-3">Unit Sekolah</th>
+                      <th className="p-3">Kelas & Rombel</th>
+                      <th className="p-3">Pencapaian Tahfizh</th>
+                      <th className="p-3">Setoran Terakhir</th>
+                      <th className="p-3 text-center">Total (Terbanyak)</th>
+                      <th className="w-28 p-3 text-right">Aksi</th>
+                    </tr>
+                  </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {tahfizhByStudent.map(({ student, latest, totalAyat, completedSurahs, totalSetoran }, index) => (
-                      <tr key={student.id} className="hover:bg-emerald-50/40 dark:hover:bg-emerald-950/10">
-                        <td className="p-3 font-mono text-slate-400">{index + 1}</td>
-                        <td className="p-3"><p className="font-bold text-slate-900 dark:text-white">{student.nama_lengkap}</p><p className="mt-0.5 text-[10px] text-slate-500">{student.nis || student.nisn || 'NIS belum tersedia'} · {selectedClassName}</p></td>
-                        <td className="p-3">{latest ? <><span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Juz {latest.metadata?.juz || '-'}</span><p className="mt-2 font-bold text-slate-800 dark:text-slate-100">{latest.hafalan_surah_name} · Ayat {latest.hafalan_ayah_end}</p></> : <span className="text-slate-400">Belum ada capaian</span>}</td>
-                        <td className="p-3">{latest ? <><p className="font-semibold text-slate-700 dark:text-slate-200">Ayat {latest.hafalan_ayah_start}–{latest.hafalan_ayah_end}</p><p className="mt-0.5 text-[10px] text-slate-500">{latest.record_date} · {latest.metadata?.type || 'Ziyadah'}</p></> : <span className="text-slate-400">—</span>}</td>
-                        <td className="p-3 text-center"><p className="font-black text-emerald-700 dark:text-emerald-400">{totalAyat} ayat</p><p className="text-[10px] text-slate-500">{completedSurahs} surah · {totalSetoran} setoran</p></td>
-                        <td className="p-3 text-right"><div className="inline-flex items-center gap-2"><button type="button" onClick={() => openTahfizhDetail(student)} title="Lihat detail jurnal" aria-label={`Lihat detail jurnal ${student.nama_lengkap}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100 focus-visible:ring-3 focus-visible:ring-sky-500/20"><Eye className="h-4 w-4" /></button><button type="button" onClick={() => openTahfizhForm(student)} title="Input Tahfizh" aria-label={`Input Tahfizh ${student.nama_lengkap}`} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-800 text-white hover:bg-emerald-900"><Plus className="h-4 w-4" /></button></div></td>
+                    {tahfizhByStudent.map(({ student, latest, totalAyat, completedSurahs, totalSetoran, unitName, className }, index) => (
+                      <tr key={student.id} className="hover:bg-emerald-50/40 dark:hover:bg-emerald-950/10 transition">
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
+                            index === 0 ? 'bg-amber-100 text-amber-800 border border-amber-300 shadow-sm' :
+                            index === 1 ? 'bg-slate-200 text-slate-800 border border-slate-300' :
+                            index === 2 ? 'bg-orange-100 text-orange-800 border border-orange-300' :
+                            'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                          }`}>
+                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <p className="font-extrabold text-slate-900 dark:text-white">{student.nama_lengkap}</p>
+                          <p className="mt-0.5 text-[10px] text-slate-500">{student.nis || student.nisn || 'NIS N/A'}</p>
+                        </td>
+                        <td className="p-3">
+                          <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                            unitName.includes('SMA') ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' :
+                            unitName.includes('SMP') ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300' :
+                            unitName.includes('SD') ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' :
+                            'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                          }`}>
+                            {unitName}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">{className}</span>
+                        </td>
+                        <td className="p-3">
+                          {latest ? (
+                            <>
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                Juz {latest.metadata?.juz || '-'}
+                              </span>
+                              <p className="mt-1 font-bold text-slate-800 dark:text-slate-100">{latest.hafalan_surah_name}</p>
+                            </>
+                          ) : (
+                            <span className="text-slate-400">Belum ada capaian</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {latest ? (
+                            <>
+                              <p className="font-semibold text-slate-700 dark:text-slate-200">Ayat {latest.hafalan_ayah_start}–{latest.hafalan_ayah_end}</p>
+                              <p className="mt-0.5 text-[10px] text-slate-500">{latest.record_date} · {latest.metadata?.type || 'Ziyadah'}</p>
+                            </>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          <p className="font-black text-emerald-700 dark:text-emerald-400 text-xs">{totalAyat} ayat</p>
+                          <p className="text-[10px] text-slate-500">{completedSurahs} surah · {totalSetoran} setoran</p>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openTahfizhDetail(student)}
+                              title="Lihat detail jurnal"
+                              aria-label={`Lihat detail jurnal ${student.nama_lengkap}`}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100 focus-visible:ring-2 focus-visible:ring-sky-500"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openTahfizhForm(student)}
+                              title="Input Tahfizh"
+                              aria-label={`Input Tahfizh ${student.nama_lengkap}`}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-800 text-white transition hover:bg-emerald-900 focus-visible:ring-2 focus-visible:ring-emerald-600"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {!loading && tahfizhByStudent.length === 0 && <div className="p-10 text-center"><Users className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-2 text-xs font-semibold text-slate-500">Belum ada siswa pada rombel ini.</p></div>}
+                {!loading && tahfizhByStudent.length === 0 && (
+                  <div className="p-10 text-center">
+                    <Users className="mx-auto h-8 w-8 text-slate-300" />
+                    <p className="mt-2 text-xs font-semibold text-slate-500">Tidak ada data pencapaian tahfizh yang sesuai dengan filter.</p>
+                  </div>
+                )}
               </div>
             </section>
           )}
@@ -2095,7 +2639,21 @@ export default function TeacherTeachingWorkspacePage() {
               <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-inner dark:border-slate-800">
                 <video ref={qrVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
                 {!qrCameraActive && !qrCameraError && <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900/80 text-white"><RefreshCw className="h-8 w-8 animate-spin text-emerald-400" /><p className="text-xs font-semibold">Menghubungkan ke kamera...</p></div>}
-                {qrCameraActive && <div className="pointer-events-none absolute inset-6 flex flex-col items-center rounded-2xl border-2 border-dashed border-emerald-400/80 p-4"><span className="rounded-full bg-black/60 px-3 py-1 text-[11px] font-bold text-emerald-300 backdrop-blur-sm">🔴 LIVE — Dekatkan QR Code Kartu ke Kamera</span></div>}
+                
+                {/* Target Viewfinder Overlay Tailored to Student ID Card QR Code Size */}
+                {qrCameraActive && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-48 h-48 sm:w-56 sm:h-56 border-2 border-emerald-500 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
+                      {/* Corner Brackets */}
+                      <div className="absolute -top-1.5 -left-1.5 w-6 h-6 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg" />
+                      <div className="absolute -top-1.5 -right-1.5 w-6 h-6 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg" />
+                      <div className="absolute -bottom-1.5 -left-1.5 w-6 h-6 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg" />
+                      <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 border-b-4 border-r-4 border-emerald-400 rounded-br-lg" />
+                      {/* Laser Beam */}
+                      <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_10px_#10b981] animate-pulse absolute top-1/2 -translate-y-1/2" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {qrCameraError && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">Kamera tidak dapat diakses. Pastikan izin (permission) kamera diizinkan di browser Anda.{qrCameraError.includes('BarcodeDetector') ? ' Pemindaian otomatis juga memerlukan Chrome/Edge terbaru.' : ''}</div>}
@@ -2178,107 +2736,308 @@ export default function TeacherTeachingWorkspacePage() {
       )}
 
       {/* DEDICATED PRESENSI SESSION MODAL POP-UP */}
-      {showPresensiModal && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-md flex items-center justify-center p-4"
-          onClick={() => setShowPresensiModal(false)}
-        >
-          <div
-            className="bg-white dark:bg-[#1B2433] w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[24px] p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative space-y-5"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
+      {/* MODAL POPUP PRESENSI PEMBELAJARAN SISWA */}
+      <AppModal
+        isOpen={showPresensiModal}
+        onClose={() => setShowPresensiModal(false)}
+        title="Presensi Pembelajaran Siswa"
+        description={`Rombel ${selectedClassName} • Mapel: ${presensiModalSchedule?.subject?.name || getScheduleSubject(getCurrentSchedule() || {})} • Pengajar: ${teacherName}`}
+        icon={UserCheck}
+        maxWidth="max-w-4xl"
+      >
+        <div className="space-y-4">
+          {/* Sub Navigation Tabs */}
+          <div className="flex overflow-x-auto border-b border-slate-200 text-xs font-bold dark:border-slate-800">
+            {[
+              ['presensi', 'Data Presensi'],
+              ['verifikasi', 'Verifikasi Guru'],
+              ['riwayat', 'Riwayat Sesi'],
+              ['catatan', 'Catatan'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setAttendanceCenterTab(id)}
+                className={`shrink-0 border-b-2 px-4 pb-2.5 font-extrabold transition ${
+                  attendanceCenterTab === id
+                    ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {attendanceCenterTab === 'presensi' && (
+            <>
+              {/* Metode Absensi */}
+              <div>
+                <h4 className="mb-2 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                  Metode Absensi
+                </h4>
+                <div className="grid gap-2.5 sm:grid-cols-3">
+                  {[
+                    { id: 'rollcall', label: 'Roll Call Guru', description: 'Checklist manual oleh guru', icon: UserCheck },
+                    { id: 'qr', label: 'QR Code Kartu', description: 'Scan QR code kartu siswa', icon: QrCode },
+                    { id: 'rfid', label: 'RFID Tap', description: 'Tap kartu RFID siswa', icon: Radio },
+                  ].map((method) => {
+                    const Icon = method.icon
+                    const active = selectedMethod === method.id
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMethod(method.id)
+                          setScanInput('')
+                          setLastScannedResult(null)
+                          if (method.id !== 'rollcall') setTimeout(() => scanInputRef.current?.focus(), 50)
+                        }}
+                        className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${
+                          active
+                            ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/30 dark:bg-emerald-950/40 dark:border-emerald-700'
+                            : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900/60'
+                        }`}
+                      >
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          active ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                        }`}>
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <strong className="block text-xs font-bold text-slate-900 dark:text-white">{method.label}</strong>
+                          <span className="text-[10px] font-semibold text-slate-400">{method.description}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {selectedMethod !== 'rollcall' && (
+                  <div className={`mt-3 space-y-2.5 rounded-2xl border p-3.5 ${
+                    selectedMethod === 'qr' ? 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/60 dark:bg-emerald-950/30' : 'border-sky-200 bg-sky-50/60 dark:border-sky-900/60 dark:bg-sky-950/30'
+                  }`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {selectedMethod === 'qr' ? <QrCode className="h-4 w-4 text-emerald-600" /> : <Wifi className="h-4 w-4 animate-pulse text-sky-600" />}
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {selectedMethod === 'qr' ? 'Pemindai QR Code Kartu Siswa' : 'Pembaca RFID Reader Standby'}
+                        </span>
+                      </div>
+                      {selectedMethod === 'qr' ? (
+                        <button
+                          type="button"
+                          onClick={openQrCamera}
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 shadow-sm transition"
+                        >
+                          <Camera className="h-3.5 w-3.5" /> Live Kamera
+                        </button>
+                      ) : (
+                        <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-[10px] font-bold text-sky-700 dark:bg-sky-900 dark:text-sky-300">
+                          ● Ready to Tap
+                        </span>
+                      )}
+                    </div>
+                    <form onSubmit={handleCardScan} className="flex gap-2">
+                      <input
+                        ref={scanInputRef}
+                        value={scanInput}
+                        onChange={(event) => {
+                          const val = event.target.value
+                          setScanInput(val)
+                          if (val.trim()) {
+                            const matched = findStudentByCardCode(val)
+                            if (matched) {
+                              identifyStudentCard(val, selectedMethod)
+                            }
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            if (scanInput.trim()) {
+                              identifyStudentCard(scanInput, selectedMethod)
+                            }
+                          }
+                        }}
+                        autoFocus
+                        autoComplete="off"
+                        placeholder={selectedMethod === 'qr' ? 'Arahkan QR kartu siswa ke scanner / USB scanner (Otomatis Hadir)...' : 'Tap kartu RFID siswa pada reader (Otomatis Hadir)...'}
+                        className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      />
+                      {scanProcessing && (
+                        <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl animate-pulse">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Auto-Hadir...
+                        </div>
+                      )}
+                    </form>
+                    {lastScannedResult && (
+                      <div className={`rounded-xl px-3 py-2 text-xs font-semibold ${lastScannedResult.error ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {lastScannedResult.error ? lastScannedResult.message : `${lastScannedResult.student?.nama_lengkap || lastScannedResult.student?.full_name} berhasil dicatat.`}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action & Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-extrabold text-xs rounded-full">
+                    {students.filter((st) => (attendanceData[st.id]?.status || 'Alpha') === 'Hadir').length} / {students.length} Hadir
+                  </span>
+                  <button
+                    type="button"
+                    onClick={markAllStudentsPresent}
+                    className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-sm transition"
+                  >
+                    Tandai Semua Hadir
+                  </button>
+                </div>
+                <div className="relative min-w-[200px]">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={attendanceSearch}
+                    onChange={(e) => setAttendanceSearch(e.target.value)}
+                    placeholder="Cari nama siswa / NIS..."
+                    className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-xs outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Data Table Siswa */}
+              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-[#1B2433]">
+                <div className="overflow-x-auto max-h-72">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100 dark:border-slate-800">
+                        <th className="p-3 w-10">No</th>
+                        <th className="p-3">Nama Siswa</th>
+                        <th className="p-3">NIS / NISN</th>
+                        <th className="p-3 text-center">Status Kehadiran Siswa</th>
+                        <th className="p-3">Waktu & Metode</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {students
+                        .filter((st) => !attendanceSearch.trim() || st.nama_lengkap?.toLowerCase().includes(attendanceSearch.toLowerCase()) || st.nis?.includes(attendanceSearch))
+                        .map((st, idx) => {
+                          const currentStatus = attendanceData[st.id]?.status || 'Alpha'
+                          const currentRecord = attendanceData[st.id] || {}
+                          return (
+                            <tr key={st.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                              <td className="p-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
+                              <td className="p-3 font-bold text-slate-900 dark:text-white">
+                                {st.nama_lengkap}
+                              </td>
+                              <td className="p-3 text-slate-500 font-mono text-[11px]">
+                                {st.nis || st.nisn || '-'}
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {[
+                                    { id: 'Hadir', tone: 'bg-emerald-600 text-white' },
+                                    { id: 'Terlambat', tone: 'bg-amber-500 text-white' },
+                                    { id: 'Izin', tone: 'bg-blue-600 text-white' },
+                                    { id: 'Sakit', tone: 'bg-purple-600 text-white' },
+                                    { id: 'Alpha', tone: 'bg-rose-600 text-white' },
+                                  ].map((option) => (
+                                    <button
+                                      key={option.id}
+                                      type="button"
+                                      onClick={() => markStudentAttendance(st, selectedMethod === 'qr' ? 'QR Code Kartu Siswa' : selectedMethod === 'rfid' ? 'RFID Kartu Siswa' : 'Roll Call Guru', option.id)}
+                                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                                        currentStatus === option.id
+                                          ? `${option.tone} shadow-sm ring-2 ring-emerald-500/40`
+                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                                      }`}
+                                    >
+                                      {option.id}
+                                    </button>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="p-3 text-[11px] text-slate-500">
+                                {currentRecord.check_in_time ? (
+                                  <span>{currentRecord.check_in_time} • {currentRecord.method || 'Roll Call'}</span>
+                                ) : (
+                                  <span className="text-slate-400 italic">Belum dicatat</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {attendanceCenterTab === 'verifikasi' && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 space-y-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-600 text-white rounded-xl">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">Verifikasi Kehadiran oleh Guru Pengajar</h4>
+                  <p className="text-xs text-slate-500">Pengajar: <strong>{teacherName}</strong> • Rombel {selectedClassName}</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Seluruh data kehadiran pada sesi pembelajaran ini telah divalidasi. Menyimpan presensi akan menyinkronkan status ke server akademik & jurnal mengajar harian.
+              </p>
+            </div>
+          )}
+
+          {attendanceCenterTab === 'riwayat' && (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500 font-semibold">Riwayat Sesi Mengajar Rombel {selectedClassName}</p>
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/60 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 dark:text-white">Sesi Pembelajaran Aktif</span>
+                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">Berlangsung</span>
+                </div>
+                <p className="mt-1 text-slate-500">{presensiModalSchedule?.subject?.name || 'Mata Pelajaran'} • {presensiModalSchedule?.time_start?.slice(0, 5)}–{presensiModalSchedule?.time_end?.slice(0, 5)} WIB</p>
+              </div>
+            </div>
+          )}
+
+          {attendanceCenterTab === 'catatan' && (
+            <div className="space-y-3 text-xs">
+              <label className="font-bold block text-slate-700 dark:text-slate-200">Catatan Khusus Presensi Pembelajaran</label>
+              <textarea
+                rows={3}
+                placeholder="Tambahkan catatan khusus seperti izin kegiatan sekolah, dispensasi, dsb..."
+                className="w-full p-3 border rounded-xl dark:bg-slate-900 border-slate-200 dark:border-slate-700 font-semibold text-slate-800 dark:text-slate-100"
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={() => setShowPresensiModal(false)}
-              className="absolute right-5 top-5 p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="px-4 py-2.5 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
-              <X className="w-5 h-5" />
+              Batal
             </button>
-
-            <div className="flex items-center gap-3.5 pt-1 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div className="p-3.5 bg-[#0E5C44] text-white rounded-2xl shadow-lg shadow-emerald-900/20 shrink-0">
-                <UserCheck className="w-7 h-7" />
-              </div>
-              <div>
-                <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-full uppercase">
-                  Sesi Presensi Siswa
-                </span>
-                <h3 className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
-                  Presensi: {presensiModalSchedule?.subject?.name || 'Matematika'}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {selectedClassName} • Ruangan: {presensiModalSchedule?.room_name || 'Ruang 201'} • Pengajar: <strong>{teacherName}</strong>
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Interactive Table */}
-            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-[#1B2433]">
-              <div className="overflow-x-auto max-h-64">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100 dark:border-slate-800">
-                      <th className="p-3 w-10">No</th>
-                      <th className="p-3">Siswa</th>
-                      <th className="p-3 text-center">Status Kehadiran</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {students.map((st, idx) => {
-                      const currentStatus = attendanceData[st.id]?.status || 'Alpha'
-                      return (
-                        <tr key={st.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
-                          <td className="p-3 text-slate-400 font-mono text-[11px]">{idx + 1}</td>
-                          <td className="p-3 font-bold text-slate-900 dark:text-white">
-                            {st.nama_lengkap}
-                          </td>
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              {['Hadir', 'Terlambat', 'Izin', 'Sakit', 'Alpha'].map((stt) => (
-                                <button
-                                  key={stt}
-                                  type="button"
-                                  onClick={() => markStudentAttendance(st, 'Checklist Guru', stt)}
-                                  className={`px-2 py-1 rounded-lg text-[9px] font-bold transition ${
-                                    currentStatus === stt
-                                      ? 'bg-[#0E5C44] text-white'
-                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                                  }`}
-                                >
-                                  {stt}
-                                </button>
-                              ))}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setShowPresensiModal(false)}
-                className="px-4 py-2.5 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAttendance}
-                className="px-5 py-2.5 bg-[#0E5C44] text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Simpan Presensi Sesi Ini
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                handleSaveAttendance()
+                setShowPresensiModal(false)
+              }}
+              className="px-5 py-2.5 bg-[#0E5C44] hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-2 transition"
+            >
+              <CheckCircle2 className="w-4 h-4" /> Simpan Presensi Pembelajaran
+            </button>
           </div>
         </div>
-      )}
+      </AppModal>
 
       {/* DETAIL JURNAL TAHFIZH MINGGUAN */}
       {showTahfizhDetail && tahfizhDetailStudent && (
@@ -2447,59 +3206,468 @@ export default function TeacherTeachingWorkspacePage() {
 
                 {modalType === 'tahfizh' && (
                   <form onSubmit={handleSaveTahfizh} className="space-y-3.5 text-xs">
+                    {/* Field Siswa Rombel dengan Soft Pastel Squircle Button */}
                     <div>
-                      <label htmlFor="tahfizh-siswa" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Siswa Rombel <span className="text-rose-500">*</span></label>
-                      <select
-                        id="tahfizh-siswa" required
-                        value={tahfizhForm.student_id}
-                        onChange={(e) => setTahfizhForm({ ...tahfizhForm, student_id: e.target.value })}
-                        className="w-full p-2.5 border rounded-xl dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-                      >
-                        <option value="">-- Pilih Siswa --</option>
-                        {students.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.nama_lengkap}
-                          </option>
-                        ))}
-                      </select>
+                      <label htmlFor="tahfizh-siswa" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">
+                        Siswa Rombel <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          id="tahfizh-siswa"
+                          required
+                          value={tahfizhForm.student_id}
+                          onChange={(e) => setTahfizhForm({ ...tahfizhForm, student_id: e.target.value })}
+                          className="h-11 flex-1 border rounded-xl dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-semibold px-3"
+                        >
+                          <option value="">-- Pilih Siswa Rombel --</option>
+                          {students.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.nama_lengkap} (NIS: {s.nis || s.nisn || '-'})
+                            </option>
+                          ))}
+                        </select>
+                        <div className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStudentModalSearch('')
+                              setShowStudentSearchModal(true)
+                            }}
+                            className="w-11 h-11 rounded-[14px] bg-sky-100/90 dark:bg-sky-950/60 text-sky-600 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800 shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0"
+                            aria-label="Pencarian Nama Siswa Rombel"
+                          >
+                            <UserCheck className="w-5 h-5" />
+                          </button>
+                          <div className="absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none shadow-lg z-20">
+                            Pencarian Nama Siswa Rombel
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    {previousTahfizhLog && automaticTahfizhTarget && (
-                      <div className={`rounded-xl border p-3 ${automaticTahfizhTarget.repeated ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300' : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'}`}>
-                        <div className="flex items-start gap-2">{automaticTahfizhTarget.repeated ? <RefreshCw className="mt-0.5 h-4 w-4 shrink-0" /> : <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />}<div><p className="font-bold">{automaticTahfizhTarget.repeated ? 'Target diulang otomatis' : 'Target dilanjutkan otomatis'}</p><p className="mt-0.5 text-[10px] leading-relaxed">{automaticTahfizhTarget.repeated ? 'Salah satu penilaian terakhir masih perlu bimbingan, sehingga siswa mengulang rentang ayat sebelumnya.' : 'Penilaian terakhir memenuhi syarat. Sistem memilih ayat berikutnya secara otomatis.'}</p></div></div>
+
+                    {/* Card Info Profile Siswa & Data Tahfizh Terakhir / Selesai */}
+                    {selectedTahfizhStudent && (
+                      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-900/60 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold flex items-center justify-center text-sm border border-emerald-200/80 shrink-0">
+                            {selectedTahfizhStudent.avatar ? (
+                              <img src={selectedTahfizhStudent.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                            ) : (
+                              (selectedTahfizhStudent.nama_lengkap || 'S').slice(0, 2).toUpperCase()
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                              {selectedTahfizhStudent.nama_lengkap}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 font-mono">
+                              NIS: {selectedTahfizhStudent.nis || selectedTahfizhStudent.nisn || '-'} • Rombel {selectedClassName}
+                            </p>
+                          </div>
+                        </div>
+
+                        {previousTahfizhLog ? (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-2.5 dark:border-emerald-800 dark:bg-emerald-950/40 text-xs">
+                            <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>Hafalan Selesai Sebelumnya:</span>
+                            </div>
+                            <p className="mt-0.5 text-[11px] font-bold text-emerald-900 dark:text-emerald-200">
+                              Juz {previousTahfizhLog.metadata?.juz || '-'} • Surah {previousTahfizhLog.hafalan_surah_name || '-'} (Ayat {previousTahfizhLog.hafalan_ayah_start}–{previousTahfizhLog.hafalan_ayah_end})
+                            </p>
+                            {automaticTahfizhTarget && (
+                              <p className="mt-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold leading-relaxed">
+                                ⚡ Lanjutan Otomatis: <strong>Surah {automaticTahfizhTarget.surah_name} (Mulai Ayat {automaticTahfizhTarget.ayat_start})</strong>. Silakan pilih <strong>Ayat Terakhir</strong> untuk setoran baru.
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 text-xs">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200">
+                              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                              <span>Data Tahfizh Siswa Belum Ada (Kosong)</span>
+                            </div>
+                            <p className="mt-0.5 text-[10px] text-slate-500 font-medium">
+                              Belum ada setoran sebelumnya. Anda dapat mengisi Juz, Surah, Ayat Awal, dan Ayat Terakhir secara manual.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
+
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {/* Jenis Setoran dengan Soft Pastel Squircle Button */}
                       <div>
                         <label htmlFor="tahfizh-jenis" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Jenis Setoran</label>
-                        <select id="tahfizh-jenis" value={tahfizhForm.type} onChange={(e) => setTahfizhForm({ ...tahfizhForm, type: e.target.value })} className="h-11 w-full border rounded-xl bg-white px-3 dark:bg-slate-800 border-slate-200 dark:border-slate-700">{['Ziyadah', 'Murajaah', 'Tasmi', 'Ujian'].map((type) => <option key={type}>{type}</option>)}</select>
+                        <div className="flex items-center gap-2">
+                          <select
+                            id="tahfizh-jenis"
+                            value={tahfizhForm.type}
+                            onChange={(e) => setTahfizhForm({ ...tahfizhForm, type: e.target.value })}
+                            className="h-11 flex-1 border rounded-xl bg-white px-3 font-semibold dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                          >
+                            {['Ziyadah', 'Murajaah', 'Tasmi', 'Ujian'].map((type) => (
+                              <option key={type}>{type}</option>
+                            ))}
+                          </select>
+                          <div className="relative group">
+                            <button
+                              type="button"
+                              onClick={() => setShowSetoranTypeModal(true)}
+                              className="w-11 h-11 rounded-[14px] bg-emerald-100/90 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800 shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0"
+                              aria-label="Jenis Setoran Cepat"
+                            >
+                              <Zap className="w-5 h-5" />
+                            </button>
+                            <div className="absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none shadow-lg z-20">
+                              Jenis Setoran Cepat
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Juz Capaian */}
+                      <div>
+                        <label htmlFor="tahfizh-juz" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">
+                          Juz Capaian <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          id="tahfizh-juz"
+                          disabled={Boolean(previousTahfizhLog)}
+                          value={tahfizhForm.juz}
+                          onChange={(e) => setTahfizhForm({ ...tahfizhForm, juz: Number(e.target.value) })}
+                          className="h-11 w-full border rounded-xl bg-white px-3 font-semibold dark:bg-slate-800 border-slate-200 dark:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900"
+                        >
+                          {Array.from({ length: 30 }, (_, index) => index + 1).map((juz) => (
+                            <option key={juz} value={juz}>Juz {juz}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Surah dari Master Al-Qur'an dengan Soft Pastel Squircle Button */}
+                    <div>
+                      <label htmlFor="tahfizh-surah" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">
+                        Surah dari Master Al-Qur'an <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          id="tahfizh-surah"
+                          required
+                          disabled={loadingSurahs || Boolean(previousTahfizhLog)}
+                          value={tahfizhForm.surah_number}
+                          onChange={(e) => {
+                            const surahNumber = Number(e.target.value)
+                            setTahfizhForm({ ...tahfizhForm, surah_number: surahNumber, ayat_start: 1, ayat_end: 1, juz: getQuranJuz(surahNumber, 1) })
+                          }}
+                          className="h-11 flex-1 border rounded-xl bg-white px-3 font-semibold dark:bg-slate-800 border-slate-200 dark:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900"
+                        >
+                          <option value="">{loadingSurahs ? 'Memuat Master Al-Qur’an...' : '-- Pilih Surah Master --'}</option>
+                          {quranSurahs.map((surah) => (
+                            <option key={surah.nomor} value={surah.nomor}>
+                              {surah.nomor}. {surah.nama_latin} ({surah.jumlah_ayat} ayat)
+                            </option>
+                          ))}
+                        </select>
+                        <div className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSurahModalSearch('')
+                              setShowSurahSearchModal(true)
+                            }}
+                            className="w-11 h-11 rounded-[14px] bg-purple-100/90 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800 shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0"
+                            aria-label="Master Surah Al-Qur'an"
+                          >
+                            <BookMarked className="w-5 h-5" />
+                          </button>
+                          <div className="absolute -top-9 left-1/2 -translate-x-1/2 px-2.5 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none shadow-lg z-20">
+                            Master Surah Al-Qur'an
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ayat Awal & Ayat Terakhir */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="tahfizh-ayat-awal" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">
+                          Ayat Awal
+                        </label>
+                        <select
+                          id="tahfizh-ayat-awal"
+                          disabled={!selectedTahfizhSurah || Boolean(previousTahfizhLog)}
+                          value={tahfizhForm.ayat_start}
+                          onChange={(e) => {
+                            const value = Number(e.target.value)
+                            setTahfizhForm({ ...tahfizhForm, ayat_start: value, ayat_end: Math.max(value, Number(tahfizhForm.ayat_end)), juz: getQuranJuz(tahfizhForm.surah_number, value) })
+                          }}
+                          className="h-11 w-full border rounded-xl bg-white px-3 font-semibold dark:bg-slate-800 border-slate-200 dark:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900"
+                        >
+                          {Array.from({ length: selectedTahfizhSurah?.jumlah_ayat || 1 }, (_, index) => index + 1).map((ayat) => (
+                            <option key={ayat}>{ayat}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
-                        <label htmlFor="tahfizh-juz" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Juz Capaian <span className="text-rose-500">*</span></label>
-                        <select id="tahfizh-juz" disabled={Boolean(previousTahfizhLog)} value={tahfizhForm.juz} onChange={(e) => setTahfizhForm({ ...tahfizhForm, juz: Number(e.target.value) })} className="h-11 w-full border rounded-xl bg-white px-3 dark:bg-slate-800 border-slate-200 dark:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900">{Array.from({ length: 30 }, (_, index) => index + 1).map((juz) => <option key={juz} value={juz}>Juz {juz}</option>)}</select>
+                        <label htmlFor="tahfizh-ayat-akhir" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">
+                          Ayat Terakhir (Aktif)
+                        </label>
+                        <select
+                          id="tahfizh-ayat-akhir"
+                          disabled={!selectedTahfizhSurah}
+                          value={tahfizhForm.ayat_end}
+                          onChange={(e) => setTahfizhForm({ ...tahfizhForm, ayat_end: Number(e.target.value) })}
+                          className="h-11 w-full border rounded-xl bg-white px-3 font-bold text-emerald-700 dark:text-emerald-400 dark:bg-slate-800 border-emerald-300 dark:border-emerald-700 focus:ring-2 focus:ring-emerald-500/30"
+                        >
+                          {Array.from({ length: selectedTahfizhSurah?.jumlah_ayat || 1 }, (_, index) => index + 1)
+                            .filter((ayat) => ayat >= Number(tahfizhForm.ayat_start))
+                            .map((ayat) => (
+                              <option key={ayat}>{ayat}</option>
+                            ))}
+                        </select>
                       </div>
                     </div>
-                    <div>
-                      <label htmlFor="tahfizh-surah" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Surah dari Master Al-Qur'an <span className="text-rose-500">*</span></label>
-                      <select id="tahfizh-surah" required disabled={loadingSurahs || Boolean(previousTahfizhLog)} value={tahfizhForm.surah_number} onChange={(e) => { const surahNumber = Number(e.target.value); setTahfizhForm({ ...tahfizhForm, surah_number: surahNumber, ayat_start: 1, ayat_end: 1, juz: getQuranJuz(surahNumber, 1) }) }} className="h-11 w-full border rounded-xl bg-white px-3 dark:bg-slate-800 border-slate-200 dark:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900"><option value="">{loadingSurahs ? 'Memuat Master Al-Qur’an...' : '-- Pilih Surah --'}</option>{quranSurahs.map((surah) => <option key={surah.nomor} value={surah.nomor}>{surah.nomor}. {surah.nama_latin} ({surah.jumlah_ayat} ayat)</option>)}</select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><label htmlFor="tahfizh-ayat-awal" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Ayat Awal</label><select id="tahfizh-ayat-awal" disabled={!selectedTahfizhSurah || Boolean(previousTahfizhLog)} value={tahfizhForm.ayat_start} onChange={(e) => { const value = Number(e.target.value); setTahfizhForm({ ...tahfizhForm, ayat_start: value, ayat_end: Math.max(value, Number(tahfizhForm.ayat_end)), juz: getQuranJuz(tahfizhForm.surah_number, value) }) }} className="h-11 w-full border rounded-xl bg-white px-3 dark:bg-slate-800 border-slate-200 dark:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900">{Array.from({ length: selectedTahfizhSurah?.jumlah_ayat || 1 }, (_, index) => index + 1).map((ayat) => <option key={ayat}>{ayat}</option>)}</select></div>
-                      <div><label htmlFor="tahfizh-ayat-akhir" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Ayat Terakhir</label><select id="tahfizh-ayat-akhir" disabled={!selectedTahfizhSurah || Boolean(previousTahfizhLog)} value={tahfizhForm.ayat_end} onChange={(e) => setTahfizhForm({ ...tahfizhForm, ayat_end: Number(e.target.value) })} className="h-11 w-full border rounded-xl bg-white px-3 dark:bg-slate-800 border-slate-200 dark:border-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-900">{Array.from({ length: selectedTahfizhSurah?.jumlah_ayat || 1 }, (_, index) => index + 1).filter((ayat) => ayat >= Number(tahfizhForm.ayat_start)).map((ayat) => <option key={ayat}>{ayat}</option>)}</select></div>
-                    </div>
+
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      {[['kelancaran', 'Kelancaran', ['Sangat Lancar', 'Lancar', 'Perlu Bimbingan']], ['tajwid', 'Tajwid', ['Sangat Baik', 'Baik', 'Perlu Bimbingan']], ['makhraj', 'Makhraj', ['Sangat Baik', 'Baik', 'Perlu Bimbingan']]].map(([key, label, options]) => <div key={key}><label className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">{label}</label><select value={tahfizhForm[key]} onChange={(e) => setTahfizhForm({ ...tahfizhForm, [key]: e.target.value })} className="h-11 w-full border rounded-xl bg-white px-2 dark:bg-slate-800 border-slate-200 dark:border-slate-700">{options.map((option) => <option key={option}>{option}</option>)}</select></div>)}
+                      {[
+                        ['kelancaran', 'Kelancaran', ['Sangat Lancar', 'Lancar', 'Perlu Bimbingan']],
+                        ['tajwid', 'Tajwid', ['Sangat Baik', 'Baik', 'Perlu Bimbingan']],
+                        ['makhraj', 'Makhraj', ['Sangat Baik', 'Baik', 'Perlu Bimbingan']],
+                      ].map(([key, label, options]) => (
+                        <div key={key}>
+                          <label className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">{label}</label>
+                          <select
+                            value={tahfizhForm[key]}
+                            onChange={(e) => setTahfizhForm({ ...tahfizhForm, [key]: e.target.value })}
+                            className="h-11 w-full border rounded-xl bg-white px-2 font-semibold dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                          >
+                            {options.map((option) => (
+                              <option key={option}>{option}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
                     </div>
-                    <div><label htmlFor="tahfizh-catatan" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Catatan Guru</label><textarea id="tahfizh-catatan" rows={3} value={tahfizhForm.notes_teacher} onChange={(e) => setTahfizhForm({ ...tahfizhForm, notes_teacher: e.target.value })} placeholder="Catatan evaluasi atau target setoran berikutnya..." className="w-full border rounded-xl p-2.5 dark:bg-slate-800 border-slate-200 dark:border-slate-700" /></div>
+
+                    <div>
+                      <label htmlFor="tahfizh-catatan" className="font-semibold block mb-1 text-slate-700 dark:text-slate-200">Catatan Guru</label>
+                      <textarea
+                        id="tahfizh-catatan"
+                        rows={3}
+                        value={tahfizhForm.notes_teacher}
+                        onChange={(e) => setTahfizhForm({ ...tahfizhForm, notes_teacher: e.target.value })}
+                        placeholder="Catatan evaluasi atau target setoran berikutnya..."
+                        className="w-full border rounded-xl p-2.5 dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-semibold text-slate-800 dark:text-white"
+                      />
+                    </div>
+
                     <div className="flex justify-end gap-2 pt-3">
-                      <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-xl text-slate-600 hover:bg-slate-50 font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setShowModal(false)}
+                        className="px-4 py-2 border rounded-xl text-slate-600 hover:bg-slate-50 font-semibold"
+                      >
                         Batal
                       </button>
-                      <button type="submit" disabled={savingTahfizh || loadingSurahs} className="inline-flex min-w-32 items-center justify-center gap-2 px-4 py-2 bg-[#0E5C44] text-white rounded-xl font-bold shadow-md disabled:opacity-60">
-                        {savingTahfizh && <RefreshCw className="h-4 w-4 animate-spin" />}{savingTahfizh ? 'Menyimpan...' : 'Simpan Setoran'}
+                      <button
+                        type="submit"
+                        disabled={savingTahfizh || loadingSurahs}
+                        className="inline-flex min-w-32 items-center justify-center gap-2 px-4 py-2 bg-[#0E5C44] text-white rounded-xl font-bold shadow-md disabled:opacity-60 hover:bg-emerald-800 transition"
+                      >
+                        {savingTahfizh && <RefreshCw className="h-4 w-4 animate-spin" />}
+                        {savingTahfizh ? 'Menyimpan...' : 'Simpan Setoran'}
                       </button>
                     </div>
                   </form>
                 )}
+
+                {/* POPUP MODAL PENCARIAN SISWA ROMBEL */}
+                <AppModal
+                  isOpen={showStudentSearchModal}
+                  onClose={() => setShowStudentSearchModal(false)}
+                  title="Pilih Siswa Rombel"
+                  description={`Cari dan pilih siswa pada rombel ${selectedClassName} untuk setoran tahfizh`}
+                  icon={UserCheck}
+                  maxWidth="max-w-xl"
+                >
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="search"
+                        value={studentModalSearch}
+                        onChange={(e) => setStudentModalSearch(e.target.value)}
+                        placeholder="Cari nama siswa atau NIS..."
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-xs font-semibold outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                      {students
+                        .filter((s) => !studentModalSearch.trim() || s.nama_lengkap?.toLowerCase().includes(studentModalSearch.toLowerCase()) || s.nis?.includes(studentModalSearch))
+                        .map((s) => {
+                          const isSelected = tahfizhForm.student_id === s.id
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => {
+                                setTahfizhForm({ ...tahfizhForm, student_id: s.id })
+                                setShowStudentSearchModal(false)
+                              }}
+                              className={`flex items-center gap-3 w-full p-3 rounded-2xl border text-left transition ${
+                                isSelected
+                                  ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/30 dark:bg-emerald-950/40 dark:border-emerald-700'
+                                  : 'border-slate-200/80 hover:border-emerald-300 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900'
+                              }`}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold flex items-center justify-center text-xs border border-emerald-200 shrink-0">
+                                {s.avatar ? (
+                                  <img src={s.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                  (s.nama_lengkap || 'S').slice(0, 2).toUpperCase()
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">{s.nama_lengkap}</h4>
+                                <p className="text-[11px] text-slate-500 font-mono">NIS: {s.nis || s.nisn || '-'}</p>
+                              </div>
+                              {isSelected ? (
+                                <span className="px-2.5 py-1 bg-emerald-600 text-white font-bold text-[10px] rounded-full">Dipilih</span>
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-slate-400" />
+                              )}
+                            </button>
+                          )
+                        })}
+
+                      {students.filter((s) => !studentModalSearch.trim() || s.nama_lengkap?.toLowerCase().includes(studentModalSearch.toLowerCase()) || s.nis?.includes(studentModalSearch)).length === 0 && (
+                        <div className="p-8 text-center text-xs text-slate-500">
+                          Tidak ditemukan siswa dengan kata kunci "{studentModalSearch}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </AppModal>
+
+                {/* POPUP MODAL JENIS SETORAN TAHFIZH */}
+                <AppModal
+                  isOpen={showSetoranTypeModal}
+                  onClose={() => setShowSetoranTypeModal(false)}
+                  title="Pilih Jenis Setoran Tahfizh"
+                  description="Pilih jenis atau kategori setoran hafalan Al-Qur'an siswa"
+                  icon={Zap}
+                  maxWidth="max-w-md"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: 'Ziyadah', label: 'Ziyadah', description: 'Setoran Hafalan Baru', icon: Sparkles, color: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40' },
+                      { id: 'Murajaah', label: 'Murajaah', description: 'Pengulangan Hafalan Lama', icon: RefreshCw, color: 'border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/40' },
+                      { id: 'Tasmi', label: 'Tasmi\'', description: 'Ujian Sekali Duduk', icon: BookOpen, color: 'border-purple-200 bg-purple-50 text-purple-700 dark:bg-purple-950/40' },
+                      { id: 'Ujian', label: 'Ujian Setoran', description: 'Ujian Capaian Juz', icon: Award, color: 'border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-950/40' },
+                    ].map((item) => {
+                      const Icon = item.icon
+                      const isSelected = tahfizhForm.type === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setTahfizhForm({ ...tahfizhForm, type: item.id })
+                            setShowSetoranTypeModal(false)
+                          }}
+                          className={`p-4 rounded-2xl border text-left transition flex flex-col justify-between ${
+                            isSelected
+                              ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/90 dark:bg-emerald-950/50'
+                              : 'border-slate-200/80 hover:border-emerald-300 bg-white dark:bg-slate-900'
+                          }`}
+                        >
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${item.color}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="mt-3">
+                            <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">{item.label}</h4>
+                            <p className="text-[10px] text-slate-500 font-medium">{item.description}</p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </AppModal>
+
+                {/* POPUP MODAL MASTER SURAH AL-QUR'AN */}
+                <AppModal
+                  isOpen={showSurahSearchModal}
+                  onClose={() => setShowSurahSearchModal(false)}
+                  title="Master Surah Al-Qur'an"
+                  description="Cari dan pilih dari 114 Surah Master Al-Qur'an"
+                  icon={BookMarked}
+                  maxWidth="max-w-2xl"
+                >
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="search"
+                        value={surahModalSearch}
+                        onChange={(e) => setSurahModalSearch(e.target.value)}
+                        placeholder="Cari nama surah (contoh: An-Naba, Al-Baqarah, 30)..."
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-xs font-semibold outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1">
+                      {quranSurahs
+                        .filter((s) => !surahModalSearch.trim() || s.nama_latin?.toLowerCase().includes(surahModalSearch.toLowerCase()) || String(s.nomor).includes(surahModalSearch))
+                        .map((s) => {
+                          const isSelected = Number(tahfizhForm.surah_number) === Number(s.nomor)
+                          return (
+                            <button
+                              key={s.nomor}
+                              type="button"
+                              onClick={() => {
+                                const surahNumber = Number(s.nomor)
+                                setTahfizhForm({
+                                  ...tahfizhForm,
+                                  surah_number: surahNumber,
+                                  ayat_start: 1,
+                                  ayat_end: 1,
+                                  juz: getQuranJuz(surahNumber, 1),
+                                })
+                                setShowSurahSearchModal(false)
+                              }}
+                              className={`flex items-center justify-between w-full p-3 rounded-2xl border text-left transition ${
+                                isSelected
+                                  ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/30 dark:bg-emerald-950/40 dark:border-emerald-700'
+                                  : 'border-slate-200/80 hover:border-emerald-300 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-extrabold text-xs flex items-center justify-center border border-purple-200 shrink-0">
+                                  {s.nomor}
+                                </div>
+                                <div>
+                                  <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">{s.nama_latin}</h4>
+                                  <p className="text-[10px] text-slate-500">{s.arti} • {s.jumlah_ayat} Ayat</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="block font-serif text-sm font-bold text-slate-800 dark:text-slate-200">{s.nama}</span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Juz {getQuranJuz(s.nomor, 1)}</span>
+                              </div>
+                            </button>
+                          )
+                        })}
+
+                      {quranSurahs.filter((s) => !surahModalSearch.trim() || s.nama_latin?.toLowerCase().includes(surahModalSearch.toLowerCase()) || String(s.nomor).includes(surahModalSearch)).length === 0 && (
+                        <div className="p-8 text-center text-xs text-slate-500">
+                          Tidak ditemukan surah dengan kata kunci "{surahModalSearch}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </AppModal>
 
                 {modalType === 'catatan' && (
                   <form onSubmit={handleSaveCatatan} className="space-y-3.5 text-xs">
@@ -2732,6 +3900,18 @@ export default function TeacherTeachingWorkspacePage() {
           </div>
         </div>
       )}
+
+      {/* MODAL PRESENSI MENGAJAR STEP 04 */}
+      <AppModal
+        isOpen={showMulaiMengajarModal}
+        onClose={() => setShowMulaiMengajarModal(false)}
+        title="Presensi Mengajar Step 04"
+        description="QR kartu guru mengidentifikasi guru; server tetap memvalidasi jadwal dan konteks akademik."
+        icon={QrCode}
+        maxWidth="max-w-3xl"
+      >
+        <TeacherTeachingSessionPanel onNotify={addToast} isModal={true} />
+      </AppModal>
     </MasterDataPage>
   )
 }

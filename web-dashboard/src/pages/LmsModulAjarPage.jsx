@@ -33,7 +33,7 @@ import {
 const FASE_LIST = ['Fase A', 'Fase B', 'Fase C', 'Fase D', 'Fase E', 'Fase F']
 const STATUS_LIST = ['Draft', 'Review', 'Publish', 'Arsip']
 
-export default function LmsModulAjarPage({ embedded = false, hideBreadcrumb = false }) {
+export default function LmsModulAjarPage({ embedded = false, hideBreadcrumb = false, hidePageHeader = false }) {
   const queryClient = useQueryClient()
 
   // State Filter & Paginasi
@@ -311,18 +311,20 @@ export default function LmsModulAjarPage({ embedded = false, hideBreadcrumb = fa
         <AppBreadcrumb items={[{ label: 'LMS & Akademik', href: '/dashboard' }, { label: 'Modul Ajar' }]} />
       )}
       <MasterDataPage className="education-unit-page modul-ajar-master-page" hideBreadcrumb={embedded || hideBreadcrumb}>
-      <MasterPageHeader
-        tone="brand"
-        icon={BookOpen}
-        title="Modul Ajar (RPP Digital)"
-        description="Pusat perencanaan aktivitas guru yang terintegrasi dengan Kurikulum, CP, TP, penugasan, evaluasi, dan rapor."
-        actions={
-          <>
-            <MasterActionButton variant="export" icon={Download} onClick={handleExportExcel}>Export CSV</MasterActionButton>
-            <MasterActionButton onClick={handleOpenAddModal}>Buat Modul Ajar</MasterActionButton>
-          </>
-        }
-      />
+      {!hidePageHeader && (
+        <MasterPageHeader
+          tone="brand"
+          icon={BookOpen}
+          title="Modul Ajar (RPP Digital)"
+          description="Pusat perencanaan aktivitas guru yang terintegrasi dengan Kurikulum, CP, TP, penugasan, evaluasi, dan rapor."
+          actions={
+            <>
+              <MasterActionButton variant="export" icon={Download} onClick={handleExportExcel}>Export CSV</MasterActionButton>
+              <MasterActionButton onClick={handleOpenAddModal}>Buat Modul Ajar</MasterActionButton>
+            </>
+          }
+        />
+      )}
 
       {/* KPI Cards Grid */}
       <MasterStatsGrid className="education-unit-kpis">

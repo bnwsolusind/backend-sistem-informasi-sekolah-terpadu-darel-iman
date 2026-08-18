@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
+  Download,
   Eye,
   FileInput,
   FileSpreadsheet,
@@ -10,7 +11,10 @@ import {
   Pencil,
   Plus,
   RefreshCcw,
+  RotateCcw,
+  Star,
   Trash2,
+  Upload,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -91,19 +95,118 @@ const actionIcons = {
   primary: Plus,
 }
 
+const actionVariantClasses = {
+  import:
+    'inline-flex items-center gap-2 rounded-xl border border-sky-200/80 bg-sky-50 px-3.5 py-2 text-xs font-bold text-sky-700 shadow-xs transition-colors hover:border-sky-300 hover:bg-sky-100/90 dark:border-sky-800/60 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60',
+  export:
+    'inline-flex items-center gap-2 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-700 shadow-xs transition-colors hover:border-amber-300 hover:bg-amber-100/90 dark:border-amber-800/60 dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-900/60',
+  primary:
+    'inline-flex items-center gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700 shadow-xs transition-colors hover:border-emerald-300 hover:bg-emerald-100/90 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/60',
+  secondary:
+    'inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200',
+}
+
 export function MasterActionButton({ variant = 'primary', icon: CustomIcon, children, className = '', ...props }) {
   const Icon = CustomIcon || actionIcons[variant] || actionIcons.primary
+  const variantStyle = actionVariantClasses[variant] || actionVariantClasses.primary
   return (
-    <AppButton
+    <button
       type="button"
-      variant={variant === 'primary' ? 'primary' : 'secondary'}
-      size="lg"
-      icon={Icon}
-      className={className}
+      className={`${variantStyle} ${className}`}
       {...props}
     >
-      {children}
-    </AppButton>
+      {Icon && <Icon className="h-4 w-4 shrink-0" />}
+      {children && <span>{children}</span>}
+    </button>
+  )
+}
+
+const squircleVariants = {
+  import: {
+    icon: Upload,
+    base: 'bg-sky-100/90 text-sky-600 dark:bg-sky-950/60 dark:text-sky-300',
+    hover: 'hover:bg-sky-500 hover:text-white dark:hover:bg-sky-500 dark:hover:text-white hover:shadow-md hover:shadow-sky-500/30',
+  },
+  export: {
+    icon: Download,
+    base: 'bg-amber-100/90 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300',
+    hover: 'hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 dark:hover:text-white hover:shadow-md hover:shadow-amber-500/30',
+  },
+  primary: {
+    icon: Plus,
+    base: 'bg-emerald-100/90 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
+    hover: 'hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white hover:shadow-md hover:shadow-emerald-600/30',
+  },
+  view: {
+    icon: Eye,
+    base: 'bg-indigo-100/90 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300',
+    hover: 'hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white hover:shadow-md hover:shadow-indigo-600/30',
+  },
+  edit: {
+    icon: Pencil,
+    base: 'bg-amber-100/90 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300',
+    hover: 'hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 dark:hover:text-white hover:shadow-md hover:shadow-amber-500/30',
+  },
+  delete: {
+    icon: Trash2,
+    base: 'bg-rose-100/90 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300',
+    hover: 'hover:bg-rose-500 hover:text-white dark:hover:bg-rose-500 dark:hover:text-white hover:shadow-md hover:shadow-rose-500/30',
+  },
+  restore: {
+    icon: RotateCcw,
+    base: 'bg-emerald-100/90 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300',
+    hover: 'hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white hover:shadow-md hover:shadow-emerald-600/30',
+  },
+  setActive: {
+    icon: Star,
+    base: 'bg-sky-100/90 text-sky-600 dark:bg-sky-950/60 dark:text-sky-300',
+    hover: 'hover:bg-sky-500 hover:text-white dark:hover:bg-sky-500 dark:hover:text-white hover:shadow-md hover:shadow-sky-500/30',
+  },
+  neutral: {
+    icon: Database,
+    base: 'bg-slate-100/90 text-slate-600 dark:bg-slate-800/60 dark:text-slate-300',
+    hover: 'hover:bg-slate-500 hover:text-white dark:hover:bg-slate-500 dark:hover:text-white hover:shadow-md hover:shadow-slate-500/30',
+  },
+}
+
+export function SquircleActionButton({
+  variant = 'primary',
+  icon: CustomIcon,
+  label,
+  onClick,
+  disabled = false,
+  className = '',
+  ...props
+}) {
+  const config = squircleVariants[variant] || squircleVariants.primary
+  const Icon = CustomIcon || config.icon
+
+  return (
+    <div className="group relative inline-flex" {...props}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        title={label}
+        aria-label={label}
+        className={`
+          flex size-10 items-center justify-center rounded-2xl
+          ${config.base}
+          ${config.hover}
+          transition-colors duration-200 cursor-pointer shadow-2xs
+          disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-current disabled:hover:shadow-none
+          ${className}
+        `}
+      >
+        {Icon && <Icon className="size-5 transition-colors" />}
+      </button>
+      {label && (
+        <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+          <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+          {label}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -128,14 +231,29 @@ const statSchemeMap = {
   neutral: 'slate',
 }
 
-export function MasterStatCard({ icon: Icon, label, value, description, variant = 'success', delay = 0, loading = false, className = '' }) {
+export function MasterStatCard({
+  icon: Icon,
+  label,
+  title,
+  value,
+  description,
+  subtitle,
+  badge = null,
+  badgeVariant = 'info',
+  variant = 'success',
+  delay = 0,
+  loading = false,
+  className = '',
+}) {
   return (
     <div className="master-stat-card ui-enter" style={{ animationDelay: `${delay}ms` }}>
       <SummaryCard
         icon={Icon}
-        title={label}
+        title={label || title}
         value={value}
-        description={description}
+        description={description || subtitle}
+        badge={badge}
+        badgeVariant={badgeVariant}
         colorScheme={statSchemeMap[variant] || 'emerald'}
         loading={loading}
         className={className}
@@ -264,20 +382,24 @@ export function MasterDataSection({
       aria-label={!title ? ariaLabel : undefined}
     >
       {hasHeading && (
-        <header className="master-data-section__header">
-          <div className="min-w-0">
-            {title && <h2 id={resolvedHeadingId} className="master-data-section__title">{title}</h2>}
-            {description && <p className="master-data-section__description">{description}</p>}
+        <header className="master-data-section__header flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between mb-4 pb-3.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center gap-3 min-w-0">
+            {title && <h2 id={resolvedHeadingId} className="master-data-section__title text-lg font-black text-slate-900 dark:text-white tracking-tight">{title}</h2>}
+            {countLabel !== undefined && countLabel !== null && (
+              <AppBadge variant="success" className="master-data-section__count font-bold">{countLabel}</AppBadge>
+            )}
           </div>
-          {countLabel !== undefined && countLabel !== null && (
-            <AppBadge variant="success" className="master-data-section__count">{countLabel}</AppBadge>
+          {actions && (
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {actions}
+            </div>
           )}
         </header>
       )}
 
-      {(searchNode || filterNode || actions) && (
+      {(searchNode || filterNode || (!hasHeading && actions)) && (
         <div className={`master-data-section__toolbar ${toolbarClassName}`}>
-          <AppToolbar search={searchNode} filters={filterNode} actions={actions} />
+          <AppToolbar search={searchNode} filters={filterNode} actions={!hasHeading ? actions : null} />
         </div>
       )}
 

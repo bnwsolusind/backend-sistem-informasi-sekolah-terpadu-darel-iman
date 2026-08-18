@@ -15,12 +15,21 @@ import {
   Copy,
   Save,
   AlertTriangle,
+  Search,
+  Users,
+  UserCheck,
+  X,
+  Filter,
+  Check,
+  BookOpenCheck,
+  Building2,
 } from 'lucide-react'
 import { modulSemesterService } from '../services/modulSemesterService'
 import CsvImportModal from '../components/master-data/CsvImportModal'
 import { ActionDropdown, AppBadge, AppDrawer, AppModal, PersonIdentityCell } from '../components/app'
 import PageContainer from '../components/app/PageContainer'
 import AppBreadcrumb from '../components/app/AppBreadcrumb'
+import { useAuthStore } from '../stores/authStore'
 import {
   MasterActionButton,
   MasterDataSection,
@@ -124,7 +133,7 @@ function initialFormState() {
   }
 }
 
-export default function MasterModulSemesterPage() {
+export default function MasterModulSemesterPage({ embedded = false, hidePageHeader = false, hideBreadcrumb = false }) {
   const queryClient = useQueryClient()
 
   // State Filters
@@ -196,18 +205,181 @@ export default function MasterModulSemesterPage() {
   const stats = statsData || responseData?.statistik || {}
   const options = optionsData || {}
 
-  // Filtered dropdown lists based on selection
+  // User Auth & Role Scoping
+  const user = useAuthStore((state) => state.user)
+  const userRoles = useMemo(() => {
+    if (!user?.roles) return []
+    return user.roles.map((r) => (typeof r === 'string' ? r : r.name || r.role_name || ''))
+  }, [user])
+
+  const userUnitId = useMemo(() => {
+    return (
+      user?.unit_id ||
+      user?.unit_pendidikan_id ||
+      user?.education_unit_id ||
+      user?.unit?.id ||
+      user?.school_info?.id ||
+      null
+    )
+  }, [user])
+
+  const isScopedUnitRole = useMemo(() => {
+    const scopedRoles = [
+      'Kepala Sekolah',
+      'kepala_sekolah',
+      'KepalaSekolah',
+      'Divisi Pendidikan',
+      'divisi_pendidikan',
+      'DivisiPendidikan',
+      'TU Unit',
+      'tu_unit',
+      'TuUnit',
+      'TU',
+      'Tata Usaha',
+      'Staff TU',
+      'Kepala Sekolah / Madrasah',
+    ]
+    return userRoles.some(
+      (r) => scopedRoles.includes(r) || scopedRoles.some((sr) => r.toLowerCase().includes(sr.toLowerCase()))
+    )
+  }, [userRoles])
+
+  // Search & Filter state for Kelas, Mapel & Guru Modal
+  const [kelasSearch, setKelasSearch] = useState('')
+  const [subjectSearch, setSubjectSearch] = useState('')
+
+  const [isKelasModalOpen, setIsKelasModalOpen] = useState(false)
+  const [kelasSearchModal, setKelasSearchModal] = useState('')
+
+  const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false)
+  const [subjectSearchModal, setSubjectSearchModal] = useState('')
+
+  const [isGuruModalOpen, setIsGuruModalOpen] = useState(false)
+  const [guruSearchModal, setGuruSearchModal] = useState('')
+  const [guruUnitModalFilter, setGuruUnitModalFilter] = useState('')
+  const [guruStatusModalFilter, setGuruStatusModalFilter] = useState('')
+
+  const activeUnitIdForForm = useMemo(() => {
+    return formData.unit_pendidikan_id || (isScopedUnitRole ? userUnitId : '')
+  }, [formData.unit_pendidikan_id, isScopedUnitRole, userUnitId])
+
+  // Filtered dropdown lists based on selection & scoping
   const filteredKelasList = useMemo(() => {
     if (!options.kelas) return []
     let list = options.kelas
-    if (formData.unit_pendidikan_id) {
-      list = list.filter((k) => k.unit_pendidikan_id === formData.unit_pendidikan_id)
+    const targetUnit = activeUnitIdForForm
+    if (targetUnit) {
+      list = list.filter((k) => k.unit_pendidikan_id === targetUnit || k.unit_id === targetUnit)
     }
     if (formData.tahun_ajaran_id) {
       list = list.filter((k) => k.tahun_ajaran_id === formData.tahun_ajaran_id)
     }
+    if (kelasSearch.trim()) {
+      const q = kelasSearch.toLowerCase()
+      list = list.filter(
+        (k) =>
+          (k.nama_kelas && k.nama_kelas.toLowerCase().includes(q)) ||
+          (k.kode_kelas && k.kode_kelas.toLowerCase().includes(q))
+      )
+    }
     return list
-  }, [options.kelas, formData.unit_pendidikan_id, formData.tahun_ajaran_id])
+  }, [options.kelas, activeUnitIdForForm, formData.tahun_ajaran_id, kelasSearch])
+
+  const filteredKelasModalList = useMemo(() => {
+    if (!options.kelas) return []
+    let list = options.kelas
+    const targetUnit = activeUnitIdForForm
+    if (targetUnit) {
+      list = list.filter((k) => k.unit_pendidikan_id === targetUnit || k.unit_id === targetUnit)
+    }
+    if (formData.tahun_ajaran_id) {
+      list = list.filter((k) => k.tahun_ajaran_id === formData.tahun_ajaran_id)
+    }
+    if (kelasSearchModal.trim()) {
+      const q = kelasSearchModal.toLowerCase()
+      list = list.filter(
+        (k) =>
+          (k.nama_kelas && k.nama_kelas.toLowerCase().includes(q)) ||
+          (k.kode_kelas && k.kode_kelas.toLowerCase().includes(q)) ||
+          (k.jenjang && k.jenjang.toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [options.kelas, activeUnitIdForForm, formData.tahun_ajaran_id, kelasSearchModal])
+
+  const filteredSubjectList = useMemo(() => {
+    if (!options.mata_pelajaran) return []
+    let list = options.mata_pelajaran
+    const targetUnit = activeUnitIdForForm
+    if (targetUnit) {
+      list = list.filter((m) => !m.unit_pendidikan_id || m.unit_pendidikan_id === targetUnit)
+    }
+    if (subjectSearch.trim()) {
+      const q = subjectSearch.toLowerCase()
+      list = list.filter(
+        (m) =>
+          (m.name && m.name.toLowerCase().includes(q)) ||
+          (m.code && m.code.toLowerCase().includes(q)) ||
+          (m.kode_mapel && m.kode_mapel.toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [options.mata_pelajaran, activeUnitIdForForm, subjectSearch])
+
+  const filteredSubjectModalList = useMemo(() => {
+    if (!options.mata_pelajaran) return []
+    let list = options.mata_pelajaran
+    const targetUnit = activeUnitIdForForm
+    if (targetUnit) {
+      list = list.filter((m) => !m.unit_pendidikan_id || m.unit_pendidikan_id === targetUnit)
+    }
+    if (subjectSearchModal.trim()) {
+      const q = subjectSearchModal.toLowerCase()
+      list = list.filter(
+        (m) =>
+          (m.name && m.name.toLowerCase().includes(q)) ||
+          (m.code && m.code.toLowerCase().includes(q)) ||
+          (m.kode_mapel && m.kode_mapel.toLowerCase().includes(q)) ||
+          (m.kelompok_mapel && m.kelompok_mapel.toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [options.mata_pelajaran, activeUnitIdForForm, subjectSearchModal])
+
+  const filteredGuruList = useMemo(() => {
+    if (!options.guru) return []
+    let list = options.guru
+    const targetUnit = formData.unit_pendidikan_id || (isScopedUnitRole ? userUnitId : guruUnitModalFilter)
+    if (targetUnit) {
+      list = list.filter(
+        (g) =>
+          g.unit_id === targetUnit ||
+          g.unit_pendidikan_id === targetUnit ||
+          g.unit?.id === targetUnit
+      )
+    }
+    if (guruStatusModalFilter) {
+      list = list.filter((g) => g.status_pegawai === guruStatusModalFilter || g.status === guruStatusModalFilter)
+    }
+    if (guruSearchModal.trim()) {
+      const q = guruSearchModal.toLowerCase()
+      list = list.filter(
+        (g) =>
+          (g.nama_lengkap && g.nama_lengkap.toLowerCase().includes(q)) ||
+          (g.niy && g.niy.toLowerCase().includes(q)) ||
+          (g.nik && g.nik.toLowerCase().includes(q)) ||
+          (g.email && g.email.toLowerCase().includes(q)) ||
+          (g.position?.name && g.position.name.toLowerCase().includes(q)) ||
+          (g.unit?.name && g.unit.name.toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [options.guru, formData.unit_pendidikan_id, isScopedUnitRole, userUnitId, guruUnitModalFilter, guruStatusModalFilter, guruSearchModal])
+
+  const selectedGuruObj = useMemo(() => {
+    if (!formData.guru_id || !options.guru) return null
+    return options.guru.find((g) => g.id === formData.guru_id) || null
+  }, [formData.guru_id, options.guru])
 
   const filteredSemesterList = useMemo(() => {
     if (!options.semesters) return []
@@ -294,8 +466,17 @@ export default function MasterModulSemesterPage() {
   // Handlers
   const handleOpenTambahModal = () => {
     setIsEditMode(false)
-    setFormData(initialFormState())
+    const initial = initialFormState()
+    if (isScopedUnitRole && userUnitId) {
+      initial.unit_pendidikan_id = userUnitId
+    }
+    setFormData(initial)
     setFormErrors({})
+    setKelasSearch('')
+    setKelasSearchModal('')
+    setSubjectSearch('')
+    setSubjectSearchModal('')
+    setGuruSearchModal('')
     setActiveTab('umum')
     setIsModalOpen(true)
   }
@@ -303,6 +484,11 @@ export default function MasterModulSemesterPage() {
   const handleOpenEditModal = (item) => {
     setIsEditMode(true)
     setFormErrors({})
+    setKelasSearch('')
+    setKelasSearchModal('')
+    setSubjectSearch('')
+    setSubjectSearchModal('')
+    setGuruSearchModal('')
     setActiveTab('umum')
     setFormData({
       id: item.id,
@@ -524,23 +710,30 @@ export default function MasterModulSemesterPage() {
     setPage(1)
   }
 
+  const pageActions = (
+    <>
+      <MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton>
+      <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportCSV}>Export CSV</MasterActionButton>
+      <MasterActionButton icon={Plus} onClick={handleOpenTambahModal}>Tambah Modul</MasterActionButton>
+    </>
+  )
+
+  const shouldHideBreadcrumb = embedded || hideBreadcrumb
+  const shouldHideHeader = embedded || hidePageHeader
+
   return (
     <PageContainer maxW="7xl">
-      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Modul Semester' }]} />
-      <MasterDataPage className="education-unit-page">
-      <MasterPageHeader
-        tone="brand"
-        icon={BookOpen}
-        title="Data Modul Semester"
-        description="Kelola seluruh modul semester di lingkungan Yayasan sebagai acuan pembelajaran terpadu."
-        actions={
-          <>
-            <MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton>
-            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={handleExportCSV}>Export CSV</MasterActionButton>
-            <MasterActionButton icon={Plus} onClick={handleOpenTambahModal}>Tambah Modul</MasterActionButton>
-          </>
-        }
-      />
+      {!shouldHideBreadcrumb && <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Modul Semester' }]} />}
+      <MasterDataPage className="education-unit-page" hideBreadcrumb>
+      {!shouldHideHeader && (
+        <MasterPageHeader
+          tone="brand"
+          icon={BookOpen}
+          title="Data Modul Semester"
+          description="Kelola seluruh modul semester di lingkungan Yayasan sebagai acuan pembelajaran terpadu."
+          actions={pageActions}
+        />
+      )}
 
       <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} title="Modul Semester" onImport={handleImportRows} columns={[
         { key: 'tahun_ajaran_id', required: true }, { key: 'semester_id', required: true }, { key: 'unit_pendidikan_id' }, { key: 'kelas_id', required: true }, { key: 'mata_pelajaran_id', required: true }, { key: 'guru_id', required: true },
@@ -558,6 +751,7 @@ export default function MasterModulSemesterPage() {
         title="Daftar Modul Semester"
         description="Modul sesuai periode, unit, kelas, guru, dan status yang dipilih."
         countLabel={`${Number(meta.total ?? 0).toLocaleString('id-ID')} modul`}
+        actions={pageActions}
         search={{
           value: search,
           onValueChange: (value) => { setSearch(value); setPage(1) },
@@ -753,6 +947,7 @@ export default function MasterModulSemesterPage() {
                 { key: 'bobot', label: '5. Bobot Penilaian' },
               ].map((tab) => (
                 <button
+                  type="button"
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
                   className={`py-3 px-3 border-b-2 transition whitespace-nowrap ${
@@ -835,42 +1030,98 @@ export default function MasterModulSemesterPage() {
                     </div>
 
                     <div>
-                      <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                        Kelas / Rombel <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        value={formData.kelas_id}
-                        onChange={(e) => setFormData({ ...formData, kelas_id: e.target.value })}
-                        className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium"
-                      >
-                        <option value="">-- Pilih Kelas --</option>
-                        {filteredKelasList.map((k) => (
-                          <option key={k.id} value={k.id}>
-                            {k.nama_kelas} ({k.kode_kelas})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-700 dark:text-slate-300 font-bold text-xs sm:text-sm">
+                          Kelas / Rombel <span className="text-rose-500">*</span>
+                        </label>
+                        {isScopedUnitRole && (
+                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-semibold border border-emerald-200 dark:border-emerald-800">
+                            Unit Scoped
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={formData.kelas_id}
+                          onChange={(e) => setFormData({ ...formData, kelas_id: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium text-xs sm:text-sm"
+                        >
+                          <option value="">-- Pilih Kelas ({filteredKelasList.length}) --</option>
+                          {filteredKelasList.map((k) => (
+                            <option key={k.id} value={k.id}>
+                              {k.nama_kelas} ({k.kode_kelas})
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="group relative inline-flex shrink-0">
+                          <button
+                            type="button"
+                            title="Cari & Pilih Kelas / Rombel"
+                            aria-label="Cari & Pilih Kelas / Rombel"
+                            onClick={() => {
+                              setKelasSearchModal('')
+                              setIsKelasModalOpen(true)
+                            }}
+                            className="flex size-10 items-center justify-center rounded-2xl bg-amber-100/90 text-amber-600 hover:bg-amber-500 hover:text-white dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-500 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-amber-500/30 cursor-pointer shadow-2xs shrink-0"
+                          >
+                            <Layers className="size-5 transition-colors" />
+                          </button>
+                          <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                            <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                            Cari &amp; Pilih Kelas / Rombel
+                          </div>
+                        </div>
+                      </div>
                       {formErrors.kelas_id && (
                         <p className="text-[11px] text-rose-500 mt-1">{formErrors.kelas_id[0]}</p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                        Mata Pelajaran <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        value={formData.mata_pelajaran_id}
-                        onChange={(e) => setFormData({ ...formData, mata_pelajaran_id: e.target.value })}
-                        className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium"
-                      >
-                        <option value="">-- Pilih Mata Pelajaran --</option>
-                        {options.mata_pelajaran?.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.name} ({m.code})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-700 dark:text-slate-300 font-bold text-xs sm:text-sm">
+                          Mata Pelajaran <span className="text-rose-500">*</span>
+                        </label>
+                        {isScopedUnitRole && (
+                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-semibold border border-emerald-200 dark:border-emerald-800">
+                            Unit Scoped
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={formData.mata_pelajaran_id}
+                          onChange={(e) => setFormData({ ...formData, mata_pelajaran_id: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium text-xs sm:text-sm"
+                        >
+                          <option value="">-- Pilih Mata Pelajaran ({filteredSubjectList.length}) --</option>
+                          {filteredSubjectList.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} ({m.code || m.kode_mapel || '-'})
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="group relative inline-flex shrink-0">
+                          <button
+                            type="button"
+                            title="Cari & Pilih Mata Pelajaran"
+                            aria-label="Cari & Pilih Mata Pelajaran"
+                            onClick={() => {
+                              setSubjectSearchModal('')
+                              setIsSubjectModalOpen(true)
+                            }}
+                            className="flex size-10 items-center justify-center rounded-2xl bg-indigo-100/90 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-indigo-600/30 cursor-pointer shadow-2xs shrink-0"
+                          >
+                            <BookOpenCheck className="size-5 transition-colors" />
+                          </button>
+                          <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                            <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                            Cari &amp; Pilih Mata Pelajaran
+                          </div>
+                        </div>
+                      </div>
                       {formErrors.mata_pelajaran_id && (
                         <p className="text-[11px] text-rose-500 mt-1">{formErrors.mata_pelajaran_id[0]}</p>
                       )}
@@ -879,21 +1130,87 @@ export default function MasterModulSemesterPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
-                        Guru Pengampu <span className="text-rose-500">*</span>
-                      </label>
-                      <select
-                        value={formData.guru_id}
-                        onChange={(e) => setFormData({ ...formData, guru_id: e.target.value })}
-                        className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium"
-                      >
-                        <option value="">-- Pilih Guru Pengampu --</option>
-                        {options.guru?.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.nama_lengkap} (NIY: {g.niy || '-'})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-slate-700 dark:text-slate-300 font-bold text-xs sm:text-sm">
+                          Guru Pengampu <span className="text-rose-500">*</span>
+                        </label>
+                        {isScopedUnitRole && (
+                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-semibold border border-emerald-200 dark:border-emerald-800">
+                            Unit Scoped
+                          </span>
+                        )}
+                      </div>
+
+                      {selectedGuruObj ? (
+                        <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 shadow-xs">
+                          <PersonIdentityCell
+                            src={selectedGuruObj.foto || selectedGuruObj.photo_url || selectedGuruObj.avatar_url}
+                            name={selectedGuruObj.nama_lengkap}
+                            subtitle={`NIY: ${selectedGuruObj.niy || '-'} • ${selectedGuruObj.position?.name || selectedGuruObj.unit?.name || 'Guru'}`}
+                            size="md"
+                          />
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="group relative inline-flex shrink-0">
+                              <button
+                                type="button"
+                                title="Cari & Pilih Guru / Pegawai"
+                                aria-label="Cari & Pilih Guru / Pegawai"
+                                onClick={() => {
+                                  setGuruSearchModal('')
+                                  setIsGuruModalOpen(true)
+                                }}
+                                className="flex size-9 items-center justify-center rounded-2xl bg-emerald-100/90 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-emerald-600/30 cursor-pointer shadow-2xs shrink-0"
+                              >
+                                <Users className="size-4 transition-colors" />
+                              </button>
+                              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                                <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                                Cari &amp; Pilih Guru / Pegawai
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, guru_id: '' })}
+                              className="px-2.5 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-950 dark:text-rose-300 text-xs font-semibold flex items-center gap-1 transition"
+                            >
+                              <X className="w-3.5 h-3.5" /> Hapus
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={formData.guru_id}
+                            onChange={(e) => setFormData({ ...formData, guru_id: e.target.value })}
+                            className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium text-xs sm:text-sm"
+                          >
+                            <option value="">-- Pilih Guru Pengampu ({filteredGuruList.length}) --</option>
+                            {filteredGuruList.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.nama_lengkap} (NIY: {g.niy || '-'}) {g.position?.name ? `• ${g.position.name}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="group relative inline-flex shrink-0">
+                            <button
+                              type="button"
+                              title="Cari & Pilih Guru / Pegawai"
+                              aria-label="Cari & Pilih Guru / Pegawai"
+                              onClick={() => {
+                                setGuruSearchModal('')
+                                setIsGuruModalOpen(true)
+                              }}
+                              className="flex size-10 items-center justify-center rounded-2xl bg-emerald-100/90 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-emerald-600/30 cursor-pointer shadow-2xs shrink-0"
+                            >
+                              <Users className="size-5 transition-colors" />
+                            </button>
+                            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                              <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                              Cari &amp; Pilih Guru / Pegawai
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {formErrors.guru_id && (
                         <p className="text-[11px] text-rose-500 mt-1">{formErrors.guru_id[0]}</p>
                       )}
@@ -1527,6 +1844,369 @@ export default function MasterModulSemesterPage() {
               </div>
         </AppDrawer>
       )}
+
+      {/* MODAL PILIH KELAS / ROMBEL */}
+      <AppModal
+        isOpen={isKelasModalOpen}
+        onClose={() => setIsKelasModalOpen(false)}
+        title="Pilih Kelas / Rombel"
+        description="Pilih rombongan belajar / kelas terdaftar."
+        icon={Layers}
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-4">
+          {(isScopedUnitRole || formData.unit_pendidikan_id) && (
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-semibold border border-amber-200/80 dark:border-amber-800/60">
+              <Building2 className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>
+                Daftar kelas difilter sesuai unit:{' '}
+                <strong>
+                  {options.unit_pendidikan?.find((u) => u.id === activeUnitIdForForm)?.name || 'Unit Terkait'}
+                </strong>
+              </span>
+            </div>
+          )}
+
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari nama kelas, kode kelas, jenjang..."
+              value={kelasSearchModal}
+              onChange={(e) => setKelasSearchModal(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 font-medium">
+            <span>Ditemukan {filteredKelasModalList.length} kelas</span>
+            {kelasSearchModal && (
+              <button
+                type="button"
+                onClick={() => setKelasSearchModal('')}
+                className="text-rose-500 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <X className="w-3 h-3" /> Reset
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-[360px] overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100 dark:divide-slate-800">
+            {filteredKelasModalList.length > 0 ? (
+              filteredKelasModalList.map((k) => {
+                const isSelected = formData.kelas_id === k.id
+                return (
+                  <div
+                    key={k.id}
+                    className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                      isSelected
+                        ? 'bg-amber-50/80 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent'
+                    }`}
+                  >
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                        {k.nama_kelas}{' '}
+                        <span className="font-mono text-xs text-amber-700 dark:text-amber-400">
+                          ({k.kode_kelas})
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {k.jenjang || 'SDIT'} {k.tahun_ajaran ? `• ${k.tahun_ajaran.name}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          kelas_id: k.id,
+                          unit_pendidikan_id: prev.unit_pendidikan_id || k.unit_pendidikan_id || '',
+                        }))
+                        setIsKelasModalOpen(false)
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs ${
+                        isSelected
+                          ? 'bg-amber-600 text-white cursor-default'
+                          : 'bg-amber-500 hover:bg-amber-600 text-white'
+                      }`}
+                    >
+                      {isSelected ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" /> Terpilih
+                        </>
+                      ) : (
+                        'Pilih Kelas'
+                      )}
+                    </button>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="py-10 text-center text-slate-400">
+                <Layers className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="font-semibold text-xs text-slate-600 dark:text-slate-300">
+                  Tidak ada kelas ditemukan
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </AppModal>
+
+      {/* MODAL PILIH MATA PELAJARAN */}
+      <AppModal
+        isOpen={isSubjectModalOpen}
+        onClose={() => setIsSubjectModalOpen(false)}
+        title="Pilih Mata Pelajaran"
+        description="Pilih mata pelajaran yang akan diampu pada modul semester ini."
+        icon={BookOpenCheck}
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-4">
+          {(isScopedUnitRole || formData.unit_pendidikan_id) && (
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 text-xs font-semibold border border-indigo-200/80 dark:border-indigo-800/60">
+              <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+              <span>
+                Daftar mata pelajaran difilter sesuai unit:{' '}
+                <strong>
+                  {options.unit_pendidikan?.find((u) => u.id === activeUnitIdForForm)?.name || 'Unit Terkait'}
+                </strong>
+              </span>
+            </div>
+          )}
+
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari nama mapel, kode mapel, kelompok..."
+              value={subjectSearchModal}
+              onChange={(e) => setSubjectSearchModal(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 font-medium">
+            <span>Ditemukan {filteredSubjectModalList.length} mata pelajaran</span>
+            {subjectSearchModal && (
+              <button
+                type="button"
+                onClick={() => setSubjectSearchModal('')}
+                className="text-rose-500 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <X className="w-3 h-3" /> Reset
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-[360px] overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100 dark:divide-slate-800">
+            {filteredSubjectModalList.length > 0 ? (
+              filteredSubjectModalList.map((m) => {
+                const isSelected = formData.mata_pelajaran_id === m.id
+                return (
+                  <div
+                    key={m.id}
+                    className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                      isSelected
+                        ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-300 dark:border-indigo-800'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent'
+                    }`}
+                  >
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                        {m.name}{' '}
+                        <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400">
+                          ({m.code || m.kode_mapel || '-'})
+                        </span>
+                      </h4>
+                      {m.kelompok_mapel && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Kelompok: {m.kelompok_mapel}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          mata_pelajaran_id: m.id,
+                          unit_pendidikan_id: prev.unit_pendidikan_id || m.unit_pendidikan_id || '',
+                        }))
+                        setIsSubjectModalOpen(false)
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white cursor-default'
+                          : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                      }`}
+                    >
+                      {isSelected ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" /> Terpilih
+                        </>
+                      ) : (
+                        'Pilih Mapel'
+                      )}
+                    </button>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="py-10 text-center text-slate-400">
+                <BookOpenCheck className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="font-semibold text-xs text-slate-600 dark:text-slate-300">
+                  Tidak ada mata pelajaran ditemukan
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </AppModal>
+
+      {/* MODAL PILIH GURU & PEGAWAI */}
+      <AppModal
+        isOpen={isGuruModalOpen}
+        onClose={() => setIsGuruModalOpen(false)}
+        title="Pilih Guru & Pegawai Pengampu"
+        description="Tampilkan list pegawai dan guru terdaftar. Gunakan pencarian nama, NIY, NIK, atau jabatan."
+        icon={Users}
+        maxWidth="max-w-3xl"
+      >
+        <div className="space-y-4">
+          {/* Unit Scope Banner */}
+          {(isScopedUnitRole || formData.unit_pendidikan_id) && (
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold border border-emerald-200/80 dark:border-emerald-800/60">
+              <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>
+                Data pegawai & guru difilter secara otomatis sesuai unit pendidikan:{' '}
+                <strong>
+                  {options.unit_pendidikan?.find((u) => u.id === activeUnitIdForForm)?.name || 'Unit Terkait'}
+                </strong>
+              </span>
+            </div>
+          )}
+
+          {/* Search & Filter Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2 relative">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari nama lengkap, NIY, NIK, email, jabatan..."
+                value={guruSearchModal}
+                onChange={(e) => setGuruSearchModal(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
+              />
+            </div>
+            <div>
+              <select
+                value={guruStatusModalFilter}
+                onChange={(e) => setGuruStatusModalFilter(e.target.value)}
+                className="w-full py-2.5 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-medium"
+              >
+                <option value="">Semua Status Pegawai</option>
+                <option value="Aktif">Aktif</option>
+                <option value="Tetap">Tetap</option>
+                <option value="Kontrak">Kontrak</option>
+                <option value="Honorer">Honorer</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 font-medium">
+            <span>Ditemukan {filteredGuruList.length} guru / pegawai</span>
+            {guruSearchModal && (
+              <button
+                type="button"
+                onClick={() => setGuruSearchModal('')}
+                className="text-rose-500 hover:underline flex items-center gap-1 font-semibold"
+              >
+                <X className="w-3 h-3" /> Reset Cari
+              </button>
+            )}
+          </div>
+
+          {/* Employee List Grid */}
+          <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100 dark:divide-slate-800">
+            {filteredGuruList.length > 0 ? (
+              filteredGuruList.map((g) => {
+                const isSelected = formData.guru_id === g.id
+                return (
+                  <div
+                    key={g.id}
+                    className={`flex items-center justify-between p-3 rounded-xl transition-all ${
+                      isSelected
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <PersonIdentityCell
+                        src={g.foto || g.photo_url || g.avatar_url}
+                        name={g.nama_lengkap}
+                        subtitle={
+                          <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                            <span>NIY: {g.niy || '-'}</span>
+                            {g.nik && <span>• NIK: {g.nik}</span>}
+                            {g.position?.name && (
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                • {g.position.name}
+                              </span>
+                            )}
+                          </span>
+                        }
+                        size="md"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      {g.unit?.name && (
+                        <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {g.unit.name}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            guru_id: g.id,
+                            unit_pendidikan_id: prev.unit_pendidikan_id || g.unit_id || g.unit_pendidikan_id || '',
+                          }))
+                          setIsGuruModalOpen(false)
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs ${
+                          isSelected
+                            ? 'bg-emerald-700 text-white cursor-default'
+                            : 'bg-[#0E5C44] hover:bg-[#094130] text-white'
+                        }`}
+                      >
+                        {isSelected ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" /> Terpilih
+                          </>
+                        ) : (
+                          'Pilih Guru'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="py-12 text-center text-slate-400 dark:text-slate-500">
+                <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="font-semibold text-sm text-slate-600 dark:text-slate-300">
+                  Tidak ada pegawai / guru ditemukan
+                </p>
+                <p className="text-xs">Coba sesuaikan kata kunci pencarian atau filter status.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </AppModal>
     </MasterDataPage>
     </PageContainer>
   )

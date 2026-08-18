@@ -23,6 +23,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { hakAksesService } from '../services/hakAksesService'
+import { educationUnitService } from '../services/educationUnitService'
 import { getModulLabel, getPermissionLabel } from '../utils/permissionTranslations'
 import UserAccountManagement from '../components/auth/UserAccountManagement'
 import PageContainer from '../components/app/PageContainer'
@@ -428,6 +429,7 @@ export default function MasterHakAksesPage() {
   const [activeTab, setActiveTab] = useState('roles')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [selectedUnitId, setSelectedUnitId] = useState('')
 
   // Role modal
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false)
@@ -439,6 +441,14 @@ export default function MasterHakAksesPage() {
   // Pegawai Hak Akses modal
   const [isPegawaiModalOpen, setIsPegawaiModalOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
+
+  // Query Units
+  const { data: unitsData = {} } = useQuery({
+    queryKey: ['education-units-filter'],
+    queryFn: () => educationUnitService.getUnits({ per_page: 100 }),
+    staleTime: 60000,
+  })
+  const educationUnits = unitsData?.data || unitsData?.items || (Array.isArray(unitsData) ? unitsData : [])
 
   // Query Stats
   const { data: stats = {} } = useQuery({
@@ -461,13 +471,14 @@ export default function MasterHakAksesPage() {
     staleTime: 15000,
   })
 
-  // Query Pegawai (Menarik Data Pegawai)
+  // Query Pegawai (Menarik Data Pegawai Berdasarkan Unit)
   const { data: pegawaiData = {}, isLoading: isLoadingPegawai } = useQuery({
-    queryKey: ['hak-akses-pegawai', search, page],
-    queryFn: () => hakAksesService.getPegawaiHakAkses({ search, page }),
+    queryKey: ['hak-akses-pegawai', search, page, selectedUnitId],
+    queryFn: () => hakAksesService.getPegawaiHakAkses({ search, page, unit_id: selectedUnitId }),
     enabled: activeTab === 'pegawai',
     staleTime: 15000,
   })
+
 
   const roles = rolesData?.data || []
   const availableRoleNames = roles.map((r) => r.name)
@@ -710,21 +721,39 @@ export default function MasterHakAksesPage() {
               <p className="text-[11px] text-slate-400">{activeTabConfig.description}</p>
             </div>
           </div>
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs w-4 h-4" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              placeholder={activeTabConfig.search}
-              aria-label={activeTabConfig.search}
-              className="min-h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-9 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-transparent focus:ring-2 focus:ring-emerald-600"
-            />
-            {search && (
-              <button type="button" onClick={() => setSearch('')} aria-label="Hapus pencarian" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                <X className="h-3 w-3" />
-              </button>
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            {activeTab === 'pegawai' && educationUnits.length > 0 && (
+              <div className="relative min-w-[200px]">
+                <select
+                  value={selectedUnitId}
+                  onChange={(e) => { setSelectedUnitId(e.target.value); setPage(1) }}
+                  className="min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-emerald-600"
+                >
+                  <option value="">Semua Unit Pendidikan</option>
+                  {educationUnits.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name || u.nama_unit || u.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs w-4 h-4" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                placeholder={activeTabConfig.search}
+                aria-label={activeTabConfig.search}
+                className="min-h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-9 text-xs font-semibold text-slate-700 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:border-transparent focus:ring-2 focus:ring-emerald-600"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} aria-label="Hapus pencarian" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>}
@@ -988,7 +1017,29 @@ export default function MasterHakAksesPage() {
       )}
 
       {activeTab === 'akun' && (
-        <UserAccountManagement roles={availableRoleNames} />
+        <div className="space-y-4">
+          {educationUnits.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-emerald-700" />
+                <span className="text-xs font-bold text-slate-800">Filter Unit Pendidikan Akun:</span>
+              </div>
+              <select
+                value={selectedUnitId}
+                onChange={(e) => { setSelectedUnitId(e.target.value); setPage(1) }}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-emerald-600"
+              >
+                <option value="">Semua Unit Akses Anda</option>
+                {educationUnits.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name || u.nama_unit || u.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <UserAccountManagement roles={availableRoleNames} unitId={selectedUnitId} />
+        </div>
       )}
 
       {/* ───── Modals ───── */}

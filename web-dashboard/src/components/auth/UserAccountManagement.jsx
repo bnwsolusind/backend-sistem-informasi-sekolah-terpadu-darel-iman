@@ -90,7 +90,7 @@ function AccountModal({ open, user, roles, saving, onClose, onSave }) {
   )
 }
 
-export default function UserAccountManagement({ roles }) {
+export default function UserAccountManagement({ roles, unitId = '' }) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -98,8 +98,8 @@ export default function UserAccountManagement({ roles }) {
   const [selected, setSelected] = useState(null)
 
   const { data = {}, isLoading } = useQuery({
-    queryKey: ['hak-akses-users', search, page],
-    queryFn: () => hakAksesService.getUsers({ search, page }),
+    queryKey: ['hak-akses-users', search, page, unitId],
+    queryFn: () => hakAksesService.getUsers({ search, page, unit_id: unitId }),
   })
 
   const finish = (response) => {
@@ -166,7 +166,15 @@ export default function UserAccountManagement({ roles }) {
             {isLoading ? <tr><td colSpan={5} className="p-12 text-center text-xs text-slate-400">Memuat akun...</td></tr>
               : users.length === 0 ? <tr><td colSpan={5} className="p-12 text-center text-xs text-slate-400">Akun tidak ditemukan.</td></tr>
               : users.map((user) => <tr key={user.id} className="hover:bg-emerald-50/30">
-                <td className="px-4 py-3"><p className="font-extrabold text-slate-900">{user.name}</p><p className="text-xs text-slate-500">{user.email}</p></td>
+                <td className="px-4 py-3">
+                  <p className="font-extrabold text-slate-900">{user.name}</p>
+                  <p className="text-xs text-slate-500">{user.email}</p>
+                  {user.unit && (
+                    <span className="mt-1 inline-block text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      {user.unit.nama}
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3"><span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">{user.roles?.[0] || 'Tanpa role'}</span></td>
                 <td className="px-4 py-3">{user.is_active ? <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700"><FaUserCheck /> Aktif</span> : <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600"><FaUserTimes /> Nonaktif</span>}</td>
                 <td className="px-4 py-3 text-xs text-slate-500">{user.must_change_password ? 'Wajib diganti' : 'Sudah diatur'}</td>
@@ -183,6 +191,7 @@ export default function UserAccountManagement({ roles }) {
           </tbody>
         </table>
       </div>
+
       {meta.last_page > 1 && <div className="flex items-center justify-end gap-3 text-xs"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg border px-3 py-2 disabled:opacity-40">Sebelumnya</button><span>{page} / {meta.last_page}</span><button disabled={page >= meta.last_page} onClick={() => setPage((value) => value + 1)} className="rounded-lg border px-3 py-2 disabled:opacity-40">Berikutnya</button></div>}
       <AccountModal open={modalOpen} user={selected} roles={roles} saving={create.isPending || update.isPending} onClose={() => { setModalOpen(false); setSelected(null) }} onSave={save} />
     </div>

@@ -8,6 +8,12 @@ export function Drawer({ isOpen, onClose, title, description, children, position
   const descriptionId = useId()
   const drawerRef = useRef(null)
 
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     if (!isOpen) return undefined
 
@@ -24,7 +30,7 @@ export function Drawer({ isOpen, onClose, title, description, children, position
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose?.()
+        onCloseRef.current?.()
         return
       }
       if (event.key !== 'Tab') return
@@ -47,7 +53,7 @@ export function Drawer({ isOpen, onClose, title, description, children, position
       document.body.style.overflow = previousOverflow
       if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 

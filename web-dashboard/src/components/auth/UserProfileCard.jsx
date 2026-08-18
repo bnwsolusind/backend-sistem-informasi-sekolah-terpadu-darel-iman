@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { educationUnitService } from '../../services/educationUnitService'
 
 export default function UserProfileCard() {
-  const { user, setSession, token } = useAuthStore()
+  const { user, setSession, token, loginTime } = useAuthStore()
   const fileInputRef = useRef(null)
   const [unitOptions, setUnitOptions] = useState([])
 
@@ -16,6 +16,16 @@ export default function UserProfileCard() {
       if (Array.isArray(data)) setUnitOptions(data)
     }).catch(() => {})
   }, [])
+
+  const formattedLoginTime = loginTime
+    ? new Date(loginTime).toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) + ' WIB'
+    : 'Sesi Aktif'
 
   const [profile, setProfile] = useState({
     fullName: user?.name || user?.fullName || '',
@@ -135,9 +145,18 @@ export default function UserProfileCard() {
             <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full mt-1">
               {profile.role}
             </span>
-            <p className="text-[11px] text-slate-400 mt-0.5">Administrator</p>
 
-            <div className="mt-5 w-full pt-4 border-t border-slate-200/60 space-y-2">
+            {/* Session Info Badge */}
+            <div className="mt-3 w-full bg-white p-2.5 rounded-xl border border-emerald-100 shadow-xs text-[11px] text-slate-600 text-left space-y-1 font-mono">
+              <div className="flex items-center justify-between text-emerald-900 font-semibold border-b border-slate-100 pb-1">
+                <span>Waktu Login:</span>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-sans">Browser Sesi</span>
+              </div>
+              <p className="text-slate-800 font-medium">{formattedLoginTime}</p>
+              <p className="text-[10px] text-slate-400 font-sans mt-0.5">Batas inaktivitas: 15 menit</p>
+            </div>
+
+            <div className="mt-4 w-full pt-4 border-t border-slate-200/60 space-y-2">
               <button
                 type="button"
                 onClick={handlePhotoClick}

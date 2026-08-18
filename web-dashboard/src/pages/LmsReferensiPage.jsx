@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   BookOpen,
   BookMarked,
@@ -34,7 +34,7 @@ import { lmsReferensiService } from '../services/lmsReferensiService'
 import PageContainer from '../components/app/PageContainer'
 import AppBreadcrumb from '../components/app/AppBreadcrumb'
 
-export default function LmsReferensiPage() {
+export default function LmsReferensiPage({ embedded = false, hideBreadcrumb = false, hidePageHeader = false, tabNav = null }) {
   const [dataReferensi, setDataReferensi] = useState([])
   const [optionsModulAjar, setOptionsModulAjar] = useState([])
   const [optionsReferensiUmum, setOptionsReferensiUmum] = useState([])
@@ -50,6 +50,13 @@ export default function LmsReferensiPage() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+
+  // KPI Modal State
+  const [kpiModalOpen, setKpiModalOpen] = useState(false)
+  const [kpiModalCategory, setKpiModalCategory] = useState({
+    title: '',
+    items: [],
+  })
 
   // Filters & Pagination
   const [search, setSearch] = useState('')
@@ -98,8 +105,43 @@ export default function LmsReferensiPage() {
         setStats(statsRes.data)
       }
     } catch (err) {
-      console.error('Gagal memuat opsi/statistik referensi:', err)
+      console.error('Failed to load initial options and stats:', err)
     }
+  }
+
+  const computedStats = useMemo(() => {
+    return {
+      total_referensi: dataReferensi.length,
+      total_aktif: dataReferensi.filter((r) => r.status === 'aktif').length,
+      dengan_file: dataReferensi.filter((r) => !!r.file || !!r.file_url).length,
+      dengan_url: dataReferensi.filter((r) => !!r.url).length,
+      total_modul_ajar: new Set(dataReferensi.map((r) => r.modul_ajar_id || r.modul_ajar?.id).filter(Boolean)).size,
+    }
+  }, [dataReferensi])
+
+  const handleOpenKpiModal = (type) => {
+    let title = ''
+    let items = []
+
+    if (type === 'total') {
+      title = 'Total Referensi Terdaftar'
+      items = dataReferensi
+    } else if (type === 'aktif') {
+      title = 'Daftar Referensi Aktif'
+      items = dataReferensi.filter((r) => r.status === 'aktif')
+    } else if (type === 'file') {
+      title = 'Daftar Referensi Berkas File Dokumen'
+      items = dataReferensi.filter((r) => !!r.file || !!r.file_url)
+    } else if (type === 'url') {
+      title = 'Daftar Referensi Tautan URL Web'
+      items = dataReferensi.filter((r) => !!r.url)
+    } else if (type === 'modul') {
+      title = 'Daftar Referensi Berdasarkan Modul Ajar'
+      items = dataReferensi
+    }
+
+    setKpiModalCategory({ title, items })
+    setKpiModalOpen(true)
   }
 
   const fetchDaftarReferensi = async () => {
@@ -275,45 +317,67 @@ export default function LmsReferensiPage() {
     }
   }
 
+  const getStatusBadge = (status) => {
+    const isActive = status === 'aktif'
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
+          isActive
+            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+        {isActive ? 'Aktif' : 'Non-Aktif'}
+      </span>
+    )
+  }
+
   return (
     <PageContainer maxW="7xl">
-      <AppBreadcrumb items={[{ label: 'LMS & Akademik', href: '/dashboard' }, { label: 'Referensi Pembelajaran' }]} />
+      {!(embedded || hideBreadcrumb) && (
+        <>
+        <AppBreadcrumb items={[{ label: 'LMS & Akademik', href: '/dashboard' }, { label: 'Referensi Pembelajaran' }]} />
+        </>
+      )}
       <div className="space-y-6 p-6 min-h-screen bg-[#F7F9FC] dark:bg-[#0F172A] text-slate-800 dark:text-slate-100 font-sans transition-colors duration-300">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-8 text-white shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
-                <BookMarked className="w-8 h-8 text-amber-300 animate-pulse" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Referensi Pembelajaran</h1>
-                <p className="text-emerald-100 text-sm mt-1">
-                  Kelola buku acuan, jurnal, modul luar, dan sumber kepustakaan digital terpadu (Modul Ajar 1:N Referensi).
-                </p>
+      {!hidePageHeader && (
+        <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-8 text-white shadow-xl">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                  <BookMarked className="w-8 h-8 text-amber-300 animate-pulse" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight">Referensi Pembelajaran</h1>
+                  <p className="text-emerald-100 text-sm mt-1">
+                    Kelola buku acuan, jurnal, modul luar, dan sumber kepustakaan digital terpadu (Modul Ajar 1:N Referensi).
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchDaftarReferensi}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-medium text-sm transition-all duration-200 hover:scale-105 active:scale-95"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Segarkan
-            </button>
-            <button
-              onClick={handleOpenAddModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[#0E5C44] hover:bg-emerald-50 font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
-            >
-              <Plus className="w-5 h-5" />
-              Tambah Referensi
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={fetchDaftarReferensi}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white font-medium text-sm transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                <RefreshCw className={loading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
+                Segarkan
+              </button>
+              <button
+                onClick={handleOpenAddModal}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[#0E5C44] hover:bg-emerald-50 font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
+              >
+                <Plus className="w-5 h-5" />
+                Tambah Referensi
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Alert Messages */}
       {successMsg && (
@@ -342,9 +406,12 @@ export default function LmsReferensiPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('total')}
+          className="group bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider group-hover:text-[#0E5C44]">
               Total Referensi
             </span>
             <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-[#0E5C44] dark:text-emerald-400">
@@ -352,14 +419,17 @@ export default function LmsReferensiPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total_referensi || 0}</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">{computedStats.total_referensi}</span>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Item referensi terdaftar</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('aktif')}
+          className="group bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider group-hover:text-teal-600">
               Status Aktif
             </span>
             <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400">
@@ -367,14 +437,17 @@ export default function LmsReferensiPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total_aktif || 0}</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">{computedStats.total_aktif}</span>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Siap digunakan mengajar</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('file')}
+          className="group bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider group-hover:text-blue-600">
               Dengan File Dokumen
             </span>
             <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
@@ -382,14 +455,17 @@ export default function LmsReferensiPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{stats.dengan_file || 0}</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">{computedStats.dengan_file}</span>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Berkas PDF/Dokumen terunggah</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('url')}
+          className="group bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider group-hover:text-purple-600">
               Tautan URL Web
             </span>
             <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
@@ -397,14 +473,17 @@ export default function LmsReferensiPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{stats.dengan_url || 0}</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">{computedStats.dengan_url}</span>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Link portal/jurnal eksternal</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => handleOpenKpiModal('modul')}
+          className="group bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-lg hover:scale-[1.02] cursor-pointer transition-all duration-200"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider group-hover:text-amber-600">
               Modul Ajar Terkait
             </span>
             <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
@@ -412,11 +491,14 @@ export default function LmsReferensiPage() {
             </div>
           </div>
           <div className="mt-3">
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total_modul_ajar || 0}</span>
+            <span className="text-2xl font-bold text-slate-900 dark:text-white">{computedStats.total_modul_ajar}</span>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Induk Modul Ajar aktif</p>
           </div>
         </div>
       </div>
+
+      {/* Tab Navigation Card (below KPI grid) */}
+      {tabNav}
 
       {/* Filter Bar */}
       <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
@@ -618,25 +700,7 @@ export default function LmsReferensiPage() {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <span
-                          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                            item.status === 'aktif'
-                              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          {item.status === 'aktif' ? (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                              Aktif
-                            </>
-                          ) : (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                              Non-Aktif
-                            </>
-                          )}
-                        </span>
+                        {getStatusBadge(item.status)}
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -699,6 +763,92 @@ export default function LmsReferensiPage() {
           </div>
         )}
       </div>
+
+      {/* KPI DETAIL MODAL */}
+      {kpiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#1B2433] w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-gradient-to-r from-[#0E5C44] to-[#1E8E5A] p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                  <BookMarked className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{kpiModalCategory.title}</h3>
+                  <p className="text-xs text-emerald-100 mt-0.5">
+                    Menampilkan {kpiModalCategory.items.length} referensi terdaftar
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="text-emerald-100 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {kpiModalCategory.items.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <BookMarked className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-semibold text-sm">Tidak ada data referensi dalam kategori ini.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        <th className="py-3 px-4 text-center w-12">No</th>
+                        <th className="py-3 px-4">Judul Referensi</th>
+                        <th className="py-3 px-4">Penulis & Penerbit</th>
+                        <th className="py-3 px-4">Modul Ajar</th>
+                        <th className="py-3 px-4 text-center">Status</th>
+                        <th className="py-3 px-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                      {kpiModalCategory.items.map((item, idx) => (
+                        <tr key={item.id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                          <td className="py-3 px-4 text-center text-slate-400 text-xs font-medium">{idx + 1}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-100">{item.judul}</td>
+                          <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
+                            {item.penulis ? `${item.penulis} (${item.tahun || '-'})` : '-'}
+                          </td>
+                          <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-300">
+                            {item.modul_ajar?.judul_modul || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-center">{getStatusBadge(item.status)}</td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => {
+                                setKpiModalOpen(false)
+                                handleOpenPreviewModal(item)
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 text-[#0E5C44] dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs hover:bg-emerald-100 transition-colors"
+                            >
+                              Detail
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end bg-slate-50/50 dark:bg-slate-900/40">
+              <button
+                onClick={() => setKpiModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       {modalOpen && (

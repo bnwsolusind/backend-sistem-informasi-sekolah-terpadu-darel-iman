@@ -33,7 +33,7 @@ import {
   PersonIdentityCell,
 } from '../components/app'
 
-export default function LmsPengumpulanTugasPage() {
+export default function LmsPengumpulanTugasPage({ embedded, hidePageHeader, tabNav }) {
   const [dataPengumpulan, setDataPengumpulan] = useState([])
   const [options, setOptions] = useState({
     penugasan: [],
@@ -372,23 +372,25 @@ export default function LmsPengumpulanTugasPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Master Canonical Page Header */}
-      <AppPageHeader
-        variant="brand"
-        icon={UploadCloud}
-        eyebrow="LMS Pelaksanaan Pembelajaran"
-        title="Pengumpulan Tugas Siswa"
-        description="Kelola submission tugas siswa, riwayat pengumpulan file & link, serta proses koreksi dan penilaian hasil kerja secara terpadu."
-        actions={
-          <button
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#0E5C44] font-semibold text-sm shadow-lg hover:bg-emerald-50 transition-all duration-200 active:scale-95 dark:bg-slate-900 dark:text-[#3FBF75] dark:hover:bg-slate-800"
-          >
-            <Plus className="w-4 h-4" />
-            Input / Kumpul Tugas
-          </button>
-        }
-      />
+      {/* Master Canonical Page Header (Hidden when embedded) */}
+      {!embedded && !hidePageHeader && (
+        <AppPageHeader
+          variant="brand"
+          icon={UploadCloud}
+          eyebrow="LMS Pelaksanaan Pembelajaran"
+          title="Pengumpulan Tugas Siswa"
+          description="Kelola submission tugas siswa, riwayat pengumpulan file & link, serta proses koreksi dan penilaian hasil kerja secara terpadu."
+          actions={
+            <button
+              onClick={handleOpenCreateModal}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-[#0E5C44] font-semibold text-sm shadow-lg hover:bg-emerald-50 transition-all duration-200 active:scale-95 dark:bg-slate-900 dark:text-[#3FBF75] dark:hover:bg-slate-800"
+            >
+              <Plus className="w-4 h-4" />
+              Input / Kumpul Tugas
+            </button>
+          }
+        />
+      )}
 
       {/* Alert Notifications */}
       {successMsg && (
@@ -415,7 +417,7 @@ export default function LmsPengumpulanTugasPage() {
         </div>
       )}
 
-      {/* Canonical KPI Cards */}
+      {/* Canonical KPI Cards (Interactive Click Filters) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="Total Pengumpulan"
@@ -424,6 +426,11 @@ export default function LmsPengumpulanTugasPage() {
           tone="emerald"
           subtitle="Seluruh submission tugas siswa"
           loading={loading}
+          onClick={() => {
+            setSelectedStatus('')
+            setPage(1)
+          }}
+          className={selectedStatus === '' ? 'ring-2 ring-emerald-500/30 border-emerald-500' : ''}
         />
         <KpiCard
           title="Sudah Dinilai"
@@ -432,6 +439,11 @@ export default function LmsPengumpulanTugasPage() {
           tone="green"
           subtitle="Telah diberi nilai oleh guru"
           loading={loading}
+          onClick={() => {
+            setSelectedStatus('dinilai')
+            setPage(1)
+          }}
+          className={selectedStatus === 'dinilai' ? 'ring-2 ring-emerald-500/30 border-emerald-500' : ''}
         />
         <KpiCard
           title="Belum Dinilai"
@@ -440,6 +452,11 @@ export default function LmsPengumpulanTugasPage() {
           tone="blue"
           subtitle="Menunggu pemeriksaan guru"
           loading={loading}
+          onClick={() => {
+            setSelectedStatus('dikumpulkan')
+            setPage(1)
+          }}
+          className={selectedStatus === 'dikumpulkan' ? 'ring-2 ring-sky-500/30 border-sky-500' : ''}
         />
         <KpiCard
           title="Terlambat Kumpul"
@@ -448,89 +465,123 @@ export default function LmsPengumpulanTugasPage() {
           tone="amber"
           subtitle="Melewati deadline"
           loading={loading}
+          onClick={() => {
+            setSelectedStatus('terlambat')
+            setPage(1)
+          }}
+          className={selectedStatus === 'terlambat' ? 'ring-2 ring-amber-500/30 border-amber-500' : ''}
         />
       </div>
 
-      {/* Canonical Filter Bar & Search */}
-      <AppFilterBar
-        label="Filter & Pencarian"
-        activeCount={activeFilterCount}
-        onReset={handleResetFilter}
-      >
-        <AppSearch
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Cari siswa, tugas, catatan, atau berkas..."
-          className="min-w-[240px]"
-        />
+      {/* Tab Navigation (Pindahkan di atas card datatable) */}
+      {tabNav && <div className="my-2">{tabNav}</div>}
 
-        <select
-          value={selectedPenugasan}
-          onChange={(e) => {
-            setSelectedPenugasan(e.target.value)
-            setPage(1)
-          }}
-          className="h-10.5 px-3.5 py-2 rounded-xl border border-slate-200/80 bg-white text-xs font-medium text-slate-700 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200"
-        >
-          <option value="">Semua Penugasan</option>
-          {options.penugasan.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedSiswa}
-          onChange={(e) => {
-            setSelectedSiswa(e.target.value)
-            setPage(1)
-          }}
-          className="h-10.5 px-3.5 py-2 rounded-xl border border-slate-200/80 bg-white text-xs font-medium text-slate-700 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200"
-        >
-          <option value="">Semua Siswa</option>
-          {options.siswa.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={selectedStatus}
-          onChange={(e) => {
-            setSelectedStatus(e.target.value)
-            setPage(1)
-          }}
-          className="h-10.5 px-3.5 py-2 rounded-xl border border-slate-200/80 bg-white text-xs font-medium text-slate-700 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-800 dark:bg-[#111827] dark:text-slate-200"
-        >
-          <option value="">Semua Status</option>
-          {options.status.map((st) => (
-            <option key={st.id} value={st.id}>
-              {st.label}
-            </option>
-          ))}
-        </select>
-
-        <button
-          type="button"
-          onClick={handleSearchSubmit}
-          className="h-10.5 px-4 bg-[#0E5C44] text-white rounded-xl text-xs font-semibold hover:bg-[#1E8E5A] transition-colors dark:bg-[#3FBF75] dark:text-slate-900"
-        >
-          Terapkan
-        </button>
-      </AppFilterBar>
-
-      {/* Main Table Card */}
+      {/* Main Datatable Card with Integrated Header & Filter Toolbar */}
       <div className="bg-white rounded-[18px] border border-slate-200/80 shadow-sm overflow-hidden dark:border-slate-800 dark:bg-[#1B2433]">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-            <FileText className="w-5 h-5 text-[#0E5C44] dark:text-[#3FBF75]" />
-            Daftar Pengumpulan & Submission Tugas
-          </h2>
-          <span className="text-xs text-slate-500 font-medium dark:text-slate-400">
-            Total {pagination.total} item
-          </span>
+        {/* Toolbar Baris 1: Title + Action Buttons */}
+        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/30">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0E5C44] dark:text-[#3FBF75] flex items-center justify-center font-bold">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">Daftar Pengumpulan & Submission Tugas</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Pemeriksaan dan penilaian lembar kerja siswa</p>
+            </div>
+            <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-[#0E5C44] dark:bg-emerald-950/80 dark:text-emerald-300">
+              {pagination.total}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenCreateModal}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0E5C44] text-white text-xs font-semibold hover:bg-[#1E8E5A] transition-colors dark:bg-[#3FBF75] dark:text-slate-900"
+            >
+              <Plus className="w-4 h-4" />
+              Input / Kumpul Tugas
+            </button>
+          </div>
+        </div>
+
+        {/* Toolbar Baris 2: Search + Filters */}
+        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#1B2433] flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="w-full md:w-80">
+            <AppSearch
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari siswa, tugas, catatan, berkas..."
+              className="w-full"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+            <select
+              value={selectedPenugasan}
+              onChange={(e) => {
+                setSelectedPenugasan(e.target.value)
+                setPage(1)
+              }}
+              className="h-9 px-3 py-1.5 rounded-xl border border-slate-200/80 bg-slate-50 text-xs font-medium text-slate-700 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              <option value="">Semua Penugasan</option>
+              {options.penugasan.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedSiswa}
+              onChange={(e) => {
+                setSelectedSiswa(e.target.value)
+                setPage(1)
+              }}
+              className="h-9 px-3 py-1.5 rounded-xl border border-slate-200/80 bg-slate-50 text-xs font-medium text-slate-700 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              <option value="">Semua Siswa</option>
+              {options.siswa.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedStatus}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value)
+                setPage(1)
+              }}
+              className="h-9 px-3 py-1.5 rounded-xl border border-slate-200/80 bg-slate-50 text-xs font-medium text-slate-700 outline-none focus:border-[#0E5C44] focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              <option value="">Semua Status</option>
+              {options.status.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {st.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={handleSearchSubmit}
+              className="h-9 px-3 bg-[#0E5C44] text-white rounded-xl text-xs font-semibold hover:bg-[#1E8E5A] transition-colors dark:bg-[#3FBF75] dark:text-slate-900"
+            >
+              Terapkan
+            </button>
+
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={handleResetFilter}
+                className="h-9 px-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-200 transition-colors dark:bg-slate-800 dark:text-slate-300"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (

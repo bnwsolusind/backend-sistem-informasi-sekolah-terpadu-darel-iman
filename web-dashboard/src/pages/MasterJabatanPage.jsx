@@ -28,9 +28,29 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/tailgrids/core/hover-card'
+import { useAuthStore } from '../stores/authStore'
+import { hasAnyRole } from '../auth/portalResolver'
 
 export default function MasterJabatanPage() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
+  const roles = user?.roles || (user?.role ? [user.role] : [])
+  const isKepalaSekolah = hasAnyRole(roles, ['Kepala Sekolah', 'kepala_sekolah', 'kepsek'])
+
+  const isPengurusYayasanRow = (row) => {
+    if (!row) return false
+    if (Number(row.level_jabatan) === 1) return true
+    if (row.satuan_kerja === 'Pengurus') return true
+    const name = String(row.nama_jabatan || row.name || '').toLowerCase()
+    if (name.includes('pengurus yayasan') || name.includes('yayasan')) return true
+    const levelLabel = String(row.level_label || '').toLowerCase()
+    if (levelLabel.includes('pengurus yayasan') || levelLabel.includes('yayasan')) return true
+    return false
+  }
+
+  const isRowRestrictedForUser = (row) => {
+    return isKepalaSekolah && isPengurusYayasanRow(row)
+  }
 
   // Filter & Pagination States
   const [search, setSearch] = useState('')
@@ -199,6 +219,14 @@ export default function MasterJabatanPage() {
   }
 
   const handleOpenEdit = (item) => {
+    if (isRowRestrictedForUser(item)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Akses Dibatasi',
+        text: 'Role Kepala Sekolah tidak diizinkan untuk mengubah data jabatan Pengurus Yayasan.',
+      })
+      return
+    }
     setSelectedJabatanForEdit(item)
     setIsFormModalOpen(true)
   }
@@ -209,6 +237,14 @@ export default function MasterJabatanPage() {
   }
 
   const handleDelete = (item) => {
+    if (isRowRestrictedForUser(item)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Akses Dibatasi',
+        text: 'Role Kepala Sekolah tidak diizinkan untuk menghapus data jabatan Pengurus Yayasan.',
+      })
+      return
+    }
     Swal.fire({
       title: 'Hapus Data Jabatan?',
       html: `Apakah Anda yakin ingin menghapus jabatan <strong>${item.nama_jabatan || item.name}</strong> (${item.kode_jabatan || item.code})?`,
@@ -392,6 +428,14 @@ export default function MasterJabatanPage() {
                 {isTrashed && (
                   <span className="rounded bg-rose-100 px-1 py-0.2 text-[9px] font-bold text-rose-700">Terhapus</span>
                 )}
+                {isRowRestrictedForUser(row) && (
+                  <span
+                    className="rounded bg-amber-100/90 border border-amber-300/80 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-950/60 dark:border-amber-900 dark:text-amber-300"
+                    title="Perubahan & Penghapusan dibatasi untuk role Kepala Sekolah"
+                  >
+                    Dibatasi (Yayasan)
+                  </span>
+                )}
               </span>
               <small className="mt-0.5 block truncate text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
                 {row.jumlah_pegawai ?? 0} pegawai
@@ -446,11 +490,10 @@ export default function MasterJabatanPage() {
         <div className="mx-auto flex max-w-28 flex-col items-stretch gap-1">
           {/* Tampil Struktur */}
           <span
-            className={`inline-flex min-h-6 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold ${
-              row.tampil_struktur
+            className={`inline-flex min-h-6 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold ${row.tampil_struktur
                 ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                 : 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-            }`}
+              }`}
             title="Visibilitas Bagan Struktur Organisasi"
           >
             <FaSitemap className="h-3 w-3 shrink-0" />
@@ -459,11 +502,10 @@ export default function MasterJabatanPage() {
 
           {/* Boleh Login */}
           <span
-            className={`inline-flex min-h-6 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold ${
-              row.boleh_login
+            className={`inline-flex min-h-6 items-center gap-1.5 rounded-lg border px-2 text-[10px] font-semibold ${row.boleh_login
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
                 : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-            }`}
+              }`}
             title="Hak Akses Login Akun Sistem"
           >
             {row.boleh_login ? <FaLockOpen className="h-3 w-3 shrink-0" /> : <FaLock className="h-3 w-3 shrink-0" />}
@@ -507,64 +549,60 @@ export default function MasterJabatanPage() {
   }
 
   // Mobile card view fallback
-  const renderMobileCard = ({ row, onView, onEdit, onDelete }) => (
-    <div className={`rounded-[18px] border bg-white p-4 shadow-2xs dark:bg-[#1B2433] ${row.terhapus ? 'border-rose-200 dark:border-rose-900/50 bg-rose-50/20' : 'border-slate-200/80 dark:border-slate-700'}`}>
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300">
-          <FaSitemap className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[13px] font-extrabold text-slate-900 dark:text-white">{row.nama_jabatan || row.name}</p>
-              <p className="font-mono text-[10px] text-slate-400">{row.kode_jabatan || row.code}</p>
+  const renderMobileCard = ({ row, onView, onEdit, onDelete }) => {
+    const isRestricted = isRowRestrictedForUser(row)
+    return (
+      <div className={`rounded-[18px] border bg-white p-4 shadow-2xs dark:bg-[#1B2433] ${row.terhapus ? 'border-rose-200 dark:border-rose-900/50 bg-rose-50/20' : 'border-slate-200/80 dark:border-slate-700'}`}>
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300">
+            <FaSitemap className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[13px] font-extrabold text-slate-900 dark:text-white">{row.nama_jabatan || row.name}</p>
+                <p className="font-mono text-[10px] text-slate-400">{row.kode_jabatan || row.code}</p>
+              </div>
+              {row.terhapus ? (
+                <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">Terhapus</span>
+              ) : isRestricted ? (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">Dibatasi</span>
+              ) : (
+                <MasterStatusBadge active={row.status === 'Aktif' || row.is_active} inactiveLabel="Nonaktif" />
+              )}
             </div>
-            {row.terhapus ? (
-              <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">Terhapus</span>
-            ) : (
-              <MasterStatusBadge active={row.status === 'Aktif' || row.is_active} inactiveLabel="Nonaktif" />
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
-            <span>Level {row.level_jabatan}</span>
-            <span>{row.satuan_kerja || 'Satuan Kerja -'}</span>
-            <span className="font-bold text-emerald-700">{row.jumlah_pegawai ?? 0} pegawai</span>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <span>Level {row.level_jabatan}</span>
+              <span>{row.satuan_kerja || 'Satuan Kerja -'}</span>
+              <span className="font-bold text-emerald-700">{row.jumlah_pegawai ?? 0} pegawai</span>
+            </div>
           </div>
         </div>
+        <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+          {row.terhapus && (
+            <button
+              type="button"
+              onClick={() => handleRestore(row)}
+              className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+            >
+              <FaRedo className="h-3.5 w-3.5" />
+              <span>Pulihkan</span>
+            </button>
+          )}
+          <ActionDropdown
+            onView={onView}
+            onEdit={!row.terhapus && !isRestricted ? onEdit : undefined}
+            onDelete={!row.terhapus && !isRestricted ? onDelete : undefined}
+          />
+        </div>
       </div>
-      <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2.5 dark:border-slate-800">
-        {row.terhapus && (
-          <button
-            type="button"
-            onClick={() => handleRestore(row)}
-            className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 cursor-pointer"
-          >
-            <FaRedo className="h-3.5 w-3.5" />
-            <span>Pulihkan</span>
-          </button>
-        )}
-        <ActionDropdown
-          onView={onView}
-          onEdit={!row.terhapus ? onEdit : undefined}
-          onDelete={!row.terhapus ? onDelete : undefined}
-        />
-      </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <PageContainer maxW="7xl" className="space-y-6 pb-12">
       {/* AppBreadcrumb */}
       <AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard/master-jabatan' }, { label: 'Master Jabatan' }]} />
-
-      {/* AppPageHeader (Brand Gradient) */}
-      <AppPageHeader
-        variant="brand"
-        icon={FaSitemap}
-        title="Master Jabatan"
-        description="Kelola jabatan, satuan kerja, cakupan akses, struktur organisasi, dan role sistem pegawai."
-        eyebrow="Master Data"
-      />
 
       {/* KPI Stats Grid */}
       <MasterStatsGrid className="education-unit-kpis">
@@ -763,8 +801,8 @@ export default function MasterJabatanPage() {
           </div>
         }
         onView={(row) => handleOpenDetail(row)}
-        onEdit={(row) => !row.terhapus ? handleOpenEdit(row) : undefined}
-        onDelete={(row) => !row.terhapus ? handleDelete(row) : undefined}
+        onEdit={(row) => !row.terhapus && !isRowRestrictedForUser(row) ? handleOpenEdit(row) : undefined}
+        onDelete={(row) => !row.terhapus && !isRowRestrictedForUser(row) ? handleDelete(row) : undefined}
         extraActions={extraActions}
         renderMobileCard={renderMobileCard}
         showPagination
@@ -791,6 +829,7 @@ export default function MasterJabatanPage() {
         initialData={selectedJabatanForEdit}
         options={options}
         isSubmitting={simpanMutation.isPending || ubahMutation.isPending}
+        isKepalaSekolah={isKepalaSekolah}
       />
 
       <JabatanDetailModal

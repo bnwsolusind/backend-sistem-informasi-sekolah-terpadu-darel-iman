@@ -29,8 +29,9 @@ import {
   Lock,
 } from 'lucide-react'
 import { lmsUjianService } from '../services/lmsUjianService'
+import ActionDropdown from '../components/app/ActionDropdown'
 
-export default function LmsUjianPage() {
+export default function LmsUjianPage({ embedded, hidePageHeader, tabNav }) {
   const [dataList, setDataList] = useState([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0 })
@@ -393,33 +394,43 @@ export default function LmsUjianPage() {
         </div>
       )}
 
-      {/* Hero Banner Header */}
-      <div className="bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] rounded-[18px] p-6 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 opacity-15 pointer-events-none">
-          <Clock className="w-72 h-72 text-white" />
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-200 text-xs font-semibold uppercase tracking-wider mb-1">
-              <Sparkles className="w-4 h-4" /> Layer 3: Evaluasi CBT & Penilaian Online
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Ujian Online (CBT)</h1>
-            <p className="text-emerald-100 text-sm mt-1 max-w-xl">
-              Platform Computer Based Test terintegrasi Bank Soal dengan Timer real-time, Acak Soal/Jawaban, Auto Scoring, & Analisis Hasil Ujian.
-            </p>
+      {/* Hero Banner Header (Hidden when embedded) */}
+      {!embedded && !hidePageHeader && (
+        <div className="bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] rounded-[18px] p-6 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 opacity-15 pointer-events-none">
+            <Clock className="w-72 h-72 text-white" />
           </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0E5C44] font-semibold text-sm shadow-md hover:bg-emerald-50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" /> Terbitkan Ujian Baru
-          </button>
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-emerald-200 text-xs font-semibold uppercase tracking-wider mb-1">
+                <Sparkles className="w-4 h-4" /> Layer 3: Evaluasi CBT & Penilaian Online
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Ujian Online (CBT)</h1>
+              <p className="text-emerald-100 text-sm mt-1 max-w-xl">
+                Platform Computer Based Test terintegrasi Bank Soal dengan Timer real-time, Acak Soal/Jawaban, Auto Scoring, & Analisis Hasil Ujian.
+              </p>
+            </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0E5C44] font-semibold text-sm shadow-md hover:bg-emerald-50 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Plus className="w-4 h-4" /> Terbitkan Ujian Baru
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* KPI Stats Cards */}
+      {/* KPI Stats Cards (Interactive Click Filters) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, status: '' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.status === ''
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk melihat semua Ujian CBT"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Ujian CBT</span>
             <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-[#0E5C44] dark:text-emerald-400">
@@ -430,7 +441,15 @@ export default function LmsUjianPage() {
           <span className="text-[11px] text-gray-500 mt-1 block">{stats.total_published} Dipublikasikan</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, status: 'berlangsung' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.status === 'berlangsung'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter sesi ujian Berlangsung"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Sedang Berlangsung</span>
             <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
@@ -441,7 +460,15 @@ export default function LmsUjianPage() {
           <span className="text-[11px] text-gray-400 mt-1 block">Sesi Ujian Aktif</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, status: 'published' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.status === 'published'
+              ? 'border-purple-500 ring-2 ring-purple-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter ujian Dipublikasikan"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Peserta Sesi</span>
             <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400">
@@ -452,7 +479,15 @@ export default function LmsUjianPage() {
           <span className="text-[11px] text-gray-400 mt-1 block">Siswa Mengikuti</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, status: 'selesai' }))}
+          className={`bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            filters.status === 'selesai'
+              ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-md'
+              : 'border-gray-100 dark:border-gray-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter ujian Selesai"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Rata-rata Nilai</span>
             <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
@@ -464,60 +499,89 @@ export default function LmsUjianPage() {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-[#1B2433] p-4 rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Cari ujian, instruksi..."
-            value={filters.search}
-            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#111827] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
-          />
+      {/* Tab Navigation (Pindahkan di atas card datatable) */}
+      {tabNav && <div className="my-2">{tabNav}</div>}
+
+      {/* Main Datatable Card with Integrated Header & Filter Toolbar */}
+      <div className="bg-white dark:bg-[#1B2433] rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden space-y-0">
+        {/* Toolbar Baris 1: Title + Action Button */}
+        <div className="p-4 sm:px-6 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50 dark:bg-[#111827]/40">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0E5C44] dark:text-emerald-400 flex items-center justify-center font-bold">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">Daftar Ujian Online (Evaluasi CBT)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Sesi ujian, timer, acak soal & auto scoring</p>
+            </div>
+            <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-[#0E5C44] dark:bg-emerald-950/80 dark:text-emerald-300">
+              {stats.total_ujian}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0E5C44] text-white text-xs font-semibold hover:bg-emerald-700 transition"
+            >
+              <Plus className="w-4 h-4" />
+              Terbitkan Ujian Baru
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <select
-            value={filters.kelas_id}
-            onChange={(e) => setFilters((prev) => ({ ...prev, kelas_id: e.target.value }))}
-            className="px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
-          >
-            <option value="">Semua Kelas Sasaran</option>
-            {options.kelas.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.nama_kelas}
-              </option>
-            ))}
-          </select>
+        {/* Toolbar Baris 2: Search + Integrated Filters */}
+        <div className="p-4 sm:px-6 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1B2433] flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari ujian, instruksi..."
+              value={filters.search}
+              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#111827] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
+            />
+          </div>
 
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
-            className="px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
-          >
-            <option value="">Semua Status Ujian</option>
-            <option value="draft">Draft</option>
-            <option value="published">Dipublikasikan</option>
-            <option value="berlangsung">Sedang Berlangsung</option>
-            <option value="selesai">Selesai</option>
-          </select>
+          <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+            <select
+              value={filters.kelas_id}
+              onChange={(e) => setFilters((prev) => ({ ...prev, kelas_id: e.target.value }))}
+              className="h-9 px-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
+            >
+              <option value="">Semua Kelas Sasaran</option>
+              {options.kelas.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.nama_kelas}
+                </option>
+              ))}
+            </select>
 
-          <button
-            onClick={() => {
-              setFilters({ search: '', kelas_id: '', status: '' })
-              fetchData(1)
-            }}
-            className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-            title="Reset Filter"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
+              className="h-9 px-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111827] text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E5C44]"
+            >
+              <option value="">Semua Status Ujian</option>
+              <option value="draft">Draft</option>
+              <option value="published">Dipublikasikan</option>
+              <option value="berlangsung">Sedang Berlangsung</option>
+              <option value="selesai">Selesai</option>
+            </select>
+
+            <button
+              onClick={() => {
+                setFilters({ search: '', kelas_id: '', status: '' })
+                fetchData(1)
+              }}
+              className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Reset Filter"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Main Table Card */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-[18px] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-8 text-center space-y-3">
             <RefreshCw className="w-8 h-8 text-[#0E5C44] animate-spin mx-auto" />
@@ -592,43 +656,28 @@ export default function LmsUjianPage() {
                     </td>
 
                     <td className="py-3.5 px-4 text-right align-top">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleLaunchCbtEngine(item)}
-                          className="px-2.5 py-1.5 rounded-lg bg-[#0E5C44] text-white text-xs font-semibold hover:bg-emerald-700 transition flex items-center gap-1 shadow-sm"
-                          title="Simulasi CBT Siswa"
-                        >
-                          <Play className="w-3.5 h-3.5" /> Tes CBT
-                        </button>
-                        <button
-                          onClick={() => handleOpenResults(item.id)}
-                          className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition"
-                          title="Hasil Ujian & Rekap Nilai"
-                        >
-                          <BarChart2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenModal(item)}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition"
-                          title="Edit Ujian"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDuplicate(item.id)}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition"
-                          title="Duplikasi Ujian"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 rounded-lg text-gray-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
-                          title="Hapus Ujian"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <ActionDropdown
+                        onView={() => handleOpenResults(item.id)}
+                        onEdit={() => handleOpenModal(item)}
+                        onDelete={() => handleDelete(item.id)}
+                        extraItems={[
+                          {
+                            label: 'Simulasi Tes CBT',
+                            icon: <Play className="size-4 text-emerald-500" />,
+                            onClick: () => handleLaunchCbtEngine(item),
+                          },
+                          {
+                            label: 'Hasil Ujian & Rekap Nilai',
+                            icon: <BarChart2 className="size-4 text-purple-500" />,
+                            onClick: () => handleOpenResults(item.id),
+                          },
+                          {
+                            label: 'Duplikasi Ujian',
+                            icon: <Copy className="size-4 text-indigo-500" />,
+                            onClick: () => handleDuplicate(item.id),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

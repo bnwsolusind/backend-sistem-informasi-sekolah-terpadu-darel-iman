@@ -8,6 +8,7 @@ import {
   FileSpreadsheet,
   GraduationCap,
   ShieldCheck,
+  Trophy,
   Users,
 } from 'lucide-react'
 import {
@@ -57,6 +58,14 @@ export function FoundationReportsPage() {
       path: '/dashboard/yayasan/laporan/alumni',
       icon: BookOpen,
       color: 'border-pink-100 bg-pink-50 text-pink-600 dark:border-pink-800/60 dark:bg-pink-950/40 dark:text-pink-300',
+    },
+    {
+      id: 'prestasi',
+      title: 'Laporan Rekapitulasi Prestasi Siswa',
+      description: 'Laporan rekapitulasi prestasi siswa per unit, kepala sekolah, dan divisi pendidikan dengan kartu apresiasi siswa.',
+      path: '/dashboard/yayasan/laporan/prestasi',
+      icon: Trophy,
+      color: 'border-yellow-100 bg-yellow-50 text-yellow-600 dark:border-yellow-800/60 dark:bg-yellow-950/40 dark:text-yellow-300',
     },
     {
       id: 'lintas-unit',

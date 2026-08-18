@@ -2,8 +2,10 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Models\Employee;
 use App\Models\LmsPengumpulanTugas;
 use App\Models\LmsPenugasan;
+use App\Models\Teacher;
 use App\Repositories\Contracts\LmsPenugasanRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
@@ -11,6 +13,38 @@ use Illuminate\Support\Facades\Auth;
 
 class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
 {
+    protected function applyTeacherScope($query)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return $query;
+        }
+
+        $adminRoles = ['superadmin', 'yayasan', 'ketuayayasan', 'pengurusyayasan', 'sekretarisyayasan', 'bendaharayayasan', 'kepalasekolah', 'tatausaha', 'tu', 'divisipendidikan'];
+        $userRoles = $user->getRoleNames()->map(fn ($r) => strtolower((string) preg_replace('/[\s_-]+/', '', $r)));
+
+        if ($userRoles->intersect($adminRoles)->isNotEmpty()) {
+            return $query;
+        }
+
+        $employee = Employee::where('user_id', $user->id)->first();
+        $teacher = Teacher::where('user_id', $user->id)->first() ?? ($employee ? Teacher::where('employee_id', $employee->id)->first() : null);
+
+        $teacherIds = array_values(array_filter(array_unique([
+            $employee?->id,
+            $teacher?->id,
+        ])));
+
+        return $query->where(function ($q) use ($teacherIds, $user) {
+            if (! empty($teacherIds)) {
+                $q->whereIn('guru_id', $teacherIds)
+                  ->orWhere('created_by', $user->id);
+            } else {
+                $q->where('created_by', $user->id);
+            }
+        });
+    }
+
     public function getFiltered(array $filters = [], int $perPage = 15, string $orderBy = 'created_at', string $orderDir = 'desc'): LengthAwarePaginator
     {
         $query = LmsPenugasan::query()
@@ -24,6 +58,8 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
                 'creator',
                 'pengumpulan.siswa',
             ]);
+
+        $this->applyTeacherScope($query);
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -209,11 +245,19 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
 
     public function getStats(): array
     {
-        $total = LmsPenugasan::count();
-        $published = LmsPenugasan::where('is_published', true)->count();
-        $draft = LmsPenugasan::where('is_published', false)->count();
-        $totalSubmissions = LmsPengumpulanTugas::count();
-        $totalGraded = LmsPengumpulanTugas::whereNotNull('nilai_guru')->count();
+        $baseQuery = LmsPenugasan::query();
+        $this->applyTeacherScope($baseQuery);
+
+        $total = (clone $baseQuery)->count();
+        $published = (clone $baseQuery)->where('is_published', true)->count();
+        $draft = (clone $baseQuery)->where('is_published', false)->count();
+
+        $subQuery = LmsPengumpulanTugas::whereHas('penugasan', function ($q) {
+            $this->applyTeacherScope($q);
+        });
+
+        $totalSubmissions = (clone $subQuery)->count();
+        $totalGraded = (clone $subQuery)->whereNotNull('nilai_guru')->count();
 
         return [
             'total' => $total,

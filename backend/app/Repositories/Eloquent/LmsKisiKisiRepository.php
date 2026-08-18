@@ -2,13 +2,48 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Models\Employee;
 use App\Models\LmsKisiKisi;
+use App\Models\Teacher;
 use App\Repositories\Contracts\LmsKisiKisiRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
 {
+    protected function applyTeacherScope($query)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return $query;
+        }
+
+        $adminRoles = ['superadmin', 'yayasan', 'ketuayayasan', 'pengurusyayasan', 'sekretarisyayasan', 'bendaharayayasan', 'kepalasekolah', 'tatausaha', 'tu', 'divisipendidikan'];
+        $userRoles = $user->getRoleNames()->map(fn ($r) => strtolower((string) preg_replace('/[\s_-]+/', '', $r)));
+
+        if ($userRoles->intersect($adminRoles)->isNotEmpty()) {
+            return $query;
+        }
+
+        $employee = Employee::where('user_id', $user->id)->first();
+        $teacher = Teacher::where('user_id', $user->id)->first() ?? ($employee ? Teacher::where('employee_id', $employee->id)->first() : null);
+
+        $teacherIds = array_values(array_filter(array_unique([
+            $employee?->id,
+            $teacher?->id,
+        ])));
+
+        return $query->where(function ($q) use ($teacherIds, $user) {
+            if (! empty($teacherIds)) {
+                $q->whereIn('guru_id', $teacherIds)
+                  ->orWhere('created_by', $user->id);
+            } else {
+                $q->where('created_by', $user->id);
+            }
+        });
+    }
+
     public function getFiltered(array $filters = [], int $perPage = 15, string $orderBy = 'created_at', string $orderDir = 'desc'): LengthAwarePaginator
     {
         $query = LmsKisiKisi::with([
@@ -21,6 +56,8 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
             'tahunAjaran',
             'guru',
         ]);
+
+        $this->applyTeacherScope($query);
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -166,13 +203,16 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
 
     public function getStats(): array
     {
-        $total = LmsKisiKisi::count();
-        $aktif = LmsKisiKisi::where('status', true)->count();
-        $nonaktif = LmsKisiKisi::where('status', false)->count();
-        $totalSoalTarget = LmsKisiKisi::sum('jumlah_soal');
-        $uhCount = LmsKisiKisi::where('jenis_ujian', 'UH')->count();
-        $ptsCount = LmsKisiKisi::whereIn('jenis_ujian', ['PTS', 'UTS'])->count();
-        $pasCount = LmsKisiKisi::whereIn('jenis_ujian', ['PAS', 'UAS'])->count();
+        $query = LmsKisiKisi::query();
+        $this->applyTeacherScope($query);
+
+        $total = (clone $query)->count();
+        $aktif = (clone $query)->where('status', true)->count();
+        $nonaktif = (clone $query)->where('status', false)->count();
+        $totalSoalTarget = (clone $query)->sum('jumlah_soal');
+        $uhCount = (clone $query)->where('jenis_ujian', 'UH')->count();
+        $ptsCount = (clone $query)->whereIn('jenis_ujian', ['PTS', 'UTS'])->count();
+        $pasCount = (clone $query)->whereIn('jenis_ujian', ['PAS', 'UAS'])->count();
 
         return [
             'total' => $total,

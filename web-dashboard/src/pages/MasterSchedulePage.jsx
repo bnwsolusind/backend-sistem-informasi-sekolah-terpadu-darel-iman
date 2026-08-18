@@ -476,31 +476,29 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
     return items.filter((item) => (item.day_of_week ?? 1) === Number(selectedWeeklyDay))
   }, [items, selectedWeeklyDay])
 
+  const pageActions = (
+    <>
+      <MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton>
+      <MasterActionButton onClick={openAdd}>Tambah Jadwal Pelajaran</MasterActionButton>
+    </>
+  )
+
+  const shouldHideHeader = embedded || hidePageHeader
+
   return (
     <MasterDataPage
       className="schedule-master-page space-y-6"
       hideBreadcrumb={embedded || hideBreadcrumb}
     >
       {/* Header Banner */}
-      <MasterPageHeader
-        icon={CalendarDays}
-        title="Jadwal Pelajaran & Plot Mengajar"
-        description="Kelola alokasi jam mengajar guru, rombongan belajar, dan mata pelajaran terintegrasi akademik."
-        actions={
-          <>
-            <MasterActionButton
-              variant="import"
-              icon={Upload}
-              onClick={() => setImportOpen(true)}
-            >
-              Import CSV
-            </MasterActionButton>
-            <MasterActionButton onClick={openAdd}>
-              Tambah Jadwal Pelajaran
-            </MasterActionButton>
-          </>
-        }
-      />
+      {!shouldHideHeader && (
+        <MasterPageHeader
+          icon={CalendarDays}
+          title="Jadwal Pelajaran & Plot Mengajar"
+          description="Kelola alokasi jam mengajar guru, rombongan belajar, dan mata pelajaran terintegrasi akademik."
+          actions={pageActions}
+        />
+      )}
 
       {/* CSV Import Modal */}
       <CsvImportModal
@@ -573,31 +571,34 @@ export default function MasterSchedulePage({ embedded = false, hideBreadcrumb = 
           'aria-label': 'Cari jadwal pelajaran',
         }}
         actions={
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                viewMode === 'table'
-                  ? 'bg-[#0E5C44] text-white shadow'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
-              }`}
-            >
-              <TableIcon className="h-3.5 w-3.5" />
-              <span>Daftar Tabel</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('weekly')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                viewMode === 'weekly'
-                  ? 'bg-[#0E5C44] text-white shadow'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
-              }`}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span>Matriks Mingguan</span>
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {pageActions}
+            <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  viewMode === 'table'
+                    ? 'bg-[#0E5C44] text-white shadow'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+                }`}
+              >
+                <TableIcon className="h-3.5 w-3.5" />
+                <span>Daftar Tabel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('weekly')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  viewMode === 'weekly'
+                    ? 'bg-[#0E5C44] text-white shadow'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+                }`}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>Matriks Mingguan</span>
+              </button>
+            </div>
           </div>
         }
         filters={

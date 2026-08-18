@@ -42,8 +42,9 @@ class ModulSemesterService
         $semesters = Semester::get(['id', 'name', 'academic_year_id', 'is_active']);
         $units = EducationUnit::where('is_active', true)->orWhereNotNull('id')->get(['id', 'name', 'code', 'level']);
         $kelas = Kelas::where('status', 'Aktif')->get(['id', 'nama_kelas', 'kode_kelas', 'unit_pendidikan_id', 'tahun_ajaran_id', 'semester_id', 'jenjang']);
-        $subjects = Subject::all(['id', 'code', 'name']);
-        $guru = Employee::where('status', 'Aktif')->orWhereNotNull('id')->get(['id', 'nama_lengkap', 'niy', 'unit_id']);
+        $subjects = Subject::get(['id', 'code', 'name', 'unit_pendidikan_id', 'kelompok_mapel']);
+        $guru = Employee::with(['unit:id,name,code', 'position:id,name'])
+            ->get(['id', 'nama_lengkap', 'niy', 'nik', 'foto', 'unit_id', 'jabatan_id', 'status_pegawai', 'status', 'email', 'no_hp']);
 
         return [
             'tahun_ajaran' => $tahunAjaran,

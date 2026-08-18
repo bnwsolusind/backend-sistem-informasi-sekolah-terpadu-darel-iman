@@ -2,9 +2,11 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Models\Employee;
 use App\Models\LmsPengumpulanTugas;
 use App\Models\LmsPenugasan;
 use App\Models\Student;
+use App\Models\Teacher;
 use App\Repositories\Contracts\LmsPengumpulanTugasRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
@@ -12,6 +14,38 @@ use Illuminate\Support\Facades\Auth;
 
 class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInterface
 {
+    protected function applyTeacherScope($query)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return $query;
+        }
+
+        $adminRoles = ['superadmin', 'yayasan', 'ketuayayasan', 'pengurusyayasan', 'sekretarisyayasan', 'bendaharayayasan', 'kepalasekolah', 'tatausaha', 'tu', 'divisipendidikan'];
+        $userRoles = $user->getRoleNames()->map(fn ($r) => strtolower((string) preg_replace('/[\s_-]+/', '', $r)));
+
+        if ($userRoles->intersect($adminRoles)->isNotEmpty()) {
+            return $query;
+        }
+
+        $employee = Employee::where('user_id', $user->id)->first();
+        $teacher = Teacher::where('user_id', $user->id)->first() ?? ($employee ? Teacher::where('employee_id', $employee->id)->first() : null);
+
+        $teacherIds = array_values(array_filter(array_unique([
+            $employee?->id,
+            $teacher?->id,
+        ])));
+
+        return $query->whereHas('penugasan', function ($qp) use ($teacherIds, $user) {
+            if (! empty($teacherIds)) {
+                $qp->whereIn('guru_id', $teacherIds)
+                   ->orWhere('created_by', $user->id);
+            } else {
+                $qp->where('created_by', $user->id);
+            }
+        });
+    }
+
     public function getFiltered(array $filters = [], int $perPage = 15, string $orderBy = 'created_at', string $orderDir = 'desc'): LengthAwarePaginator
     {
         $query = LmsPengumpulanTugas::query()
@@ -21,6 +55,8 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
                 'siswa',
                 'penilai',
             ]);
+
+        $this->applyTeacherScope($query);
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -158,12 +194,15 @@ class LmsPengumpulanTugasRepository implements LmsPengumpulanTugasRepositoryInte
 
     public function getStats(): array
     {
-        $total = LmsPengumpulanTugas::count();
-        $dikumpulkan = LmsPengumpulanTugas::where('status', 'dikumpulkan')->count();
-        $terlambat = LmsPengumpulanTugas::where('status', 'terlambat')->count();
-        $dinilai = LmsPengumpulanTugas::whereNotNull('nilai_guru')->count();
-        $belumDinilai = LmsPengumpulanTugas::whereNull('nilai_guru')->count();
-        $revisi = LmsPengumpulanTugas::where('status', 'revisi')->count();
+        $query = LmsPengumpulanTugas::query();
+        $this->applyTeacherScope($query);
+
+        $total = (clone $query)->count();
+        $dikumpulkan = (clone $query)->where('status', 'dikumpulkan')->count();
+        $terlambat = (clone $query)->where('status', 'terlambat')->count();
+        $dinilai = (clone $query)->whereNotNull('nilai_guru')->count();
+        $belumDinilai = (clone $query)->whereNull('nilai_guru')->count();
+        $revisi = (clone $query)->where('status', 'revisi')->count();
 
         return [
             'total' => $total,

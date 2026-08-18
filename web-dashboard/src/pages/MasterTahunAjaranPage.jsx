@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Archive,
   CalendarDays,
@@ -27,9 +27,10 @@ import {
   MasterPageHeader,
   MasterStatCard,
   MasterStatsGrid,
+  SquircleActionButton,
 } from '../components/master-data'
 
-export default function MasterTahunAjaranPage() {
+export default function MasterTahunAjaranPage({ embedded = false, hidePageHeader = false, hideBreadcrumb = false }) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('')
@@ -163,23 +164,30 @@ export default function MasterTahunAjaranPage() {
     }
   }
 
+  const pageActions = (
+    <div className="flex items-center gap-2.5 flex-nowrap shrink-0 overflow-x-auto py-1">
+      <SquircleActionButton variant="import" label="Import Data" onClick={() => setIsImportModalOpen(true)} />
+      <SquircleActionButton variant="export" label="Export Data" onClick={() => setShowExportModal(true)} />
+      <SquircleActionButton variant="primary" label="Tambah Tahun Ajaran" onClick={openAdd} />
+    </div>
+  )
+
+  const shouldHideBreadcrumb = embedded || hideBreadcrumb
+  const shouldHideHeader = embedded || hidePageHeader
+
   return (
     <PageContainer maxW="7xl">
-      <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Tahun Ajaran' }]} />
-      <MasterDataPage className="education-unit-page academic-year-page">
-      <MasterPageHeader
-        tone="brand"
-        title="Master Tahun Ajaran"
-        description="Kelola periode akademik, rentang tanggal, dan tahun ajaran aktif sekolah."
-        icon={CalendarDays}
-        actions={(
-          <>
-            <MasterActionButton variant="import" icon={Upload} onClick={() => setIsImportModalOpen(true)}>Import</MasterActionButton>
-            <MasterActionButton variant="export" icon={FileSpreadsheet} onClick={() => setShowExportModal(true)}>Export</MasterActionButton>
-            <MasterActionButton icon={Plus} onClick={openAdd}>Tambah Tahun Ajaran</MasterActionButton>
-          </>
-        )}
-      />
+      {!shouldHideBreadcrumb && <AppBreadcrumb items={[{ label: 'Master Data', href: '/dashboard' }, { label: 'Tahun Ajaran' }]} />}
+      <MasterDataPage className="education-unit-page academic-year-page" hideBreadcrumb>
+      {!shouldHideHeader && (
+        <MasterPageHeader
+          tone="brand"
+          title="Master Tahun Ajaran"
+          description="Kelola periode akademik, rentang tanggal, dan tahun ajaran aktif sekolah."
+          icon={CalendarDays}
+          actions={pageActions}
+        />
+      )}
 
       <MasterStatsGrid className="education-unit-kpis">
         <MasterStatCard icon={CalendarDays} label="Total Periode" value={statsValue(total)} description="Tersimpan di sistem" variant="success" delay={40} loading={query.isLoading} />
@@ -191,6 +199,7 @@ export default function MasterTahunAjaranPage() {
         title="Daftar Tahun Ajaran"
         description="Periode akademik sesuai filter aktif."
         countLabel={`${Number(meta.total ?? listData.length).toLocaleString('id-ID')} periode`}
+        actions={pageActions}
         search={{
           value: search,
           onValueChange: (value) => { setSearch(value); setPage(1) },

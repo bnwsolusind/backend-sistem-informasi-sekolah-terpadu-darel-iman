@@ -22,6 +22,7 @@ import {
   PieChart,
 } from 'lucide-react'
 import { lmsKisiKisiService } from '../services/lmsKisiKisiService'
+import ActionDropdown from '../components/app/ActionDropdown'
 
 const normalizeArray = (value) => {
   if (Array.isArray(value)) return value
@@ -37,7 +38,7 @@ const getSubjectLabel = (subject) =>
   subject?.kode_mapel ||
   'Mata Pelajaran'
 
-export default function LmsKisiKisiPage() {
+export default function LmsKisiKisiPage({ embedded, hidePageHeader, tabNav }) {
   const [dataList, setDataList] = useState([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({ currentPage: 1, lastPage: 1, total: 0 })
@@ -404,33 +405,43 @@ export default function LmsKisiKisiPage() {
         </div>
       )}
 
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-8 text-white shadow-xl">
-        <div className="absolute right-0 top-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-md mb-3">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Modul Evaluasi & Penilaian LMS</span>
+      {/* Hero Banner (Hidden when embedded) */}
+      {!embedded && !hidePageHeader && (
+        <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] p-8 text-white shadow-xl">
+          <div className="absolute right-0 top-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-md mb-3">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Modul Evaluasi & Penilaian LMS</span>
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight">Kisi-kisi Ujian (Exam Blueprint)</h1>
+              <p className="mt-2 text-emerald-100 text-sm max-w-2xl leading-relaxed">
+                Kelola cetak biru kisi-kisi soal ujian terpadu dengan penyelarasan Capaian Pembelajaran (CP), Tujuan Pembelajaran (TP), dan Taksonomi Bloom.
+              </p>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Kisi-kisi Ujian (Exam Blueprint)</h1>
-            <p className="mt-2 text-emerald-100 text-sm max-w-2xl leading-relaxed">
-              Kelola cetak biru kisi-kisi soal ujian terpadu dengan penyelarasan Capaian Pembelajaran (CP), Tujuan Pembelajaran (TP), dan Taksonomi Bloom.
-            </p>
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0E5C44] shadow-lg hover:bg-emerald-50 active:scale-95 transition-all duration-200"
+            >
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span>Buat Kisi-kisi Baru</span>
+            </button>
           </div>
-          <button
-            onClick={() => handleOpenModal()}
-            className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0E5C44] shadow-lg hover:bg-emerald-50 active:scale-95 transition-all duration-200"
-          >
-            <Plus className="h-4 w-4 stroke-[2.5]" />
-            <span>Buat Kisi-kisi Baru</span>
-          </button>
         </div>
-      </div>
+      )}
 
-      {/* KPI Stats Grid */}
+      {/* KPI Stats Grid (Interactive Click Filters) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, jenis_ujian: '', status: '' }))}
+          className={`bg-white dark:bg-slate-800 p-5 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] flex items-center justify-between ${
+            filters.jenis_ujian === ''
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+              : 'border-gray-100 dark:border-slate-700 shadow-sm'
+          }`}
+          title="Klik untuk melihat semua kisi-kisi"
+        >
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Kisi-kisi</p>
             <h3 className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.total}</h3>
@@ -441,7 +452,11 @@ export default function LmsKisiKisiPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, jenis_ujian: '', status: '' }))}
+          className="bg-white dark:bg-slate-800 p-5 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-blue-300 transition-all duration-200 cursor-pointer active:scale-[0.98] flex items-center justify-between"
+          title="Klik untuk memproses estimasi butir soal"
+        >
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Target Butir Soal</p>
             <h3 className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.total_soal_target}</h3>
@@ -452,7 +467,15 @@ export default function LmsKisiKisiPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, jenis_ujian: 'UH' }))}
+          className={`bg-white dark:bg-slate-800 p-5 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] flex items-center justify-between ${
+            filters.jenis_ujian === 'UH'
+              ? 'border-purple-500 ring-2 ring-purple-500/20 shadow-md'
+              : 'border-gray-100 dark:border-slate-700 shadow-sm'
+          }`}
+          title="Klik untuk memfilter Ulangan Harian (UH)"
+        >
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kisi-kisi UH</p>
             <h3 className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.uh}</h3>
@@ -463,7 +486,15 @@ export default function LmsKisiKisiPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
+        <div
+          onClick={() => setFilters((prev) => ({ ...prev, jenis_ujian: 'PTS' }))}
+          className={`bg-white dark:bg-slate-800 p-5 rounded-[18px] border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] flex items-center justify-between ${
+            filters.jenis_ujian === 'PTS' || filters.jenis_ujian === 'PAS'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
+              : 'border-gray-100 dark:border-slate-700 shadow-sm'
+          }`}
+          title="Klik untuk memfilter Ujian Semester (PTS/PAS)"
+        >
           <div>
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PTS & PAS / UAS</p>
             <h3 className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.pts + stats.pas}</h3>
@@ -475,71 +506,100 @@ export default function LmsKisiKisiPage() {
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Cari judul kisi / KD / level kognitif..."
-            value={filters.search}
-            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] transition-all"
-          />
+      {/* Tab Navigation (Pindahkan di atas card datatable) */}
+      {tabNav && <div className="my-2">{tabNav}</div>}
+
+      {/* Main Datatable Card with Integrated Header & Filter Toolbar */}
+      <div className="bg-white dark:bg-slate-800 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden space-y-0">
+        {/* Toolbar Baris 1: Title + Action Button */}
+        <div className="p-4 sm:px-6 border-b border-gray-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50 dark:bg-slate-900/40">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0E5C44] dark:text-emerald-400 flex items-center justify-center font-bold">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">Daftar Kisi-kisi Ujian (Exam Blueprint)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Cetak biru penyelarasan CP/TP dan bobot soal</p>
+            </div>
+            <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-[#0E5C44] dark:bg-emerald-950/80 dark:text-emerald-300">
+              {stats.total}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleOpenModal()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0E5C44] text-white text-xs font-semibold hover:bg-[#1E8E5A] transition-colors dark:bg-emerald-600"
+            >
+              <Plus className="w-4 h-4" />
+              Buat Kisi-kisi Baru
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <select
-            value={filters.mata_pelajaran_id}
-            onChange={(e) => setFilters({ ...filters, mata_pelajaran_id: e.target.value })}
-            className="px-3.5 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
-          >
-            <option value="">Semua Mata Pelajaran</option>
-            {options.subjects.map((sub) => (
-              <option key={sub.id} value={sub.id}>
-                {getSubjectLabel(sub)}
-              </option>
-            ))}
-          </select>
+        {/* Toolbar Baris 2: Search + Integrated Filters */}
+        <div className="p-4 sm:px-6 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari judul kisi / KD / level..."
+              value={filters.search}
+              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#0E5C44] transition-all"
+            />
+          </div>
 
-          <select
-            value={filters.jenis_ujian}
-            onChange={(e) => setFilters({ ...filters, jenis_ujian: e.target.value })}
-            className="px-3.5 py-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
-          >
-            <option value="">Semua Jenis Ujian</option>
-            {options.jenis_ujian_options.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.nama}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+            <select
+              value={filters.mata_pelajaran_id}
+              onChange={(e) => setFilters({ ...filters, mata_pelajaran_id: e.target.value })}
+              className="h-9 px-3 py-1.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
+            >
+              <option value="">Semua Mata Pelajaran</option>
+              {options.subjects.map((sub) => (
+                <option key={sub.id} value={sub.id}>
+                  {getSubjectLabel(sub)}
+                </option>
+              ))}
+            </select>
 
-          <button
-            onClick={() => {
-              setFilters({ search: '', mata_pelajaran_id: '', jenis_ujian: '', status: '' })
-              fetchData(1)
-            }}
-            className="p-2.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-100 transition"
-            title="Reset Filter"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+            <select
+              value={filters.jenis_ujian}
+              onChange={(e) => setFilters({ ...filters, jenis_ujian: e.target.value })}
+              className="h-9 px-3 py-1.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#0E5C44]"
+            >
+              <option value="">Semua Jenis Ujian</option>
+              {options.jenis_ujian_options.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.nama}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={() => {
+                setFilters({ search: '', mata_pelajaran_id: '', jenis_ujian: '', status: '' })
+                fetchData(1)
+              }}
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-100 transition"
+              title="Reset Filter"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Main Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-[18px] border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 dark:bg-slate-900 text-gray-600 dark:text-gray-300 font-semibold border-b border-gray-100 dark:border-slate-700">
+            <thead className="bg-gray-50 dark:bg-slate-900 text-gray-600 dark:text-gray-300 font-semibold border-b border-gray-100 dark:border-slate-700 text-xs">
               <tr>
-                <th className="px-6 py-4">Judul & Mata Pelajaran</th>
-                <th className="px-6 py-4">Capaian & Tujuan (CP / TP)</th>
-                <th className="px-6 py-4">Jenis Ujian & Kognitif</th>
-                <th className="px-6 py-4">Jumlah Soal / Durasi</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Aksi</th>
+                <th className="px-6 py-3.5">Judul & Mata Pelajaran</th>
+                <th className="px-6 py-3.5">Capaian & Tujuan (CP / TP)</th>
+                <th className="px-6 py-3.5">Jenis Ujian & Kognitif</th>
+                <th className="px-6 py-3.5">Jumlah Soal / Durasi</th>
+                <th className="px-6 py-3.5">Status</th>
+                <th className="px-6 py-3.5 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
@@ -612,39 +672,21 @@ export default function LmsKisiKisiPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => {
-                            setViewingItem(item)
-                            setShowDetailModal(true)
-                          }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-xl transition"
-                          title="Lihat Detail"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDuplicate(item.id)}
-                          className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-xl transition"
-                          title="Duplikasi Kisi-kisi"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleOpenModal(item)}
-                          className="p-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-xl transition"
-                          title="Edit"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <ActionDropdown
+                        onView={() => {
+                          setViewingItem(item)
+                          setShowDetailModal(true)
+                        }}
+                        onEdit={() => handleOpenModal(item)}
+                        onDelete={() => handleDelete(item.id)}
+                        extraItems={[
+                          {
+                            label: 'Duplikasi Kisi-kisi',
+                            icon: <Copy className="size-4 text-emerald-500" />,
+                            onClick: () => handleDuplicate(item.id),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))

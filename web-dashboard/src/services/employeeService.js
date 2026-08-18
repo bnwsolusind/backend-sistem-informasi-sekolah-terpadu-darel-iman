@@ -1,8 +1,8 @@
 import { api } from './api'
 
 export const employeeService = {
-  getDashboard: async () => {
-    const { data } = await api.get('/employees/dashboard')
+  getDashboard: async (params = {}) => {
+    const { data } = await api.get('/employees/dashboard', { params })
     return data
   },
 

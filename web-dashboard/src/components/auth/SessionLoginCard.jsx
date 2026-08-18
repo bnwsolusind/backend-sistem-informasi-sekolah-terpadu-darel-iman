@@ -1,16 +1,38 @@
 import { useState } from 'react'
-import { FiMonitor, FiSmartphone, FiGlobe, FiLogOut, FiShield, FiCheckCircle } from 'react-icons/fi'
+import { FiMonitor, FiSmartphone, FiGlobe, FiLogOut, FiShield, FiCheckCircle, FiClock } from 'react-icons/fi'
+import { useAuthStore } from '../../stores/authStore'
 
 export default function SessionLoginCard() {
+  const loginTime = useAuthStore((state) => state.loginTime)
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  const browserName = userAgent.includes('Chrome')
+    ? 'Chrome Web Browser'
+    : userAgent.includes('Firefox')
+      ? 'Mozilla Firefox'
+      : userAgent.includes('Safari')
+        ? 'Apple Safari'
+        : 'Web Browser'
+
+  const formattedLoginTime = loginTime
+    ? new Date(loginTime).toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }) + ' WIB'
+    : 'Sesi Aktif'
+
   const [sessions, setSessions] = useState([
     {
       id: 1,
-      device: 'Windows PC',
+      device: 'Perangkat Sesi Saat Ini',
       isCurrent: true,
-      browser: 'Chrome 125',
+      browser: browserName,
       location: 'Padang, Indonesia',
-      ip: '103.123.45.67',
-      loginTime: '20 Mei 2024 10:22:45',
+      ip: '127.0.0.1 (Sesi Browser)',
+      loginTime: formattedLoginTime,
       icon: FiMonitor,
     },
     {
@@ -33,16 +55,6 @@ export default function SessionLoginCard() {
       loginTime: '18 Mei 2024 08:22:11',
       icon: FiSmartphone,
     },
-    {
-      id: 4,
-      device: 'Android Phone',
-      isCurrent: false,
-      browser: 'Chrome Mobile',
-      location: 'Padang, Indonesia',
-      ip: '103.123.45.72',
-      loginTime: '17 Mei 2024 16:40:33',
-      icon: FiSmartphone,
-    },
   ])
 
   const handleLogoutSession = (id) => {
@@ -58,8 +70,25 @@ export default function SessionLoginCard() {
           <span>Perangkat yang Sedang Login</span>
         </h2>
         <p className="text-sm text-slate-500 mt-1">
-          Kelola perangkat yang saat ini login ke akun Anda.
+          Kelola perangkat dan sesi browser yang saat ini terhubung dengan akun Anda.
         </p>
+      </div>
+
+      {/* Session Rules Banner */}
+      <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <FiClock className="w-5 h-5 text-emerald-700 shrink-0" />
+          <div>
+            <p className="font-bold text-emerald-900">Keamanan Sesi Browser & Batas Waktu Inaktivitas</p>
+            <p className="text-[11px] text-emerald-800 mt-0.5">
+              • <strong>Batas Waktu Inaktif:</strong> Sesi otomatis logout jika tidak ada aktivitas / tidak membuka profil selama 15 menit.<br />
+              • <strong>Isolasi Browser:</strong> Membuka URL link di browser lain atau jendela terpisah mengharuskan login kembali.
+            </p>
+          </div>
+        </div>
+        <span className="px-3 py-1 bg-emerald-800 text-white rounded-full text-[10px] font-bold whitespace-nowrap shadow-xs">
+          Sesi Browser Terisolasi
+        </span>
       </div>
 
       {/* Table */}

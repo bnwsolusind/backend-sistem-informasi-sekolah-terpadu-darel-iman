@@ -19,6 +19,7 @@ import {
   Key,
   ShieldCheck,
   UserX,
+  FileSpreadsheet,
 } from 'lucide-react'
 import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
@@ -109,6 +110,13 @@ const MODAL_CONFIGS = {
     defaultParams: { role_status: 'without_role' },
     linkTo: '/dashboard/hak-akses',
   },
+  laporan_lintas_unit: {
+    title: 'Laporan Lintas Unit Pendidikan',
+    subtitle: 'Rekapitulasi Data & Ekspor Laporan Lintas Unit',
+    icon: FileSpreadsheet,
+    endpoint: '/foundation/units',
+    linkTo: '/dashboard/yayasan/laporan',
+  },
 }
 
 const KEY_ALIASES = {
@@ -117,10 +125,12 @@ const KEY_ALIASES = {
   unit: 'unit_pendidikan',
   units: 'unit_pendidikan',
   active_units: 'unit_pendidikan',
+  unit_pendidikan: 'unit_pendidikan',
 
   total_teachers: 'guru',
   total_guru: 'guru',
   teachers: 'guru',
+  pegawai_guru: 'pegawai',
 
   total_employees: 'pegawai',
   total_pegawai: 'pegawai',
@@ -153,6 +163,8 @@ const KEY_ALIASES = {
   roles: 'role',
 
   users_without_role: 'pengguna_tanpa_role',
+  laporan: 'laporan_lintas_unit',
+  laporan_lintas_unit: 'laporan_lintas_unit',
 }
 
 export default function KpiQuickViewModal({ type, isOpen, onClose }) {

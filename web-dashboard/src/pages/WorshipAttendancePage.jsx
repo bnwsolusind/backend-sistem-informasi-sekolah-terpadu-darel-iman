@@ -50,9 +50,12 @@ import {
   RotateCcw,
   Check,
   CalendarDays,
+  School,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { worshipAttendanceService } from '../services/worshipAttendanceService'
+import { useAuthStore } from '../stores/authStore'
 import {
   MasterDataPage,
   MasterPageHeader,
@@ -128,10 +131,54 @@ function useToast() {
 
 // ─── MAIN PAGE COMPONENT ──────────────────────────────────────────────────
 export default function WorshipAttendancePage() {
+  const authUser = useAuthStore((s) => s.user) || (() => {
+    try {
+      const raw = localStorage.getItem('school_erp_user') || sessionStorage.getItem('school_erp_user')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })()
+
+  const userRole = authUser?.role || authUser?.roles?.[0] || 'Kepala Sekolah'
+  const userUnitName = authUser?.education_unit_name || authUser?.education_unit?.nama || authUser?.unit_name || 'SMA Terpadu'
+  const userUnitId = authUser?.education_unit_id || authUser?.unit_id || null
+
+  // Determine if logged in user manages a Pesantren Pondok unit or Regular School
+  const isPesantrenUnit = Boolean(
+    authUser?.is_pesantren ||
+    userUnitName.toLowerCase().includes('pesantren') ||
+    userUnitName.toLowerCase().includes('pondok') ||
+    userRole === 'Superadmin' ||
+    userRole === 'Pengurus Yayasan'
+  )
+
   // ── State (preserved API logic) ──────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('sessions') // 'sessions' | 'templates'
   const [worshipMethod, setWorshipMethod] = useState('MANUAL') // 'MANUAL' | 'QRCODE' | 'RFID'
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [now, setNow] = useState(new Date())
+
+  // LIVE REAL-TIME CLOCK TIMER (1s Ticker)
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const [showEditSessionModal, setShowEditSessionModal] = useState(false)
+  const [editSessionForm, setEditSessionForm] = useState({
+    id: '',
+    nama: '',
+    start_time: '04:45',
+    end_time: '05:30',
+    location_name: '',
+    status: 'opened',
+  })
+
+  // Format Dynamic Day & Date Display (Indonesian Locale)
+  const formattedDayName = new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(now)
+  const formattedFullDate = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(now)
+  const formattedLiveClock = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   const [templates, setTemplates] = useState([])
   const [sessions, setSessions] = useState([])
   const [selectedSession, setSelectedSession] = useState(null)
@@ -181,6 +228,57 @@ export default function WorshipAttendancePage() {
   const [filterKelompok, setFilterKelompok] = useState('')
 
   const { toasts, dismiss, success: toastSuccess, error: toastError, warning: toastWarning, info: toastInfo } = useToast()
+
+  const handleOpenEditSessionModal = (session) => {
+    setEditSessionForm({
+      id: session.id,
+      nama: session.template?.nama || 'Sesi Ibadah',
+      start_time: session.scheduled_start_at || '04:45',
+      end_time: session.scheduled_end_at || '05:30',
+      location_name: session.location_name || 'Masjid Utama Pesantren',
+      status: session.status || 'opened',
+    })
+    setShowEditSessionModal(true)
+  }
+
+  const handleSaveEditSession = (e) => {
+    e.preventDefault()
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === editSessionForm.id
+          ? {
+              ...s,
+              scheduled_start_at: editSessionForm.start_time,
+              scheduled_end_at: editSessionForm.end_time,
+              location_name: editSessionForm.location_name,
+              status: editSessionForm.status,
+            }
+          : s
+      )
+    )
+
+    if (selectedSession?.id === editSessionForm.id) {
+      setSelectedSession((prev) => ({
+        ...prev,
+        scheduled_start_at: editSessionForm.start_time,
+        scheduled_end_at: editSessionForm.end_time,
+        location_name: editSessionForm.location_name,
+        status: editSessionForm.status,
+      }))
+    }
+    if (sessionDetail?.id === editSessionForm.id) {
+      setSessionDetail((prev) => ({
+        ...prev,
+        scheduled_start_at: editSessionForm.start_time,
+        scheduled_end_at: editSessionForm.end_time,
+        location_name: editSessionForm.location_name,
+        status: editSessionForm.status,
+      }))
+    }
+
+    toastSuccess('Jadwal Sholat Santri Diperbarui', `Jam & lokasi ${editSessionForm.nama} berhasil disesuaikan.`)
+    setShowEditSessionModal(false)
+  }
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const stopCamera = () => {
@@ -378,30 +476,95 @@ export default function WorshipAttendancePage() {
     <MasterDataPage className="education-unit-page academic-year-page" hideBreadcrumb>
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
 
-      {/* ── MASTER HERO PAGE HEADER (Matching Master Tahun Ajaran) ────────── */}
-      <MasterPageHeader
-        title="Presensi Ibadah & Activities Santri"
-        description="Monitoring presensi shalat wajib, sunnah, tilawah, murojaah dan aktivitas ibadah santri secara real-time."
-        tone="brand"
-        icon={Moon}
-        actions={
+      {/* ── HERO CARD HEADER (Matching Student Worship Page Layout & Style) ── */}
+      <div className="mb-4 rounded-[18px] border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#111827]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20">
+              <Moon className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+                  Presensi & Absensi Ibadah Santri Pesantren
+                </h1>
+                <span className="rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300">
+                  Pondok Pesantren
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                Monitoring presensi shalat 5 waktu berjamaah di masjid pesantren, tahajud, dzikir, dan program asrama santri mukim.
+              </p>
+            </div>
+          </div>
+
+          {/* Live Clock & Date Controls */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Real-Time Live Clock Badge */}
+            <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3.5 py-1.5 dark:border-emerald-900 dark:bg-emerald-950/40">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                  {formattedDayName}, {formattedFullDate}
+                </p>
+                <p className="text-xs font-black font-mono text-emerald-900 dark:text-emerald-200">
+                  {formattedLiveClock} WIB
+                </p>
+              </div>
+            </div>
+
+            {/* Date Picker Input */}
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="h-11 rounded-[14px] border border-white/30 bg-white/10 px-3.5 text-xs font-bold text-white shadow-sm backdrop-blur-sm focus:border-white/50 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             />
-            <MasterActionButton
-              className="education-unit-hero__action !h-11 !border-white !bg-white !text-emerald-800 !shadow-none hover:!bg-emerald-50"
-              icon={Plus}
+
+            <button
               onClick={() => { setShowTemplateModal(true); setTemplateStep(1) }}
+              className="group flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition-all hover:bg-emerald-700 hover:scale-105 active:scale-95"
             >
-              Template Baru
-            </MasterActionButton>
+              <Plus className="h-4 w-4" />
+              <span>Template Baru</span>
+            </button>
           </div>
-        }
-      />
+        </div>
+      </div>
+
+      {/* ── SCOPED ALERT NOTICE UNTUK KEPALA SEKOLAH REGULER (NON-PESANTREN) ── */}
+      {!isPesantrenUnit && userRole !== 'Superadmin' && userRole !== 'Pengurus Yayasan' && (
+        <div className="mb-6 rounded-[18px] border border-amber-200/90 bg-amber-50/90 p-5 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 space-y-3.5">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-md shadow-amber-500/20">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-amber-950 dark:text-amber-100">
+                  Akses Terbatasi — Unit Sekolah {userUnitName}
+                </h3>
+                <span className="rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] font-bold text-amber-900">
+                  Sekolah Reguler
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                Halaman <strong>Absensi Ibadah Santri Pesantren</strong> ini dikhususkan untuk unit Pondok Pesantren yang mengelola program santri mukim/asrama. Unit yang Anda pimpin (<strong>{userUnitName}</strong>) merupakan Sekolah Reguler dan tidak memiliki data santri. Data antar-unit diisolasi secara ketat demi keamanan dan privasi data sekolah.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-amber-200/80 dark:border-amber-900/50">
+            <Link
+              to="/dashboard/absensi-ibadah-siswa"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-amber-600/20 transition-all hover:bg-amber-700 hover:scale-105 active:scale-95"
+            >
+              <School className="h-4 w-4" />
+              <span>Kelola Absensi Ibadah Siswa Sekolah ({userUnitName})</span>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── MASTER TAB SWITCHER (Rapi & Sejajar) ─────────────────────────── */}
       <div className="my-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
@@ -435,10 +598,10 @@ export default function WorshipAttendancePage() {
 
       {activeTab === 'sessions' && (
         <>
-          {/* ── KPI CARDS ROW (Exact match with reference image) ──────────── */}
+          {/* ── KPI CARDS ROW (Exact match with TailGrids reference) ──────────── */}
           <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
             {/* KPI 1: Total Santri */}
-            <article className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+            <article className="flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-800 dark:bg-[#1B2433]">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
                 <Users className="h-5 w-5" />
               </div>
@@ -450,7 +613,7 @@ export default function WorshipAttendancePage() {
             </article>
 
             {/* KPI 2: Hadir Berjamaah */}
-            <article className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+            <article className="flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-800 dark:bg-[#1B2433]">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
@@ -462,7 +625,7 @@ export default function WorshipAttendancePage() {
             </article>
 
             {/* KPI 3: Munfarid */}
-            <article className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+            <article className="flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-800 dark:bg-[#1B2433]">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950 dark:text-sky-400">
                 <User className="h-5 w-5" />
               </div>
@@ -474,7 +637,7 @@ export default function WorshipAttendancePage() {
             </article>
 
             {/* KPI 4: Terlambat */}
-            <article className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+            <article className="flex items-center gap-3 rounded-[18px] border border-slate-200/80 bg-white p-3.5 shadow-sm transition-all hover:shadow-md hover:scale-[1.01] dark:border-slate-800 dark:bg-[#1B2433]">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400">
                 <Clock className="h-5 w-5" />
               </div>
@@ -602,23 +765,32 @@ export default function WorshipAttendancePage() {
                   {/* Header Row */}
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-base font-bold text-slate-900 dark:text-white">
                           {sessionDetail.template?.nama}
                         </h2>
                         <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                           Opened
                         </span>
+                        <button
+                          onClick={() => handleOpenEditSessionModal(sessionDetail)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 text-[11px] font-bold text-emerald-700 shadow-2xs transition-all hover:bg-emerald-100 hover:scale-105 active:scale-95 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-300"
+                        >
+                          <Edit className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>Ubah Jam Manual</span>
+                        </button>
                       </div>
-                      <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {sessionDetail.scheduled_start_at} - {sessionDetail.scheduled_end_at} WIB</span>
-                        <span>|</span>
-                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {sessionDetail.location_name}</span>
-                        <span>|</span>
-                        <span className="font-semibold text-emerald-600">Wajib</span>
-                        <span>|</span>
-                        <span>Shalat Berjamaah</span>
-                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1 font-medium">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                          <span>Lokasi: <strong className="text-slate-700 dark:text-slate-200">{sessionDetail.location_name}</strong></span>
+                        </span>
+                        <span className="text-slate-300 dark:text-slate-700">|</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <Clock className="h-3.5 w-3.5 text-slate-400" />
+                          <span>Jam Sesi: <strong className="text-slate-700 dark:text-slate-200">{sessionDetail.scheduled_start_at} - {sessionDetail.scheduled_end_at} WIB</strong></span>
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -1187,73 +1359,184 @@ export default function WorshipAttendancePage() {
 
       {/* ── CAMERA MODAL ──────────────────────────────────────────────────── */}
       {showCameraModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md">
-          <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#1B2433]">
-            <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-                  <Camera className="h-5 w-5" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#111827] space-y-4 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                  <Camera className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Pemindai Live QR Code Ibadah</h3>
-                  <p className="text-[11px] text-slate-500">Sesi: {sessionDetail?.template?.nama}</p>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Scanner QR Code Kartu Santri
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Arahkan QR Code pada kartu santri ke area pemindai</p>
                 </div>
               </div>
-              <button onClick={closeCameraModal} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+              <button onClick={closeCameraModal} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
-              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-slate-200 bg-black shadow-inner dark:border-slate-800">
-                <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-                {cameraLoading && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 text-white gap-2">
-                    <RefreshCw className="h-7 w-7 animate-spin text-emerald-400" />
-                    <p className="text-xs font-semibold">Menghubungkan kamera...</p>
+            {/* Video Camera Viewfinder Screen */}
+            <div className="relative overflow-hidden rounded-2xl bg-black aspect-video flex items-center justify-center border-2 border-emerald-500/50 shadow-inner">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="h-full w-full object-cover"
+              />
+
+              {/* Viewfinder Target Box Overlay */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="h-48 w-48 rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-500/10 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] flex flex-col items-center justify-between p-3">
+                  <div className="w-full flex justify-between">
+                    <span className="h-4 w-4 border-t-2 border-l-2 border-emerald-400" />
+                    <span className="h-4 w-4 border-t-2 border-r-2 border-emerald-400" />
                   </div>
-                )}
-                {cameraActive && (
-                  <div className="absolute inset-0 border-2 border-dashed border-emerald-400/80 pointer-events-none rounded-xl m-5 flex items-center justify-center">
-                    <span className="bg-black/60 backdrop-blur-sm px-3 py-1 text-[10px] font-bold text-emerald-300 rounded-full">
-                      🔴 LIVE — Arahkan QR Code Kartu Santri
-                    </span>
+                  <p className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full">
+                    Arahkan QR Code Di Sini
+                  </p>
+                  <div className="w-full flex justify-between">
+                    <span className="h-4 w-4 border-b-2 border-l-2 border-emerald-400" />
+                    <span className="h-4 w-4 border-b-2 border-r-2 border-emerald-400" />
                   </div>
-                )}
+                </div>
               </div>
 
+              {cameraLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 text-white gap-2">
+                  <RefreshCw className="h-8 w-8 animate-spin text-emerald-400" />
+                  <p className="text-xs font-semibold">Mengaktifkan Kamera Pemindai...</p>
+                </div>
+              )}
+            </div>
+
+            {/* Manual QR NISN Input & Action Footer */}
+            <div className="space-y-2 pt-2">
               <form onSubmit={(e) => { e.preventDefault(); if (!modalInput.trim()) return; handleProcessWorshipScan(modalInput) }} className="flex gap-2">
                 <input
                   type="text"
                   autoFocus
                   value={modalInput}
                   onChange={(e) => setModalInput(e.target.value)}
-                  placeholder="Scan QR / Ketik NISN..."
-                  className="h-10 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  placeholder="Atau masukkan NISN hasil scan..."
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
                 />
                 <button
                   type="submit"
                   disabled={processingScan}
-                  className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-emerald-700 disabled:opacity-50"
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {processingScan ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Proses'}
+                  {processingScan ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Proses QR'}
                 </button>
               </form>
-            </div>
 
-            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-800/40">
-              <button
-                type="button"
-                onClick={cameraActive ? stopCamera : startCamera}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-              >
-                {cameraActive ? <><CameraOff className="h-3.5 w-3.5 text-rose-500" /> Matikan Kamera</> : <><Camera className="h-3.5 w-3.5 text-emerald-500" /> Nyalakan Kamera</>}
-              </button>
-              <button type="button" onClick={closeCameraModal} className="rounded-xl bg-slate-200 px-4 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200">
-                Tutup
-              </button>
+              <div className="flex justify-between items-center pt-2 text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={cameraActive ? stopCamera : startCamera}
+                  className="flex items-center gap-1.5 font-bold text-slate-600 hover:text-slate-800 dark:text-slate-300"
+                >
+                  {cameraActive ? <><CameraOff className="h-3.5 w-3.5 text-rose-500" /> Matikan Kamera</> : <><Camera className="h-3.5 w-3.5 text-emerald-500" /> Nyalakan Kamera</>}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeCameraModal}
+                  className="text-slate-500 hover:text-slate-700 font-semibold"
+                >
+                  Tutup Kamera
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── MODAL UBAH MANUAL JADWAL SESI IBADAH SANTRI ──────────────────── */}
+      {showEditSessionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <form onSubmit={handleSaveEditSession} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-[#111827] space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Ubah Manual Jam & Lokasi Sesi Santri
+              </h3>
+              <button type="button" onClick={() => setShowEditSessionModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Nama Sesi Sholat</label>
+                <p className="font-bold text-emerald-700 dark:text-emerald-400 text-sm">{editSessionForm.nama}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Jam Mulai Sesi</label>
+                  <input
+                    type="time"
+                    required
+                    value={editSessionForm.start_time}
+                    onChange={(e) => setEditSessionForm({ ...editSessionForm, start_time: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Jam Selesai Sesi</label>
+                  <input
+                    type="time"
+                    required
+                    value={editSessionForm.end_time}
+                    onChange={(e) => setEditSessionForm({ ...editSessionForm, end_time: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Lokasi Ibadah</label>
+                <input
+                  type="text"
+                  required
+                  value={editSessionForm.location_name}
+                  onChange={(e) => setEditSessionForm({ ...editSessionForm, location_name: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-semibold focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Status Sesi</label>
+                <select
+                  value={editSessionForm.status}
+                  onChange={(e) => setEditSessionForm({ ...editSessionForm, status: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-semibold focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
+                >
+                  <option value="opened">Dibuka (Opened)</option>
+                  <option value="upcoming">Akan Datang (Upcoming)</option>
+                  <option value="closed">Ditutup (Closed)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowEditSessionModal(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                Simpan Perubahan
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

@@ -3,7 +3,15 @@ import { api } from './api'
 const unwrap = (response) => response?.data?.data ?? response?.data ?? {}
 
 export const reportService = {
-  attendance: async (params = {}) => unwrap(await api.get('/attendance/reports/summary', { params })),
+  attendance: async (params = {}) => {
+    try {
+      const res = await api.get('/lesson-attendance/report', { params })
+      return res?.data?.data ?? res?.data ?? {}
+    } catch {
+      const res2 = await api.get('/attendance/reports/summary', { params })
+      return res2?.data?.data ?? res2?.data ?? {}
+    }
+  },
   employees: async (params = {}) => unwrap(await api.get('/employees', { params: { ...params, per_page: 100 } })),
   employeeStats: async () => unwrap(await api.get('/employees/dashboard')),
   grades: async (params = {}) => unwrap(await api.get('/grades', { params: { ...params, per_page: 100 } })),
@@ -38,6 +46,9 @@ export const reportService = {
   getFoundationAlumniDetail: async (id) => unwrap(await api.get(`/foundation/laporan/alumni/detail/${id}`)),
 
   getFoundationLintasUnitReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/lintas-unit', { params })),
+
+  getFoundationPrestasiReport: async (params = {}) => unwrap(await api.get('/foundation/laporan/prestasi', { params })),
+  getFoundationPrestasiDetail: async (id) => unwrap(await api.get(`/foundation/laporan/prestasi/detail/${id}`)),
 
   exportFoundationReport: (type, params = {}) => {
     const query = new URLSearchParams(params).toString()

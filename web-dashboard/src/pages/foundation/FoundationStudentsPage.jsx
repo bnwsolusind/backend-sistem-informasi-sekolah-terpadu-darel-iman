@@ -45,11 +45,21 @@ export function FoundationStudentsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState(null)
   const [showExport, setShowExport] = useState(false)
 
+  const [academicYears, setAcademicYears] = useState([])
+  const [selectedYear, setSelectedYear] = useState('all')
+
   useEffect(() => {
     api.get('/foundation/units')
       .then((res) => {
         const raw = res.data?.data || res.data || []
         setUnits(Array.isArray(raw) ? raw : [])
+      })
+      .catch(() => {})
+
+    api.get('/master/tahun-ajaran')
+      .then((res) => {
+        const raw = res.data?.data || res.data || []
+        setAcademicYears(Array.isArray(raw) ? raw : [])
       })
       .catch(() => {})
   }, [])
@@ -62,6 +72,7 @@ export function FoundationStudentsPage() {
       const params = {
         search: search || undefined,
         unit_id: selectedUnit !== 'all' ? selectedUnit : undefined,
+        academic_year_id: selectedYear !== 'all' ? selectedYear : undefined,
         gender: selectedGender !== 'all' ? selectedGender : undefined,
         per_page: 100,
       }
@@ -81,7 +92,7 @@ export function FoundationStudentsPage() {
       setLoading(false)
       setIsFetching(false)
     }
-  }, [search, selectedUnit, selectedGender])
+  }, [search, selectedUnit, selectedYear, selectedGender])
 
   useEffect(() => {
     fetchStudents()
@@ -154,6 +165,37 @@ export function FoundationStudentsPage() {
         <MasterStatCard icon={UsersRound} label="Siswa Aktif" value={activeCount} description="Status aktif" variant="neutral" delay={160} />
       </MasterStatsGrid>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/70 p-1.5 dark:border-slate-800 dark:bg-slate-900/50">
+        <a
+          href="/dashboard/yayasan/siswa"
+          className="flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-xs font-bold text-emerald-800 shadow-sm dark:bg-slate-800 dark:text-emerald-300"
+        >
+          <GraduationCap className="h-4 w-4" />
+          Siswa Aktif (Tahun Ajaran)
+        </a>
+        <a
+          href="/dashboard/yayasan/siswa-baru"
+          className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-white/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <UserCheck className="h-4 w-4 text-emerald-600" />
+          Siswa Masuk (Baru)
+        </a>
+        <a
+          href="/dashboard/yayasan/mutasi-siswa"
+          className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-white/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <UserRound className="h-4 w-4 text-amber-600" />
+          Siswa Keluar (Mutasi)
+        </a>
+        <a
+          href="/dashboard/yayasan/kelulusan-alumni"
+          className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-white/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+        >
+          <UsersRound className="h-4 w-4 text-sky-600" />
+          Kelulusan & Alumni
+        </a>
+      </div>
+
       <MasterFilterBar
         search={<MasterSearchInput placeholder="Cari NIS, NISN, atau nama siswa..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} />}
         filters={
@@ -161,6 +203,10 @@ export function FoundationStudentsPage() {
             <MasterFilterSelect value={selectedUnit} onChange={(e) => { setSelectedUnit(e.target.value); setPage(1) }} aria-label="Filter unit pendidikan">
               <option value="all">Semua Unit Pendidikan</option>
               {units.map((u) => <option key={u.id} value={u.id}>{u.name || u.code}</option>)}
+            </MasterFilterSelect>
+            <MasterFilterSelect value={selectedYear} onChange={(e) => { setSelectedYear(e.target.value); setPage(1) }} aria-label="Filter tahun ajaran">
+              <option value="all">Semua Tahun Ajaran</option>
+              {academicYears.map((ay) => <option key={ay.id} value={ay.id}>{ay.nama || ay.name}</option>)}
             </MasterFilterSelect>
             <MasterFilterSelect value={selectedGender} onChange={(e) => { setSelectedGender(e.target.value); setPage(1) }} aria-label="Filter gender">
               <option value="all">Semua Gender</option>

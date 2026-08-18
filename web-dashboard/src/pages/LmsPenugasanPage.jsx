@@ -29,8 +29,9 @@ import {
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { lmsPenugasanService } from '../services/lmsPenugasanService'
+import ActionDropdown from '../components/app/ActionDropdown'
 
-export default function LmsPenugasanPage() {
+export default function LmsPenugasanPage({ embedded, hidePageHeader, tabNav }) {
   const [dataPenugasan, setDataPenugasan] = useState([])
   const [options, setOptions] = useState({
     modul_ajar: [],
@@ -356,31 +357,33 @@ export default function LmsPenugasanPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Banner / Header */}
-      <div className="bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] rounded-[18px] p-6 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute -right-6 -bottom-6 opacity-15 text-white">
-          <ClipboardList size={180} />
-        </div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-200 text-sm font-medium mb-1">
-              <BookOpen size={16} />
-              <span>Pelaksanaan Pembelajaran & Assessments</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Penugasan & Proyek Siswa</h1>
-            <p className="text-emerald-100 text-sm max-w-xl mt-1">
-              Kelola tugas mandiri, proyek kelompok, kuis formatif, serta penilaian hasil pengumpulan tugas siswa secara terpadu.
-            </p>
+      {/* Top Banner / Header (Hidden when embedded) */}
+      {!embedded && !hidePageHeader && (
+        <div className="bg-gradient-to-r from-[#0E5C44] via-[#1E8E5A] to-[#3FBF75] rounded-[18px] p-6 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute -right-6 -bottom-6 opacity-15 text-white">
+            <ClipboardList size={180} />
           </div>
-          <button
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 bg-white text-[#0E5C44] hover:bg-emerald-50 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 transform hover:scale-[1.03] active:scale-95 shadow-md"
-          >
-            <Plus size={18} />
-            <span>Buat Penugasan Baru</span>
-          </button>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-emerald-200 text-sm font-medium mb-1">
+                <BookOpen size={16} />
+                <span>Pelaksanaan Pembelajaran & Assessments</span>
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Penugasan & Proyek Siswa</h1>
+              <p className="text-emerald-100 text-sm max-w-xl mt-1">
+                Kelola tugas mandiri, proyek kelompok, kuis formatif, serta penilaian hasil pengumpulan tugas siswa secara terpadu.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-2 bg-white text-[#0E5C44] hover:bg-emerald-50 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 transform hover:scale-[1.03] active:scale-95 shadow-md"
+            >
+              <Plus size={18} />
+              <span>Buat Penugasan Baru</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Alert Notifications */}
       {errorMsg && (
@@ -407,9 +410,20 @@ export default function LmsPenugasanPage() {
         </div>
       )}
 
-      {/* KPI Cards / Statistics */}
+      {/* KPI Cards / Statistics (Interactive Click Filters) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => {
+            setSelectedStatus('')
+            setPage(1)
+          }}
+          className={`bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            selectedStatus === ''
+              ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+              : 'border-slate-200/80 dark:border-slate-800 shadow-sm'
+          }`}
+          title="Klik untuk melihat semua penugasan"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Penugasan</span>
             <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#0E5C44] dark:text-emerald-400">
@@ -420,7 +434,18 @@ export default function LmsPenugasanPage() {
           <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 block">Tercatat di sistem</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => {
+            setSelectedStatus('dipublikasikan')
+            setPage(1)
+          }}
+          className={`bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            selectedStatus === 'dipublikasikan'
+              ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-md'
+              : 'border-slate-200/80 dark:border-slate-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter status Dipublikasikan"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Dipublikasikan</span>
             <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
@@ -431,7 +456,18 @@ export default function LmsPenugasanPage() {
           <span className="text-[11px] text-blue-600 dark:text-blue-400 mt-1 block">Dapat diakses siswa</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => {
+            setSelectedStatus('draft')
+            setPage(1)
+          }}
+          className={`bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 active:scale-[0.98] ${
+            selectedStatus === 'draft'
+              ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
+              : 'border-slate-200/80 dark:border-slate-800 shadow-sm'
+          }`}
+          title="Klik untuk memfilter status Draft"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Draft</span>
             <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-600 dark:text-amber-400">
@@ -442,7 +478,14 @@ export default function LmsPenugasanPage() {
           <span className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 block">Belum dipublish</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => {
+            setSelectedStatus('dipublikasikan')
+            setPage(1)
+          }}
+          className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer active:scale-[0.98]"
+          title="Klik untuk memfilter tugas dengan submission siswa"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pengumpulan Siswa</span>
             <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/50 flex items-center justify-center text-purple-600 dark:text-purple-400">
@@ -453,7 +496,14 @@ export default function LmsPenugasanPage() {
           <span className="text-[11px] text-purple-600 dark:text-purple-400 mt-1 block">Submission terkirim</span>
         </div>
 
-        <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div
+          onClick={() => {
+            setSelectedStatus('dipublikasikan')
+            setPage(1)
+          }}
+          className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm hover:-translate-y-0.5 hover:shadow-md hover:border-teal-300 transition-all duration-200 cursor-pointer active:scale-[0.98]"
+          title="Klik untuk memfilter tugas yang telah dinilai"
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tugas Dinilai</span>
             <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400">
@@ -465,11 +515,41 @@ export default function LmsPenugasanPage() {
         </div>
       </div>
 
-      {/* Filter & Search Toolbar */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-[18px] p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      {/* Tab Navigation (Pindahkan di atas card datatable) */}
+      {tabNav && <div className="my-2">{tabNav}</div>}
+
+      {/* Main Datatable Card with Integrated Header & Filter Toolbar */}
+      <div className="bg-white dark:bg-[#1B2433] rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden space-y-0">
+        {/* Toolbar Baris 1: Title + Action Buttons */}
+        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/30">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0E5C44] dark:text-emerald-400 flex items-center justify-center font-bold">
+              <ClipboardList size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">Daftar Penugasan & Proyek Siswa</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Kelola instruksi tugas, bobot, dan publikasi</p>
+            </div>
+            <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-[#0E5C44] dark:bg-emerald-950/80 dark:text-emerald-300">
+              {stats.total}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenCreateModal}
+              className="flex items-center gap-2 bg-[#0E5C44] text-white hover:bg-[#1E8E5A] px-4 py-2 rounded-xl font-semibold text-xs transition-all duration-200 shadow-sm active:scale-95"
+            >
+              <Plus size={16} />
+              <span>Buat Penugasan Baru</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Toolbar Baris 2: Search + Integrated Filter Dropdowns */}
+        <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-[#1B2433] flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="relative w-full md:w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input
               type="text"
               placeholder="Cari judul, deskripsi..."
@@ -478,12 +558,11 @@ export default function LmsPenugasanPage() {
                 setSearch(e.target.value)
                 setPage(1)
               }}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] transition-all"
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#0E5C44] transition-all"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Filter Modul Ajar */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
               <SlidersHorizontal size={14} />
               <span>Filter:</span>
@@ -505,7 +584,6 @@ export default function LmsPenugasanPage() {
               ))}
             </select>
 
-            {/* Filter Kelas */}
             <select
               value={selectedKelas}
               onChange={(e) => {
@@ -522,7 +600,6 @@ export default function LmsPenugasanPage() {
               ))}
             </select>
 
-            {/* Filter Tipe */}
             <select
               value={selectedTipe}
               onChange={(e) => {
@@ -539,7 +616,6 @@ export default function LmsPenugasanPage() {
               ))}
             </select>
 
-            {/* Filter Status */}
             <select
               value={selectedStatus}
               onChange={(e) => {
@@ -561,14 +637,11 @@ export default function LmsPenugasanPage() {
               className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 rounded-xl text-xs transition-colors"
               title="Refresh Data"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={14} />
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Main Table Card */}
-      <div className="bg-white dark:bg-[#1B2433] rounded-[18px] border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-500">
             <RefreshCw className="animate-spin mx-auto mb-2 text-[#0E5C44]" size={28} />
@@ -709,31 +782,11 @@ export default function LmsPenugasanPage() {
 
                     {/* Actions */}
                     <td className="py-4 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleOpenDetail(item)}
-                          className="p-1.5 text-slate-500 hover:text-[#0E5C44] hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors"
-                          title="Detail Pengumpulan & Nilai"
-                        >
-                          <Eye size={16} />
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenEditModal(item)}
-                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors"
-                          title="Edit Penugasan"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-
-                        <button
-                          onClick={() => handleDelete(item.id, item.judul || item.judul_tugas)}
-                          className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-colors"
-                          title="Hapus Penugasan"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      <ActionDropdown
+                        onView={() => handleOpenDetail(item)}
+                        onEdit={() => handleOpenEditModal(item)}
+                        onDelete={() => handleDelete(item.id, item.judul || item.judul_tugas)}
+                      />
                     </td>
                   </tr>
                 ))}

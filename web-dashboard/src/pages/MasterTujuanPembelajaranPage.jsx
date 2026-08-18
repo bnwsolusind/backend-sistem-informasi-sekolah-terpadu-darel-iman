@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Target,
   BookOpen,
@@ -14,6 +14,7 @@ import {
   FileText,
   Clock,
   Upload,
+  Plus,
 } from 'lucide-react'
 import CsvImportModal from '../components/master-data/CsvImportModal'
 import { tujuanPembelajaranService } from '../services/tujuanPembelajaranService'
@@ -24,6 +25,7 @@ import { masterKurikulumService } from '../services/masterKurikulumService'
 import { subjectService } from '../services/subjectService'
 import PageContainer from '../components/app/PageContainer'
 import AppBreadcrumb from '../components/app/AppBreadcrumb'
+import { useAuthStore } from '../stores/authStore'
 import {
   MasterDataPage,
   MasterActionButton,
@@ -35,7 +37,7 @@ import {
   MasterActionIconButton,
 } from '../components/master-data'
 
-export default function MasterTujuanPembelajaranPage({ embedded = false, hideBreadcrumb = false }) {
+export default function MasterTujuanPembelajaranPage({ embedded = false, hideBreadcrumb = false, hidePageHeader = false }) {
   const [dataTp, setDataTp] = useState([])
   const [stats, setStats] = useState({
     total_tp: 0,
@@ -43,6 +45,59 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
     total_cp: 0,
     cp_ber_tp: 0,
   })
+
+  // User Auth & Teacher Scoping
+  const user = useAuthStore((state) => state.user)
+
+  const userRoles = useMemo(() => {
+    if (!user?.roles) return []
+    return user.roles.map((r) => (typeof r === 'string' ? r : r.name || r.role_name || ''))
+  }, [user])
+
+  const isGuru = useMemo(() => {
+    const rList = userRoles.map((r) => r.toLowerCase())
+    const mainRole = String(user?.role || '').toLowerCase()
+    return (
+      rList.some((r) => r.includes('guru') || r.includes('wali_kelas') || r.includes('wali kelas')) ||
+      mainRole.includes('guru')
+    )
+  }, [userRoles, user?.role])
+
+  const teacherUnitIds = useMemo(() => {
+    if (!user) return []
+    const ids = []
+    if (user.unit_id) ids.push(String(user.unit_id))
+    if (user.unit_pendidikan_id) ids.push(String(user.unit_pendidikan_id))
+    if (user.education_unit_id) ids.push(String(user.education_unit_id))
+    if (user.unit?.id) ids.push(String(user.unit.id))
+    if (user.school_info?.id) ids.push(String(user.school_info.id))
+    if (Array.isArray(user.units)) {
+      user.units.forEach((u) => ids.push(String(typeof u === 'object' ? u.id : u)))
+    }
+    if (Array.isArray(user.unit_ids)) {
+      user.unit_ids.forEach((u) => ids.push(String(u)))
+    }
+    return Array.from(new Set(ids))
+  }, [user])
+
+  const teacherSubjectIds = useMemo(() => {
+    if (!user) return []
+    const ids = []
+    const rawList =
+      user.subject_ids ||
+      user.subjects ||
+      user.mata_pelajaran_ids ||
+      user.mata_pelajaran ||
+      user.teacher_subjects ||
+      user.assigned_subjects ||
+      []
+    if (Array.isArray(rawList)) {
+      rawList.forEach((s) => ids.push(String(typeof s === 'object' ? s.id : s)))
+    }
+    if (user.subject_id) ids.push(String(user.subject_id))
+    if (user.mata_pelajaran_id) ids.push(String(user.mata_pelajaran_id))
+    return Array.from(new Set(ids))
+  }, [user])
 
   // Master options for dependent dropdown
   const [units, setUnits] = useState([])
@@ -68,9 +123,7 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
     per_page: 15,
   })
 
-  // Modal State & Form Data mengikuti urutan persis yang diminta:
-  // 1. Unit Pendidikan -> 2. Tahun Ajaran -> 3. Kurikulum -> 4. Mata Pelajaran ->
-  // 5. Dropdown CP (DB) -> 6. Kode TP (Auto) -> 7. Alokasi JP -> 8. Deskripsi TP -> 9. Urutan -> 10. Status
+  // Modal State & Form Data
   const [modalOpen, setModalOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -87,6 +140,44 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
     urutan: 1,
     status: true,
   })
+
+  const availableUnitsForModal = useMemo(() => {
+    if (isGuru && teacherUnitIds.length > 0) {
+      const filtered = units.filter((u) => teacherUnitIds.includes(String(u.id)))
+      return filtered.length > 0 ? filtered : units
+    }
+    return units
+  }, [isGuru, teacherUnitIds, units])
+
+  const availableKurikulumsForModal = useMemo(() => {
+    let list = kurikulums
+    const targetUnit = formData.unit_pendidikan_id || (isGuru && teacherUnitIds.length > 0 ? teacherUnitIds[0] : '')
+    if (targetUnit) {
+      list = list.filter(
+        (k) =>
+          !k.unit_pendidikan_id ||
+          String(k.unit_pendidikan_id) === String(targetUnit) ||
+          String(k.unit_id) === String(targetUnit)
+      )
+    }
+    return list
+  }, [kurikulums, formData.unit_pendidikan_id, isGuru, teacherUnitIds])
+
+  const availableSubjectsForModal = useMemo(() => {
+    let list = subjects
+    const targetUnit = formData.unit_pendidikan_id || (isGuru && teacherUnitIds.length > 0 ? teacherUnitIds[0] : '')
+    if (targetUnit) {
+      list = list.filter((s) => !s.unit_pendidikan_id || String(s.unit_pendidikan_id) === String(targetUnit))
+    }
+    if (formData.kurikulum_id) {
+      list = list.filter((s) => !s.kurikulum_id || String(s.kurikulum_id) === String(formData.kurikulum_id))
+    }
+    if (isGuru && teacherSubjectIds.length > 0) {
+      const guruSubjects = list.filter((s) => teacherSubjectIds.includes(String(s.id)))
+      if (guruSubjects.length > 0) list = guruSubjects
+    }
+    return list
+  }, [subjects, formData.unit_pendidikan_id, formData.kurikulum_id, isGuru, teacherUnitIds, teacherSubjectIds])
 
   const loadInitialMasters = async () => {
     try {
@@ -333,13 +424,14 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
       )}
       <MasterDataPage className="education-unit-page tp-master-page" hideBreadcrumb={embedded || hideBreadcrumb}>
       {/* Hero Section */}
-      <MasterPageHeader
-        tone="brand"
-        icon={Target}
-        title="Master Tujuan Pembelajaran (TP)"
-        description="Kelola Tujuan Pembelajaran (TP) berbasis relasi bertingkat: Unit Pendidikan → Tahun Ajaran → Kurikulum → Mata Pelajaran → CP Database → TP → Modul Ajar."
-        actions={<><MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton><MasterActionButton onClick={() => handleOpenModal()}>Tambah TP Baru</MasterActionButton></>}
-      />
+      {!hidePageHeader && (
+        <MasterPageHeader
+          tone="brand"
+          icon={Target}
+          title="Master Tujuan Pembelajaran (TP)"
+          description="Kelola Tujuan Pembelajaran (TP) berbasis relasi bertingkat: Unit Pendidikan → Tahun Ajaran → Kurikulum → Mata Pelajaran → CP Database → TP → Modul Ajar."
+        />
+      )}
 
       <CsvImportModal open={importOpen} onClose={() => setImportOpen(false)} title="Tujuan Pembelajaran" onImport={handleImport} columns={[
         { key: 'unit_pendidikan_id' }, { key: 'tahun_ajaran_id' }, { key: 'kurikulum_id' }, { key: 'mata_pelajaran_id' }, { key: 'cp_id', required: true },
@@ -428,6 +520,16 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
 
       {/* Main Table */}
       <div className="overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-[#1B2433]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 px-5 py-4 dark:border-slate-700">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Data Tujuan Pembelajaran</h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Data sesuai filter dan kewenangan pengguna.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <MasterActionButton variant="import" icon={Upload} onClick={() => setImportOpen(true)}>Import CSV</MasterActionButton>
+            <MasterActionButton icon={Plus} onClick={() => handleOpenModal()}>Tambah TP Baru</MasterActionButton>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full table-fixed text-left text-sm border-collapse">
             <thead>
@@ -563,7 +665,7 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
                   required
                 >
                   <option value="">-- Pilih Unit Pendidikan --</option>
-                  {units.map((u) => (
+                  {availableUnitsForModal.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name || u.code}
                     </option>
@@ -596,19 +698,19 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                   3. Kurikulum <span className="text-rose-500">*</span>
                 </label>
-                <select
-                  value={formData.kurikulum_id}
-                  onChange={(e) => setFormData({ ...formData, kurikulum_id: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
-                  required
-                >
-                  <option value="">-- Pilih Kurikulum --</option>
-                  {kurikulums.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.nama_kurikulum || k.kode_kurikulum}
-                    </option>
-                  ))}
-                </select>
+                  <select
+                    value={formData.kurikulum_id}
+                    onChange={(e) => setFormData({ ...formData, kurikulum_id: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0E5C44] dark:text-slate-100"
+                    required
+                  >
+                    <option value="">-- Pilih Kurikulum --</option>
+                    {availableKurikulumsForModal.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.nama_kurikulum || k.kode_kurikulum}
+                      </option>
+                    ))}
+                  </select>
               </div>
 
               {/* Field 4: Mata Pelajaran */}
@@ -623,7 +725,7 @@ export default function MasterTujuanPembelajaranPage({ embedded = false, hideBre
                   required
                 >
                   <option value="">-- Pilih Mata Pelajaran --</option>
-                  {subjects.map((s) => (
+                  {availableSubjectsForModal.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.nama_mapel || s.name}
                     </option>

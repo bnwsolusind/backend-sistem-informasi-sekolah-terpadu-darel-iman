@@ -11,6 +11,7 @@ use App\Models\Student;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class AccessScopeService
 {
@@ -22,8 +23,7 @@ class AccessScopeService
         if ($this->hasAnyRole($user, [
             'Super Admin', 'super_admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan',
             'pengurus_yayasan', 'Pengurus Yayasan', 'Sekretaris Yayasan', 'sekretaris_yayasan',
-            'Bendahara Yayasan', 'bendahara_yayasan', 'Kepala Sekolah', 'kepala_sekolah', 'kepsek',
-            'Waka Kurikulum', 'waka_kurikulum', 'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'tata_usaha',
+            'Bendahara Yayasan', 'bendahara_yayasan',
         ])) {
             return EducationUnit::query();
         }
@@ -36,14 +36,39 @@ class AccessScopeService
             return EducationUnit::query()->whereIn('id', $this->divisionAllowedEducationUnitIds($user));
         }
 
+        $unitIds = collect();
+
         $employee = Employee::query()->where('user_id', $user->id)->first();
-        if ($employee && $employee->unit_id) {
-            return EducationUnit::query()->whereKey($employee->unit_id);
+        if ($employee) {
+            if ($employee->unit_id) {
+                $unitIds->push($employee->unit_id);
+            }
+            if (Schema::hasColumn('education_units', 'principal_id')) {
+                $hasHeadmaster = Schema::hasColumn('education_units', 'headmaster_id');
+                $managedUnitIds = EducationUnit::query()
+                    ->where('principal_id', $employee->id)
+                    ->when($hasHeadmaster, fn ($q) => $q->orWhere('headmaster_id', $employee->id))
+                    ->pluck('id');
+                $unitIds = $unitIds->merge($managedUnitIds);
+            }
+            $metadataManagedUnits = EducationUnit::query()
+                ->where('metadata->principal_id', $employee->id)
+                ->orWhere('metadata->headmaster_id', $employee->id)
+                ->orWhere('metadata->kepala_sekolah_id', $employee->id)
+                ->pluck('id');
+            $unitIds = $unitIds->merge($metadataManagedUnits);
         }
 
-        $userUnitId = data_get($user->metadata, 'education_unit_id') ?? data_get($user->metadata, 'unit_id');
+        $userUnitId = data_get($user->metadata, 'education_unit_id')
+            ?? data_get($user->metadata, 'unit_id')
+            ?? (property_exists($user, 'unit_id') ? $user->unit_id : null);
         if ($userUnitId) {
-            return EducationUnit::query()->whereKey($userUnitId);
+            $unitIds->push($userUnitId);
+        }
+
+        $unitIds = $unitIds->filter()->unique();
+        if ($unitIds->isNotEmpty()) {
+            return EducationUnit::query()->whereIn('id', $unitIds);
         }
 
         $student = Student::query()->where('user_id', $user->id)->first();
@@ -54,13 +79,13 @@ class AccessScopeService
 
         $parent = ParentModel::query()->where('user_id', $user->id)->first();
         if ($parent) {
-            $unitIds = Student::query()
+            $parentUnitIds = Student::query()
                 ->where(fn ($q) => $q->where('parent_id', $parent->id)->orWhereHas('parentsPivot', fn ($p) => $p->whereKey($parent->id)))
                 ->pluck('unit_id')
                 ->filter()
                 ->unique();
 
-            return EducationUnit::query()->whereIn('id', $unitIds);
+            return EducationUnit::query()->whereIn('id', $parentUnitIds);
         }
 
         return EducationUnit::query();

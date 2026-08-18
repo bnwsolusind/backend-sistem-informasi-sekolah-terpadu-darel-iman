@@ -36,7 +36,7 @@ export function Dialog({
     >
       <AriaDialog
         className={cn(
-          "w-full max-w-140 max-sm:max-w-[calc(100%-2rem)] p-6 border border-base-100 bg-background-100 fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl shadow-lg outline-none",
+          "w-full max-w-140 max-sm:max-w-[calc(100%-2rem)] p-6 border border-slate-200/80 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl shadow-2xl outline-none z-50",
           className
         )}
         {...props}

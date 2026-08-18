@@ -32,13 +32,19 @@ const ROLE_ROUTES = [
   { roles: ['Guru Tahfizh', 'guru_tahfizh'], route: '/dashboard/guru-tahfizh' },
   { roles: ['Musyrif', 'musyrif', 'Musyrifah', 'Musyrif / Musyrifah'], route: '/dashboard/musyrif' },
   { roles: ['Guru BK', 'guru_bk'], route: '/dashboard/guru-bk' },
-  { roles: ['Guru', 'guru', 'Guru Mata Pelajaran', 'guru_mata_pelajaran', 'Guru PAI', 'Pembimbing'], route: '/portal-guru' },
+  { roles: ['Guru', 'guru', 'Guru Mata Pelajaran', 'guru_mata_pelajaran', 'Guru PAI', 'Pembimbing'], route: '/portal-guru/workspace' },
   { roles: ['Orang Tua', 'orang_tua', 'Orangtua', 'Wali Murid', 'parent'], route: '/portal-orangtua' },
   { roles: ['Siswa', 'siswa', 'student'], route: '/portal-siswa' },
   { roles: ['Alumni', 'alumni'], route: '/portal/alumni' },
 ]
 
-export const normalizeRole = (role) => String(role).toLowerCase().replace(/[\s_-]+/g, '')
+export const normalizeRole = (role) => {
+  if (!role) return ''
+  if (typeof role === 'object') {
+    role = role.name || role.nama || role.role || role.guard_name || ''
+  }
+  return String(role).toLowerCase().replace(/[\s_-]+/g, '')
+}
 
 export const hasAnyRole = (roles = [], allowedRoles = []) => {
   const current = roles.map(normalizeRole)

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   GraduationCap,
   MapPin,
+  Network,
   School,
   ShieldAlert,
   UserCheck,
@@ -54,6 +55,7 @@ export function FoundationUnitDetailPage() {
   const academic = unit.academic || {}
 
   const quickLinks = [
+    { to: '/dashboard/yayasan/struktur-organisasi', label: 'Struktur Organisasi', icon: Network },
     { to: '/dashboard/yayasan/pegawai-guru', label: 'Pegawai & Guru', icon: UsersRound },
     { to: '/dashboard/yayasan/siswa', label: 'Data Siswa', icon: GraduationCap },
     { to: '/dashboard/yayasan/siswa-baru', label: 'Siswa Baru', icon: CalendarDays },
