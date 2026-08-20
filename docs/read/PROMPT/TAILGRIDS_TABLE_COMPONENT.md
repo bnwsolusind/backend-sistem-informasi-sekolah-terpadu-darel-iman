@@ -91,8 +91,10 @@ Tombol aksi di bagian kanan atas toolbar menggunakan container squircle pastel l
 </div>
 ```
 
-### 4. Filter Controls (Baris 2 Toolbar)
-Select dropdown filter pada baris 2 toolbar mengikuti style rounded-xl dengan ikon `ChevronDown`:
+### 4. Filter Controls & Per-Page Select (Baris 2 Toolbar)
+Select dropdown filter pada baris 2 toolbar mengikuti style `rounded-xl` dengan ikon `ChevronDown` atau menggunakan `MasterFilterSelect`.
+
+**Dropdown Filter Status / Kategori**:
 ```jsx
 <div className="relative">
   <select
@@ -108,13 +110,49 @@ Select dropdown filter pada baris 2 toolbar mengikuti style rounded-xl dengan ik
 </div>
 ```
 
+**Dropdown Sortir Jumlah Data per Halaman (`perPage`: 5, 10, 15, 25, 50, 100)**:
+Seluruh datatable WAJIB menyediakan opsi pilihan jumlah baris per halaman (5, 10, 15, 25, 50, 100).
+```jsx
+{/* Menggunakan MasterFilterSelect */}
+<MasterFilterSelect
+  value={perPage}
+  onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}
+  aria-label="Tampilkan per halaman"
+>
+  <option value={5}>5 per Halaman</option>
+  <option value={10}>10 per Halaman</option>
+  <option value={15}>15 per Halaman</option>
+  <option value={25}>25 per Halaman</option>
+  <option value={50}>50 per Halaman</option>
+  <option value={100}>100 per Halaman</option>
+</MasterFilterSelect>
+
+{/* Atau menggunakan Native Select dengan ChevronDown */}
+<div className="relative">
+  <select
+    value={perPage}
+    onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+    aria-label="Tampilkan per halaman"
+    className="h-10 cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white pl-3.5 pr-8 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 focus:border-[#0E5C44] focus:outline-none focus:ring-2 focus:ring-[#0E5C44]/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600"
+  >
+    <option value={5}>5</option>
+    <option value={10}>10</option>
+    <option value={15}>15</option>
+    <option value={25}>25</option>
+    <option value={50}>50</option>
+    <option value={100}>100</option>
+  </select>
+  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+</div>
+```
+
 ### 5. Micro-Animations & Interaktivitas Datatable
 - **Baris Tabel (`TableRow`)**:
   - `transition-all duration-200 hover:bg-slate-50/90 dark:hover:bg-slate-800/50 hover:shadow-xs`
   - Style saat terpilih (selected): `data-state="selected"` (`bg-emerald-50/30 dark:bg-emerald-950/20`)
-- **Header Sort Button**:
+- **Header Sort Button (Klik Header untuk Sortir Ascending/Descending)**:
   - `transition-all duration-150 active:scale-95 cursor-pointer hover:text-slate-900 dark:hover:text-white`
-  - Ikon Sort: `<ArrowBothDirectionHorizontal2 className="h-3 w-3 shrink-0 transition-transform duration-200" />`
+  - Ikon Sort: `<ArrowBothDirectionHorizontal2 className={`h-3 w-3 shrink-0 transition-transform duration-200 ${sortKey === key ? 'text-emerald-600 dark:text-emerald-400 rotate-180' : 'text-slate-400'}`} />`
 - **Interactive Data Hover Card (`HoverCard`)**:
   - Digunakan pada kolom utama (misal nama unit/siswa) untuk menampilkan tooltip rincian data ketika cursor di-hover.
 
@@ -380,4 +418,114 @@ export default function MasterDataPageBenchmark() {
     />
   )
 }
+```
+
+---
+
+## 8. Multi-Format Import/Export (.csv, .xls, .xlsx), Template Download & Print Standard
+
+Seluruh modul master data dan laporan pada sistem WAJIB mendukung fitur **Import, Export (.csv, .xls, .xlsx), Unduh Template, dan Cetak Datatable** dengan ketentuan berikut:
+
+### 1. Soft Pastel Squircle Toolbar Action Buttons (Row 1 Header)
+Tombol aksi toolbar terdiri dari susunan squircle pastel dengan tooltip melayang:
+1. **Impor Data (`Upload1` - Sky Blue)**: `bg-[#E0F2FE] text-[#0284C7] hover:bg-[#BAE6FD]`
+2. **Ekspor Data (`Download1` - Amber/Orange)**: `bg-[#FEF3C7] text-[#D97706] hover:bg-[#FDE68A]` (Mendukung format `.xlsx`, `.xls`, `.csv`)
+3. **Unduh Template (`FileSpreadsheet` - Violet/Purple)**: `bg-[#EDE9FE] text-[#7C3AED] hover:bg-[#DDD6FE]` (Mendukung format `.xlsx`, `.csv`)
+4. **Segarkan Data (`RefreshCcw` - Sky/Cyan)**: `bg-[#E0F2FE] text-[#0284C7] hover:bg-[#BAE6FD]`
+5. **Cetak Datatable (`Printer` - Indigo)**: `bg-[#E0E7FF] text-[#4338CA] hover:bg-[#C7D2FE]`
+6. **Tambah Data Baru (`Plus` - Emerald/Green)**: `bg-[#D1FAE5] text-[#059669] hover:bg-[#A7F3D0]`
+
+### 2. Standard Pure-JS Exporter Helper (.csv, .xls, .xlsx)
+```javascript
+// Exporter CSV dengan UTF-8 BOM agar rapi di Microsoft Excel
+export function downloadCsvFile(filename, headers, rows) {
+  const escape = (val) => `"${String(val ?? '').replaceAll('"', '""')}"`
+  const headerRow = headers.map(escape).join(',')
+  const dataRows = rows.map((row) => row.map(escape).join(','))
+  const content = `\uFEFF${[headerRow, ...dataRows].join('\n')}`
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+// Exporter Excel (.xlsx / .xls) menggunakan SpreadsheetML XML murni
+export function downloadXmlSpreadsheet(filename, headers, rows) {
+  const escapeXml = (str) =>
+    String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`
+  xml += `<?mso-application progid="Excel.Sheet"?>\n`
+  xml += `<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n`
+  xml += ` xmlns:o="urn:schemas-microsoft-com:office:office"\n`
+  xml += ` xmlns:x="urn:schemas-microsoft-com:office:excel"\n`
+  xml += ` xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n`
+  xml += ` <Styles>\n`
+  xml += `  <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#0E5C44" ss:Pattern="Solid"/></Style>\n`
+  xml += ` </Styles>\n`
+  xml += ` <Worksheet ss:Name="Data">\n`
+  xml += `  <Table>\n`
+  xml += `   <Row>\n`
+  headers.forEach((h) => {
+    xml += `    <Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(h)}</Data></Cell>\n`
+  })
+  xml += `   </Row>\n`
+  rows.forEach((row) => {
+    xml += `   <Row>\n`
+    row.forEach((cell) => {
+      xml += `    <Cell><Data ss:Type="String">${escapeXml(cell)}</Data></Cell>\n`
+    })
+    xml += `   </Row>\n`
+  })
+  xml += `  </Table>\n`
+  xml += ` </Worksheet>\n`
+  xml += `</Workbook>`
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+```
+
+### 3. Integration `printableHeader` & Print Setup
+Kop laporan resmi cetak dioperkan langsung ke prop `printableHeader` pada `<AppDataTable />` agar posisi kop berada tepat di dalam tabel tanpa sela kosong di Halaman 1:
+
+```jsx
+<AppDataTable
+  printableHeader={
+    <div className="flex items-end justify-between border-b border-slate-400 pb-1.5 text-slate-900">
+      <div>
+        <h1 className="text-base font-extrabold uppercase tracking-tight text-slate-900 leading-tight">
+          Laporan Master Data SIT
+        </h1>
+        <p className="text-[11px] text-slate-700 font-semibold mt-0.5 leading-tight">
+          Sekolah Islam Terpadu — Unit: {selectedUnitName || 'Semua Unit'}
+        </p>
+      </div>
+      <div className="text-right text-[9px] text-slate-600 font-medium leading-tight space-y-0.5">
+        <p>Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p>Total Data: {filteredItems.length} Records</p>
+      </div>
+    </div>
+  }
+  ...
+/>
+```
+Elemen non-tabel luar (Breadcrumb, Alert, Cards, Navbar) wajib dibungkus dengan kelas `print:hidden`.
+
 ```
