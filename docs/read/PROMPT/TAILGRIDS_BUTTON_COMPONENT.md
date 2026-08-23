@@ -129,7 +129,7 @@ Sistem tombol **Soft Pastel Squircle** menggunakan warna pastel lembut pada kead
 > [!IMPORTANT]
 > **Aturan Layout Stationary & Single-Row Toolbar Container**:
 > 1. Tombol WAJIB berposisi tetap tanpa pergeseran posisi (hindari `hover:scale-105` atau `hover:scale-110` yang menyebabkan pergeseran layout). Gunakan `transition-colors duration-200`.
-> 2. Seluruh tombol aksi dalam toolbar WAJIB dibungkus dalam container flex single-row: `flex items-center gap-2.5 flex-nowrap shrink-0 overflow-x-auto py-1` untuk menjamin seluruh tombol tetap berada dalam **1 baris horizontal**.
+> 2. Seluruh tombol aksi dalam toolbar WAJIB dibungkus dalam container flex single-row: `flex items-center gap-2.5 flex-nowrap shrink-0 py-1` untuk menjamin seluruh tombol tetap berada dalam **1 baris horizontal** tanpa scrollbar.
 
 ### Detailed Palette Color & Hover Effect Map:
 
@@ -164,7 +164,7 @@ import { Download1, Upload1, Plus, Eye } from "@tailgrids/icons";
 
 export default function StationaryActionButtonsPreview() {
   return (
-    <div className="flex items-center gap-2.5 flex-nowrap shrink-0 overflow-x-auto py-1">
+    <div className="flex items-center gap-2.5 flex-nowrap shrink-0 py-1">
       {/* Import Button (Soft Sky Blue -> Solid Sky Glowing Stationary Hover) */}
       <div className="group relative inline-flex">
         <button

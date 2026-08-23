@@ -241,9 +241,84 @@ export default function HoverCardProductPreview({ item, onSelectDetail }) {
 
 ---
 
+## Datatable Row Identity HoverCard Preview (Pratinjau Data Baris Datatable)
+
+Gunakan pola ini untuk membungkus cell identitas pada Datatable dengan `HoverCard` agar secara otomatis menampilkan popover rincian data ketika kursor diarahkan ke baris data tersebut:
+
+```jsx
+"use client";
+
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@/components/tailgrids/core/hover-card";
+import { PersonIdentityCell } from "@/components/ui/PersonIdentityCell";
+import { MasterStatusBadge } from "@/components/master-data";
+
+export function DatatableRowIdentityHoverCard({ item }) {
+  return (
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        <div className="cursor-pointer transition-colors hover:text-emerald-600">
+          <PersonIdentityCell
+            name={item.nama}
+            subtitle={`NIS: ${item.nis || '-'}`}
+            avatarUrl={item.foto_url}
+          />
+        </div>
+      </HoverCardTrigger>
+
+      <HoverCardContent className="w-72 p-4 border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#1B2433] shadow-xl rounded-2xl space-y-3 z-50">
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden">
+            {item.foto_url ? (
+              <img src={item.foto_url} alt={item.nama} className="h-full w-full object-cover" />
+            ) : (
+              (item.nama || 'S').slice(0, 2).toUpperCase()
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+              {item.nama}
+            </h4>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+              NIS: {item.nis || '-'}
+            </p>
+          </div>
+          <MasterStatusBadge status={item.aktif ? 'aktif' : 'nonaktif'} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-slate-100 dark:border-slate-800/80">
+          <div>
+            <span className="text-slate-400 block text-[10px]">Unit Pendidikan</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{item.unit || '-'}</span>
+          </div>
+          <div>
+            <span className="text-slate-400 block text-[10px]">Kelas / Rombel</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{item.kelas || '-'}</span>
+          </div>
+          <div>
+            <span className="text-slate-400 block text-[10px]">Jenis Kelamin</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{item.jenis_kelamin || '-'}</span>
+          </div>
+          <div>
+            <span className="text-slate-400 block text-[10px]">Status Siswa</span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">{item.aktif ? 'Aktif' : 'Non-aktif'}</span>
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+```
+
+---
+
 ## Catatan Penting
 
 1. **State Controlled**: Gunakan `open` dan `onOpenChange` pada `HoverCard` untuk mengontrol status popup secara opsional.
-2. **Trigger Styling**: Gunakan kelas `font-semibold border-b border-dashed border-slate-400/60 hover:border-[#0E5C44] transition-colors` pada `HoverCardTrigger` agar pengguna mengetahui bahwa teks nama dapat di-hover untuk rincian data.
+2. **Trigger Styling**: Gunakan kelas `font-semibold border-b border-dashed border-slate-400/60 hover:border-[#0E5C44] transition-colors` atau `cursor-pointer transition-colors hover:text-emerald-600` pada `HoverCardTrigger` agar pengguna mengetahui bahwa teks nama/data dapat di-hover.
 3. **AnimatePresence & Motion**: Bungkus `HoverCardContent` dengan `<AnimatePresence>` dan `<motion.div>` dari `framer-motion` jika membutuhkan animasi spring physics.
-4. **Trigger**: `HoverCardTrigger` dari `@base-ui/react/preview-card` dapat diklik untuk langsung membuka rincian modal / drawer detail.
+4. **Trigger**: `HoverCardTrigger` dari `@base-ui/react/preview-card` atau `@/components/tailgrids/core/hover-card` dapat diklik untuk langsung membuka rincian modal / drawer detail.
+

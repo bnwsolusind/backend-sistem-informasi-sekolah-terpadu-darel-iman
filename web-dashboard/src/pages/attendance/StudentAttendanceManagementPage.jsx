@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertCircle,
   AlertTriangle,
@@ -48,6 +49,8 @@ import AppBreadcrumb from '../../components/app/AppBreadcrumb'
 import AppSkeleton from '../../components/app/AppSkeleton'
 import AppEmptyState from '../../components/app/AppEmptyState'
 import ActionDropdown from '../../components/app/ActionDropdown'
+import { SquircleActionButton, PrintOptionModal } from '../../components/master-data'
+import { downloadPdfTable, printCleanTable } from '../../utils/printHelper'
 import { Button } from '@/components/tailgrids/core/button'
 import { Input } from '@/components/tailgrids/core/input'
 import { Badge } from '@/components/tailgrids/core/badge'
@@ -124,6 +127,7 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
   const [corrReviewModalOpen, setCorrReviewModalOpen] = useState(false)
   const [followUpCreateModalOpen, setFollowUpCreateModalOpen] = useState(false)
   const [sessionDetailModalOpen, setSessionDetailModalOpen] = useState(false)
+  const [printOptionModalOpen, setPrintOptionModalOpen] = useState(false)
 
   // Form Data for FollowUp Create
   const [followUpForm, setFollowUpForm] = useState({
@@ -388,7 +392,180 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
   }
 
   const handleExport = () => {
-    window.print()
+    setPrintOptionModalOpen(true)
+  }
+
+  // ── Handlers for Print Clean & Download PDF ────────────────────────────────
+  const handlePrintClean = () => {
+    let headers = []
+    let rows = []
+    let title = 'Laporan Presensi Siswa'
+
+    if (activeTab === 'rekap') {
+      title = 'Laporan Rekapitulasi Presensi Siswa'
+      headers = ['#', 'Nama Siswa', 'NISN', 'Kelas', 'Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat', 'Kehadiran (%)']
+      rows = filteredList.map((item, idx) => {
+        const hadir = item.hadir || item.present || 0
+        const sakit = item.sakit || item.sick || 0
+        const izin = item.izin || item.permission || 0
+        const alpa = item.alpa || item.absent || 0
+        const terlambat = item.terlambat || item.late || 0
+        const totalDays = hadir + sakit + izin + alpa + terlambat || 1
+        const pct = Math.round(((hadir + terlambat) / totalDays) * 100)
+        return [
+          idx + 1,
+          item.student_name || item.nama || item.name || 'Siswa',
+          item.nisn || '-',
+          item.kelas || item.class_name || '-',
+          hadir, sakit, izin, alpa, terlambat,
+          `${pct}%`
+        ]
+      })
+    } else if (activeTab === 'sesi-pelajaran') {
+      title = 'Laporan Presensi Sesi Pelajaran'
+      headers = ['#', 'Mata Pelajaran', 'Guru Pengajar', 'Kelas', 'Tanggal', 'Pertemuan', 'Kehadiran', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.schedule?.subject?.name || item.subject_name || '-',
+        item.schedule?.employee?.nama_lengkap || item.teacher_name || '-',
+        item.schedule?.kelas?.nama_kelas || item.class_name || '-',
+        item.attendance_date || item.tanggal || '-',
+        `Pertemuan ${item.meeting_number || 1}`,
+        `${(item.attendances || []).filter(a => a.status === 'HADIR' || a.status_hadir === 'hadir').length} / ${(item.attendances || []).length} Siswa`,
+        item.status || 'Final'
+      ])
+    } else if (activeTab === 'verifikasi') {
+      title = 'Laporan Verifikasi Izin / Sakit Siswa'
+      headers = ['#', 'Nama Siswa', 'Kelas', 'Jenis Izin', 'Tanggal Mulai', 'Tanggal Selesai', 'Alasan', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.student?.full_name || item.student_name || item.siswa_nama || '-',
+        item.student?.kelas?.nama_kelas || item.class_name || '-',
+        (item.permission_type || item.jenis || 'Izin').toUpperCase(),
+        item.start_date || '-',
+        item.end_date || '-',
+        item.reason || item.alasan || '-',
+        item.status || 'Submitted'
+      ])
+    } else if (activeTab === 'koreksi') {
+      title = 'Laporan Permohonan Koreksi Presensi'
+      headers = ['#', 'Nama Siswa', 'Pelajaran', 'Tanggal', 'Status Awal', 'Usulan Koreksi', 'Alasan', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.student?.full_name || item.student_name || item.siswa_nama || '-',
+        item.subject || item.nama_matpel || '-',
+        item.attendance_date || item.tanggal || '-',
+        item.original_status || 'ALPHA',
+        item.requested_status || 'HADIR',
+        item.reason || item.alasan || '-',
+        item.status || 'Submitted'
+      ])
+    } else if (activeTab === 'tindak-lanjut') {
+      title = 'Laporan Tindak Lanjut Siswa'
+      headers = ['#', 'Nama Siswa', 'Kelas', 'Bentuk Tindakan', 'Tanggal Penanganan', 'Catatan / Rekomendasi', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.student?.full_name || item.student_name || item.siswa_nama || '-',
+        item.student?.kelas?.nama_kelas || item.class_name || '-',
+        (item.action_taken || item.action_type || '-').replace(/_/g, ' ').toUpperCase(),
+        item.follow_up_date || item.tanggal || '-',
+        item.notes || item.catatan || '-',
+        item.status || 'Open'
+      ])
+    }
+
+    printCleanTable({
+      title,
+      subtitle: `Daftar ${rows.length} Data Kehadiran`,
+      headers,
+      rows,
+    })
+  }
+
+  const handleDownloadPdfTable = () => {
+    let headers = []
+    let rows = []
+    let title = 'Laporan Presensi Siswa'
+
+    if (activeTab === 'rekap') {
+      title = 'Laporan Rekapitulasi Presensi Siswa'
+      headers = ['#', 'Nama Siswa', 'NISN', 'Kelas', 'Hadir', 'Sakit', 'Izin', 'Alpa', 'Terlambat', 'Kehadiran (%)']
+      rows = filteredList.map((item, idx) => {
+        const hadir = item.hadir || item.present || 0
+        const sakit = item.sakit || item.sick || 0
+        const izin = item.izin || item.permission || 0
+        const alpa = item.alpa || item.absent || 0
+        const terlambat = item.terlambat || item.late || 0
+        const totalDays = hadir + sakit + izin + alpa + terlambat || 1
+        const pct = Math.round(((hadir + terlambat) / totalDays) * 100)
+        return [
+          idx + 1,
+          item.student_name || item.nama || item.name || 'Siswa',
+          item.nisn || '-',
+          item.kelas || item.class_name || '-',
+          hadir, sakit, izin, alpa, terlambat,
+          `${pct}%`
+        ]
+      })
+    } else if (activeTab === 'sesi-pelajaran') {
+      title = 'Laporan Presensi Sesi Pelajaran'
+      headers = ['#', 'Mata Pelajaran', 'Guru Pengajar', 'Kelas', 'Tanggal', 'Pertemuan', 'Kehadiran', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.schedule?.subject?.name || item.subject_name || '-',
+        item.schedule?.employee?.nama_lengkap || item.teacher_name || '-',
+        item.schedule?.kelas?.nama_kelas || item.class_name || '-',
+        item.attendance_date || item.tanggal || '-',
+        `Pertemuan ${item.meeting_number || 1}`,
+        `${(item.attendances || []).filter(a => a.status === 'HADIR' || a.status_hadir === 'hadir').length} / ${(item.attendances || []).length} Siswa`,
+        item.status || 'Final'
+      ])
+    } else if (activeTab === 'verifikasi') {
+      title = 'Laporan Verifikasi Izin / Sakit Siswa'
+      headers = ['#', 'Nama Siswa', 'Kelas', 'Jenis Izin', 'Tanggal Mulai', 'Tanggal Selesai', 'Alasan', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.student?.full_name || item.student_name || item.siswa_nama || '-',
+        item.student?.kelas?.nama_kelas || item.class_name || '-',
+        (item.permission_type || item.jenis || 'Izin').toUpperCase(),
+        item.start_date || '-',
+        item.end_date || '-',
+        item.reason || item.alasan || '-',
+        item.status || 'Submitted'
+      ])
+    } else if (activeTab === 'koreksi') {
+      title = 'Laporan Permohonan Koreksi Presensi'
+      headers = ['#', 'Nama Siswa', 'Pelajaran', 'Tanggal', 'Status Awal', 'Usulan Koreksi', 'Alasan', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.student?.full_name || item.student_name || item.siswa_nama || '-',
+        item.subject || item.nama_matpel || '-',
+        item.attendance_date || item.tanggal || '-',
+        item.original_status || 'ALPHA',
+        item.requested_status || 'HADIR',
+        item.reason || item.alasan || '-',
+        item.status || 'Submitted'
+      ])
+    } else if (activeTab === 'tindak-lanjut') {
+      title = 'Laporan Tindak Lanjut Siswa'
+      headers = ['#', 'Nama Siswa', 'Kelas', 'Bentuk Tindakan', 'Tanggal Penanganan', 'Catatan / Rekomendasi', 'Status']
+      rows = filteredList.map((item, idx) => [
+        idx + 1,
+        item.student?.full_name || item.student_name || item.siswa_nama || '-',
+        item.student?.kelas?.nama_kelas || item.class_name || '-',
+        (item.action_taken || item.action_type || '-').replace(/_/g, ' ').toUpperCase(),
+        item.follow_up_date || item.tanggal || '-',
+        item.notes || item.catatan || '-',
+        item.status || 'Open'
+      ])
+    }
+
+    downloadPdfTable({
+      title,
+      subtitle: `Daftar ${rows.length} Data Kehadiran`,
+      headers,
+      rows,
+    })
   }
 
   // ── Render Badges (TailGrids Badge Prompt Rules) ───────────────────────────
@@ -406,10 +583,95 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
     return <Badge color="warning" size="sm" prefixIcon={<InfoCircle className="size-3.5" />}>{status || 'Submitted'}</Badge>
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.04, delayChildren: 0.02 },
+    },
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  }
+
+  function KpiTintedCard({ icon: Icon, label, subtext, value, tone = 'emerald', onClick, active }) {
+    const tones = {
+      blue: {
+        card: active
+          ? 'border-blue-300 bg-blue-50/80 ring-2 ring-blue-500/20 dark:border-blue-800 dark:bg-blue-950/40'
+          : 'border-blue-100 bg-blue-50/50 hover:border-blue-200 dark:border-blue-950/50 dark:bg-blue-950/20',
+        title: 'text-blue-700 dark:text-blue-400',
+        icon: 'text-blue-500',
+        val: 'text-blue-600 dark:text-blue-300',
+        sub: 'text-blue-600/70 dark:text-blue-400/70',
+      },
+      emerald: {
+        card: active
+          ? 'border-emerald-300 bg-emerald-50/80 ring-2 ring-emerald-500/20 dark:border-emerald-800 dark:bg-emerald-950/40'
+          : 'border-emerald-100 bg-emerald-50/50 hover:border-emerald-200 dark:border-emerald-950/50 dark:bg-emerald-950/20',
+        title: 'text-emerald-700 dark:text-emerald-400',
+        icon: 'text-emerald-500',
+        val: 'text-emerald-600 dark:text-emerald-300',
+        sub: 'text-emerald-600/70 dark:text-emerald-400/70',
+      },
+      amber: {
+        card: active
+          ? 'border-amber-300 bg-amber-50/80 ring-2 ring-amber-500/20 dark:border-amber-800 dark:bg-amber-950/40'
+          : 'border-amber-100 bg-amber-50/50 hover:border-amber-200 dark:border-amber-950/50 dark:bg-amber-950/20',
+        title: 'text-amber-700 dark:text-amber-400',
+        icon: 'text-amber-500',
+        val: 'text-amber-600 dark:text-amber-300',
+        sub: 'text-amber-600/70 dark:text-amber-400/70',
+      },
+      purple: {
+        card: active
+          ? 'border-purple-300 bg-purple-50/80 ring-2 ring-purple-500/20 dark:border-purple-800 dark:bg-purple-950/40'
+          : 'border-purple-100 bg-purple-50/50 hover:border-purple-200 dark:border-purple-950/50 dark:bg-purple-950/20',
+        title: 'text-purple-700 dark:text-purple-400',
+        icon: 'text-purple-500',
+        val: 'text-purple-600 dark:text-purple-300',
+        sub: 'text-purple-600/70 dark:text-purple-400/70',
+      },
+      rose: {
+        card: active
+          ? 'border-rose-300 bg-rose-50/80 ring-2 ring-rose-500/20 dark:border-rose-800 dark:bg-rose-950/40'
+          : 'border-rose-100 bg-rose-50/50 hover:border-rose-200 dark:border-rose-950/50 dark:bg-rose-950/20',
+        title: 'text-rose-700 dark:text-rose-400',
+        icon: 'text-rose-500',
+        val: 'text-rose-600 dark:text-rose-300',
+        sub: 'text-rose-600/70 dark:text-rose-400/70',
+      },
+    }
+    const t = tones[tone] || tones.emerald
+    return (
+      <motion.div
+        variants={itemVariants}
+        whileHover={{ scale: 1.04, y: -2 }}
+        whileTap={{ scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        onClick={onClick}
+        className={`text-left rounded-2xl border ${t.card} p-4 shadow-xs transition-all hover:shadow-md ${onClick ? 'cursor-pointer' : 'cursor-default'} group min-w-0`}
+      >
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <p className={`text-xs font-bold ${t.title} truncate`}>{label}</p>
+          <Icon className={`h-4 w-4 shrink-0 ${t.icon} opacity-0 group-hover:opacity-100 transition-opacity`} />
+        </div>
+        <p className={`mt-2 text-2xl font-black tracking-tight ${t.val}`}>{value ?? 0}</p>
+        {subtext && (
+          <p className={`mt-1 text-[10px] font-bold ${t.sub} flex items-center gap-0.5 truncate`}>
+            {subtext}
+          </p>
+        )}
+      </motion.div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
+    <motion.div initial="hidden" animate="visible" variants={containerVariants} className="space-y-6">
       {/* Header & Breadcrumb */}
-      <div>
+      <motion.div variants={itemVariants}>
         <AppBreadcrumb items={[{ label: 'Absensi', href: '/dashboard/absensi/rekap-kehadiran' }, { label: 'Manajemen Kehadiran Siswa' }]} />
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -417,200 +679,171 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
               Pusat Kehadiran Siswa
             </h1>
             <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-              Monitoring terpadu rekapitulasi presensi, absensi per mata pelajaran & guru pengajar, verifikasi izin, dan tindak lanjut siswa.
+              Monitoring terpadu rekapitulasi presensi, absensi per mata pelajaran &amp; guru pengajar, verifikasi izin, dan tindak lanjut siswa.
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* TailGrids Card KPI Metric Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4">
-        <Card
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4">
+        <KpiTintedCard
+          icon={Users}
+          label="Rekapitulasi Siswa"
+          value={metrics.recapTotal}
+          subtext="Periode Bulan Ini"
+          tone="blue"
+          active={activeTab === 'rekap'}
           onClick={() => handleTabChange('rekap')}
-          className={`group relative cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md min-w-0 ${
-            activeTab === 'rekap'
-              ? 'border-blue-500/80 bg-blue-50/40 ring-2 ring-blue-500/20 dark:border-blue-500 dark:bg-blue-950/30'
-              : 'border-slate-200/80 bg-white hover:border-blue-300 dark:border-slate-800 dark:bg-[#1B2433]'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title="Rekapitulasi Siswa">
-              Rekapitulasi Siswa
-            </span>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-100/90 text-blue-600 transition-transform duration-200 group-hover:scale-110 dark:bg-blue-950/60 dark:text-blue-400">
-              <Users size={18} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-end justify-between gap-2 min-w-0">
-            <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-              {metrics.recapTotal}
-            </span>
-            <Badge color="blue" size="sm" className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 font-medium">
-              Periode Bulan
-            </Badge>
-          </div>
-        </Card>
-
-        <Card
+        />
+        <KpiTintedCard
+          icon={BookOpen}
+          label="Sesi Pelajaran"
+          value={metrics.sessionTotal}
+          subtext="Matpel & Guru"
+          tone="emerald"
+          active={activeTab === 'sesi-pelajaran'}
           onClick={() => handleTabChange('sesi-pelajaran')}
-          className={`group relative cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md min-w-0 ${
-            activeTab === 'sesi-pelajaran'
-              ? 'border-emerald-500/80 bg-emerald-50/40 ring-2 ring-emerald-500/20 dark:border-emerald-500 dark:bg-emerald-950/30'
-              : 'border-slate-200/80 bg-white hover:border-emerald-300 dark:border-slate-800 dark:bg-[#1B2433]'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title="Sesi Pelajaran">
-              Sesi Pelajaran
-            </span>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100/90 text-emerald-600 transition-transform duration-200 group-hover:scale-110 dark:bg-emerald-950/60 dark:text-emerald-400">
-              <BookOpen size={18} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-end justify-between gap-2 min-w-0">
-            <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-              {metrics.sessionTotal}
-            </span>
-            <Badge color="success" size="sm" className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 font-medium">
-              Matpel & Guru
-            </Badge>
-          </div>
-        </Card>
-
-        <Card
+        />
+        <KpiTintedCard
+          icon={FileCheck2}
+          label="Verifikasi Izin"
+          value={metrics.permPending}
+          subtext="Menunggu Persetujuan"
+          tone="amber"
+          active={activeTab === 'verifikasi'}
           onClick={() => handleTabChange('verifikasi')}
-          className={`group relative cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md min-w-0 ${
-            activeTab === 'verifikasi'
-              ? 'border-amber-500/80 bg-amber-50/40 ring-2 ring-amber-500/20 dark:border-amber-500 dark:bg-amber-950/30'
-              : 'border-slate-200/80 bg-white hover:border-amber-300 dark:border-slate-800 dark:bg-[#1B2433]'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title="Verifikasi Izin">
-              Verifikasi Izin
-            </span>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100/90 text-amber-600 transition-transform duration-200 group-hover:scale-110 dark:bg-amber-950/60 dark:text-amber-400">
-              <FileCheck2 size={18} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-end justify-between gap-2 min-w-0">
-            <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-              {metrics.permPending}
-            </span>
-            <Badge color="warning" size="sm" className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 font-medium">
-              Menunggu
-            </Badge>
-          </div>
-        </Card>
-
-        <Card
+        />
+        <KpiTintedCard
+          icon={FileEdit}
+          label="Koreksi Presensi"
+          value={metrics.corrPending}
+          subtext="Pengajuan Siswa"
+          tone="purple"
+          active={activeTab === 'koreksi'}
           onClick={() => handleTabChange('koreksi')}
-          className={`group relative cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md min-w-0 ${
-            activeTab === 'koreksi'
-              ? 'border-purple-500/80 bg-purple-50/40 ring-2 ring-purple-500/20 dark:border-purple-500 dark:bg-purple-950/30'
-              : 'border-slate-200/80 bg-white hover:border-purple-300 dark:border-slate-800 dark:bg-[#1B2433]'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title="Koreksi Presensi">
-              Koreksi Presensi
-            </span>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-purple-100/90 text-purple-600 transition-transform duration-200 group-hover:scale-110 dark:bg-purple-950/60 dark:text-purple-400">
-              <FileEdit size={18} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-end justify-between gap-2 min-w-0">
-            <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-              {metrics.corrPending}
-            </span>
-            <Badge color="purple" size="sm" className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 font-medium">
-              Pengajuan
-            </Badge>
-          </div>
-        </Card>
-
-        <Card
+        />
+        <KpiTintedCard
+          icon={ShieldAlert}
+          label="Tindak Lanjut"
+          value={metrics.followUpOpen}
+          subtext="Penanganan Siswa Alpa"
+          tone="rose"
+          active={activeTab === 'tindak-lanjut'}
           onClick={() => handleTabChange('tindak-lanjut')}
-          className={`group relative cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md min-w-0 ${
-            activeTab === 'tindak-lanjut'
-              ? 'border-rose-500/80 bg-rose-50/40 ring-2 ring-rose-500/20 dark:border-rose-500 dark:bg-rose-950/30'
-              : 'border-slate-200/80 bg-white hover:border-rose-300 dark:border-slate-800 dark:bg-[#1B2433]'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2 min-w-0">
-            <span className="truncate text-xs font-bold text-slate-700 dark:text-slate-200" title="Tindak Lanjut">
-              Tindak Lanjut
-            </span>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-rose-100/90 text-rose-600 transition-transform duration-200 group-hover:scale-110 dark:bg-rose-950/60 dark:text-rose-400">
-              <ShieldAlert size={18} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-end justify-between gap-2 min-w-0">
-            <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-              {metrics.followUpOpen}
-            </span>
-            <Badge color="rose" size="sm" className="shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 font-medium">
-              Penanganan
-            </Badge>
-          </div>
-        </Card>
-      </div>
+        />
+      </motion.div>
 
       {/* Main Master Datatable Container Card (Gold Standard Architecture) */}
-      <div className="overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
-        {/* Workspace Navigation Tabs */}
-        <div className="border-b border-slate-200 px-4 pt-3 dark:border-slate-800 sm:px-6 md:px-8">
-          <nav className="-mb-px flex space-x-6 overflow-x-auto scrollbar-none" aria-label="Tabs">
-            <button
-              onClick={() => handleTabChange('rekap')}
-              className={`flex items-center gap-2 whitespace-nowrap border-b-2 py-3 text-xs font-bold transition-colors ${
-                activeTab === 'rekap'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400'
-              }`}
-            >
-              <Users size={16} /> Rekapitulasi Kehadiran
-            </button>
-            <button
-              onClick={() => handleTabChange('sesi-pelajaran')}
-              className={`flex items-center gap-2 whitespace-nowrap border-b-2 py-3 text-xs font-bold transition-colors ${
-                activeTab === 'sesi-pelajaran'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400'
-              }`}
-            >
-              <BookOpen size={16} /> Absensi Per Mata Pelajaran & Guru
-            </button>
-            <button
-              onClick={() => handleTabChange('verifikasi')}
-              className={`flex items-center gap-2 whitespace-nowrap border-b-2 py-3 text-xs font-bold transition-colors ${
-                activeTab === 'verifikasi'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400'
-              }`}
-            >
-              <FileCheck2 size={16} /> Verifikasi Izin / Sakit
-            </button>
-            <button
-              onClick={() => handleTabChange('koreksi')}
-              className={`flex items-center gap-2 whitespace-nowrap border-b-2 py-3 text-xs font-bold transition-colors ${
-                activeTab === 'koreksi'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400'
-              }`}
-            >
-              <FileEdit size={16} /> Koreksi Presensi
-            </button>
-            <button
-              onClick={() => handleTabChange('tindak-lanjut')}
-              className={`flex items-center gap-2 whitespace-nowrap border-b-2 py-3 text-xs font-bold transition-colors ${
-                activeTab === 'tindak-lanjut'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700 dark:text-slate-400'
-              }`}
-            >
-              <ShieldAlert size={16} /> Tindak Lanjut Siswa
-            </button>
+      <motion.div variants={itemVariants} className="overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]">
+        {/* Workspace Navigation Tabs - Soft Pastel Squircle Style without Labels (Floating Hover Tooltips) */}
+        {/* Workspace Navigation Tabs - Soft Pastel Squircle Style without Labels (Floating Hover Tooltips) */}
+        <div className="relative z-30 border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:px-6 md:px-8">
+          <nav className="flex items-center gap-2.5 flex-wrap py-1" aria-label="Tabs">
+            {/* Tab 1: Rekapitulasi Kehadiran */}
+            <div className="group relative inline-flex">
+              <button
+                type="button"
+                title="Rekapitulasi Kehadiran"
+                aria-label="Rekapitulasi Kehadiran"
+                onClick={() => handleTabChange('rekap')}
+                className={`flex size-10 items-center justify-center rounded-2xl cursor-pointer shadow-2xs transition-colors duration-200 ${
+                  activeTab === 'rekap'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 dark:bg-blue-500 dark:text-white'
+                    : 'bg-blue-100/90 text-blue-600 hover:bg-blue-500 hover:text-white dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-500 dark:hover:text-white hover:shadow-md hover:shadow-blue-500/30'
+                }`}
+              >
+                <Users className="size-5 transition-colors" />
+              </button>
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                Rekapitulasi Kehadiran
+              </div>
+            </div>
+
+            {/* Tab 2: Sesi Pelajaran */}
+            <div className="group relative inline-flex">
+              <button
+                type="button"
+                title="Absensi Per Mata Pelajaran & Guru"
+                aria-label="Absensi Per Mata Pelajaran & Guru"
+                onClick={() => handleTabChange('sesi-pelajaran')}
+                className={`flex size-10 items-center justify-center rounded-2xl cursor-pointer shadow-2xs transition-colors duration-200 ${
+                  activeTab === 'sesi-pelajaran'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30 dark:bg-emerald-500 dark:text-white'
+                    : 'bg-emerald-100/90 text-emerald-600 hover:bg-emerald-500 hover:text-white dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-500 dark:hover:text-white hover:shadow-md hover:shadow-emerald-500/30'
+                }`}
+              >
+                <BookOpen className="size-5 transition-colors" />
+              </button>
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                Absensi Per Mata Pelajaran & Guru
+              </div>
+            </div>
+
+            {/* Tab 3: Verifikasi Izin / Sakit */}
+            <div className="group relative inline-flex">
+              <button
+                type="button"
+                title="Verifikasi Izin / Sakit"
+                aria-label="Verifikasi Izin / Sakit"
+                onClick={() => handleTabChange('verifikasi')}
+                className={`flex size-10 items-center justify-center rounded-2xl cursor-pointer shadow-2xs transition-colors duration-200 ${
+                  activeTab === 'verifikasi'
+                    ? 'bg-amber-600 text-white shadow-md shadow-amber-500/30 dark:bg-amber-500 dark:text-white'
+                    : 'bg-amber-100/90 text-amber-600 hover:bg-amber-500 hover:text-white dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-500 dark:hover:text-white hover:shadow-md hover:shadow-amber-500/30'
+                }`}
+              >
+                <FileCheck2 className="size-5 transition-colors" />
+              </button>
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                Verifikasi Izin / Sakit
+              </div>
+            </div>
+
+            {/* Tab 4: Koreksi Presensi */}
+            <div className="group relative inline-flex">
+              <button
+                type="button"
+                title="Koreksi Presensi"
+                aria-label="Koreksi Presensi"
+                onClick={() => handleTabChange('koreksi')}
+                className={`flex size-10 items-center justify-center rounded-2xl cursor-pointer shadow-2xs transition-colors duration-200 ${
+                  activeTab === 'koreksi'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30 dark:bg-purple-500 dark:text-white'
+                    : 'bg-purple-100/90 text-purple-600 hover:bg-purple-500 hover:text-white dark:bg-purple-950/60 dark:text-purple-300 dark:hover:bg-purple-500 dark:hover:text-white hover:shadow-md hover:shadow-purple-500/30'
+                }`}
+              >
+                <FileEdit className="size-5 transition-colors" />
+              </button>
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                Koreksi Presensi
+              </div>
+            </div>
+
+            {/* Tab 5: Tindak Lanjut Siswa */}
+            <div className="group relative inline-flex">
+              <button
+                type="button"
+                title="Tindak Lanjut Siswa"
+                aria-label="Tindak Lanjut Siswa"
+                onClick={() => handleTabChange('tindak-lanjut')}
+                className={`flex size-10 items-center justify-center rounded-2xl cursor-pointer shadow-2xs transition-colors duration-200 ${
+                  activeTab === 'tindak-lanjut'
+                    ? 'bg-rose-600 text-white shadow-md shadow-rose-500/30 dark:bg-rose-500 dark:text-white'
+                    : 'bg-rose-100/90 text-rose-600 hover:bg-rose-500 hover:text-white dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-500 dark:hover:text-white hover:shadow-md hover:shadow-rose-500/30'
+                }`}
+              >
+                <ShieldAlert className="size-5 transition-colors" />
+              </button>
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
+                Tindak Lanjut Siswa
+              </div>
+            </div>
           </nav>
         </div>
 
@@ -627,57 +860,44 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
             </h2>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Refresh Button (Violet Squircle) with Floating Tooltip */}
-              <div className="group relative inline-flex">
-                <button
-                  type="button"
-                  title="Segarkan Data"
-                  aria-label="Segarkan Data"
-                  className="flex size-10 items-center justify-center rounded-2xl bg-violet-100/90 text-violet-600 hover:bg-violet-200/90 dark:bg-violet-950/50 dark:text-violet-400 dark:hover:bg-violet-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                  onClick={loadData}
-                >
-                  <RefreshCcw className={`size-5 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-                <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
-                  <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
-                  Segarkan Data (Real DB)
-                </div>
-              </div>
+              {/* Import Button (.csv, .xlsx, .xls) */}
+              <SquircleActionButton
+                variant="import"
+                label="Import Data (.csv, .xlsx, .xls)"
+                onClick={() => Swal.fire({ icon: 'info', title: 'Import Data Presensi', text: 'Membuka dialog pengunggahan berkas masal...' })}
+              />
 
-              {/* Export Button (Amber Squircle) with Floating Tooltip */}
-              <div className="group relative inline-flex">
-                <button
-                  type="button"
-                  title="Export Data"
-                  aria-label="Export Data"
-                  className="flex size-10 items-center justify-center rounded-2xl bg-amber-100/90 text-amber-600 hover:bg-amber-200/90 dark:bg-amber-950/50 dark:text-amber-400 dark:hover:bg-amber-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                  onClick={handleExport}
-                >
-                  <Download1 className="size-5" />
-                </button>
-                <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
-                  <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
-                  Cetak / Export PDF & Excel
-                </div>
-              </div>
+              {/* Export Button */}
+              <SquircleActionButton
+                variant="export"
+                label="Ekspor Data (Excel/CSV)"
+                onClick={handleExport}
+              />
 
-              {/* Action Plus Button (Emerald Squircle) with Floating Tooltip */}
+              {/* Cetak Laporan Button */}
+              <SquircleActionButton
+                variant="view"
+                icon={Printer}
+                label="Cetak Laporan"
+                onClick={() => setPrintOptionModalOpen(true)}
+              />
+
+              {/* Refresh Segarkan Data Button */}
+              <SquircleActionButton
+                variant="ghost"
+                icon={RefreshCcw}
+                label="Segarkan Data (Real DB)"
+                onClick={loadData}
+              />
+
+              {/* Action Plus Button */}
               {activeTab === 'tindak-lanjut' && (
-                <div className="group relative inline-flex">
-                  <button
-                    type="button"
-                    title="Tambah Catatan"
-                    aria-label="Tambah Catatan"
-                    className="flex size-10 items-center justify-center rounded-2xl bg-emerald-100/90 text-emerald-600 hover:bg-emerald-200/90 dark:bg-emerald-950/50 dark:text-emerald-400 dark:hover:bg-emerald-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-                    onClick={() => setFollowUpCreateModalOpen(true)}
-                  >
-                    <Plus className="size-5" />
-                  </button>
-                  <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
-                    <div className="absolute bottom-full left-1/2 -mb-1 -translate-x-1/2 border-4 border-transparent border-b-slate-900 dark:border-b-slate-100" />
-                    Tambah Catatan Tindak Lanjut
-                  </div>
-                </div>
+                <SquircleActionButton
+                  variant="primary"
+                  icon={Plus}
+                  label="Tambah Catatan Tindak Lanjut"
+                  onClick={() => setFollowUpCreateModalOpen(true)}
+                />
               )}
             </div>
           </div>
@@ -958,7 +1178,14 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
                     const totalCount = attendances.length || 0
 
                     return (
-                      <TableRow key={item.id || idx} className="hover:scale-[1.001] transition-all hover:bg-slate-50/90 dark:hover:bg-slate-800/60">
+                      <TableRow
+                        key={item.id || idx}
+                        onClick={() => {
+                          setSelectedItem(item)
+                          setSessionDetailModalOpen(true)
+                        }}
+                        className="cursor-pointer hover:scale-[1.001] transition-all hover:bg-slate-50/90 dark:hover:bg-slate-800/60"
+                      >
                         <TableCell className="text-center font-medium text-slate-500">{rowNum}</TableCell>
                         <TableCell>
                           <div className="font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -987,19 +1214,28 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
                         <TableCell className="text-center">
                           {getStatusBadge(item.status)}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <ActionDropdown
-                            actions={[
-                              {
-                                label: 'Lihat Detail Absen Sesi',
-                                icon: BookOpen,
-                                onClick: () => {
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end">
+                            <div className="group relative inline-flex">
+                              <button
+                                type="button"
+                                title="Lihat Detail Absen Sesi"
+                                aria-label="Lihat Detail Absen Sesi"
+                                className="flex size-8 items-center justify-center rounded-xl bg-indigo-100/90 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-indigo-600/30 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
                                   setSelectedItem(item)
                                   setSessionDetailModalOpen(true)
-                                },
-                              },
-                            ]}
-                          />
+                                }}
+                              >
+                                <BookOpen className="size-4 transition-colors" />
+                              </button>
+                              <div className="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                                <div className="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                                Lihat Detail Absen Sesi
+                              </div>
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
@@ -1029,7 +1265,11 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
                     const className = item.student?.kelas?.nama_kelas || item.class_name || '-'
 
                     return (
-                      <TableRow key={item.id || idx} className="hover:scale-[1.001] transition-all hover:bg-slate-50/90 dark:hover:bg-slate-800/60">
+                      <TableRow
+                        key={item.id || idx}
+                        onClick={() => handleOpenPermReview(item, 'approved')}
+                        className="cursor-pointer hover:scale-[1.001] transition-all hover:bg-slate-50/90 dark:hover:bg-slate-800/60"
+                      >
                         <TableCell className="text-center font-medium text-slate-500">{rowNum}</TableCell>
                         <TableCell>
                           <div className="font-extrabold text-slate-900 dark:text-white">{studentName}</div>
@@ -1049,22 +1289,48 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
                         <TableCell className="text-center">
                           {getStatusBadge(item.status)}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <ActionDropdown
-                            actions={[
-                              {
-                                label: 'Setujui Izin',
-                                icon: CheckCircle1,
-                                onClick: () => handleOpenPermReview(item, 'approved'),
-                              },
-                              {
-                                label: 'Tolak Izin',
-                                icon: Xmark2x,
-                                danger: true,
-                                onClick: () => handleOpenPermReview(item, 'rejected'),
-                              },
-                            ]}
-                          />
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Setujui Button */}
+                            <div className="group relative inline-flex">
+                              <button
+                                type="button"
+                                title="Setujui Izin"
+                                aria-label="Setujui Izin"
+                                className="flex size-8 items-center justify-center rounded-xl bg-emerald-100/90 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-emerald-600/30 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenPermReview(item, 'approved')
+                                }}
+                              >
+                                <CheckCircle1 className="size-4 transition-colors" />
+                              </button>
+                              <div className="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                                <div className="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                                Setujui Izin
+                              </div>
+                            </div>
+
+                            {/* Tolak Button */}
+                            <div className="group relative inline-flex">
+                              <button
+                                type="button"
+                                title="Tolak Izin"
+                                aria-label="Tolak Izin"
+                                className="flex size-8 items-center justify-center rounded-xl bg-rose-100/90 text-rose-600 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-rose-600/30 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenPermReview(item, 'rejected')
+                                }}
+                              >
+                                <Xmark2x className="size-4 transition-colors" />
+                              </button>
+                              <div className="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                                <div className="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                                Tolak Izin
+                              </div>
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
@@ -1094,7 +1360,11 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
                     const studentName = item.student?.full_name || item.student_name || item.siswa_nama || 'Siswa'
 
                     return (
-                      <TableRow key={item.id || idx} className="hover:scale-[1.001] transition-all hover:bg-slate-50/90 dark:hover:bg-slate-800/60">
+                      <TableRow
+                        key={item.id || idx}
+                        onClick={() => handleOpenCorrReview(item, 'approved')}
+                        className="cursor-pointer hover:scale-[1.001] transition-all hover:bg-slate-50/90 dark:hover:bg-slate-800/60"
+                      >
                         <TableCell className="text-center font-medium text-slate-500">{rowNum}</TableCell>
                         <TableCell>
                           <div className="font-extrabold text-slate-900 dark:text-white">{studentName}</div>
@@ -1116,22 +1386,48 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
                         <TableCell className="text-center">
                           {getStatusBadge(item.status)}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <ActionDropdown
-                            actions={[
-                              {
-                                label: 'Setujui Koreksi',
-                                icon: CheckCircle1,
-                                onClick: () => handleOpenCorrReview(item, 'approved'),
-                              },
-                              {
-                                label: 'Tolak Koreksi',
-                                icon: Xmark2x,
-                                danger: true,
-                                onClick: () => handleOpenCorrReview(item, 'rejected'),
-                              },
-                            ]}
-                          />
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Setujui Koreksi Button */}
+                            <div className="group relative inline-flex">
+                              <button
+                                type="button"
+                                title="Setujui Koreksi"
+                                aria-label="Setujui Koreksi"
+                                className="flex size-8 items-center justify-center rounded-xl bg-emerald-100/90 text-emerald-600 hover:bg-emerald-600 hover:text-white dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-emerald-600/30 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenCorrReview(item, 'approved')
+                                }}
+                              >
+                                <CheckCircle1 className="size-4 transition-colors" />
+                              </button>
+                              <div className="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                                <div className="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                                Setujui Koreksi
+                              </div>
+                            </div>
+
+                            {/* Tolak Koreksi Button */}
+                            <div className="group relative inline-flex">
+                              <button
+                                type="button"
+                                title="Tolak Koreksi"
+                                aria-label="Tolak Koreksi"
+                                className="flex size-8 items-center justify-center rounded-xl bg-rose-100/90 text-rose-600 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-600 dark:hover:text-white transition-colors duration-200 hover:shadow-md hover:shadow-rose-600/30 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenCorrReview(item, 'rejected')
+                                }}
+                              >
+                                <Xmark2x className="size-4 transition-colors" />
+                              </button>
+                              <div className="pointer-events-none absolute bottom-full right-0 mb-2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-[9999] whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-2xl dark:bg-slate-100 dark:text-slate-900 border border-slate-700/50 dark:border-slate-300/50">
+                                <div className="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                                Tolak Koreksi
+                              </div>
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
@@ -1199,13 +1495,13 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
             variant="default"
           />
         </div>
-      </div>
+      </motion.div>
 
       {/* ── TailGrids Dialog Modals ──────────────────────────────────────────── */}
 
       {/* Modal 1: Detail Sesi Absensi Pelajaran */}
       <Backdrop isOpen={sessionDetailModalOpen} onOpenChange={setSessionDetailModalOpen}>
-        <Dialog className="max-w-xl">
+        <Dialog isOpen={sessionDetailModalOpen} onOpenChange={setSessionDetailModalOpen} className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BookOpen className="text-emerald-600" size={18} /> Detail Presensi Sesi Pelajaran
@@ -1242,19 +1538,25 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
             </div>
           </DialogBody>
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost" appearance="outline" size="sm">
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <div className="group relative inline-flex">
+              <DialogClose asChild>
+                <Button variant="ghost" appearance="outline" size="sm" iconOnly className="rounded-2xl" aria-label="Tutup">
+                  <Xmark2x className="size-5 transition-colors" />
+                </Button>
+              </DialogClose>
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
                 Tutup
-              </Button>
-            </DialogClose>
+              </div>
+            </div>
           </DialogFooter>
         </Dialog>
       </Backdrop>
 
       {/* Modal 2: Verifikasi Izin / Sakit */}
       <Backdrop isOpen={permReviewModalOpen} onOpenChange={setPermReviewModalOpen}>
-        <Dialog className="max-w-md">
+        <Dialog isOpen={permReviewModalOpen} onOpenChange={setPermReviewModalOpen} className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {reviewAction === 'approved' ? 'Setujui Pengajuan Izin' : 'Tolak Pengajuan Izin'}
@@ -1279,28 +1581,44 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
             </div>
           </DialogBody>
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost" appearance="outline" size="sm" disabled={busy}>
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <div className="group relative inline-flex">
+              <DialogClose asChild>
+                <Button variant="ghost" appearance="outline" size="sm" iconOnly className="rounded-2xl" disabled={busy} aria-label="Batal">
+                  <Xmark2x className="size-5 transition-colors" />
+                </Button>
+              </DialogClose>
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
                 Batal
+              </div>
+            </div>
+
+            <div className="group relative inline-flex">
+              <Button
+                variant={reviewAction === 'approved' ? 'success' : 'danger'}
+                appearance="fill"
+                size="sm"
+                iconOnly
+                className="rounded-2xl"
+                pending={busy}
+                onClick={handleConfirmPermReview}
+                aria-label={reviewAction === 'approved' ? 'Setujui Izin' : 'Tolak Izin'}
+              >
+                {reviewAction === 'approved' ? <CheckCircle1 className="size-5 transition-colors" /> : <Xmark2x className="size-5 transition-colors" />}
               </Button>
-            </DialogClose>
-            <Button
-              variant={reviewAction === 'approved' ? 'primary' : 'danger'}
-              appearance="fill"
-              size="sm"
-              pending={busy}
-              onClick={handleConfirmPermReview}
-            >
-              {reviewAction === 'approved' ? 'Setujui' : 'Tolak'}
-            </Button>
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                {reviewAction === 'approved' ? 'Setujui Izin' : 'Tolak Izin'}
+              </div>
+            </div>
           </DialogFooter>
         </Dialog>
       </Backdrop>
 
       {/* Modal 3: Koreksi Presensi */}
       <Backdrop isOpen={corrReviewModalOpen} onOpenChange={setCorrReviewModalOpen}>
-        <Dialog className="max-w-md">
+        <Dialog isOpen={corrReviewModalOpen} onOpenChange={setCorrReviewModalOpen} className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {reviewAction === 'approved' ? 'Setujui Koreksi Presensi' : 'Tolak Koreksi Presensi'}
@@ -1325,28 +1643,44 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
             </div>
           </DialogBody>
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="ghost" appearance="outline" size="sm" disabled={busy}>
+          <DialogFooter className="flex items-center justify-end gap-2">
+            <div className="group relative inline-flex">
+              <DialogClose asChild>
+                <Button variant="ghost" appearance="outline" size="sm" iconOnly className="rounded-2xl" disabled={busy} aria-label="Batal">
+                  <Xmark2x className="size-5 transition-colors" />
+                </Button>
+              </DialogClose>
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
                 Batal
+              </div>
+            </div>
+
+            <div className="group relative inline-flex">
+              <Button
+                variant={reviewAction === 'approved' ? 'success' : 'danger'}
+                appearance="fill"
+                size="sm"
+                iconOnly
+                className="rounded-2xl"
+                pending={busy}
+                onClick={handleConfirmCorrReview}
+                aria-label={reviewAction === 'approved' ? 'Setujui Koreksi' : 'Tolak Koreksi'}
+              >
+                {reviewAction === 'approved' ? <CheckCircle1 className="size-5 transition-colors" /> : <Xmark2x className="size-5 transition-colors" />}
               </Button>
-            </DialogClose>
-            <Button
-              variant={reviewAction === 'approved' ? 'primary' : 'danger'}
-              appearance="fill"
-              size="sm"
-              pending={busy}
-              onClick={handleConfirmCorrReview}
-            >
-              {reviewAction === 'approved' ? 'Setujui Koreksi' : 'Tolak Koreksi'}
-            </Button>
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                {reviewAction === 'approved' ? 'Setujui Koreksi' : 'Tolak Koreksi'}
+              </div>
+            </div>
           </DialogFooter>
         </Dialog>
       </Backdrop>
 
       {/* Modal 4: Tambah Catatan Tindak Lanjut Siswa */}
       <Backdrop isOpen={followUpCreateModalOpen} onOpenChange={setFollowUpCreateModalOpen}>
-        <Dialog className="max-w-lg">
+        <Dialog isOpen={followUpCreateModalOpen} onOpenChange={setFollowUpCreateModalOpen} className="max-w-lg">
           <form onSubmit={handleCreateFollowUp}>
             <DialogHeader>
               <DialogTitle>Tambah Catatan Tindak Lanjut Siswa</DialogTitle>
@@ -1419,19 +1753,41 @@ export default function StudentAttendanceManagementPage({ initialTab = 'rekap' }
               </div>
             </DialogBody>
 
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="ghost" appearance="outline" size="sm" disabled={busy}>
+            <DialogFooter className="flex items-center justify-end gap-2">
+              <div className="group relative inline-flex">
+                <DialogClose asChild>
+                  <Button variant="ghost" appearance="outline" size="sm" iconOnly className="rounded-2xl" disabled={busy} aria-label="Batal">
+                    <Xmark2x className="size-5 transition-colors" />
+                  </Button>
+                </DialogClose>
+                <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                  <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
                   Batal
+                </div>
+              </div>
+
+              <div className="group relative inline-flex">
+                <Button variant="primary" appearance="fill" size="sm" iconOnly className="rounded-2xl" pending={busy} type="submit" aria-label="Simpan Catatan">
+                  <CheckCircle1 className="size-5 transition-colors" />
                 </Button>
-              </DialogClose>
-              <Button variant="primary" appearance="fill" size="sm" pending={busy} type="submit">
-                Simpan Catatan
-              </Button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 ease-out z-50 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl dark:bg-slate-100 dark:text-slate-900">
+                  <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
+                  Simpan Catatan
+                </div>
+              </div>
             </DialogFooter>
           </form>
         </Dialog>
       </Backdrop>
-    </div>
+
+      {/* Modal 5: TailGrids Opsi Cetak & Unduh PDF / Clean Print */}
+      <PrintOptionModal
+        isOpen={printOptionModalOpen}
+        onClose={() => setPrintOptionModalOpen(false)}
+        onPrint={handlePrintClean}
+        onDownload={handleDownloadPdfTable}
+        title="Data Presensi Siswa"
+      />
+    </motion.div>
   )
 }

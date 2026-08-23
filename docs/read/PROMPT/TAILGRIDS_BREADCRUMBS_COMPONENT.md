@@ -1,79 +1,101 @@
-Read docs/ai/README.md and INDEX.md first.
-
 # TailGrids Breadcrumbs Component Integration Prompt & Guideline
 
 ## Overview
-Dokumen ini berisi panduan dan prompt integrasi komponen **Breadcrumbs** berbasis **TailGrids UI Library** (`@/components/tailgrids/core/breadcrumbs`) untuk Sistem Manajemen Sekolah Terpadu (SIMSIT).
+Dokumen ini berisi panduan dan prompt integrasi komponen **Breadcrumbs** berbasis **TailGrids UI Library** (`@/components/tailgrids/core/breadcrumbs`) untuk Sistem Manajemen Sekolah Terpadu (SIMSIT), mengikuti benchmark gold standard dari halaman **Dashboard Wali Kelas** (`http://localhost:5173/absensi/dashboard-wali-kelas`).
 
 ---
 
 ## Canonical Imports & Component Anatomy
 
 ```jsx
-"use client";
-
 import { Breadcrumbs } from "@/components/tailgrids/core/breadcrumbs";
-import { Home, ThreeDCube1 } from "@tailgrids/icons";
 ```
 
 ### Supported Props:
-- **`items`**: Array of `{ href: string; label: string; icon?: React.ReactNode }`
-- **`dividerType`**: `"slash"` | `"chevron"` | `"dot"` (default: `"slash"`)
-- **`activeHref`**: string (optional URL penanda item aktif)
+- **`items`**: Array of `{ href?: string; to?: string; label: string; icon?: React.ReactNode }`
+- **`dividerType`**: `"chevron"` | `"slash"` | `"dot"` (default: `"chevron"`)
+- **`homeTo`**: string | null (default: `"/dashboard"` - menampilkan item awal **Beranda** dengan ikon Home)
+- **`className`**: string (optional utility classes)
 
 ---
 
-## 1. Breadcrumbs with Icon Preview (Penggunaan Utama)
+## Gold Standard Breadcrumb Design (`http://localhost:5173/absensi/dashboard-wali-kelas`)
+
+Gaya standar Breadcrumbs SIMSIT memiliki ciri khas:
+1. **Ikon Beranda di Awal**: Secara otomatis menyertakan item `Beranda` dengan ikon `Home` (`Home className="size-3.5"`).
+2. **Pemisah Chevron halus**: Menggunakan `ChevronRight` berwarna `text-slate-300 dark:text-slate-600` (`size-3.5`).
+3. **Hyperlink Single-Page App**: Menggunakan `Link` dari `react-router-dom` dengan efek hover warna hijau khas SIMSIT (`hover:text-[#0E5C44] dark:hover:text-[#3FBF75]`).
+4. **Highlight Item Aktif**: Item terakhir (halaman yang sedang dibuka) tebal tanpa hyperlink (`font-bold text-slate-800 dark:text-slate-200`).
+5. **Responsif & Safe Truncate**: Mendukung teks panjang dengan pemangkasan otomatis (`truncate max-w-[200px] sm:max-w-xs`).
+
+---
+
+## 1. Penggunaan Utama pada Halaman Dashboard & Form
 
 ```jsx
-"use client";
-
 import { Breadcrumbs } from "@/components/tailgrids/core/breadcrumbs";
-import { Home, ThreeDCube1 } from "@tailgrids/icons";
 
-export default function BreadcrumbsWithIconPreview() {
+export default function StandardPageHeader() {
   return (
-    <Breadcrumbs
-      items={[
-        { href: "#", label: "Home", icon: <Home /> },
-        { href: "#", label: "Products", icon: <ThreeDCube1 /> },
-        { href: "#", label: "Laptop" }
-      ]}
-    />
+    <div className="print:hidden">
+      <Breadcrumbs
+        items={[
+          { href: "/absensi", label: "Absensi" },
+          { label: "Dashboard Wali Kelas" }
+        ]}
+      />
+    </div>
   );
 }
 ```
 
 ---
 
-## 2. Breadcrumbs Divider Variants (Slash, Chevron, & Dot)
+## 2. Penggunaan pada Halaman Master Data & Tahfizh
 
 ```jsx
-"use client";
-
 import { Breadcrumbs } from "@/components/tailgrids/core/breadcrumbs";
-import { Home, ThreeDCube1 } from "@tailgrids/icons";
 
-export default function BreadcrumbsDividersPreview() {
+export default function TahfizhPageHeader() {
   return (
-    <div className="flex flex-col gap-4">
-      {/* Slash Divider (Bawaan / Default) */}
-      <Breadcrumbs
-        dividerType="slash"
-        items={[
-          { href: "/dashboard", label: "Home", icon: <Home /> },
-          { href: "/dashboard/master", label: "Master Data" },
-          { href: "/dashboard/master/unit-pendidikan", label: "Unit Pendidikan" }
-        ]}
-      />
-
-      {/* Chevron Divider */}
+    <div className="print:hidden">
       <Breadcrumbs
         dividerType="chevron"
         items={[
-          { href: "/dashboard", label: "Home", icon: <Home /> },
-          { href: "/dashboard/akademik", label: "Akademik", icon: <ThreeDCube1 /> },
-          { href: "/dashboard/akademik/mapel", label: "Mata Pelajaran" }
+          { href: "/dashboard/tahfizh", label: "Tahfizh & Murajaah" },
+          { label: "Setoran Harian" }
+        ]}
+      />
+    </div>
+  );
+}
+```
+
+---
+
+## 3. Divider Variants (Chevron, Slash, & Dot)
+
+```jsx
+import { Breadcrumbs } from "@/components/tailgrids/core/breadcrumbs";
+
+export default function BreadcrumbsDividersExample() {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Chevron Divider (Gold Standard SIMSIT) */}
+      <Breadcrumbs
+        dividerType="chevron"
+        items={[
+          { href: "/dashboard/akademik", label: "Akademik" },
+          { label: "Mata Pelajaran" }
+        ]}
+      />
+
+      {/* Slash Divider */}
+      <Breadcrumbs
+        dividerType="slash"
+        items={[
+          { href: "/dashboard/master", label: "Master Data" },
+          { label: "Unit Pendidikan" }
         ]}
       />
 
@@ -81,53 +103,11 @@ export default function BreadcrumbsDividersPreview() {
       <Breadcrumbs
         dividerType="dot"
         items={[
-          { href: "/dashboard", label: "Home", icon: <Home /> },
           { href: "/dashboard/settings", label: "Pengaturan" },
-          { href: "/dashboard/settings/hak-akses", label: "Hak Akses" }
+          { label: "Hak Akses" }
         ]}
       />
     </div>
   );
 }
-
----
-
-## 3. Standard AppBreadcrumb Page Integration Pattern (Employees & Students Standard)
-
-Untuk konsistensi navigasi di seluruh halaman aplikasi (seperti `StudentsPage`, `EmployeesPage`, `EducationUnitsPage`, `MasterJabatanPage`), gunakan wrapper kanonikal `AppBreadcrumb` (`@/components/app/AppBreadcrumb`):
-
-### Fitur Utama `AppBreadcrumb`:
-1. **Otomatis Beranda**: Menambahkan item pertama `Beranda` dengan ikon `Home` yang mengarah ke `/dashboard`.
-2. **Pemisah Ikon Chevron**: Menggunakan `ChevronRight` berwarna abu-abu halus antar item.
-3. **Item Aktif Halaman**: Item terakhir pada array `items` otomatis menjadi item aktif (`font-bold text-slate-800 dark:text-slate-200`) tanpa link.
-4. **Responisif & Truncate**: Mendukung pemangkasan teks otomatis (*truncate*) pada layar sempit.
-
-### Contoh Implementasi di Halaman Aplikasi:
-
-```jsx
-import PageContainer from '../components/app/PageContainer'
-import AppBreadcrumb from '../components/app/AppBreadcrumb'
-
-export default function StudentsPage() {
-  return (
-    <PageContainer maxW="7xl" className="space-y-6 pb-12">
-      {/* Breadcrumb Kanonikal (Tiru dari EmployeesPage) */}
-      <AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Data Siswa' }]} />
-
-      {/* Konten Halaman */}
-    </PageContainer>
-  )
-}
 ```
-
-```jsx
-// Halaman Data Pegawai (EmployeesPage):
-<AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Data Pegawai' }]} />
-
-// Halaman Data Siswa (StudentsPage):
-<AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Data Siswa' }]} />
-
-// Halaman Unit Pendidikan (EducationUnitsPage):
-<AppBreadcrumb items={[{ label: 'Master Data', to: '/dashboard' }, { label: 'Unit Pendidikan' }]} />
-```
-

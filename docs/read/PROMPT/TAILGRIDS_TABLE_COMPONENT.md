@@ -48,7 +48,8 @@ import ActionDropdown from "@/components/app/ActionDropdown";
 ## Standard Layout & Rules Architecture
 
 ### 1. Card Container & Padding Rules
-- **Outer Container**: `overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]`
+- **Page Container Wrapper**: `<PageContainer className="space-y-6 pb-12">` (Dokumentasi lengkap di [TAILGRIDS_PAGE_CONTAINER_LAYOUT.md](file:///Applications/XAMPP/xamppfiles/htdocs/Sistem-Manajemen-Sekolah-terpadu-main/docs/read/PROMPT/TAILGRIDS_PAGE_CONTAINER_LAYOUT.md)).
+- **Outer Card Container**: `overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]`
 - **Table Viewport Margin/Padding**: `px-4 sm:px-6 md:px-8` (Menjamin isi tabel tidak langsung menempel pada border kartu).
 - **`fullBleed` Setting**: `fullBleed={false}` pada `TableRoot`.
 
@@ -147,6 +148,9 @@ Seluruh datatable WAJIB menyediakan opsi pilihan jumlah baris per halaman (5, 10
 ```
 
 ### 5. Micro-Animations & Interaktivitas Datatable
+- **Header Tabel (`TableHeader` & `TableHead`)**:
+  - Soft cool grey background bar: `bg-slate-100/90 dark:bg-slate-800/90 border-y border-slate-200/90 dark:border-slate-800` pada setiap elemen `<TableHead>`
+  - Typography cell (`TableHead`): `text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200`
 - **Baris Tabel (`TableRow`)**:
   - `transition-all duration-200 hover:bg-slate-50/90 dark:hover:bg-slate-800/50 hover:shadow-xs`
   - Style saat terpilih (selected): `data-state="selected"` (`bg-emerald-50/30 dark:bg-emerald-950/20`)
@@ -154,7 +158,7 @@ Seluruh datatable WAJIB menyediakan opsi pilihan jumlah baris per halaman (5, 10
   - `transition-all duration-150 active:scale-95 cursor-pointer hover:text-slate-900 dark:hover:text-white`
   - Ikon Sort: `<ArrowBothDirectionHorizontal2 className={`h-3 w-3 shrink-0 transition-transform duration-200 ${sortKey === key ? 'text-emerald-600 dark:text-emerald-400 rotate-180' : 'text-slate-400'}`} />`
 - **Interactive Data Hover Card (`HoverCard`)**:
-  - Digunakan pada kolom utama (misal nama unit/siswa) untuk menampilkan tooltip rincian data ketika cursor di-hover.
+  - Digunakan pada kolom identitas utama (misal nama siswa / NIS / nama unit) dengan membungkus cell menggunakan `<HoverCard>` dan `<HoverCardContent className="w-72 p-4 border ...">` untuk menampilkan popover rincian data secara otomatis ketika kursor diarahkan (hover) ke baris data tersebut (Lihat [TAILGRIDS_HOVERCARD_COMPONENT.md](file:///Applications/XAMPP/xamppfiles/htdocs/Sistem-Manajemen-Sekolah-terpadu-main/docs/read/PROMPT/TAILGRIDS_HOVERCARD_COMPONENT.md)).
 
 ### 6. Mobile Card Fallback (`renderMobileCard`)
 - Pada layar mobile (`< md`), tabel desktop tersembunyi secara otomatis dan digantikan oleh tampilan card berbasis `renderMobileCard`.
@@ -502,30 +506,215 @@ export function downloadXmlSpreadsheet(filename, headers, rows) {
 }
 ```
 
-### 3. Integration `printableHeader` & Print Setup
-Kop laporan resmi cetak dioperkan langsung ke prop `printableHeader` pada `<AppDataTable />` agar posisi kop berada tepat di dalam tabel tanpa sela kosong di Halaman 1:
+### 3. TailGrids Print & PDF Modal (`PrintOptionModal`) & In-Place Print Standard
+Saat tombol **Cetak Data** (`Printer` - Indigo) diklik, seluruh modul WAJIB menampilkan modal konfirmasi berbasis **TailGrids UI Library** (`PrintOptionModal` dari `@/components/master-data`) dengan 2 opsi utama:
+1. **🖨️ Cetak Langsung (Print)**: Menjalankan `printCleanTable()` secara in-place via hidden iframe (`#simsit-print-iframe`) **TANPA membuka tab/halaman baru (`window.open` DILARANG)**.
+2. **📄 Unduh Berkas PDF (.pdf)**: Menjalankan `downloadPdfTable()` atau service backend untuk mengunduh laporan murni dalam format berkas `.pdf`.
 
+```javascript
+// @/utils/printHelper.js - Standard In-Place Print & PDF Downloader
+export function printCleanTable({ title, subtitle = '', headers = [], rows = [] }) {
+  let iframe = document.getElementById('simsit-print-iframe')
+  if (iframe) document.body.removeChild(iframe)
+
+  iframe = document.createElement('iframe')
+  iframe.id = 'simsit-print-iframe'
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0px'
+  iframe.style.height = '0px'
+  iframe.style.border = 'none'
+  iframe.style.zIndex = '-9999'
+  document.body.appendChild(iframe)
+
+  const headerHtml = headers.map((h) => `<th>${h}</th>`).join('')
+  const rowsHtml = rows.map((r) => `<tr>${r.map((c) => `<td>${c ?? '-'}</td>`).join('')}</tr>`).join('')
+  const currentDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+  const doc = iframe.contentWindow.document
+  doc.open()
+  doc.write(`
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="UTF-8">
+      <title>${title}</title>
+      <style>
+        @page { size: A4 landscape; margin: 12mm 15mm; }
+        body { font-family: 'Inter', system-ui, sans-serif; font-size: 9.5pt; color: #0f172a; margin: 0; padding: 12px; }
+        .print-header { border-bottom: 2.5px solid #0e5c44; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .print-brand { font-size: 8pt; font-weight: 800; color: #0e5c44; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+        .print-title { font-size: 16pt; font-weight: 800; color: #0e5c44; margin: 0; line-height: 1.2; }
+        .print-subtitle { font-size: 9pt; color: #64748b; margin: 4px 0 0 0; font-weight: 500; }
+        .print-meta { font-size: 8.5pt; color: #475569; font-weight: 600; text-align: right; line-height: 1.4; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th { background-color: #f1f5f9; color: #0f172a; font-size: 8.5pt; font-weight: 700; text-transform: uppercase; padding: 8px 10px; border: 1px solid #cbd5e1; text-align: left; }
+        td { padding: 7px 10px; font-size: 9pt; border: 1px solid #e2e8f0; color: #334155; vertical-align: middle; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        .print-footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8pt; color: #94a3b8; }
+      </style>
+    </head>
+    <body>
+      <div class="print-header">
+        <div>
+          <div class="print-brand">Sistem Informasi Sekolah Terpadu (SIMSIT)</div>
+          <h1 class="print-title">${title}</h1>
+          ${subtitle ? `<p class="print-subtitle">${subtitle}</p>` : ''}
+        </div>
+        <div class="print-meta">
+          <div>Tanggal Cetak: ${currentDate}</div>
+          <div>Total Record: ${rows.length} Data</div>
+        </div>
+      </div>
+      <table>
+        <thead><tr>${headerHtml}</tr></thead>
+        <tbody>${rowsHtml || '<tr><td colspan="' + headers.length + '" style="text-align:center;">Tidak ada data.</td></tr>'}</tbody>
+      </table>
+      <div class="print-footer">
+        <span>Dokumen Laporan Resmi — Akademik SIMSIT</span>
+        <span>Laporan Cetak Murni</span>
+      </div>
+    </body>
+    </html>
+  `)
+  doc.close()
+
+  setTimeout(() => {
+    iframe.contentWindow.focus()
+    iframe.contentWindow.print()
+  }, 250)
+}
+
+export function downloadPdfTable({ title, subtitle = '', headers = [], rows = [], filename }) {
+  const safeFilename = filename || `Laporan_${title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
+  printCleanTable({
+    title,
+    subtitle: subtitle ? `${subtitle} (Berkas PDF)` : 'Berkas PDF Laporan Resmi',
+    headers,
+    rows,
+  })
+}
+```
+
+### 4. TailGrids Print Option Modal Integration Standard
 ```jsx
-<AppDataTable
-  printableHeader={
-    <div className="flex items-end justify-between border-b border-slate-400 pb-1.5 text-slate-900">
-      <div>
-        <h1 className="text-base font-extrabold uppercase tracking-tight text-slate-900 leading-tight">
-          Laporan Master Data SIT
-        </h1>
-        <p className="text-[11px] text-slate-700 font-semibold mt-0.5 leading-tight">
-          Sekolah Islam Terpadu — Unit: {selectedUnitName || 'Semua Unit'}
-        </p>
-      </div>
-      <div className="text-right text-[9px] text-slate-600 font-medium leading-tight space-y-0.5">
-        <p>Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        <p>Total Data: {filteredItems.length} Records</p>
-      </div>
-    </div>
-  }
-  ...
+import { PrintOptionModal } from '@/components/master-data'
+import { printCleanTable, downloadPdfTable } from '@/utils/printHelper'
+
+const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
+
+// Di Toolbar Button:
+<SquircleActionButton variant="view" icon={Printer} label="Cetak Data" onClick={() => setIsPrintModalOpen(true)} />
+
+// Di dalam render JSX:
+<PrintOptionModal
+  isOpen={isPrintModalOpen}
+  onClose={() => setIsPrintModalOpen(false)}
+  title="[Nama Modul]"
+  onPrint={() => {
+    printCleanTable({
+      title: 'Laporan [Nama Modul]',
+      subtitle: 'Daftar Data Sekolah Islam Terpadu',
+      headers: ['NO', 'KODE', 'NAMA', 'STATUS'],
+      rows: listData.map((item, i) => [i + 1, item.code, item.name, item.status ? 'Aktif' : 'Nonaktif']),
+    })
+  }}
+  onDownload={() => {
+    downloadPdfTable({
+      title: 'Laporan [Nama Modul]',
+      subtitle: 'Daftar Data Sekolah Islam Terpadu',
+      headers: ['NO', 'KODE', 'NAMA', 'STATUS'],
+      rows: listData.map((item, i) => [i + 1, item.code, item.name, item.status ? 'Aktif' : 'Nonaktif']),
+      filename: 'laporan_modul.pdf',
+    })
+  }}
 />
 ```
-Elemen non-tabel luar (Breadcrumb, Alert, Cards, Navbar) wajib dibungkus dengan kelas `print:hidden`.
+
+---
+
+### 4. Datatable Row Click Detail Modal & Action Buttons Standard
+
+Saat pengguna mengeklik baris data / nama item pada Datatable (atau memilih *"Lihat Detail"* dari `ActionDropdown`), Datatable menyediakan opsi pemanggilan modal rincian berbasis **TailGrids UI Library** (`Dialog` & `Backdrop` dari `@/components/tailgrids/core/dialog` dan `@/components/tailgrids/core/overlay`).
+
+**Aturan Action Buttons di dalam Modal**:
+- Di dalam `DialogFooter`, tampilkan kembali tombol-tombol aksi utama dari kolom aksi (misal **Export Excel** [Soft Amber Squircle Button], **Cetak Laporan** [Soft Indigo Squircle Button], dan **Tutup** [Ghost Button]) dengan style tombol kanonis dari `TAILGRIDS_BUTTON_COMPONENT.md`.
+
+```jsx
+// State Modal Detail:
+const [selectedItemModal, setSelectedItemModal] = useState(null)
+
+// Pada cell identitas / nama:
+<TableCell className="cursor-pointer" onClick={() => setSelectedItemModal(row)}>
+  <PersonIdentityCell name={row.name} subtitle={row.code} />
+</TableCell>
+
+// Pada ActionDropdown extraItems:
+extraItems={[
+  {
+    label: 'Lihat Detail',
+    icon: <Eye className="h-4 w-4 text-sky-600" />,
+    onClick: () => setSelectedItemModal(row),
+  },
+  {
+    label: 'Export Data',
+    icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600" />,
+    onClick: () => handleExportCsv(row),
+  },
+]}
+
+// Render Dialog Detail Modal:
+{selectedItemModal && (
+  <Backdrop isOpen={Boolean(selectedItemModal)} onOpenChange={(open) => !open && setSelectedItemModal(null)}>
+    <Dialog className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-[#1B2433]">
+      <DialogHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between">
+          <DialogTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Eye className="h-5 w-5 text-emerald-600" />
+            <span>Detail Data</span>
+          </DialogTitle>
+          <MasterStatusBadge status={selectedItemModal.is_active ? 'aktif' : 'nonaktif'} />
+        </div>
+        <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Informasi profil lengkap dan rincian data terdaftar.
+        </DialogDescription>
+      </DialogHeader>
+
+      <DialogBody className="space-y-4 py-4 text-xs">
+        {/* Rincian data grid */}
+      </DialogBody>
+
+      <DialogFooter className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          {/* Action Column Buttons inside Modal using TailGrids & Soft Squircle Style */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="bg-amber-100/90 text-amber-600 hover:bg-amber-500 hover:text-white dark:bg-amber-950/60 dark:text-amber-300 font-semibold"
+            onClick={() => handleExportCsv(selectedItemModal)}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+            Export Excel
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="bg-indigo-100/90 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-950/60 dark:text-indigo-300 font-semibold"
+            onClick={() => { setSelectedItemModal(null); setIsPrintModalOpen(true); }}
+          >
+            <Printer className="h-4 w-4 mr-1.5" />
+            Cetak Laporan
+          </Button>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => setSelectedItemModal(null)}>
+          Tutup
+        </Button>
+      </DialogFooter>
+    </Dialog>
+  </Backdrop>
+)}
+```
+
 
 ```
