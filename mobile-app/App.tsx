@@ -1,8 +1,26 @@
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import BottomTabs from './src/navigation/BottomTabs';
+import LoginScreen from './src/screens/LoginScreen';
+import SplashScreen from './src/screens/SplashScreen';
+import { useAuthStore } from './src/stores/authStore';
 
 export default function App() {
+  const token = useAuthStore((state) => state.token);
+  const isHydrated = useAuthStore((state) => state.isHydrated);
+  const hydrate = useAuthStore((state) => state.hydrate);
+  const [splashReady, setSplashReady] = useState(false);
+
+  useEffect(() => {
+    void hydrate();
+
+    const timer = setTimeout(() => setSplashReady(true), 1400);
+    return () => clearTimeout(timer);
+  }, [hydrate]);
+
+  const showingSplash = !isHydrated || !splashReady;
+
   return (
     <PaperProvider
       theme={{
@@ -15,8 +33,8 @@ export default function App() {
         },
       }}
     >
-      <BottomTabs />
-      <StatusBar style="dark" />
+      {showingSplash ? <SplashScreen /> : token ? <BottomTabs /> : <LoginScreen />}
+      <StatusBar style={showingSplash || !token ? 'light' : 'dark'} />
     </PaperProvider>
   );
 }

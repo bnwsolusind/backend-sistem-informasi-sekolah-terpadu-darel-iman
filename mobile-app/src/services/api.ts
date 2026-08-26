@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
 
-// URL API Backend Laravel 12 (Dapat disesuaikan via ENV atau Default localhost)
-const API_BASE_URL = 'http://localhost:8000/api';
+// Android Emulator maps the host machine's localhost to 10.0.2.2.
+// Physical devices should use the computer's LAN address through EXPO_PUBLIC_API_URL.
+export const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000/api'
+).replace(/\/$/, '');
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -32,3 +35,20 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const payload = error.response?.data as {
+      message?: string;
+      errors?: Record<string, string[] | string>;
+    } | undefined;
+
+    if (payload?.message) return payload.message;
+
+    const firstError = payload?.errors && Object.values(payload.errors)[0];
+    if (Array.isArray(firstError) && firstError[0]) return firstError[0];
+    if (typeof firstError === 'string') return firstError;
+  }
+
+  return fallback;
+};

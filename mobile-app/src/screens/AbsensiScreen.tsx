@@ -1,349 +1,181 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
   View,
-  ScrollView,
-  SafeAreaView,
-  Alert,
-  TouchableOpacity,
-  RefreshControl,
 } from 'react-native';
 import {
-  Text,
-  Card,
-  Button,
-  Badge,
   ActivityIndicator,
-  Surface,
+  Badge,
+  Button,
+  Card,
   Divider,
+  Surface,
+  Text,
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { mobileApiService, AttendancePayload } from '../services/mobileApiService';
+import { getApiErrorMessage } from '../services/api';
+import { AttendancePayload, mobileApiService } from '../services/mobileApiService';
+import { useAuthStore } from '../stores/authStore';
 
-interface AttendanceRecord {
-  id: string;
-  tanggal: string;
-  jam_masuk: string;
-  jam_pulang: string;
-  status: 'Hadir' | 'Sakit' | 'Izin' | 'Alpha';
-  lokasi: string;
-}
+type AttendanceRecord = Record<string, any>;
+
+const timeOf = (value: unknown): string => {
+  if (!value) return '-';
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+};
+
+const dateOf = (value: unknown): string => {
+  if (!value) return 'Tanggal tidak tersedia';
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+};
+
+const colorOf = (status: string): string => {
+  const value = status.toLowerCase();
+  if (value.includes('hadir') || value.includes('present')) return '#059669';
+  if (value.includes('terlambat') || value.includes('late')) return '#D97706';
+  if (value.includes('izin') || value.includes('sakit')) return '#2563EB';
+  return '#DC2626';
+};
 
 export default function AbsensiScreen() {
-  const [loading, setLoading] = useState(false);
+  const employeeId = useAuthStore((state) => state.scope?.employee_id);
+  const [history, setHistory] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
-  const [history, setHistory] = useState<AttendanceRecord[]>([
-    {
-      id: '1',
-      tanggal: '27 Juli 2026',
-      jam_masuk: '06:55 WIB',
-      jam_pulang: '15:30 WIB',
-      status: 'Hadir',
-      lokasi: 'Gedung Utama SDIT',
-    },
-    {
-      id: '2',
-      tanggal: '26 Juli 2026',
-      jam_masuk: '07:02 WIB',
-      jam_pulang: '15:35 WIB',
-      status: 'Hadir',
-      lokasi: 'Gedung Utama SDIT',
-    },
-    {
-      id: '3',
-      tanggal: '25 Juli 2026',
-      jam_masuk: '-',
-      jam_pulang: '-',
-      status: 'Izin',
-      lokasi: 'Surat Izin Orangtua',
-    },
-  ]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const loadAttendanceData = useCallback(async () => {
+  const load = useCallback(async () => {
+    if (!employeeId) {
+      setError('Akun ini belum terhubung ke data pegawai. Hubungkan user_id pada tabel employees terlebih dahulu.');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    setError('');
+    setLoading(true);
     try {
-      const data = await mobileApiService.getAttendanceReport();
-      if (data && Array.isArray(data.records)) {
-        setHistory(data.records);
-      }
-    } catch (e) {
-      console.log('Error loading attendance report:', e);
+      const response = await mobileApiService.getAttendanceReport({ employee_id: employeeId, per_page: 100 });
+      const records = Array.isArray(response?.records)
+        ? response.records
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.data)
+            ? response.data.data
+            : [];
+      setHistory(records);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Riwayat presensi belum berhasil dimuat.'));
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [employeeId]);
 
   useEffect(() => {
-    loadAttendanceData();
-  }, [loadAttendanceData]);
+    void load();
+  }, [load]);
 
-  const handleCheckIn = async () => {
-    setLoading(true);
+  const today = history[0];
+  const checkedIn = Boolean(today?.check_in_time && !today?.check_out_time);
+
+  const checkIn = async () => {
+    if (!employeeId) return;
+    setSaving(true);
     try {
       const payload: AttendancePayload = {
-        status: 'Hadir',
-        keterangan: 'Presensi Masuk via Mobile App',
-        lat: -6.200000,
-        long: 106.816666,
+        tipe_presensi: 'Pegawai',
+        employee_id: employeeId,
+        status: 'HADIR',
+        attendance_method: 'MOBILE',
+        location: 'SIMS Mobile Android',
+        keterangan: 'Presensi masuk melalui aplikasi mobile.',
       };
-      await mobileApiService.checkIn(payload).catch(() => {});
-      setIsCheckedIn(true);
-      
-      const newRecord: AttendanceRecord = {
-        id: String(Date.now()),
-        tanggal: 'Hari ini',
-        jam_masuk: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' WIB',
-        jam_pulang: '- (Belum Pulang)',
-        status: 'Hadir',
-        lokasi: 'Gedung Utama SDIT (GPS Matched)',
-      };
-      setHistory((prev) => [newRecord, ...prev]);
-
-      Alert.alert('Presensi Berhasil!', 'Terima kasih, presensi masuk Anda telah tercatat.');
-    } catch {
-      Alert.alert('Gagal Presensi', 'Terjadi kesalahan sistem saat menghubungi server.');
+      await mobileApiService.checkIn(payload);
+      Alert.alert('Presensi berhasil', 'Presensi masuk sudah tercatat di server.');
+      await load();
+    } catch (requestError) {
+      Alert.alert('Presensi gagal', getApiErrorMessage(requestError, 'Presensi masuk belum berhasil dicatat.'));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleCheckOut = async () => {
-    setLoading(true);
+  const checkOut = async () => {
+    if (!employeeId) return;
+    setSaving(true);
     try {
-      const payload: AttendancePayload = {
-        status: 'Hadir',
-        keterangan: 'Presensi Pulang via Mobile App',
-      };
-      await mobileApiService.checkOut(payload).catch(() => {});
-      setIsCheckedIn(false);
-
-      setHistory((prev) =>
-        prev.map((item, index) =>
-          index === 0
-            ? {
-                ...item,
-                jam_pulang: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' WIB',
-              }
-            : item
-        )
-      );
-
-      Alert.alert('Presensi Pulang Berhasil!', 'Selamat jalan, presensi pulang tercatat.');
-    } catch {
-      Alert.alert('Gagal Presensi', 'Terjadi kesalahan saat presensi pulang.');
+      await mobileApiService.checkOut({ employee_id: employeeId, location: 'SIMS Mobile Android' });
+      Alert.alert('Presensi berhasil', 'Presensi pulang sudah tercatat di server.');
+      await load();
+    } catch (requestError) {
+      Alert.alert('Presensi gagal', getApiErrorMessage(requestError, 'Presensi pulang belum berhasil dicatat.'));
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'Hadir':
-        return '#10b981';
-      case 'Izin':
-        return '#d97706';
-      case 'Sakit':
-        return '#2563eb';
-      default:
-        return '#ef4444';
+      setSaving(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAttendanceData(); }} colors={['#0f5132']} />
-        }
-      >
-        {/* Real-time Status Card */}
-        <Surface style={styles.statusSurface} elevation={2}>
-          <View style={styles.statusHeader}>
-            <View>
-              <Text variant="titleMedium" style={styles.todayTitle}>
-                Presensi Hari Ini
-              </Text>
-              <Text variant="bodySmall" style={styles.todayDate}>
-                {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </Text>
-            </View>
-            <Badge style={{ backgroundColor: isCheckedIn ? '#10b981' : '#64748b', paddingHorizontal: 12 }}>
-              {isCheckedIn ? 'Sudah Masuk' : 'Belum Absen'}
-            </Badge>
-          </View>
-
-          <Divider style={{ marginVertical: 12 }} />
-
-          <View style={styles.locationBox}>
-            <MaterialCommunityIcons name="map-marker-radius" size={20} color="#0f5132" />
-            <Text style={styles.locationText}>Area Sekolah SDIT Terpadu (Zona GPS Sesuai)</Text>
-          </View>
-
-          <View style={styles.actionRow}>
-            {!isCheckedIn ? (
-              <Button
-                mode="contained"
-                onPress={handleCheckIn}
-                loading={loading}
-                disabled={loading}
-                style={[styles.btnAction, { backgroundColor: '#0f5132' }]}
-                icon="account-check"
-              >
-                Absen Masuk (Check-In)
-              </Button>
-            ) : (
-              <Button
-                mode="contained"
-                onPress={handleCheckOut}
-                loading={loading}
-                disabled={loading}
-                style={[styles.btnAction, { backgroundColor: '#d97706' }]}
-                icon="logout"
-              >
-                Absen Pulang (Check-Out)
-              </Button>
-            )}
-          </View>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} colors={['#0E5C44']} />}>
+        <Surface style={styles.statusCard} elevation={1}>
+          <View style={styles.statusHeader}><View><Text style={styles.eyebrow}>KEHADIRAN PEGAWAI</Text><Text variant="titleLarge" style={styles.title}>Presensi hari ini</Text><Text style={styles.date}>{dateOf(new Date().toISOString())}</Text></View><MaterialCommunityIcons name="map-marker-check-outline" size={34} color="#0E5C44" /></View>
+          <Divider style={styles.divider} />
+          <View style={styles.stateRow}><Text style={styles.stateLabel}>{checkedIn ? 'Sedang berada di jam kerja' : today?.check_out_time ? 'Presensi hari ini selesai' : 'Belum melakukan presensi'}</Text><Badge style={{ backgroundColor: checkedIn ? '#059669' : '#64748B' }}>{checkedIn ? 'Sudah masuk' : today?.check_out_time ? 'Selesai' : 'Belum absen'}</Badge></View>
+          <Text style={styles.note}>Aplikasi mengirim presensi ke `/api/attendance/checkin` dan `/api/attendance/checkout`. Lokasi dapat ditambahkan setelah permission GPS diaktifkan.</Text>
+          <Button mode="contained" loading={saving} disabled={saving || !employeeId || Boolean(today?.check_out_time)} icon={checkedIn ? 'logout' : 'account-check-outline'} onPress={() => void (checkedIn ? checkOut() : checkIn())} style={[styles.action, checkedIn && styles.checkout]}>{checkedIn ? 'Absen pulang' : 'Absen masuk'}</Button>
         </Surface>
 
-        {/* Attendance History Section */}
-        <Text variant="titleMedium" style={styles.sectionTitle}>
-          Riwayat Presensi Terbaru
-        </Text>
+        {error ? <Card style={styles.errorCard}><Card.Content><Text style={styles.errorText}>{error}</Text><Button compact onPress={() => void load()}>Muat ulang</Button></Card.Content></Card> : null}
+        {loading ? <ActivityIndicator color="#0E5C44" style={styles.loader} /> : null}
 
-        {history.map((record) => (
-          <Card key={record.id} style={styles.historyCard}>
-            <Card.Content>
-              <View style={styles.historyRowHeader}>
-                <View style={styles.dateCol}>
-                  <MaterialCommunityIcons name="calendar-clock" size={20} color="#0f5132" />
-                  <Text style={styles.historyDate}>{record.tanggal}</Text>
-                </View>
-                <Badge style={{ backgroundColor: getStatusBadgeVariant(record.status) }}>
-                  {record.status}
-                </Badge>
-              </View>
-
-              <View style={styles.timeDetails}>
-                <View style={styles.timeBox}>
-                  <Text style={styles.timeLabel}>Jam Masuk</Text>
-                  <Text style={styles.timeValue}>{record.jam_masuk}</Text>
-                </View>
-                <View style={styles.timeBox}>
-                  <Text style={styles.timeLabel}>Jam Pulang</Text>
-                  <Text style={styles.timeValue}>{record.jam_pulang}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.lokasiDetail}>📍 {record.lokasi}</Text>
-            </Card.Content>
-          </Card>
-        ))}
+        <Text variant="titleMedium" style={styles.sectionTitle}>Riwayat presensi</Text>
+        {!loading && !history.length ? <Card style={styles.emptyCard}><Card.Content><Text style={styles.empty}>Belum ada riwayat presensi untuk akun ini.</Text></Card.Content></Card> : null}
+        {history.map((record, index) => {
+          const status = String(record.status || 'Belum tercatat');
+          return <Card key={String(record.id || index)} style={styles.historyCard}><Card.Content><View style={styles.historyHeader}><View style={styles.historyDate}><MaterialCommunityIcons name="calendar-outline" size={19} color="#0E5C44" /><Text style={styles.historyDateText}>{dateOf(record.attendance_date || record.created_at)}</Text></View><Badge style={{ backgroundColor: colorOf(status) }}>{status}</Badge></View><View style={styles.times}><View><Text style={styles.timeLabel}>Masuk</Text><Text style={styles.timeValue}>{timeOf(record.check_in_time)}</Text></View><View><Text style={styles.timeLabel}>Pulang</Text><Text style={styles.timeValue}>{timeOf(record.check_out_time)}</Text></View></View><Text style={styles.location}>{record.location || record.keterangan || 'Lokasi belum diisi'}</Text></Card.Content></Card>;
+        })}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  statusSurface: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  todayTitle: {
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  todayDate: {
-    color: '#64748b',
-  },
-  locationBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0fdf4',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  locationText: {
-    fontSize: 12,
-    color: '#166534',
-    marginLeft: 6,
-  },
-  actionRow: {
-    marginTop: 4,
-  },
-  btnAction: {
-    borderRadius: 10,
-    paddingVertical: 4,
-  },
-  sectionTitle: {
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 12,
-  },
-  historyCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  historyRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dateCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  historyDate: {
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginLeft: 6,
-  },
-  timeDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    padding: 10,
-    marginVertical: 10,
-  },
-  timeBox: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  timeLabel: {
-    fontSize: 11,
-    color: '#64748b',
-  },
-  timeValue: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginTop: 2,
-  },
-  lokasiDetail: {
-    fontSize: 11,
-    color: '#64748b',
-  },
+  safeArea: { flex: 1, backgroundColor: '#F7F9FC' },
+  screen: { flex: 1 },
+  content: { padding: 16, paddingBottom: 32 },
+  statusCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16 },
+  statusHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  eyebrow: { color: '#059669', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  title: { color: '#0F172A', fontWeight: '800', marginTop: 3 },
+  date: { color: '#64748B', fontSize: 11, marginTop: 3 },
+  divider: { marginVertical: 13 },
+  stateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stateLabel: { flex: 1, color: '#334155', fontSize: 13, fontWeight: '700' },
+  note: { color: '#64748B', fontSize: 11, lineHeight: 17, marginTop: 12 },
+  action: { backgroundColor: '#0E5C44', borderRadius: 12, marginTop: 14 },
+  checkout: { backgroundColor: '#B45309' },
+  errorCard: { backgroundColor: '#FEF2F2', borderRadius: 14, marginTop: 14 },
+  errorText: { color: '#B91C1C', fontSize: 12, lineHeight: 18 },
+  loader: { marginVertical: 20 },
+  sectionTitle: { color: '#0F172A', fontWeight: '800', marginTop: 20, marginBottom: 10 },
+  emptyCard: { backgroundColor: '#FFFFFF', borderRadius: 16 },
+  empty: { color: '#94A3B8', fontSize: 12 },
+  historyCard: { backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 10 },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  historyDate: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  historyDateText: { color: '#0F172A', fontSize: 12, fontWeight: '800', marginLeft: 7 },
+  times: { flexDirection: 'row', gap: 32, backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginTop: 12 },
+  timeLabel: { color: '#64748B', fontSize: 10 },
+  timeValue: { color: '#0F172A', fontSize: 15, fontWeight: '800', marginTop: 3 },
+  location: { color: '#64748B', fontSize: 11, marginTop: 10 },
 });

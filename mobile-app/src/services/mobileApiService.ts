@@ -1,12 +1,20 @@
 import { api } from './api';
+import { dashboardEndpointForRoles } from '../utils/roles';
 
 export interface AttendancePayload {
   student_id?: string;
   employee_id?: string;
-  status: 'Hadir' | 'Sakit' | 'Izin' | 'Alpha';
+  tipe_presensi?: 'Siswa' | 'Pegawai';
+  status?: string;
+  attendance_method?: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
   keterangan?: string;
-  lat?: number;
-  long?: number;
+  attendance_date?: string;
+  class_id?: string;
+  unit_pendidikan_id?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TahfizhPayload {
@@ -19,17 +27,186 @@ export interface TahfizhPayload {
   catatan?: string;
 }
 
+export type ListParams = Record<string, string | number | boolean | undefined>;
+
+const childRequest = (childId?: string) => (childId ? {
+  params: { child_id: childId },
+  headers: { 'X-Child-Id': childId },
+} : undefined);
+
+export const unwrapApiData = <T>(response: any): T => (
+  response?.data?.data ?? response?.data ?? response
+);
+
+export const unwrapCollection = <T>(response: any): T[] => {
+  const payload = response?.data ?? response;
+  if (Array.isArray(payload)) return payload as T[];
+  if (Array.isArray(payload?.data)) return payload.data as T[];
+  return [];
+};
+
 export const mobileApiService = {
+  login: async (
+    identifier: string,
+    password: string,
+  ) => {
+    return (await api.post('/auth/login', {
+      identifier,
+      password,
+      device_name: 'sims-mobile',
+    })).data;
+  },
+
+  logout: async () => (await api.post('/auth/logout')).data,
+
+  getProfile: async () => (await api.get('/auth/profile')).data,
+  getManagedProfile: async () => (await api.get('/profile')).data,
+  updateProfile: async (payload: Record<string, unknown>) => (
+    await api.put('/profile', payload)
+  ).data,
+  changePassword: async (payload: {
+    current_password: string;
+    password: string;
+    password_confirmation: string;
+  }) => (await api.put('/profile/password', payload)).data,
+
+  getRoleDashboard: async (roles: string[]) => {
+    const response = await api.get(dashboardEndpointForRoles(roles));
+    return response.data;
+  },
+
+  getDashboard: async () => (await api.get('/dashboard')).data,
+  getFoundationDashboard: async (params: ListParams = {}) => (
+    await api.get('/foundation/dashboard', { params })
+  ).data,
+  getPrincipalDashboard: async (params: ListParams = {}) => (
+    await api.get('/dashboard/kepala-sekolah', { params })
+  ).data,
+
+  // Enterprise master data
+  getEmployees: async (params: ListParams = {}) => (
+    await api.get('/employees', { params })
+  ).data,
+  getEmployee: async (id: string) => (await api.get(`/employees/${id}`)).data,
+  getEmployeeDashboard: async (params: ListParams = {}) => (
+    await api.get('/employees/dashboard', { params })
+  ).data,
+  getEmployeePositions: async () => (await api.get('/employees/positions')).data,
+  createEmployee: async (payload: Record<string, unknown>) => (
+    await api.post('/employees', payload)
+  ).data,
+  updateEmployee: async (id: string, payload: Record<string, unknown>) => (
+    await api.put(`/employees/${id}`, payload)
+  ).data,
+  deleteEmployee: async (id: string) => (await api.delete(`/employees/${id}`)).data,
+
+  getStudents: async (params: ListParams = {}) => (
+    await api.get('/students', { params })
+  ).data,
+  getStudent: async (id: string) => (await api.get(`/students/${id}`)).data,
+  getStudentDashboard: async (params: ListParams = {}) => (
+    await api.get('/students/dashboard', { params })
+  ).data,
+  createStudent: async (payload: Record<string, unknown>) => (
+    await api.post('/students', payload)
+  ).data,
+  updateStudent: async (id: string, payload: Record<string, unknown>) => (
+    await api.put(`/students/${id}`, payload)
+  ).data,
+  deleteStudent: async (id: string) => (await api.delete(`/students/${id}`)).data,
+
+  getEducationUnits: async (params: ListParams = {}) => (
+    await api.get('/education-units', { params })
+  ).data,
+  createEducationUnit: async (payload: Record<string, unknown>) => (
+    await api.post('/education-units', payload)
+  ).data,
+  updateEducationUnit: async (id: string, payload: Record<string, unknown>) => (
+    await api.put(`/education-units/${id}`, payload)
+  ).data,
+  deleteEducationUnit: async (id: string) => (
+    await api.delete(`/education-units/${id}`)
+  ).data,
+
+  getClasses: async (params: ListParams = {}) => (await api.get('/kelas', { params })).data,
+  getClassStudents: async (id: string) => (await api.get(`/kelas/${id}/siswa`)).data,
+
+  // Foundation read-only monitoring endpoints
+  getFoundationUnits: async (params: ListParams = {}) => (
+    await api.get('/foundation/units', { params })
+  ).data,
+  getFoundationEmployees: async (params: ListParams = {}) => (
+    await api.get('/foundation/employees', { params })
+  ).data,
+  getFoundationStudents: async (params: ListParams = {}) => (
+    await api.get('/foundation/students', { params })
+  ).data,
+  getFoundationTeachers: async (params: ListParams = {}) => (
+    await api.get('/foundation/teachers', { params })
+  ).data,
+  getFoundationClasses: async (params: ListParams = {}) => (
+    await api.get('/foundation/classes', { params })
+  ).data,
+
+  // Attendance
+  checkIn: async (payload: AttendancePayload) => (
+    await api.post('/attendance/checkin', payload)
+  ).data,
+  checkOut: async (payload: AttendancePayload & { attendance_id?: string }) => (
+    await api.post('/attendance/checkout', payload)
+  ).data,
+  getAttendanceReport: async (params: ListParams = {}) => (
+    await api.get('/attendance/report', { params })
+  ).data,
+  getAttendanceStats: async (params: ListParams = {}) => (
+    await api.get('/attendance/stats', { params })
+  ).data,
+
+  // Teacher portal
+  getTeacherDashboard: async () => (await api.get('/teacher/dashboard')).data,
+  getTeacherSchedules: async (params: ListParams = {}) => (
+    await api.get('/teacher/schedules', { params })
+  ).data,
+  getTeacherClasses: async () => (await api.get('/teacher/classes')).data,
+  getTeacherStudents: async (params: ListParams = {}) => (
+    await api.get('/teacher/students', { params })
+  ).data,
+  getTeacherMaterials: async (params: ListParams = {}) => (
+    await api.get('/teacher/materials', { params })
+  ).data,
+  createTeacherMaterial: async (payload: Record<string, unknown>) => (
+    await api.post('/teacher/materials', payload)
+  ).data,
+  updateTeacherMaterial: async (id: string, payload: Record<string, unknown>) => (
+    await api.put(`/teacher/materials/${id}`, payload)
+  ).data,
+  deleteTeacherMaterial: async (id: string) => (
+    await api.delete(`/teacher/materials/${id}`)
+  ).data,
+  getTeacherAssignments: async (params: ListParams = {}) => (
+    await api.get('/teacher/assignments', { params })
+  ).data,
+  getTeacherStudentNotes: async (params: ListParams = {}) => (
+    await api.get('/teacher/student-notes', { params })
+  ).data,
+  createTeacherStudentNote: async (payload: Record<string, unknown>) => (
+    await api.post('/teacher/student-notes', payload)
+  ).data,
+
+  // Parent and student portal
   getPortalChildren: async () => (await api.get('/portal/children')).data,
-
   getPortalDashboard: async (childId?: string) => (
-    await api.get('/portal/dashboard', { params: childId ? { child_id: childId } : {} })
+    await api.get('/portal/dashboard', childRequest(childId))
   ).data,
-
+  getPortalProfile: async (childId?: string) => (
+    await api.get('/portal/profile', childRequest(childId))
+  ).data,
   getPortalResource: async (resource: string, childId?: string) => (
-    await api.get(`/portal/${resource}`, { params: childId ? { child_id: childId } : {} })
+    await api.get(`/portal/${resource}`, childRequest(childId))
   ).data,
-
+  getPortalAttendance: async (childId?: string) => (
+    await api.get('/portal/attendance', childRequest(childId))
+  ).data,
   submitPortalPermission: async (payload: {
     child_id?: string;
     type: 'Izin' | 'Sakit' | 'Keperluan keluarga' | 'Lainnya';
@@ -37,154 +214,47 @@ export const mobileApiService = {
     end_date: string;
     reason: string;
   }) => (await api.post('/portal/permissions', payload)).data,
-
-  getChatContacts: async (childId?: string) => (
-    await api.get('/portal/chat/contacts', { params: childId ? { child_id: childId } : {} })
-  ).data,
-
-  getChatMessages: async (teacherId: string, childId?: string) => (
-    await api.get(`/portal/chat/${teacherId}`, { params: childId ? { child_id: childId } : {} })
-  ).data,
-
-  sendChatMessage: async (teacherId: string, childId: string, message: string) => (
-    await api.post(`/portal/chat/${teacherId}`, { child_id: childId, message })
-  ).data,
-
   submitPortalAssignment: async (assignmentId: string, jawaban_teks: string) => (
     await api.post(`/portal/assignments/${assignmentId}/submit`, { jawaban_teks })
   ).data,
 
-  // 1. Dashboard Ringkasan
-  getDashboard: async () => {
-    try {
-      const response = await api.get('/dashboard');
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching dashboard, using fallback:', error);
-      return null;
-    }
-  },
+  // Communication
+  getChatContacts: async (childId?: string) => (
+    await api.get('/portal/chat/contacts', childRequest(childId))
+  ).data,
+  getChatMessages: async (teacherId: string, childId?: string) => (
+    await api.get(`/portal/chat/${teacherId}`, childRequest(childId))
+  ).data,
+  sendChatMessage: async (teacherId: string, childId: string, message: string) => (
+    await api.post(`/portal/chat/${teacherId}`, { child_id: childId, message })
+  ).data,
 
-  // 2. Auth & Profile
-  getProfile: async () => {
-    const response = await api.get('/auth/profile');
-    return response.data;
-  },
-
-  // 3. Presensi Absensi
-  checkIn: async (payload: AttendancePayload) => {
-    const response = await api.post('/attendance/checkin', payload);
-    return response.data;
-  },
-
-  checkOut: async (payload: AttendancePayload) => {
-    const response = await api.post('/attendance/checkout', payload);
-    return response.data;
-  },
-
-  getAttendanceReport: async (params = {}) => {
-    try {
-      const response = await api.get('/attendance/report', { params });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching attendance report:', error);
-      return null;
-    }
-  },
-
-  // 4. Setoran Tahfizh Al-Qur'an
-  submitTahfizh: async (payload: TahfizhPayload) => {
-    const response = await api.post('/tahfizh/store', payload);
-    return response.data;
-  },
-
-  getTahfizhReport: async (params = {}) => {
-    try {
-      const response = await api.get('/tahfizh/report', { params });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching tahfizh report:', error);
-      return null;
-    }
-  },
-
-  // 5. Data Siswa
-  getStudents: async (params = {}) => {
-    try {
-      const response = await api.get('/students', { params });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching students:', error);
-      return null;
-    }
-  },
-
-  // 6. Master Kurikulum API Integration
-  getKurikulumList: async (params = {}) => {
-    try {
-      const response = await api.get('/v1/kurikulum', { params });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching kurikulum list:', error);
-      return null;
-    }
-  },
-
-  getKurikulumDropdown: async (unitPendidikanId?: string) => {
-    try {
-      const response = await api.get('/v1/kurikulum/dropdown', {
-        params: { unit_pendidikan_id: unitPendidikanId },
-      });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching kurikulum dropdown:', error);
-      return null;
-    }
-  },
-
-  getKurikulumDetail: async (id: string) => {
-    try {
-      const response = await api.get(`/v1/kurikulum/${id}`);
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching kurikulum detail:', error);
-      return null;
-    }
-  },
-
-  // 7. Master Mata Pelajaran & LMS Integration
-  getSubjectList: async (params = {}) => {
-    try {
-      const response = await api.get('/master/subjects', { params });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching subjects list:', error);
-      return null;
-    }
-  },
-
-  getSubjectDropdown: async (params = {}) => {
-    try {
-      const response = await api.get('/master/subjects/dropdown', { params });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching subjects dropdown:', error);
-      return null;
-    }
-  },
-
-  getLmsMateriList: async (params = {}) => {
-    try {
-      const response = await api.get('/lms/materi', { params });
-      return response.data;
-    } catch (error) {
-      console.log('Error fetching LMS materi:', error);
-      return null;
-    }
-  },
-
-  submitLmsTugas: async (penugasanId: string, payload: any) => {
-    const response = await api.post(`/lms/penugasan/${penugasanId}/submit`, payload);
-    return response.data;
-  },
+  // Existing curriculum and tahfizh integrations
+  submitTahfizh: async (payload: TahfizhPayload) => (
+    await api.post('/tahfizh/store', payload)
+  ).data,
+  getTahfizhReport: async (params: ListParams = {}) => (
+    await api.get('/tahfizh/report', { params })
+  ).data,
+  getKurikulumList: async (params: ListParams = {}) => (
+    await api.get('/v1/kurikulum', { params })
+  ).data,
+  getKurikulumDropdown: async (unitPendidikanId?: string) => (
+    await api.get('/v1/kurikulum/dropdown', {
+      params: { unit_pendidikan_id: unitPendidikanId },
+    })
+  ).data,
+  getKurikulumDetail: async (id: string) => (await api.get(`/v1/kurikulum/${id}`)).data,
+  getSubjectList: async (params: ListParams = {}) => (
+    await api.get('/master/subjects', { params })
+  ).data,
+  getSubjectDropdown: async (params: ListParams = {}) => (
+    await api.get('/master/subjects/dropdown', { params })
+  ).data,
+  getLmsMateriList: async (params: ListParams = {}) => (
+    await api.get('/lms/materi', { params })
+  ).data,
+  submitLmsTugas: async (penugasanId: string, payload: Record<string, unknown>) => (
+    await api.post(`/lms/penugasan/${penugasanId}/submit`, payload)
+  ).data,
 };

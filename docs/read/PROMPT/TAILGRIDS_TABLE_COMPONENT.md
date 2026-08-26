@@ -49,7 +49,9 @@ import ActionDropdown from "@/components/app/ActionDropdown";
 
 ### 1. Card Container & Padding Rules
 - **Page Container Wrapper**: `<PageContainer className="space-y-6 pb-12">` (Dokumentasi lengkap di [TAILGRIDS_PAGE_CONTAINER_LAYOUT.md](file:///Applications/XAMPP/xamppfiles/htdocs/Sistem-Manajemen-Sekolah-terpadu-main/docs/read/PROMPT/TAILGRIDS_PAGE_CONTAINER_LAYOUT.md)).
-- **Outer Card Container**: `overflow-hidden rounded-[18px] border border-slate-200/80 bg-white shadow-sm dark:border-slate-800 dark:bg-[#1B2433]`
+- **Outer Card Container (Emerald Datatable Container Standard)**: `relative overflow-hidden rounded-[22px] border-2 border-emerald-500/25 bg-white shadow-md shadow-emerald-500/5 dark:border-emerald-600/35 dark:bg-[#1B2433]`
+- **Toolbar Header (Emerald Gradient Header)**: `border-b border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent px-5 py-4 sm:px-6 dark:border-emerald-800/40 dark:bg-gradient-to-r dark:from-emerald-950/50 dark:via-teal-950/30 dark:to-transparent`
+- **Table Header (`laporan-lms` Style)**: `bg-[#F8FAFB] dark:bg-[#202B3A] border-b border-[#EDF0F4] dark:border-[#354153]`, dengan cell `th` menggunakan `text-[#58677B] dark:text-[#DCE5F1] font-extrabold text-[11px] uppercase tracking-wider py-3.5 px-4`.
 - **Table Viewport Margin/Padding**: `px-4 sm:px-6 md:px-8` (Menjamin isi tabel tidak langsung menempel pada border kartu).
 - **`fullBleed` Setting**: `fullBleed={false}` pada `TableRoot`.
 

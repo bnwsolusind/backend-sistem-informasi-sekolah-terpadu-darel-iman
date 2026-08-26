@@ -4,122 +4,116 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import AbsensiScreen from '../screens/AbsensiScreen';
-import TahfizhScreen from '../screens/TahfizhScreen';
 import ProfilScreen from '../screens/ProfilScreen';
-import MutabaahScreen from '../screens/MutabaahScreen';
 import TeacherPortalScreen from '../screens/TeacherPortalScreen';
 import ParentPortalScreen from '../screens/ParentPortalScreen';
 import StudentPortalScreen from '../screens/StudentPortalScreen';
+import DataManagementScreen from '../screens/DataManagementScreen';
 import { useAuthStore } from '../stores/authStore';
 import { mobileApiService } from '../services/mobileApiService';
+import {
+  isFoundationRole,
+  isParentRole,
+  isStaffRole,
+  isStudentRole,
+  isSuperAdminRole,
+  isTeacherRole,
+} from '../utils/roles';
 
 const Tab = createBottomTabNavigator();
 
+const names = (value: unknown): string[] => (
+  Array.isArray(value)
+    ? value.map((item) => typeof item === 'string' ? item : (item as { name?: string })?.name).filter(Boolean) as string[]
+    : []
+);
+
 export default function BottomTabs() {
   const token = useAuthStore((state) => state.token);
+  const roles = useAuthStore((state) => state.roles);
+  const permissions = useAuthStore((state) => state.permissions);
+  const setUser = useAuthStore((state) => state.setUser);
   const setRoles = useAuthStore((state) => state.setRoles);
   const setPermissions = useAuthStore((state) => state.setPermissions);
-  const roles = useAuthStore((state) => state.roles.map((role) => role.toLowerCase().replace(/[\s_/-]+/g, '')));
-  const permissions = useAuthStore((state) => state.permissions);
 
   useEffect(() => {
     if (!token) return;
-    mobileApiService.getProfile().then((response) => {
-      const profile = response?.data ?? response;
-      const profileRoles = profile?.roles || (profile?.role ? [profile.role] : []);
-      const profilePermissions = profile?.permissions || [];
-      setRoles(profileRoles.map((role: any) => typeof role === 'string' ? role : role.name).filter(Boolean));
-      setPermissions(profilePermissions.map((permission: any) => typeof permission === 'string' ? permission : permission.name).filter(Boolean));
-    }).catch(() => {
-      setRoles([]);
-      setPermissions([]);
-    });
-  }, [setPermissions, setRoles, token]);
 
-  const isAuthenticated = Boolean(token);
-  const isSuperAdmin = roles.includes('superadmin');
-  const hasAnyPermission = (...names: string[]) => isSuperAdmin || names.some((name) => permissions.includes(name));
-  const hasPermissionPrefix = (prefix: string) => isSuperAdmin || permissions.some((permission) => permission.startsWith(prefix));
-  const isTeacher = roles.some((role) => [
-    'guru', 'teacher', 'gurumatapelajaran', 'gurupai', 'pembimbing', 'walikelas',
-    'gurutahfizh', 'gurubk', 'musyrif', 'musyrifah', 'musyrifmusyrifah',
-  ].includes(role));
-  const isParent = roles.some((role) => ['orangtua', 'orangtuasiswa', 'parent', 'walimurid', 'wali'].includes(role));
-  const isStudent = roles.some((role) => ['siswa', 'student'].includes(role));
-  const canOpenTeacherPortal = isAuthenticated && (isTeacher || isSuperAdmin) && hasAnyPermission('teacher.dashboard.view');
-  const canOpenParentPortal = isAuthenticated && (isParent || isSuperAdmin) && hasAnyPermission('parent.portal.view');
-  const canOpenStudentPortal = isAuthenticated && (isStudent || isSuperAdmin) && hasAnyPermission('student.portal.view');
-  const canOpenAttendance = isAuthenticated && hasAnyPermission(
-    'attendance.view', 'attendance.manage', 'teacher.attendance.view', 'teacher.attendance.create',
-    'parent.attendance.view', 'student.attendance.view', 'student_attendance.view_own',
-    'lesson_attendance.view', 'lesson_attendance.view_own',
+    mobileApiService.getProfile().then((response) => {
+      const profile = response?.data?.data ?? response?.data ?? response;
+      const profileRoles = names(profile?.roles);
+      const profilePermissions = names(profile?.permissions);
+      if (profile) setUser(profile);
+      if (profileRoles.length) setRoles(profileRoles);
+      if (profilePermissions.length) setPermissions(profilePermissions);
+    }).catch(() => {
+      // A cached session remains usable when the profile endpoint is temporarily unavailable.
+    });
+  }, [setPermissions, setRoles, setUser, token]);
+
+  const isSuperAdmin = isSuperAdminRole(roles);
+  const isFoundation = isFoundationRole(roles);
+  const isTeacher = isTeacherRole(roles);
+  const isParent = isParentRole(roles);
+  const isStudent = isStudentRole(roles);
+  const isStaff = isStaffRole(roles);
+  const hasPermission = (...required: string[]) => isSuperAdmin || required.some((item) => permissions.includes(item));
+
+  const showData = isStaff && (
+    isFoundation
+    || hasPermission(
+      'employee.view',
+      'employee.view_all',
+      'student.view',
+      'student.view_all',
+      'unit.view',
+      'unit.view_all',
+      'sistem.master_data',
+      'foundation.employee.view',
+      'foundation.student.view',
+      'foundation.unit.view',
+    )
+    || permissions.length === 0
   );
-  const canOpenTahfizh = isAuthenticated && (
-    hasPermissionPrefix('tahfizh.') || hasAnyPermission('teacher.tahfizh.view', 'parent.tahfizh.view', 'student.tahfizh.view')
-  );
-  const canOpenMutabaah = isAuthenticated && (
-    hasPermissionPrefix('mutabaah.') || hasAnyPermission('teacher.mutabaah.view', 'parent.mutabaah.view', 'student.mutabaah.view')
-  );
+
+  const showTeacher = isTeacher && (hasPermission('teacher.dashboard.view', 'teacher.schedule.view') || permissions.length === 0);
+  const showAttendance = isStaff && (hasPermission('attendance.view', 'attendance.manage') || permissions.length === 0);
+
   return (
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
-          headerStyle: { backgroundColor: '#ffffff' },
-          headerTitleStyle: { color: '#0E5C44', fontWeight: 'bold' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
+          headerTitleStyle: { color: '#0E5C44', fontWeight: '800' },
           tabBarActiveTintColor: '#0E5C44',
-          tabBarInactiveTintColor: '#64748b',
-          tabBarStyle: { backgroundColor: '#ffffff', paddingBottom: 4, height: 60 },
-          tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
+          tabBarInactiveTintColor: '#64748B',
+          tabBarStyle: { backgroundColor: '#FFFFFF', paddingBottom: 4, height: 60 },
+          tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
           tabBarIcon: ({ color, size }) => {
-            let iconName = 'circle';
-            if (route.name === 'Beranda') iconName = 'home-variant';
-            else if (route.name === 'Guru') iconName = 'school';
-            else if (route.name === 'Orang Tua') iconName = 'human-female-boy';
-            else if (route.name === 'Siswa') iconName = 'account-student';
-            else if (route.name === 'Absensi') iconName = 'clipboard-check';
-            else if (route.name === 'Tahfizh') iconName = 'book-open-page-variant';
-            else if (route.name === 'Mutabaah') iconName = 'book-heart';
-            else if (route.name === 'Profil') iconName = 'account-circle';
-            return <MaterialCommunityIcons name={iconName as never} color={color} size={size} />;
+            const iconByRoute: Record<string, string> = {
+              Beranda: 'view-dashboard-outline',
+              Data: 'database-outline',
+              Guru: 'teach',
+              'Orang Tua': 'account-child-outline',
+              Siswa: 'school-outline',
+              Absensi: 'clipboard-check-outline',
+              Profil: 'account-circle-outline',
+            };
+            return <MaterialCommunityIcons name={(iconByRoute[route.name] || 'circle-outline') as never} color={color} size={size} />;
           },
         })}
       >
-        {isAuthenticated && <Tab.Screen
-          name="Beranda"
-          component={HomeScreen}
-          options={{ title: 'SIMS Islam Terpadu' }}
+        <Tab.Screen name="Beranda" component={HomeScreen} options={{ title: 'Beranda' }} />
+        {showData && <Tab.Screen
+          name="Data"
+          component={DataManagementScreen}
+          options={{ title: isFoundation ? 'Yayasan' : 'Data Master' }}
         />}
-        {canOpenTeacherPortal && <Tab.Screen
-          name="Guru"
-          component={TeacherPortalScreen}
-          options={{ title: 'Portal Guru' }}
-        />}
-        {canOpenParentPortal && <Tab.Screen
-          name="Orang Tua"
-          component={ParentPortalScreen}
-          options={{ title: 'Portal Ortu' }}
-        />}
-        {canOpenStudentPortal && <Tab.Screen
-          name="Siswa"
-          component={StudentPortalScreen}
-          options={{ title: 'Portal Siswa' }}
-        />}
-        {canOpenAttendance && <Tab.Screen
-          name="Absensi"
-          component={AbsensiScreen}
-          options={{ title: 'Presensi' }}
-        />}
-        {canOpenTahfizh && <Tab.Screen
-          name="Tahfizh"
-          component={TahfizhScreen}
-          options={{ title: 'Tahfizh' }}
-        />}
-        {canOpenMutabaah && <Tab.Screen name="Mutabaah" component={MutabaahScreen} options={{ title: 'Mutabaah' }} />}
-        <Tab.Screen
-          name="Profil"
-          component={ProfilScreen}
-          options={{ title: 'Profil' }}
-        />
+        {showTeacher && <Tab.Screen name="Guru" component={TeacherPortalScreen} options={{ title: 'Portal Guru' }} />}
+        {isParent && <Tab.Screen name="Orang Tua" component={ParentPortalScreen} options={{ title: 'Portal Ortu' }} />}
+        {isStudent && <Tab.Screen name="Siswa" component={StudentPortalScreen} options={{ title: 'Portal Siswa' }} />}
+        {showAttendance && <Tab.Screen name="Absensi" component={AbsensiScreen} options={{ title: 'Presensi' }} />}
+        <Tab.Screen name="Profil" component={ProfilScreen} options={{ title: 'Profil' }} />
       </Tab.Navigator>
     </NavigationContainer>
   );
