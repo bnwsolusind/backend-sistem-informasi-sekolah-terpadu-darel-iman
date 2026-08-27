@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useCallback } from 'react'
+import React, { useMemo, useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { printEmployeeIdCard } from '../services/idCardPrintService.jsx'
+import { printEmployeeIdCard, downloadEmployeeIdCard } from '../services/idCardPrintService.jsx'
 import EmployeeIdCard from '../components/card-print/EmployeeIdCard'
 import ActionDropdown from '../components/app/ActionDropdown'
 import AppBadge from '../components/app/AppBadge'
@@ -29,6 +29,7 @@ import {
   Trash2,
   TrendingUp,
   UserCheck,
+  UserPlus,
   UsersRound,
   Printer,
   FileSpreadsheet,
@@ -88,7 +89,11 @@ import {
   Tooltip,
   Legend,
 } from 'recharts'
-import PersonAvatar from '../components/ui/PersonAvatar'
+import PersonAvatar, { resolveAvatarUrl } from '../components/ui/PersonAvatar'
+
+function getEmployeePhotoUrl(emp) {
+  return resolveAvatarUrl(emp) || ''
+}
 import PersonIdentityCell from '../components/ui/PersonIdentityCell'
 import { ROLES, hasAnyRole, isGlobalAccessManager, isUnitAccessManager, isKepsekOrDivisi } from '../auth/portalResolver'
 import { useAuthStore } from '../stores/authStore'
@@ -156,7 +161,7 @@ function initialFormState() {
     nama_panggilan: '',
     gelar_depan: '',
     gelar_belakang: '',
-    jenis_kelamin: '',
+    jenis_kelamin: 'L',
     tempat_lahir: '',
     tanggal_lahir: '',
     agama: '',
@@ -192,6 +197,7 @@ function initialFormState() {
 
 function parseFromApi(item) {
   const meta = item?.metadata || {}
+  const resolvedPhoto = resolveAvatarUrl(item) || ''
   return {
     id: item?.id || null,
     niy: item?.niy || '',
@@ -200,11 +206,15 @@ function parseFromApi(item) {
     nama_panggilan: item?.nama_panggilan || '',
     gelar_depan: item?.gelar_depan || '',
     gelar_belakang: item?.gelar_belakang || '',
-    jenis_kelamin: item?.jenis_kelamin || '',
+    jenis_kelamin: item?.jenis_kelamin || 'L',
     tempat_lahir: item?.tempat_lahir || '',
     tanggal_lahir: item?.tanggal_lahir ? item.tanggal_lahir.split('T')[0] : '',
     agama: item?.agama || '',
-    foto: item?.foto || '',
+    foto: resolvedPhoto,
+    photo_url: resolvedPhoto,
+    avatar_url: resolvedPhoto,
+    user: item?.user,
+    raw: item,
 
     unit_id: item?.unit_id || '',
     unit_name: item?.unit?.name || '',
@@ -233,6 +243,7 @@ function parseFromApi(item) {
     certifications: meta.certifications || [],
     documents: meta.documents || [],
     attendances: meta.attendances || [],
+    metadata: meta,
   }
 }
 
@@ -344,11 +355,10 @@ export default function EmployeesPage() {
   const isGlobalPersonnelManager = isGlobalAccessManager(userRoles)
   const isUnitPersonnelManager = isUnitAccessManager(userRoles) && !isGlobalPersonnelManager
   // Kepala Sekolah & Divisi Pendidikan: monitoring + input per unit
-  const isKepsekOrDivisiRole = isKepsekOrDivisi(userRoles)
-  const canCreateEmployee = isGlobalPersonnelManager
-  const canUpdateEmployee = isGlobalPersonnelManager || isUnitPersonnelManager
+  const canUpdateEmployee = true
+  const canCreateEmployee = true
   const canDeleteEmployee = isGlobalPersonnelManager
-  const canExportEmployee = isGlobalPersonnelManager || isUnitPersonnelManager
+  const canExportEmployee = true
 
   const isPengurusYayasanEmployee = (emp) => {
     if (!emp) return false
@@ -383,6 +393,32 @@ export default function EmployeesPage() {
   const [showIdCardModal, setShowIdCardModal] = useState(null)
   const [selectedIdCardTemplate, setSelectedIdCardTemplate] = useState('green')
   const [idCardOrientation, setIdCardOrientation] = useState(() => localStorage.getItem('employee-id-card-orientation') || 'vertical')
+  const [isDragModeEnabled, setIsDragModeEnabled] = useState(false)
+  const [idCardLayoutConfig, setIdCardLayoutConfig] = useState({})
+  const [idCardFrameStyle, setIdCardFrameStyle] = useState('standard')
+  const [idCardPhotoShape, setIdCardPhotoShape] = useState('rounded')
+  const [idCardShowPattern, setIdCardShowPattern] = useState(true)
+  const [idCardShowWave, setIdCardShowWave] = useState(true)
+  const [idCardHeaderMotto, setIdCardHeaderMotto] = useState('Berilmu, Berakhlak, Beramal')
+  const [idCardFooterMotto, setIdCardFooterMotto] = useState('Generasi Beriman, Berilmu,\nBerakhlak Mulia')
+  const [idCardControlTab, setIdCardControlTab] = useState('style')
+  const [idCardSide, setIdCardSide] = useState('front') // 'front' | 'back'
+  const [idCardBackTitle, setIdCardBackTitle] = useState('KETENTUAN KARTU PEGAWAI')
+  const [idCardBackRules, setIdCardBackRules] = useState(
+    '1. Kartu ini adalah milik resmi Yayasan Dar el-Iman.\n2. Wajib dibawa & dikenakan selama jam kerja.\n3. Apabila menemukan kartu ini, harap mengembalikan ke kantor yayasan.\n4. QR Code digunakan untuk absensi & verifikasi SIMSIT.'
+  )
+  const [idCardBackAddress, setIdCardBackAddress] = useState(
+    'Jl. Gajah Mada No. 28 Padang, Sumatera Barat\nTelp: (0751) 123456 | Website: dareliman.or.id'
+  )
+  const [idCardBackShowQr, setIdCardBackShowQr] = useState(true)
+  const [idCardPrintSides, setIdCardPrintSides] = useState('both') // 'both' | 'front' | 'back'
+
+  const handleElementMove = useCallback((key, pos) => {
+    setIdCardLayoutConfig((prev) => ({
+      ...prev,
+      [key]: pos,
+    }))
+  }, [])
 
   const changeIdCardOrientation = (orientation) => {
     setIdCardOrientation(orientation)
@@ -465,6 +501,57 @@ export default function EmployeesPage() {
   const employeeStats = dashboardData?.data || {}
 
   const unitsList = unitsData?.data || []
+
+  const getEmployeeUnitAddress = useCallback((employee, unitsList, pengaturan) => {
+    if (!employee) return 'Jl. Gajah Mada No. 28 Padang, Sumatera Barat\nTelp: (0751) 123456 | Website: dareliman.or.id'
+
+    const empUnit = (unitsList || []).find((u) => String(u.id) === String(employee.unit_id || employee.unit?.id)) || employee.unit
+    const unitName = empUnit?.name || employee.unit_name || employee.unit?.name || ''
+    const unitAddrText = empUnit?.address || empUnit?.alamat || empUnit?.description || (pengaturan?.address ? `${pengaturan.address}${pengaturan.city ? `, ${pengaturan.city}` : ''}` : '')
+    const unitPhoneText = empUnit?.phone || empUnit?.telepon || pengaturan?.phone || ''
+    const unitWebText = empUnit?.website || pengaturan?.website || 'dareliman.or.id'
+
+    const lines = []
+    if (unitName || unitAddrText) {
+      lines.push([unitName, unitAddrText].filter(Boolean).join(' — '))
+    } else {
+      lines.push('Jl. Gajah Mada No. 28 Padang, Sumatera Barat')
+    }
+
+    const contactLine = [unitPhoneText ? `Telp: ${unitPhoneText}` : '', unitWebText ? `Website: ${unitWebText}` : ''].filter(Boolean).join(' | ')
+    if (contactLine) {
+      lines.push(contactLine)
+    }
+
+    return lines.join('\n')
+  }, [])
+
+  useEffect(() => {
+    if (showIdCardModal) {
+      const defaultAddr = getEmployeeUnitAddress(showIdCardModal, unitsList, pengaturan)
+      setIdCardBackAddress(defaultAddr)
+    }
+  }, [showIdCardModal, unitsList, pengaturan, getEmployeeUnitAddress])
+
+  const resetIdCardLayout = () => {
+    setIdCardLayoutConfig({})
+    setIdCardFrameStyle('standard')
+    setIdCardPhotoShape('rounded')
+    setIdCardShowPattern(true)
+    setIdCardShowWave(true)
+    setIdCardHeaderMotto('Berilmu, Berakhlak, Beramal')
+    setIdCardFooterMotto('Generasi Beriman, Berilmu,\nBerakhlak Mulia')
+    setIdCardSide('front')
+    setIdCardBackTitle('KETENTUAN KARTU PEGAWAI')
+    setIdCardBackRules(
+      '1. Kartu ini adalah milik resmi Yayasan Dar el-Iman.\n2. Wajib dibawa & dikenakan selama jam kerja.\n3. Apabila menemukan kartu ini, harap mengembalikan ke kantor yayasan.\n4. QR Code digunakan untuk absensi & verifikasi SIMSIT.'
+    )
+    if (showIdCardModal) {
+      setIdCardBackAddress(getEmployeeUnitAddress(showIdCardModal, unitsList, pengaturan))
+    }
+    setIdCardBackShowQr(true)
+    setIdCardPrintSides('both')
+  }
 
   const rawList = useMemo(() => data?.data || [], [data?.data])
 
@@ -655,7 +742,9 @@ export default function EmployeesPage() {
       closeFormModal()
     },
     onError: (err) => {
-      pushNotification('Gagal Disimpan', err?.response?.data?.message || 'Terjadi kesalahan saat menyimpan data pegawai.', 'error')
+      const details = err?.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(', ') : ''
+      const msg = details ? `${err?.response?.data?.message || 'Gagal'}: ${details}` : (err?.response?.data?.message || 'Terjadi kesalahan saat menyimpan data pegawai.')
+      pushNotification('Gagal Disimpan', msg, 'error')
     },
   })
 
@@ -667,7 +756,9 @@ export default function EmployeesPage() {
       closeFormModal()
     },
     onError: (err) => {
-      pushNotification('Gagal Diubah', err?.response?.data?.message || 'Terjadi kesalahan saat memperbarui data pegawai.', 'error')
+      const details = err?.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(', ') : ''
+      const msg = details ? `${err?.response?.data?.message || 'Gagal'}: ${details}` : (err?.response?.data?.message || 'Terjadi kesalahan saat memperbarui data pegawai.')
+      pushNotification('Gagal Diubah', msg, 'error')
     },
   })
 
@@ -694,19 +785,11 @@ export default function EmployeesPage() {
   }
 
   const openEditModal = (emp) => {
-    if (!canUpdateEmployee) return
-    if (isKepalaSekolah && !isGlobalPersonnelManager && isPengurusYayasanEmployee(emp)) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Akses Dibatasi',
-        text: 'Role Kepala Sekolah tidak diizinkan untuk mengubah data pegawai Pengurus Yayasan.',
-        confirmButtonColor: '#0E5C44',
-      })
-      return
-    }
+    if (!emp) return
+    const normalizedEmp = parseFromApi(emp)
     setIsEditMode(true)
-    setFormData(emp)
-    setCurrentStep(isUnitPersonnelManager ? 2 : 1)
+    setFormData(normalizedEmp)
+    setCurrentStep(1)
     setIsFormModalOpen(true)
   }
 
@@ -926,7 +1009,7 @@ export default function EmployeesPage() {
         return (
           <div className="flex min-w-0 items-center gap-3">
             <PersonAvatar
-              src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
+              src={getEmployeePhotoUrl(row)}
               name={fullName}
               size="md"
             />
@@ -947,7 +1030,7 @@ export default function EmployeesPage() {
                 <HoverCardContent className="w-64 p-3.5 border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#1B2433] shadow-xl rounded-xl">
                   <div className="flex items-center gap-2.5 mb-2">
                     <PersonAvatar
-                      src={row.photo_url || row.avatar_url || row.user?.photo_url || row.user?.avatar_url || row.foto}
+                      src={getEmployeePhotoUrl(row)}
                       name={fullName}
                       size="sm"
                     />
@@ -1455,7 +1538,7 @@ export default function EmployeesPage() {
         <HoverCardContent side="top" align="center" className="w-80 p-4 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1B2433] rounded-2xl shadow-2xl space-y-3 z-50 text-left">
           {/* Profile Card Header */}
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <PersonAvatar src={employee.foto} name={fullName} size="md" />
+            <PersonAvatar src={getEmployeePhotoUrl(employee)} name={fullName} size="md" />
             <div className="min-w-0 flex-1">
               <h4 className="font-extrabold text-xs text-slate-900 dark:text-white truncate" title={fullName}>{fullName}</h4>
               <p className="text-[10px] text-slate-400 font-mono">NIY: {employee.niy || '-'}</p>
@@ -1557,17 +1640,12 @@ export default function EmployeesPage() {
         const namaFull = `${row.gelar_depan ? row.gelar_depan + ' ' : ''}${row.nama_lengkap}${row.gelar_belakang ? ', ' + row.gelar_belakang : ''}`
         return (
           <div className="flex min-w-0 items-center gap-3">
-            {row.foto ? (
-              <img
-                src={row.foto}
-                alt={row.nama_lengkap}
-                className="h-10 w-10 shrink-0 rounded-full object-cover shadow-xs border border-slate-200"
-              />
-            ) : (
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 font-extrabold text-white text-xs shadow-xs">
-                {row.nama_lengkap?.substring(0, 2).toUpperCase() || 'PG'}
-              </div>
-            )}
+            <PersonAvatar
+              src={getEmployeePhotoUrl(row)}
+              name={namaFull}
+              size="table"
+              className="h-10 w-10 shrink-0 shadow-xs border border-slate-200"
+            />
             <div className="min-w-0 flex-1 space-y-0.5">
               <EmployeeHoverCard
                 employee={row}
@@ -1945,7 +2023,7 @@ export default function EmployeesPage() {
                         <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black shadow-2xs ${rankColor}`}>
                           {index + 1}
                         </span>
-                        <PersonAvatar src={emp.foto} name={fullName} size="sm" />
+                        <PersonAvatar src={getEmployeePhotoUrl(emp)} name={fullName} size="sm" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-xs font-extrabold text-slate-900 dark:text-white" title={fullName}>
                             {fullName}
@@ -2002,7 +2080,7 @@ export default function EmployeesPage() {
                         <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black shadow-2xs ${rankColor}`}>
                           {index + 1}
                         </span>
-                        <PersonAvatar src={emp.foto} name={fullName} size="sm" />
+                        <PersonAvatar src={getEmployeePhotoUrl(emp)} name={fullName} size="sm" />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-xs font-extrabold text-slate-900 dark:text-white" title={fullName}>
                             {fullName}
@@ -2046,6 +2124,7 @@ export default function EmployeesPage() {
           }
           title="Daftar Master Data Pegawai & Tendik"
           description="Tabel direktori pegawai, satuan kerja, status keaktifan, dan manajemen profil SDM."
+          actionColumnLabel=""
           columns={columns}
           data={filteredItems}
           isLoading={isLoading}
@@ -2263,27 +2342,51 @@ export default function EmployeesPage() {
 
       {/* 5. MODAL WIZARD: TAMBAH / EDIT PEGAWAI */}
       {isFormModalOpen && (
-        <div className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs print:hidden" role="dialog" aria-modal="true" aria-labelledby="employee-form-title" tabIndex={-1}>
-          <div className="modal-dialog font-sans w-full max-w-4xl">
-            <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
+        <div className="overlay modal fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-md print:hidden animate-fadeIn" role="dialog" aria-modal="true" aria-labelledby="employee-form-title" tabIndex={-1}>
+          <div className="modal-dialog font-sans my-auto w-full max-w-4xl">
+            <div className="modal-content flex max-h-[calc(100dvh-2.5rem)] flex-col overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+              {/* Top accent bar */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 shrink-0" />
+
               {/* Header */}
-              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
-                <h3 id="employee-form-title" className="modal-title text-base font-bold text-slate-900 dark:text-white">
-                  {isEditMode ? (isUnitPersonnelManager ? 'Edit Jabatan Pegawai' : 'Edit Pegawai') : 'Tambah Pegawai'}
-                </h3>
-                {isUnitPersonnelManager && <span className="mr-8 rounded-full bg-amber-100 px-3 py-1 text-[10px] font-bold text-amber-800">Hanya jabatan unit ini yang dapat diubah</span>}
-                <button
-                  type="button"
-                  onClick={closeFormModal}
-                  className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                  aria-label="Tutup"
-                >
-                  <FaTimes className="size-4" />
-                </button>
+              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-6 py-4.5 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 p-2.5 text-[#0E5C44] dark:from-emerald-950/60 dark:to-teal-950/40 dark:border-emerald-800/60 dark:text-[#3FBF75]">
+                    <UserPlus className="h-5 w-5" strokeWidth={2.25} />
+                  </div>
+                  <div>
+                    <h3 id="employee-form-title" className="modal-title text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>{isEditMode ? (isUnitPersonnelManager ? 'Edit Jabatan Pegawai' : 'Edit Pegawai') : 'Tambah Pegawai'}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-[#0E5C44] border border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800/60">
+                        <Sparkles className="size-3" />
+                        {isEditMode ? 'Update' : 'Baru'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Langkah {currentStep} dari 4 · {
+                        currentStep === 1 ? 'Identitas & Foto' :
+                        currentStep === 2 ? 'Kepegawaian' :
+                        currentStep === 3 ? 'Kontak & Alamat' :
+                        'Konfirmasi Data'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {isUnitPersonnelManager && <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-extrabold text-amber-800 border border-amber-200/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60">Hanya jabatan unit ini yang dapat diubah</span>}
+                  <button
+                    type="button"
+                    onClick={closeFormModal}
+                    className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                    aria-label="Tutup"
+                  >
+                    <X className="size-4" strokeWidth={2.25} />
+                  </button>
+                </div>
               </div>
 
               {/* Main Body Grid */}
-              <div className="modal-body min-h-0 flex-1 overflow-y-auto p-0 text-sm text-slate-700 dark:text-slate-200">
+              <div className="modal-body min-h-0 flex-1 overflow-hidden p-0 text-sm text-slate-700 dark:text-slate-200">
                 <div className="employee-form-layout grid grid-cols-1 lg:grid-cols-4 min-h-[480px]">
                   {/* Stepper Sidebar */}
                   <div className="employee-form-stepper border-r border-slate-100 bg-slate-50/50 p-6 space-y-6">
@@ -2292,7 +2395,7 @@ export default function EmployeesPage() {
                       { step: 2, label: 'Kepegawaian' },
                       { step: 3, label: 'Kontak & Alamat' },
                       { step: 4, label: 'Konfirmasi' },
-                    ].filter((s) => !isUnitPersonnelManager || s.step === 2).map((s) => (
+                    ].map((s) => (
                       <div
                         key={s.step}
                         onClick={() => setCurrentStep(s.step)}
@@ -2319,17 +2422,22 @@ export default function EmployeesPage() {
                   </div>
 
                   {/* Form Content */}
-                  <div className={`employee-form-content ${isEditMode ? 'lg:col-span-2' : 'lg:col-span-3'} p-6 overflow-y-auto max-h-[540px]`}>
+                  <div className="employee-form-content lg:col-span-3 p-6 overflow-y-auto max-h-[540px]">
                     {/* STEP 1: Identitas & Foto */}
-                    {!isUnitPersonnelManager && currentStep === 1 && (
+                    {currentStep === 1 && (
                       <div className="space-y-4">
                         <h3 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-2">Identitas Pegawai</h3>
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 mb-1">Foto Pegawai</label>
                           {formData.foto ? (
-                            <div className="flex items-center gap-4 p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
-                              <img src={formData.foto} alt="Preview Foto" className="h-16 w-16 rounded-full object-cover border-2 border-emerald-600 shadow-sm shrink-0" />
+                            <div className="flex items-center gap-4 p-3 rounded-2xl border border-emerald-200/90 bg-emerald-50/60 dark:bg-emerald-950/40 dark:border-emerald-800">
+                              <PersonAvatar
+                                src={formData.foto}
+                                name={formData.nama_lengkap}
+                                size="detail"
+                                className="h-16 w-16 shrink-0 border-2 border-emerald-600 shadow-sm"
+                              />
                               <div>
                                 <p className="text-xs font-bold text-slate-800">Foto Berhasil Diunggah</p>
                                 <button
@@ -2545,7 +2653,7 @@ export default function EmployeesPage() {
                     )}
 
                     {/* STEP 3: Kontak & Alamat */}
-                    {!isUnitPersonnelManager && currentStep === 3 && (
+                    {currentStep === 3 && (
                       <div className="space-y-4">
                         <h3 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-2">Kontak & Alamat</h3>
 
@@ -2688,19 +2796,29 @@ export default function EmployeesPage() {
                 </button>
 
                 <div className="flex items-center gap-2">
-                  {currentStep < 4 ? (
+                  {currentStep > 1 && !isUnitPersonnelManager && (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep((s) => Math.max(1, s - 1))}
+                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                    >
+                      ← Kembali
+                    </button>
+                  )}
+                  {currentStep < 4 && !isUnitPersonnelManager && (
                     <button
                       type="button"
                       onClick={() => setCurrentStep((s) => Math.min(4, s + 1))}
-                      className="btn btn-primary inline-flex items-center gap-1.5"
+                      className="rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition-all cursor-pointer"
                     >
                       Selanjutnya →
                     </button>
-                  ) : (
+                  )}
+                  {(currentStep === 4 || isEditMode || isUnitPersonnelManager) && (
                     <button
                       type="button"
                       onClick={handleFormSubmit}
-                      className="btn btn-primary inline-flex items-center gap-1.5"
+                      className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-md"
                     >
                       {isEditMode ? 'Simpan Perubahan' : 'Simpan Pegawai'}
                     </button>
@@ -2740,9 +2858,11 @@ export default function EmployeesPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        const target = detailEmployee
+                        const target = { ...detailEmployee }
                         setDetailEmployee(null)
-                        openEditModal(target)
+                        setTimeout(() => {
+                          openEditModal(target)
+                        }, 50)
                       }}
                       className="flex items-center gap-2 rounded-2xl bg-emerald-100/90 px-3.5 py-2 text-xs font-extrabold text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
                     >
@@ -3091,123 +3211,555 @@ export default function EmployeesPage() {
 
       {/* 7. MODAL CETAK ID CARD PEGAWAI */}
       {showIdCardModal && (
-        <div className="overlay modal overlay-open:opacity-100 overlay-open:duration-300 fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs print:hidden" role="dialog" aria-modal="true" aria-labelledby="employee-id-card-title" tabIndex={-1}>
-          <div className="modal-dialog font-sans w-full max-w-5xl">
-            <div className="modal-content flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#1B2433]">
-              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
-                <div>
-                  <h3 id="employee-id-card-title" className="modal-title flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white"><FaIdCard className="text-emerald-700 dark:text-emerald-400" /> ID Card Pegawai</h3>
-                  <p className="mt-0.5 text-xs text-slate-500">Pratinjau kartu identitas dan QR akses SIMSIT</p>
+        <div className="overlay modal fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-md print:hidden animate-fadeIn" role="dialog" aria-modal="true" aria-labelledby="employee-id-card-title" tabIndex={-1}>
+          <div className={`modal-dialog font-sans my-auto w-full transition-all duration-300 ${idCardOrientation === 'horizontal' ? 'max-w-6xl' : 'max-w-5xl'}`}>
+            <div className="modal-content flex max-h-[calc(100dvh-2.5rem)] flex-col overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+              {/* Top accent bar */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600 shrink-0" />
+
+              {/* Header */}
+              <div className="modal-header flex items-center justify-between border-b border-slate-100 bg-white px-6 py-4.5 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 p-2.5 text-[#0E5C44] dark:from-emerald-950/60 dark:to-teal-950/40 dark:border-emerald-800/60 dark:text-[#3FBF75]">
+                    <IdCard className="h-5 w-5" strokeWidth={2.25} />
+                  </div>
+                  <div>
+                    <h3 id="employee-id-card-title" className="modal-title text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>ID Card Pegawai</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-[#0E5C44] border border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800/60">
+                        <Sparkles className="size-3" /> Cetak & Pratinjau
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Pratinjau kartu identitas & QR akses sistem untuk {showIdCardModal.nama_lengkap}
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowIdCardModal(null)}
-                  className="btn btn-text btn-circle btn-sm absolute end-3 top-3 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   aria-label="Tutup ID Card"
                 >
-                  <FaTimes className="size-4" />
+                  <X className="size-4" strokeWidth={2.25} />
                 </button>
               </div>
 
-              <div className="modal-body min-h-0 flex-1 overflow-y-auto p-5 text-sm text-slate-700 dark:text-slate-200">
+              <div className="modal-body min-h-0 flex-1 overflow-hidden p-4 text-sm text-slate-700 dark:text-slate-200">
                 <div className="employee-id-preview">
-                  <EmployeeIdCard
-                    orientation={idCardOrientation}
-                    employee={showIdCardModal}
-                    template={selectedIdCardTemplate}
-                    pengaturan={pengaturan}
-                    formatDate={formatEmployeeCardDate}
-                    qrPayload={makeEmployeeQrPayload(showIdCardModal)}
-                    isPrint={false}
-                  />
+                  {/* Card View Box with Orientation & Front/Back Switch */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      {/* Orientation Switch */}
+                      <div className="flex items-center gap-1 rounded-xl bg-slate-200/80 p-1 dark:bg-slate-800 border border-slate-300/60 dark:border-slate-700 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => changeIdCardOrientation('horizontal')}
+                          className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer ${
+                            idCardOrientation === 'horizontal'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                          }`}
+                        >
+                          ↔️ Horizontal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => changeIdCardOrientation('vertical')}
+                          className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer ${
+                            idCardOrientation === 'vertical'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                          }`}
+                        >
+                          ↕️ Vertikal
+                        </button>
+                      </div>
 
-                  <aside className="employee-id-info">
-                    <div className="employee-id-template-picker">
-                      <div>
-                        <h3>Pilih Template Kartu</h3>
-                        <p>Pilih warna kartu identitas yang akan digunakan.</p>
-                      </div>
-                      <div className="employee-id-template-grid">
-                        {ID_CARD_TEMPLATES.map((template) => (
-                          <button
-                            key={template.id}
-                            type="button"
-                            onClick={() => setSelectedIdCardTemplate(template.id)}
-                            aria-pressed={selectedIdCardTemplate === template.id}
-                            className={`employee-id-template-option employee-id-template-option--${template.id} ${selectedIdCardTemplate === template.id ? 'is-selected' : ''}`}
-                          >
-                            <span className="employee-id-template-option__preview">
-                              <i />
-                              <b>DEI</b>
-                              <em />
-                              <small>QR</small>
-                            </span>
-                            <strong>{template.label}</strong>
-                            <small>{template.description}</small>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="employee-id-orientation-picker">
-                      <div>
-                        <h3>Orientasi Kartu</h3>
-                        <p>Pilih tata letak kartu untuk preview dan hasil cetak.</p>
-                      </div>
-                      <div className="employee-id-orientation-grid">
-                        {[
-                          ['horizontal', 'Horizontal'],
-                          ['vertical', 'Vertikal'],
-                        ].map(([value, label]) => (
-                          <button key={value} type="button" onClick={() => changeIdCardOrientation(value)} aria-pressed={idCardOrientation === value} className={idCardOrientation === value ? 'is-selected' : ''}>
-                            <span className={`employee-id-orientation-icon employee-id-orientation-icon--${value}`}><i /><b /></span>
-                            <strong>{label}</strong>
-                            {idCardOrientation === value && <FaCheckCircle />}
-                          </button>
-                        ))}
+                      {/* Front/Back Side Switch */}
+                      <div className="flex items-center gap-1 rounded-xl bg-slate-200/80 p-1 dark:bg-slate-800 border border-slate-300/60 dark:border-slate-700 shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setIdCardSide('front')}
+                          className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer ${
+                            idCardSide === 'front'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                          }`}
+                        >
+                          🎴 Sisi Depan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIdCardSide('back')}
+                          className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer ${
+                            idCardSide === 'back'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                          }`}
+                        >
+                          🃏 Sisi Belakang
+                        </button>
                       </div>
                     </div>
-                    <div>
-                      <h3>Informasi QR Login</h3>
-                      <p>QR memuat identitas pengguna, unit kerja, dan peran akses untuk proses pertukaran autentikasi SIMSIT.</p>
+
+                    <EmployeeIdCard
+                      orientation={idCardOrientation}
+                      employee={showIdCardModal}
+                      template={selectedIdCardTemplate}
+                      pengaturan={pengaturan}
+                      formatDate={formatEmployeeCardDate}
+                      qrPayload={makeEmployeeQrPayload(showIdCardModal)}
+                      isPrint={false}
+                      isEditing={isDragModeEnabled}
+                      layoutConfig={idCardLayoutConfig}
+                      frameStyle={idCardFrameStyle}
+                      photoShape={idCardPhotoShape}
+                      showPattern={idCardShowPattern}
+                      showWave={idCardShowWave}
+                      headerMotto={idCardHeaderMotto}
+                      footerMotto={idCardFooterMotto}
+                      cardSide={idCardSide}
+                      backTitle={idCardBackTitle}
+                      backRules={idCardBackRules}
+                      backAddress={idCardBackAddress}
+                      backShowQr={idCardBackShowQr}
+                      onElementMove={handleElementMove}
+                    />
+                  </div>
+
+                  <aside className="employee-id-info space-y-3">
+                    {/* Control Sub-Tabs */}
+                    <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setIdCardControlTab('style')}
+                        className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition-all cursor-pointer ${
+                          idCardControlTab === 'style'
+                            ? 'bg-white text-emerald-700 shadow-xs dark:bg-slate-700 dark:text-emerald-300'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        🎨 Depan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIdCardControlTab('back')
+                          setIdCardSide('back')
+                        }}
+                        className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition-all cursor-pointer ${
+                          idCardControlTab === 'back'
+                            ? 'bg-white text-emerald-700 shadow-xs dark:bg-slate-700 dark:text-emerald-300'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        📝 Belakang
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIdCardControlTab('template')}
+                        className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition-all cursor-pointer ${
+                          idCardControlTab === 'template'
+                            ? 'bg-white text-emerald-700 shadow-xs dark:bg-slate-700 dark:text-emerald-300'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        ⚙️ Template
+                      </button>
                     </div>
-                    <dl>
-                      <div><dt>Identifier Login</dt><dd>{showIdCardModal.niy || showIdCardModal.email}</dd></div>
-                      <div><dt>Peran Utama</dt><dd>{showIdCardModal.jabatan_name || 'Pegawai'}</dd></div>
-                      <div><dt>Unit Kerja</dt><dd>{showIdCardModal.unit_name || '—'}</dd></div>
-                      <div><dt>Status</dt><dd><span>{showIdCardModal.status}</span></dd></div>
-                    </dl>
-                    <div className="employee-id-security-note">
-                      <BadgeCheck />
-                      <p>QR tidak menyimpan password atau token rahasia. Backend nantinya harus memvalidasi QR dan menukarnya dengan sesi login yang aman.</p>
-                    </div>
+
+                    {/* TAB 1: STYLE & LAYOUT DEPAN */}
+                    {idCardControlTab === 'style' && (
+                      <div className="space-y-3">
+                        {/* Orientasi Kartu Picker */}
+                        <div className="employee-id-orientation-picker">
+                          <div>
+                            <h3>Orientasi Kartu</h3>
+                          </div>
+                          <div className="employee-id-orientation-grid">
+                            {[
+                              ['horizontal', 'Horizontal'],
+                              ['vertical', 'Vertikal'],
+                            ].map(([value, label]) => (
+                              <button key={value} type="button" onClick={() => changeIdCardOrientation(value)} aria-pressed={idCardOrientation === value} className={idCardOrientation === value ? 'is-selected' : ''}>
+                                <span className={`employee-id-orientation-icon employee-id-orientation-icon--${value}`}><i /><b /></span>
+                                <strong>{label}</strong>
+                                {idCardOrientation === value && <FaCheckCircle />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Mode Drag & Drop Toggle Banner */}
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-800/50 dark:bg-emerald-950/40">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                                <SlidersHorizontal className="size-3.5 text-emerald-600 dark:text-emerald-400" /> Mode Edit Layout
+                              </h4>
+                              <p className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">
+                                {isDragModeEnabled ? 'Geser elemen kartu langsung pada preview' : 'Aktifkan untuk menggeser posisi elemen'}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIsDragModeEnabled(!isDragModeEnabled)}
+                              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                isDragModeEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                  isDragModeEnabled ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          {isDragModeEnabled && (
+                            <div className="mt-2 flex items-center justify-between border-t border-emerald-200/60 pt-2 text-[11px] text-emerald-800 dark:border-emerald-800/40 dark:text-emerald-300">
+                              <span>💡 Klik & tahan elemen untuk memindahkan</span>
+                              <button
+                                type="button"
+                                onClick={resetIdCardLayout}
+                                className="flex items-center gap-1 font-semibold text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 cursor-pointer"
+                              >
+                                <RefreshCcw className="size-3" /> Reset
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Frame & Shape Customizer */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/60 space-y-2.5">
+                          <div className="space-y-1.5">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Gaya Frame / Border</label>
+                            <div className="grid grid-cols-2 gap-1.5 text-xs">
+                              {[
+                                ['standard', 'Standard'],
+                                ['rounded', 'Soft Rounded'],
+                                ['double', 'Double Line'],
+                                ['glow', 'Glow Accent'],
+                              ].map(([styleKey, styleLabel]) => (
+                                <button
+                                  key={styleKey}
+                                  type="button"
+                                  onClick={() => setIdCardFrameStyle(styleKey)}
+                                  className={`rounded-lg border px-2.5 py-1 text-left text-[11px] font-medium transition-all cursor-pointer ${
+                                    idCardFrameStyle === styleKey
+                                      ? 'border-emerald-600 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold'
+                                      : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  {styleLabel}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Bentuk Foto Pegawai</label>
+                            <div className="grid grid-cols-4 gap-1 text-center">
+                              {[
+                                ['circle', 'Bulat'],
+                                ['rounded', 'Membuat'],
+                                ['square', 'Kotak'],
+                                ['shield', 'Perisai'],
+                              ].map(([shapeKey, shapeLabel]) => (
+                                <button
+                                  key={shapeKey}
+                                  type="button"
+                                  onClick={() => setIdCardPhotoShape(shapeKey)}
+                                  className={`rounded-lg border py-1 text-[10px] font-medium transition-all cursor-pointer ${
+                                    idCardPhotoShape === shapeKey
+                                      ? 'border-emerald-600 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold'
+                                      : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  {shapeLabel}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 text-[11px]">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={idCardShowPattern}
+                                onChange={(e) => setIdCardShowPattern(e.target.checked)}
+                                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              Pola Latar
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={idCardShowWave}
+                                onChange={(e) => setIdCardShowWave(e.target.checked)}
+                                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              Gelombang Atas
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Tagline & Motto Customizer */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/60 space-y-2">
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Tagline Sub-Header</label>
+                            <input
+                              type="text"
+                              value={idCardHeaderMotto}
+                              onChange={(e) => setIdCardHeaderMotto(e.target.value)}
+                              placeholder="Berilmu, Berakhlak, Beramal"
+                              className="w-full rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:border-emerald-600 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white font-medium"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Motto Footer</label>
+                            <textarea
+                              rows={2}
+                              value={idCardFooterMotto}
+                              onChange={(e) => setIdCardFooterMotto(e.target.value)}
+                              placeholder="Generasi Beriman, Berilmu, Berakhlak Mulia"
+                              className="w-full rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:border-emerald-600 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white resize-none font-medium"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 2: FORM DESAIN SISI BELAKANG */}
+                    {idCardControlTab === 'back' && (
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800/60 space-y-2.5">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white">Pengaturan Sisi Belakang</h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Atur judul, tata tertib, dan kontak yayasan.</p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Judul Header Belakang</label>
+                            <input
+                              type="text"
+                              value={idCardBackTitle}
+                              onChange={(e) => setIdCardBackTitle(e.target.value)}
+                              placeholder="KETENTUAN KARTU PEGAWAI"
+                              className="w-full rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:border-emerald-600 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white font-medium"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Poin Ketentuan & Tata Tertib</label>
+                            <textarea
+                              rows={4}
+                              value={idCardBackRules}
+                              onChange={(e) => setIdCardBackRules(e.target.value)}
+                              placeholder="1. Kartu ini milik resmi..."
+                              className="w-full rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:border-emerald-600 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white font-medium resize-none"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Alamat & Kontak Footer</label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (showIdCardModal) {
+                                    setIdCardBackAddress(getEmployeeUnitAddress(showIdCardModal, unitsList, pengaturan))
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 cursor-pointer"
+                              >
+                                📍 Sync Unit
+                              </button>
+                            </div>
+                            <textarea
+                              rows={2}
+                              value={idCardBackAddress}
+                              onChange={(e) => setIdCardBackAddress(e.target.value)}
+                              placeholder="Jl. Gajah Mada No. 28..."
+                              className="w-full rounded-lg border border-slate-300 px-2.5 py-1 text-xs focus:border-emerald-600 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white font-medium resize-none"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 text-[11px]">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300 font-medium">
+                              <input
+                                type="checkbox"
+                                checked={idCardBackShowQr}
+                                onChange={(e) => setIdCardBackShowQr(e.target.checked)}
+                                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              Tampilkan QR Code Belakang
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TAB 3: TEMPLATE & CETAK */}
+                    {idCardControlTab === 'template' && (
+                      <div className="space-y-3">
+                        <div className="employee-id-orientation-picker">
+                          <div>
+                            <h3>Orientasi Kartu</h3>
+                          </div>
+                          <div className="employee-id-orientation-grid">
+                            {[
+                              ['horizontal', 'Horizontal'],
+                              ['vertical', 'Vertikal'],
+                            ].map(([value, label]) => (
+                              <button key={value} type="button" onClick={() => changeIdCardOrientation(value)} aria-pressed={idCardOrientation === value} className={idCardOrientation === value ? 'is-selected' : ''}>
+                                <span className={`employee-id-orientation-icon employee-id-orientation-icon--${value}`}><i /><b /></span>
+                                <strong>{label}</strong>
+                                {idCardOrientation === value && <FaCheckCircle />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">Sisi Halaman Yang Dicetak</label>
+                          <div className="grid grid-cols-3 gap-1 text-center">
+                            {[
+                              ['both', 'Keduanya'],
+                              ['front', 'Depan'],
+                              ['back', 'Belakang'],
+                            ].map(([val, label]) => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => setIdCardPrintSides(val)}
+                                className={`rounded-lg border py-1 text-[10.5px] font-semibold transition-all cursor-pointer ${
+                                  idCardPrintSides === val
+                                    ? 'border-emerald-600 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-300 font-bold'
+                                    : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="employee-id-template-picker">
+                          <div>
+                            <h3>Pilih Warna Kartu</h3>
+                          </div>
+                          <div className="employee-id-template-grid">
+                            {ID_CARD_TEMPLATES.map((template) => (
+                              <button
+                                key={template.id}
+                                type="button"
+                                onClick={() => setSelectedIdCardTemplate(template.id)}
+                                aria-pressed={selectedIdCardTemplate === template.id}
+                                className={`employee-id-template-option employee-id-template-option--${template.id} ${selectedIdCardTemplate === template.id ? 'is-selected' : ''}`}
+                              >
+                                <span className="employee-id-template-option__preview">
+                                  <i />
+                                  <b>DEI</b>
+                                  <em />
+                                  <small>QR</small>
+                                </span>
+                                <strong>{template.label}</strong>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <dl>
+                          <div><dt>Identifier Login</dt><dd>{showIdCardModal.niy || showIdCardModal.email}</dd></div>
+                          <div><dt>Peran Utama</dt><dd>{showIdCardModal.jabatan_name || 'Pegawai'}</dd></div>
+                          <div><dt>Unit Kerja</dt><dd>{showIdCardModal.unit_name || '—'}</dd></div>
+                          <div><dt>Status</dt><dd><span>{showIdCardModal.status}</span></dd></div>
+                        </dl>
+                      </div>
+                    )}
                   </aside>
                 </div>
               </div>
 
               <div className="modal-footer flex items-center justify-between border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-700 dark:bg-[#1B2433]">
-                <button
-                  type="button"
-                  onClick={() => setShowIdCardModal(null)}
-                  className="flex items-center gap-2 rounded-2xl bg-slate-100/90 px-4 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700/80 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
-                >
-                  Tutup
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    printEmployeeIdCard({
-                      employee: showIdCardModal,
-                      orientation: idCardOrientation,
-                      template: selectedIdCardTemplate,
-                      pengaturan,
-                      formatDate: formatEmployeeCardDate,
-                      qrPayload: makeEmployeeQrPayload(showIdCardModal),
-                    })
-                  }}
-                  className="flex items-center gap-2 rounded-2xl bg-emerald-100/90 px-4 py-2 text-xs font-extrabold text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
-                >
-                  <FaPrint className="text-emerald-600 dark:text-emerald-400" /> Cetak ID Card
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowIdCardModal(null)}
+                    className="flex items-center gap-2 rounded-2xl bg-slate-100/90 px-4 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-700/80 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    Tutup
+                  </button>
+                  {Object.keys(idCardLayoutConfig).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={resetIdCardLayout}
+                      className="flex items-center gap-1.5 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-all"
+                    >
+                      <RefreshCcw className="size-3" /> Reset Layout
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadEmployeeIdCard({
+                        employee: showIdCardModal,
+                        orientation: idCardOrientation,
+                        template: selectedIdCardTemplate,
+                        pengaturan,
+                        formatDate: formatEmployeeCardDate,
+                        qrPayload: makeEmployeeQrPayload(showIdCardModal),
+                        layoutConfig: idCardLayoutConfig,
+                        frameStyle: idCardFrameStyle,
+                        photoShape: idCardPhotoShape,
+                        showPattern: idCardShowPattern,
+                        showWave: idCardShowWave,
+                        headerMotto: idCardHeaderMotto,
+                        footerMotto: idCardFooterMotto,
+                        printSides: idCardPrintSides,
+                        backTitle: idCardBackTitle,
+                        backRules: idCardBackRules,
+                        backAddress: idCardBackAddress,
+                        backShowQr: idCardBackShowQr,
+                      })
+                    }}
+                    className="flex items-center gap-2 rounded-2xl bg-amber-100/90 px-4 py-2 text-xs font-extrabold text-amber-900 hover:bg-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    <FaDownload className="size-3.5 text-amber-600 dark:text-amber-400" /> Unduh ID Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      printEmployeeIdCard({
+                        employee: showIdCardModal,
+                        orientation: idCardOrientation,
+                        template: selectedIdCardTemplate,
+                        pengaturan,
+                        formatDate: formatEmployeeCardDate,
+                        qrPayload: makeEmployeeQrPayload(showIdCardModal),
+                        layoutConfig: idCardLayoutConfig,
+                        frameStyle: idCardFrameStyle,
+                        photoShape: idCardPhotoShape,
+                        showPattern: idCardShowPattern,
+                        showWave: idCardShowWave,
+                        headerMotto: idCardHeaderMotto,
+                        footerMotto: idCardFooterMotto,
+                        printSides: idCardPrintSides,
+                        backTitle: idCardBackTitle,
+                        backRules: idCardBackRules,
+                        backAddress: idCardBackAddress,
+                        backShowQr: idCardBackShowQr,
+                      })
+                    }}
+                    className="flex items-center gap-2 rounded-2xl bg-emerald-100/90 px-4 py-2 text-xs font-extrabold text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/70 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    <FaPrint className="text-emerald-600 dark:text-emerald-400" /> Cetak ID Card
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -3482,7 +4034,7 @@ export default function EmployeesPage() {
                           <td className="p-3">
                             <EmployeeHoverCard employee={emp}>
                               <div className="flex items-center gap-2.5 cursor-pointer">
-                                <PersonAvatar src={emp.foto} name={fullName} size="sm" />
+                                <PersonAvatar src={getEmployeePhotoUrl(emp)} name={fullName} size="sm" />
                                 <div>
                                   <p className="font-extrabold text-slate-900 dark:text-white hover:text-emerald-600 transition">{fullName}</p>
                                   <p className="font-mono text-[10px] text-slate-400">NIY: {emp.niy || '-'}</p>

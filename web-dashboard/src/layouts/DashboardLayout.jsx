@@ -60,6 +60,7 @@ import { UserCircle1, Gear1, Exit, Bell1 } from '@tailgrids/icons'
 import AuthToast, { showAuthToast } from '../components/ui/AuthToast'
 import AuthPopup from '../components/ui/AuthPopup'
 import AcademicCalendarModal from '../components/calendar/AcademicCalendarModal'
+import PwaInstallBanner from '../components/app/PwaInstallBanner'
 
 export default function DashboardLayout() {
   const location = useLocation()
@@ -91,7 +92,32 @@ export default function DashboardLayout() {
   const isPortalUser = isStudentRole(roles) || isParentRole(roles)
   const defaultPortal = resolveDefaultPortal(user || {})
 
-  const [collapsed, setCollapsed] = useState(Boolean(pengaturan?.sidebar_collapsed))
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      return true
+    }
+    return Boolean(pengaturan?.sidebar_collapsed)
+  })
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 1024) {
+        setCollapsed(true)
+      } else if (pengaturan?.sidebar_collapsed !== undefined) {
+        setCollapsed(Boolean(pengaturan.sidebar_collapsed))
+      }
+    }
+  }, [pengaturan?.sidebar_collapsed])
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setCollapsed(true)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [openSection, setOpenSection] = useState('master-data')
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
@@ -487,6 +513,7 @@ export default function DashboardLayout() {
       return canViewEducationUnits
     }
     if (to.includes('/master-jabatan') || to.includes('/students/jabatan')) {
+      if (!hasFullMenuAccess && isDivisiPendidikan) return false
       if (
         (hasRole('Guru', 'guru', 'Wali Kelas', 'wali_kelas', 'Guru Mapel', 'Guru Tahfizh', 'Guru BK', 'Musyrif', 'musyrif', 'Musyrifah', 'musyrifah', 'Pengasuh', 'Wali Asrama', 'Pembimbing') || isPureMusyrif) &&
         !hasRole('Super Admin', 'SuperAdmin', 'superadmin', 'super_admin', 'Admin', 'admin', 'Kepala Sekolah', 'kepala_sekolah', 'KepalaSekolah', 'Tata Usaha', 'TU', 'tata_usaha', 'Operator', 'operator', 'Yayasan')
@@ -777,8 +804,10 @@ export default function DashboardLayout() {
       to === '/dashboard/yayasan/unit-pendidikan' ||
       to === '/dashboard/master/unit-pendidikan' ||
       to === '/dashboard/master-jenis-unit' ||
+      to === '/dashboard/master-jabatan' ||
       to.includes('/unit-pendidikan') ||
-      to.includes('/master-jenis-unit')
+      to.includes('/master-jenis-unit') ||
+      to.includes('/master-jabatan')
     ) {
       return true
     }
@@ -872,7 +901,6 @@ const getSidebarIconBadgeClass = (key, idx) => {
       label: 'Pengaturan Yayasan',
       icon: Settings,
       submenus: [
-        { to: '/dashboard/yayasan/notifikasi', label: 'Notifikasi' },
         { to: '/dashboard/yayasan/profil', label: 'Profil' },
       ],
     },
@@ -889,11 +917,11 @@ const getSidebarIconBadgeClass = (key, idx) => {
       icon: Building2,
       submenus: (isKepalaSekolah || isDivisiPendidikan) ? [
         { to: '/dashboard/yayasan', label: 'Ringkasan Utama' },
-        ...(hasFullMenuAccess || can('divisi.monitoring', 'dashboard.pemantauan.kelola', 'dashboard.pemantauan.lihat') || hasRole('Super Admin', 'SuperAdmin', 'Admin', 'admin', 'Yayasan', 'Pengurus Yayasan', 'Ketua Yayasan', 'Kepala Sekolah', 'kepala_sekolah', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Divisi') ? [
+        ...(!isDivisiPendidikan && (hasFullMenuAccess || can('divisi.monitoring', 'dashboard.pemantauan.kelola', 'dashboard.pemantauan.lihat') || hasRole('Super Admin', 'SuperAdmin', 'Admin', 'admin', 'Yayasan', 'Pengurus Yayasan', 'Ketua Yayasan', 'Kepala Sekolah', 'kepala_sekolah', 'Kepala Divisi')) ? [
           { to: '/dashboard/monitoring-divisi', label: 'Monitoring Divisi' },
         ] : []),
         { to: '/dashboard/berita-informasi', label: 'Berita & Pengumuman' },
-        { to: '/dashboard/yayasan/laporan', label: 'Laporan Lintas Unit' },
+        ...(!isDivisiPendidikan ? [{ to: '/dashboard/yayasan/laporan', label: 'Laporan Lintas Unit' }] : []),
       ] : [
         { to: '/dashboard/yayasan', label: 'Ringkasan Utama' },
         ...(hasFullMenuAccess || can('divisi.monitoring', 'dashboard.pemantauan.kelola', 'dashboard.pemantauan.lihat') || hasRole('Super Admin', 'SuperAdmin', 'Admin', 'admin', 'Yayasan', 'Pengurus Yayasan', 'Ketua Yayasan', 'Kepala Sekolah', 'kepala_sekolah', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Divisi') ? [
@@ -906,25 +934,25 @@ const getSidebarIconBadgeClass = (key, idx) => {
         { to: '/dashboard/yayasan/laporan', label: 'Laporan Lintas Unit' },
       ],
     },
-    {
-      key: 'master-data',
-      label: (isParentRole(roles) || isStudentRole(roles)) && !hasFullMenuAccess
-        ? 'BERITA'
-        : (hasFullMenuAccess || isKepalaSekolah || isDivisiPendidikan ? 'MANAJEMEN DATA' : 'MASTER DATA'),
-      icon: Database,
-      submenus: [
-        { to: '/dashboard/students/unit-pendidikan', label: 'Unit Pendidikan' },
-        { to: '/dashboard/master-jenis-unit', label: 'Jenis Unit' },
-        { to: '/dashboard/master-jabatan', label: 'Jabatan' },
-        { to: '/dashboard/employees', label: 'Pegawai' },
-        { to: '/dashboard/students', label: 'Siswa' },
-        { to: '/dashboard/kelola-alumni', label: 'Pengolahan Data Alumni' },
-        { to: '/dashboard/berita-informasi', label: 'Berita & Pengumuman' },
-        { to: '/dashboard/master-quran-surah', label: 'Al-Qur’an' },
-        { to: '/dashboard/master-jadwal-sholat', label: 'Sholat' },
-        { to: '/dashboard/master-doa', label: 'Do’a & Dzikir' },
-      ],
-    },
+    ...(!((isParentRole(roles) || isStudentRole(roles)) && !hasFullMenuAccess) ? [
+      {
+        key: 'master-data',
+        label: hasFullMenuAccess || isKepalaSekolah || isDivisiPendidikan ? 'MANAJEMEN DATA' : 'MASTER DATA',
+        icon: Database,
+        submenus: [
+          { to: '/dashboard/students/unit-pendidikan', label: 'Unit Pendidikan' },
+          { to: '/dashboard/master-jenis-unit', label: 'Jenis Unit' },
+          { to: '/dashboard/master-jabatan', label: 'Jabatan' },
+          { to: '/dashboard/employees', label: 'Pegawai' },
+          { to: '/dashboard/students', label: 'Siswa' },
+          { to: '/dashboard/kelola-alumni', label: 'Pengolahan Data Alumni' },
+          { to: '/dashboard/berita-informasi', label: 'Berita & Pengumuman' },
+          { to: '/dashboard/master-quran-surah', label: 'Al-Qur’an' },
+          { to: '/dashboard/master-jadwal-sholat', label: 'Sholat' },
+          { to: '/dashboard/master-doa', label: 'Do’a & Dzikir' },
+        ],
+      },
+    ] : []),
     {
       key: 'akademik',
       label: 'AKADEMIK & LMS',
@@ -1166,7 +1194,7 @@ const getSidebarIconBadgeClass = (key, idx) => {
             <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
               <div className={`flex items-center gap-3 overflow-hidden ${collapsed ? 'justify-center w-full' : ''}`}>
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-white shadow-md shadow-emerald-600/20 bg-gradient-to-br from-emerald-600 to-teal-700 border border-emerald-500/30" style={{ backgroundColor: pengaturan.sidebar_accent_color || '#064E3B' }}>
-                  {pengaturan.logo_url ? <img src={pengaturan.logo_url} alt="Logo Yayasan Darel Iman" className="h-full w-full bg-white object-contain p-1" /> : <span className="text-[10px] font-black">{pengaturan.logo_text || <Sparkles className="h-5 w-5 text-white" />}</span>}
+                  <img src={pengaturan.logo_url || '/logo.png'} alt="Logo Yayasan Darel Iman" className="h-full w-full bg-white object-contain p-0.5" />
                 </div>
                 {!collapsed && (
                   <div className="min-w-0">
@@ -1387,7 +1415,7 @@ const getSidebarIconBadgeClass = (key, idx) => {
                 >
                   <Layers className="h-4 w-4 text-sky-600 dark:text-sky-400 stroke-[2.2]" />
                   <span className="hidden sm:inline text-sky-600/80 dark:text-sky-400/80 font-medium">Unit:</span>
-                  <span className="font-extrabold text-sky-900 dark:text-sky-200">{activeUnit || 'Semua Unit'}</span>
+                  <span className="font-extrabold text-sky-900 dark:text-sky-200 max-w-[100px] xs:max-w-[140px] sm:max-w-none truncate inline-block">{activeUnit || 'Semua Unit'}</span>
                   <ChevronDown className="h-3.5 w-3.5 text-sky-500" />
                 </button>
 
@@ -1475,7 +1503,7 @@ const getSidebarIconBadgeClass = (key, idx) => {
 
               {/* 4. Dropdown Akses Role (HANYA muncul jika Super Admin / Admin, terletak tepat di samping button notifikasi) */}
               {hasFullMenuAccess && (
-                <div className="relative shrink-0 group" ref={roleAccessRef}>
+                <div className="relative shrink-0 group hidden sm:flex" ref={roleAccessRef}>
                   <button
                     type="button"
                     onClick={() => setRoleAccessOpen(!roleAccessOpen)}
@@ -1537,7 +1565,7 @@ const getSidebarIconBadgeClass = (key, idx) => {
               </div>
 
               {/* 6. Cache Reset Button (Soft Pastel Amber/Orange) */}
-              <div className="group relative">
+              <div className="group relative hidden sm:flex">
                 <button
                   type="button"
                   onClick={handleResetCache}
@@ -1556,7 +1584,7 @@ const getSidebarIconBadgeClass = (key, idx) => {
               </div>
 
               {/* 7. Light / Dark Mode Button (Soft Pastel Fuchsia/Pink) */}
-              <div className="group relative">
+              <div className="group relative hidden sm:flex">
                 <button
                   type="button"
                   onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1644,6 +1672,29 @@ const getSidebarIconBadgeClass = (key, idx) => {
                           <span>Pengaturan Akun</span>
                         </button>
 
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsDarkMode(!isDarkMode)
+                          }}
+                          className="w-full sm:hidden flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                        >
+                          {isDarkMode ? <Sun className="h-5 w-5 text-amber-500 stroke-[1.8]" /> : <Moon className="h-5 w-5 text-fuchsia-600 dark:text-fuchsia-400 stroke-[1.8]" />}
+                          <span>Mode {isDarkMode ? 'Terang' : 'Gelap'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProfileDropdownOpen(false)
+                            handleResetCache()
+                          }}
+                          className="w-full sm:hidden flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                        >
+                          <RefreshCw className="h-5 w-5 text-amber-600 dark:text-amber-400 stroke-[1.8]" />
+                          <span>Atur Ulang Cache</span>
+                        </button>
+
                         {!isDivisiPendidikan && (
                           <button
                             type="button"
@@ -1692,7 +1743,7 @@ const getSidebarIconBadgeClass = (key, idx) => {
           </header>
 
           {/* Main Page Workspace Container (Light Gray bg-slate-50) */}
-          <main className="min-w-0 flex-1 overflow-x-hidden p-4 sm:p-5 lg:p-6 space-y-6 max-w-7xl w-full mx-auto pb-24 lg:pb-10">
+          <main className="min-w-0 flex-1 overflow-x-hidden px-3 py-3.5 sm:px-5 sm:py-5 lg:p-6 space-y-4 sm:space-y-6 max-w-none lg:max-w-7xl w-full mx-auto pb-24 lg:pb-10">
             {impersonating && (
               <div className="auth-impersonating-banner flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/70 dark:bg-amber-950/40 dark:text-amber-100">
                 <div>
@@ -1764,6 +1815,7 @@ const getSidebarIconBadgeClass = (key, idx) => {
         isOpen={isAcademicCalendarOpen}
         onClose={() => setIsAcademicCalendarOpen(false)}
       />
+      <PwaInstallBanner />
       <AuthPopup />
       <AuthToast />
     </div>
