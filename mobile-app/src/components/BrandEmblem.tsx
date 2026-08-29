@@ -7,7 +7,7 @@ type BrandEmblemProps = {
 };
 
 export default function BrandEmblem({ size = 96 }: BrandEmblemProps) {
-  const ringSize = size - 12;
+  const ringSize = size - 10;
 
   return (
     <View
@@ -16,13 +16,9 @@ export default function BrandEmblem({ size = 96 }: BrandEmblemProps) {
       style={[styles.emblem, { width: size, height: size, borderRadius: size / 2 }]}
     >
       <View style={[styles.ring, { width: ringSize, height: ringSize, borderRadius: ringSize / 2 }]}>
-        <MaterialCommunityIcons
-          name="star-four-points-outline"
-          size={size * 0.68}
-          color="#0C795A"
-        />
-        <View style={[styles.globe, { width: size * 0.42, height: size * 0.42, borderRadius: size * 0.21 }]}>
-          <MaterialCommunityIcons name="earth" size={size * 0.28} color="#4D84B2" />
+        <MaterialCommunityIcons name="mosque" size={size * 0.48} color="#087A4F" />
+        <View style={[styles.globe, { width: size * 0.46, height: size * 0.25, borderRadius: size * 0.08 }]}>
+          <MaterialCommunityIcons name="book-open-page-variant-outline" size={size * 0.29} color="#A87410" />
         </View>
       </View>
     </View>
@@ -34,8 +30,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DDE8E3',
+    borderWidth: 3,
+    borderColor: '#D5A72D',
     shadowColor: '#001F17',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -45,13 +41,14 @@ const styles = StyleSheet.create({
   ring: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#9AC7B7',
+    borderWidth: 2.5,
+    borderColor: '#087A4F',
   },
   globe: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E9F1F4',
+    bottom: 8,
+    backgroundColor: '#FFFFFF',
   },
 });

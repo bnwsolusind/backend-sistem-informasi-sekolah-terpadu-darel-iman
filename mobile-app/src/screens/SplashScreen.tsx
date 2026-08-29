@@ -1,21 +1,24 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import BrandEmblem from '../components/BrandEmblem';
 import BrandPattern from '../components/BrandPattern';
+import { useMobileConfigStore } from '../stores/mobileConfigStore';
 
 export default function SplashScreen() {
+  const config = useMobileConfigStore((state) => state.config);
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: config.branding.splash_background_color }]}>
       <BrandPattern opacity={0.1} />
       <View style={styles.glow} />
 
       <View style={styles.content}>
-        <BrandEmblem size={164} />
-        <Text style={styles.title}>Sistem Manajemen</Text>
-        <Text style={styles.title}>Sekolah Terpadu</Text>
-        <Text style={styles.subtitle}>Yayasan Dar el-Iman</Text>
-        <ActivityIndicator size="large" color="#B5F2DA" style={styles.loader} />
+        {config.branding.logo_url
+          ? <Image source={{ uri: config.branding.logo_url }} style={styles.logo} resizeMode="contain" />
+          : <BrandEmblem size={164} />}
+        <Text style={styles.title}>{config.branding.app_name}</Text>
+        <Text style={styles.subtitle}>{config.branding.school_name}</Text>
+        <ActivityIndicator size="large" color={config.theme.secondary_color} style={styles.loader} />
       </View>
 
       <Text style={styles.location}>Padang  •  Sumbur  •  Indonesia</Text>
@@ -46,6 +49,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 38,
   },
+  logo: { width: 164, height: 164, marginBottom: 8 },
   title: {
     color: '#FFFFFF',
     fontSize: 26,

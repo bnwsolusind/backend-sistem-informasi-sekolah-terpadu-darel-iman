@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -15,10 +16,11 @@ import {
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BrandEmblem from '../components/BrandEmblem';
-import BrandPattern from '../components/BrandPattern';
 import { getApiErrorMessage } from '../services/api';
 import { mobileApiService } from '../services/mobileApiService';
 import { useAuthStore } from '../stores/authStore';
+import { useMobileConfigStore } from '../stores/mobileConfigStore';
+import MinimalPageBackground from '../components/MinimalPageBackground';
 
 const roleNames = (value: unknown): string[] => (
   Array.isArray(value)
@@ -28,6 +30,8 @@ const roleNames = (value: unknown): string[] => (
 
 export default function LoginScreen() {
   const setSession = useAuthStore((state) => state.setSession);
+  const config = useMobileConfigStore((state) => state.config);
+  const theme = config.theme;
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -70,18 +74,24 @@ export default function LoginScreen() {
     }
   };
 
-  const showUnavailableMessage = (feature: string) => {
-    setError(`${feature} belum tersedia pada build mobile ini.`);
-  };
-
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
+      style={[styles.screen, { backgroundColor: theme.background_color }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.background}>
-        <BrandPattern opacity={0.08} />
-        <View style={styles.diagonalGlow} />
+      <View style={[styles.background, { backgroundColor: theme.background_color }]}>
+        <MinimalPageBackground
+          baseColor={theme.background_color}
+          primaryColor={theme.primary_color}
+          enabled={theme.background_gradient_enabled}
+          gradientStart={theme.background_gradient_start}
+          gradientEnd={theme.background_gradient_end}
+          direction={theme.background_gradient_direction}
+        />
+        <View style={[styles.heroBackdrop, { backgroundColor: theme.primary_color }]} />
+        <View style={[styles.heroGlow, { backgroundColor: theme.secondary_color }]} />
+        <View style={styles.heroMintShape} />
+        <View style={styles.heroTealShape} />
 
         <ScrollView
           contentContainerStyle={styles.content}
@@ -89,32 +99,36 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
-            <BrandEmblem size={84} />
+            {config.branding.logo_url ? <Image source={{ uri: config.branding.logo_url }} style={styles.logo} resizeMode="contain" /> : <BrandEmblem size={76} />}
+            <Text style={styles.schoolName}>{config.branding.app_name}</Text>
+            <Text style={styles.schoolBranch}>{config.branding.school_name}</Text>
+            <View style={styles.securePill}><MaterialCommunityIcons name="shield-check-outline" size={14} color="#D1FAE5" /><Text style={styles.secureText}>Portal sekolah aman & terpadu</Text></View>
           </View>
 
-          <Surface style={styles.sheet} elevation={0}>
-            <Text style={styles.greeting}>Assalamu'alaikum</Text>
-            <Text style={styles.welcome}>Selamat datang kembali</Text>
+          <Surface style={[styles.sheet, { backgroundColor: theme.surface_color, borderRadius: theme.card_radius + 8 }]} elevation={3}>
+            <View style={styles.sheetHeading}><View><Text style={[styles.greeting, { color: theme.text_color }]}>Assalamu'alaikum 👋</Text><Text style={[styles.welcome, { color: theme.muted_text_color }]}>Masuk menggunakan akun sekolah Anda</Text></View><View style={[styles.loginIcon, { backgroundColor: `${theme.primary_color}12` }]}><MaterialCommunityIcons name="account-lock-outline" size={23} color={theme.primary_color} /></View></View>
 
-            <Text style={styles.fieldLabel}>Identitas Pengguna</Text>
+            <Text style={[styles.fieldLabel, { color: theme.text_color }]}>Identitas pengguna</Text>
+
             <TextInput
               mode="outlined"
-              placeholder="HP / NIY / Email / NIS / NIK"
+              placeholder="Email, NIS, NIY, atau nomor HP"
               value={identifier}
               onChangeText={setIdentifier}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="default"
               onFocus={() => setError('')}
-              left={<TextInput.Icon icon="account-outline" color="#7B8886" />}
+              left={<TextInput.Icon icon="account-outline" color={theme.muted_text_color} />}
               style={styles.input}
               outlineColor="#D6DFDD"
-              activeOutlineColor="#087A5A"
-              textColor="#17352D"
+              activeOutlineColor={theme.primary_color}
+              textColor={theme.text_color}
               placeholderTextColor="#8C9896"
-              outlineStyle={styles.inputOutline}
+              outlineStyle={[styles.inputOutline, { borderRadius: theme.button_radius }]}
             />
 
+            <Text style={[styles.fieldLabel, { color: theme.text_color }]}>Kata sandi</Text>
             <TextInput
               mode="outlined"
               placeholder="Kata sandi"
@@ -123,14 +137,14 @@ export default function LoginScreen() {
               secureTextEntry={!showPassword}
               onSubmitEditing={submit}
               onFocus={() => setError('')}
-              left={<TextInput.Icon icon="lock-outline" color="#7B8886" />}
+              left={<TextInput.Icon icon="lock-outline" color={theme.muted_text_color} />}
               right={<TextInput.Icon icon={showPassword ? 'eye-off-outline' : 'eye-outline'} color="#7B8886" onPress={() => setShowPassword((visible) => !visible)} />}
               style={styles.input}
               outlineColor="#D6DFDD"
-              activeOutlineColor="#087A5A"
-              textColor="#17352D"
+              activeOutlineColor={theme.primary_color}
+              textColor={theme.text_color}
               placeholderTextColor="#8C9896"
-              outlineStyle={styles.inputOutline}
+              outlineStyle={[styles.inputOutline, { borderRadius: theme.button_radius }]}
             />
 
             {error ? (
@@ -147,13 +161,13 @@ export default function LoginScreen() {
                 onPress={() => setRememberMe((checked) => !checked)}
                 style={styles.rememberAction}
               >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                <View style={[styles.checkbox, rememberMe && { borderColor: theme.primary_color, backgroundColor: theme.primary_color }]}>
                   {rememberMe ? <MaterialCommunityIcons name="check" size={15} color="#FFFFFF" /> : null}
                 </View>
                 <Text style={styles.rememberText}>Ingat saya</Text>
               </Pressable>
-              <Pressable onPress={() => showUnavailableMessage('Pemulihan kata sandi')}>
-                <Text style={styles.forgotText}>Lupa kata sandi?</Text>
+              <Pressable onPress={() => setError('Hubungi administrator sekolah untuk mengatur ulang kata sandi.')}>
+                <Text style={[styles.forgotText, { color: theme.primary_color }]}>Lupa kata sandi?</Text>
               </Pressable>
             </View>
 
@@ -162,43 +176,15 @@ export default function LoginScreen() {
               onPress={submit}
               loading={loading}
               disabled={loading}
-              style={styles.submit}
+              style={[styles.submit, { borderRadius: theme.button_radius }]}
               contentStyle={styles.submitContent}
-              buttonColor="#087A5A"
+              buttonColor={theme.primary_color}
               textColor="#FFFFFF"
               labelStyle={styles.submitLabel}
             >
-              Masuk
+              Masuk ke aplikasi
             </Button>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>atau untuk Pegawai & Guru</Text>
-              <View style={styles.divider} />
-            </View>
-
-            <Button
-              mode="outlined"
-              icon="qrcode-scan"
-              onPress={() => showUnavailableMessage('Login dengan QR Code')}
-              style={styles.qrButton}
-              contentStyle={styles.secondaryContent}
-              textColor="#075B46"
-              labelStyle={styles.secondaryLabel}
-            >
-              Masuk dengan QR Code
-            </Button>
-            <Button
-              mode="outlined"
-              icon="fingerprint"
-              onPress={() => showUnavailableMessage('Login dengan biometrik')}
-              style={styles.biometricButton}
-              contentStyle={styles.secondaryContent}
-              textColor="#263532"
-              labelStyle={styles.secondaryLabel}
-            >
-              Masuk dengan biometrik
-            </Button>
+            <View style={styles.helpRow}><MaterialCommunityIcons name="information-outline" size={16} color={theme.muted_text_color} /><Text style={[styles.helpText, { color: theme.muted_text_color }]}>Akun dan hak akses dikelola oleh sekolah</Text></View>
           </Surface>
         </ScrollView>
       </View>
@@ -207,36 +193,22 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#004B3A' },
-  background: { flex: 1, overflow: 'hidden', backgroundColor: '#00523F' },
-  diagonalGlow: {
-    position: 'absolute',
-    width: 460,
-    height: 220,
-    top: -54,
-    left: -54,
-    borderRadius: 120,
-    backgroundColor: '#0D8A67',
-    opacity: 0.45,
-    transform: [{ rotate: '-28deg' }],
-  },
-  content: { flexGrow: 1, paddingTop: 34, paddingHorizontal: 20, paddingBottom: 20 },
-  hero: { alignItems: 'center', justifyContent: 'center', minHeight: 122 },
+  screen: { flex: 1 }, background: { flex: 1, overflow: 'hidden' },
+  heroBackdrop:{position:'absolute',left:-80,right:-80,top:-180,height:500,borderBottomLeftRadius:190,borderBottomRightRadius:190},
+  heroGlow:{position:'absolute',width:260,height:260,borderRadius:130,right:-100,top:-80,opacity:.22},
+  heroMintShape:{position:'absolute',width:250,height:110,borderRadius:58,right:-80,top:205,backgroundColor:'#65E1AF',opacity:.7,transform:[{rotate:'-12deg'}]},
+  heroTealShape:{position:'absolute',width:210,height:95,borderRadius:50,left:-95,top:245,backgroundColor:'#12B99B',opacity:.65,transform:[{rotate:'14deg'}]},
+  content: { flexGrow: 1, paddingTop: 38, paddingHorizontal: 18, paddingBottom: 28 },
+  hero: { alignItems: 'center', justifyContent: 'center', minHeight: 240, paddingBottom:22 }, logo:{width:76,height:76},
+  schoolName:{fontSize:20,fontWeight:'900',color:'#FFFFFF',marginTop:12,textAlign:'center'},
+  schoolBranch:{fontSize:11,fontWeight:'700',color:'#DDF8EC',letterSpacing:.7,marginTop:4,textTransform:'uppercase'},
+  securePill:{marginTop:14,flexDirection:'row',alignItems:'center',gap:6,borderRadius:999,backgroundColor:'rgba(255,255,255,.12)',paddingHorizontal:12,paddingVertical:7},secureText:{fontSize:10,fontWeight:'700',color:'#E9FFF7'},
   sheet: {
-    minHeight: 550,
-    marginHorizontal: -20,
-    marginTop: 22,
-    paddingHorizontal: 20,
-    paddingTop: 26,
-    paddingBottom: 28,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    backgroundColor: '#FFFFFF',
+    marginTop: 0, padding: 20, shadowColor:'#00281C',shadowOpacity:.14,shadowRadius:24,shadowOffset:{width:0,height:10},
   },
-  greeting: { color: '#101716', fontSize: 27, lineHeight: 32, fontWeight: '800' },
-  welcome: { color: '#46514F', fontSize: 16, marginTop: 3, marginBottom: 26 },
-  fieldLabel: { color: '#202B29', fontSize: 13, fontWeight: '600', marginBottom: 7 },
-  input: { backgroundColor: '#FFFFFF', marginBottom: 12 },
+  sheetHeading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:22},loginIcon:{width:46,height:46,borderRadius:15,alignItems:'center',justifyContent:'center'},
+  greeting: { fontSize: 19, lineHeight: 25, fontWeight: '900' }, welcome: { fontSize: 11, marginTop: 3 },
+  fieldLabel: { fontSize: 11, fontWeight: '800', marginBottom: 7 }, input: { backgroundColor: '#FFFFFF', marginBottom: 15 },
   inputOutline: { borderRadius: 12, borderWidth: 1 },
   alert: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 11, borderWidth: 1, borderColor: '#F4C9C5', backgroundColor: '#FFF3F1', padding: 10, marginBottom: 12 },
   alertText: { flex: 1, color: '#A84A43', fontSize: 12, lineHeight: 17 },
@@ -246,14 +218,7 @@ const styles = StyleSheet.create({
   checkboxChecked: { borderColor: '#087A5A', backgroundColor: '#087A5A' },
   rememberText: { color: '#384541', fontSize: 12 },
   forgotText: { color: '#087A5A', fontSize: 12, fontWeight: '700' },
-  submit: { borderRadius: 8 },
-  submitContent: { minHeight: 48 },
+  submit: { marginTop:3 }, submitContent: { minHeight: 52 },
   submitLabel: { fontSize: 15, fontWeight: '800' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginVertical: 21 },
-  divider: { flex: 1, height: 1, backgroundColor: '#D8DEDC' },
-  dividerText: { color: '#5C6865', fontSize: 11 },
-  qrButton: { borderRadius: 8, borderColor: '#087A5A', marginBottom: 10 },
-  biometricButton: { borderRadius: 8, borderColor: '#D3DCDA' },
-  secondaryContent: { minHeight: 46 },
-  secondaryLabel: { fontSize: 13, fontWeight: '600' },
+  helpRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,marginTop:18},helpText:{fontSize:10},
 });

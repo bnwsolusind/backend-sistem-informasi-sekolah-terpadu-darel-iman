@@ -59,6 +59,13 @@ export const mobileApiService = {
 
   logout: async () => (await api.post('/auth/logout')).data,
 
+  getNotifications: async (params: ListParams = {}) => (
+    await api.get('/notifications', { params })
+  ).data,
+  markNotificationRead: async (id: string) => (
+    await api.post(`/notifications/${id}/read`)
+  ).data,
+
   getProfile: async () => (await api.get('/auth/profile')).data,
   getManagedProfile: async () => (await api.get('/profile')).data,
   updateProfile: async (payload: Record<string, unknown>) => (

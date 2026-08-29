@@ -199,7 +199,7 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
   const user = useAuthStore((state) => state.user)
 
   // Extract all possible role strings from user object
-  // Allowed to input & edit agenda: superadmin, admin, pengurus yayasan, kepala sekolah, divisi pendidikan, & TU
+  // Allowed to input & edit agenda: superadmin, admin, pengurus yayasan, kepala sekolah (unit restricted), & TU (unit restricted)
   const canManage = useMemo(() => {
     if (!user) return true
     const roleStr = [
@@ -219,15 +219,12 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
       roleStr.includes('yayasan') ||
       roleStr.includes('pengurus') ||
       roleStr.includes('kepala_sekolah') ||
+      roleStr.includes('kepala sekolah') ||
       roleStr.includes('kepsek') ||
-      roleStr.includes('divisi_pendidikan') ||
-      roleStr.includes('divisi') ||
-      roleStr.includes('waka') ||
-      roleStr.includes('tu') ||
       roleStr.includes('tata_usaha') ||
+      roleStr.includes('tata usaha') ||
       roleStr.includes('tatausaha') ||
-      roleStr.includes('pegawai') ||
-      roleStr.includes('staf')
+      roleStr.includes('tu')
 
     return isAllowedRole
   }, [user])
@@ -249,8 +246,8 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
   }, [user])
 
   // Determine Role Access Level (Zero Hardcode):
-  // Superadmin, Admin, & Pengurus Yayasan -> Full Access (Can view/print all units)
-  // Kepala Sekolah, Waka/Divisi Pendidikan, Pegawai/Staf, Guru, Student, Parent -> Unit Restricted
+  // Superadmin, Admin, & Pengurus Yayasan -> Full Access (Can view/print/manage all units)
+  // Kepala Sekolah & Tata Usaha -> Unit Restricted (Can manage only for their own education unit)
   const isFullAccessUser = useMemo(() => {
     if (!user) return true
     const roleStr = [
@@ -373,7 +370,9 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
     setEditingId(null)
     const st = overrideStart || effectiveRange.start || new Date().toISOString().split('T')[0]
     const en = overrideEnd || effectiveRange.end || st
-    const un = overrideUnit || selectedUnitFilter || 'Semua Unit'
+    const un = isFullAccessUser
+      ? (overrideUnit || selectedUnitFilter || 'Semua Unit')
+      : (activeTargetUnit || userUnit || 'TK')
 
     setFormData({
       title: '',
@@ -446,7 +445,8 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
   const handleOpenFormWithRange = (st = null, en = null) => {
     const startDateVal = st || effectiveRange.start || rangeStart || new Date().toISOString().split('T')[0]
     const endDateVal = en || effectiveRange.end || rangeEnd || startDateVal
-    resetForm(startDateVal, endDateVal, selectedUnitFilter)
+    const targetUn = isFullAccessUser ? selectedUnitFilter : activeTargetUnit
+    resetForm(startDateVal, endDateVal, targetUn)
     setActiveTab('manage')
   }
 
@@ -467,7 +467,10 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
     e.preventDefault()
     if (!formData.title || !formData.startDate) return
 
-    const payload = editingId ? { ...formData, id: editingId } : formData
+    const targetUnitValue = isFullAccessUser ? formData.unit : (activeTargetUnit || userUnit || 'TK')
+    const payload = editingId
+      ? { ...formData, unit: targetUnitValue, id: editingId }
+      : { ...formData, unit: targetUnitValue }
     const updated = await academicCalendarService.simpanEvent(payload)
     setEvents(updated)
     resetForm()
@@ -1282,21 +1285,33 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Pemilihan Unit Pendidikan (Dua Arah Sebelum Agenda Dibuat - Dynamic API Database) */}
+                  {/* Pemilihan Unit Pendidikan (Locked untuk Kepsek/TU, Open untuk Superadmin/Admin/Yayasan) */}
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                      Pilih Unit Pendidikan Sekolah (Database API Backend) <span className="text-rose-500">*</span>
+                      Pilih Unit Pendidikan Sekolah <span className="text-rose-500">*</span>
                     </label>
                     <select
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-900 outline-none focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      value={isFullAccessUser ? formData.unit : activeTargetUnit}
+                      onChange={(e) => isFullAccessUser && setFormData({ ...formData, unit: e.target.value })}
+                      disabled={!isFullAccessUser}
+                      title={!isFullAccessUser ? `Terkunci khusus unit ${activeTargetUnit}` : 'Pilih Unit Pendidikan'}
+                      className={`w-full rounded-xl border px-3.5 py-2 text-xs font-semibold shadow-2xs transition-colors ${
+                        !isFullAccessUser
+                          ? 'bg-slate-100/90 border-slate-300 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 cursor-not-allowed'
+                          : 'bg-white border-slate-200 text-slate-900 focus:border-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:text-white cursor-pointer'
+                      }`}
                     >
-                      {unitOptions.map((u) => (
-                        <option key={u.value} value={u.value}>
-                          {u.label || u.value}
+                      {isFullAccessUser ? (
+                        unitOptions.map((u) => (
+                          <option key={u.value} value={u.value}>
+                            {u.label || u.value}
+                          </option>
+                        ))
+                      ) : (
+                        <option value={activeTargetUnit}>
+                          {activeTargetUnit} (Terkunci Sesuai Unit Anda)
                         </option>
-                      ))}
+                      )}
                     </select>
                   </div>
 
@@ -1539,24 +1554,28 @@ export default function AcademicCalendarModal({ isOpen, onClose }) {
                                 : `${evt.startDate} s/d ${evt.endDate}`}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleEditClick(evt)}
-                                  className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-emerald-600 hover:text-white transition-colors duration-200 cursor-pointer"
-                                  title="Edit Agenda"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteClick(evt.id)}
-                                  className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-rose-600 hover:text-white transition-colors duration-200 cursor-pointer"
-                                  title="Hapus Agenda"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
+                              {canManage && (isFullAccessUser || evt.unit === activeTargetUnit || evt.unit === 'Semua Unit') ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditClick(evt)}
+                                    className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-emerald-600 hover:text-white transition-colors duration-200 cursor-pointer"
+                                    title="Edit Agenda"
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteClick(evt.id)}
+                                    className="p-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-rose-600 hover:text-white transition-colors duration-200 cursor-pointer"
+                                    title="Hapus Agenda"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] font-medium italic text-slate-400">Hanya Lihat</span>
+                              )}
                             </td>
                           </tr>
                         )

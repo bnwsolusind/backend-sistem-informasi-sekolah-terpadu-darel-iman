@@ -79,15 +79,25 @@ class FoundationDashboardController extends Controller
         $query = Employee::with(['unit', 'position', 'division']);
 
         if ($request->filled('unit_id') && $request->query('unit_id') !== 'all') {
-            $query->where('unit_id', $request->query('unit_id'));
+            $unitId = (string) $request->query('unit_id');
+            $operator = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($q) use ($unitId, $operator) {
+                $q->where('unit_id', $unitId)
+                  ->orWhereHas('unit', function ($u) use ($unitId, $operator) {
+                      $u->where('id', $unitId)
+                        ->orWhere('name', $operator, "%{$unitId}%")
+                        ->orWhere('code', $operator, "%{$unitId}%");
+                  });
+            });
         }
 
         if ($request->filled('search')) {
             $search = (string) $request->query('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('nama_lengkap', 'like', "%{$search}%")
-                  ->orWhere('niy', 'like', "%{$search}%")
-                  ->orWhere('nik', 'like', "%{$search}%");
+            $operator = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($q) use ($search, $operator) {
+                $q->where('nama_lengkap', $operator, "%{$search}%")
+                  ->orWhere('niy', $operator, "%{$search}%")
+                  ->orWhere('nik', $operator, "%{$search}%");
             });
         }
 

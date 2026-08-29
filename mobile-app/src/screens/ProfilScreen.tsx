@@ -13,6 +13,7 @@ import {
 import { mobileApiService } from '../services/mobileApiService';
 import { AuthUser, useAuthStore } from '../stores/authStore';
 import { roleLabel } from '../utils/roles';
+import { getProfileImageUrl } from '../utils/profile';
 
 const displayValue = (value: unknown, fallback = '-') => value ? String(value) : fallback;
 
@@ -40,6 +41,7 @@ export default function ProfilScreen() {
   const unit = user?.unit || employee?.unit?.name;
   const name = user?.name || user?.fullName || 'Pengguna';
   const avatarLabel = name.slice(0, 2).toUpperCase();
+  const profileImageUrl = getProfileImageUrl(user);
 
   const handleLogout = () => {
     Alert.alert('Keluar dari aplikasi', 'Sesi pada perangkat ini akan dihapus.', [
@@ -64,8 +66,12 @@ export default function ProfilScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
         <Surface style={styles.profileHeader} elevation={1}>
-          <Avatar.Text size={72} label={avatarLabel} style={styles.avatar} color="#FFFFFF" />
-          <Text variant="titleLarge" style={styles.name}>{name}</Text>
+          {profileImageUrl ? (
+            <Avatar.Image size={58} source={{ uri: String(profileImageUrl) }} style={styles.avatar} />
+          ) : (
+            <Avatar.Text size={58} label={avatarLabel} style={styles.avatar} color="#FFFFFF" />
+          )}
+          <Text style={styles.name}>{name}</Text>
           <Text style={styles.email}>{displayValue(user?.email)}</Text>
           <View style={styles.badge}><Text style={styles.badgeText}>{roleLabel(roles)}</Text></View>
           {loading ? <ActivityIndicator size="small" color="#0E5C44" style={styles.refreshIndicator} /> : null}
@@ -90,12 +96,12 @@ export default function ProfilScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F7F9FC' },
   content: { padding: 16, paddingBottom: 32 },
-  profileHeader: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 22, alignItems: 'center' },
+  profileHeader: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, alignItems: 'center' },
   avatar: { backgroundColor: '#0E5C44' },
-  name: { color: '#0F172A', fontWeight: '800', marginTop: 12 },
-  email: { color: '#64748B', fontSize: 12, marginTop: 3 },
-  badge: { backgroundColor: '#D1FAE5', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginTop: 12 },
-  badgeText: { color: '#047857', fontSize: 11, fontWeight: '800' },
+  name: { color: '#0F172A', fontSize: 15, fontWeight: '800', marginTop: 10 },
+  email: { color: '#64748B', fontSize: 11.5, marginTop: 2 },
+  badge: { backgroundColor: '#D1FAE5', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginTop: 10 },
+  badgeText: { color: '#047857', fontSize: 10.5, fontWeight: '800' },
   refreshIndicator: { marginTop: 10 },
   card: { backgroundColor: '#FFFFFF', borderRadius: 16, marginTop: 14 },
   sectionTitle: { color: '#0F172A', fontWeight: '800' },

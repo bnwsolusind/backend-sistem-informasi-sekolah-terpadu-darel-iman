@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BadgeCheck,
@@ -6,6 +7,7 @@ import {
   Calendar,
   Clock,
   FileSpreadsheet,
+  LineChart as LineChartIcon,
   RefreshCcw,
   ShieldAlert,
   ShieldCheck,
@@ -16,8 +18,8 @@ import {
   UsersRound,
 } from 'lucide-react'
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -67,6 +69,7 @@ const itemVariants = {
 }
 
 export function FoundationEmployeesPage() {
+  const navigate = useNavigate()
   const [employees, setEmployees] = useState([])
   const [units, setUnits] = useState([])
   const [academicYears, setAcademicYears] = useState([])
@@ -77,23 +80,9 @@ export function FoundationEmployeesPage() {
       try {
         const res = await api.get('/master/tahun-ajaran/dropdown').catch(() => api.get('/master/tahun-ajaran'))
         const raw = res?.data?.data || res?.data || []
-        if (Array.isArray(raw) && raw.length > 0) {
-          setAcademicYears(raw)
-        } else {
-          setAcademicYears([
-            { id: '2025/2026', name: '2025/2026', is_active: true },
-            { id: '2024/2025', name: '2024/2025', is_active: false },
-            { id: '2023/2024', name: '2023/2024', is_active: false },
-            { id: '2022/2023', name: '2022/2023', is_active: false },
-          ])
-        }
+        setAcademicYears(Array.isArray(raw) ? raw : [])
       } catch (err) {
-        setAcademicYears([
-          { id: '2025/2026', name: '2025/2026', is_active: true },
-          { id: '2024/2025', name: '2024/2025', is_active: false },
-          { id: '2023/2024', name: '2023/2024', is_active: false },
-          { id: '2022/2023', name: '2022/2023', is_active: false },
-        ])
+        setAcademicYears([])
       }
     }
     fetchAcademicYears()
@@ -169,6 +158,25 @@ export function FoundationEmployeesPage() {
     return j.includes('guru') || j.includes('pendidik')
   }
 
+  const isEmpActive = (emp) => {
+    const statusStr = (emp?.status || '').toString().trim().toLowerCase()
+    if (statusStr === 'aktif' || statusStr === 'active' || statusStr === '1' || emp?.status === true || emp?.is_active === true || emp?.is_active === 1 || emp?.is_active === '1') {
+      return true
+    }
+    if (statusStr === 'nonaktif' || statusStr === 'tidak aktif' || statusStr === 'inactive' || statusStr === '0' || emp?.status === false || emp?.is_active === false || emp?.is_active === 0) {
+      return false
+    }
+    return true
+  }
+
+  const getStatusPegawaiVariant = (statusPegawai) => {
+    const val = (statusPegawai || 'Tetap').toString().toLowerCase()
+    if (val.includes('tetap')) return 'success'
+    if (val.includes('kontrak')) return 'warning'
+    if (val.includes('honorer') || val.includes('magang')) return 'info'
+    return 'neutral'
+  }
+
   const filteredEmployees = useMemo(() => employees.filter((emp) => {
     const name = (emp.nama_lengkap || emp.nama || '').toString().toLowerCase()
     const niy = (emp.niy || emp.nik || '').toString().toLowerCase()
@@ -177,7 +185,7 @@ export function FoundationEmployeesPage() {
     const matchesJenis = jenis === 'all' || (jenis === 'guru' ? isGuru(emp) : !isGuru(emp))
     const matchesSearch = name.includes(search.toLowerCase()) || niy.includes(search.toLowerCase())
     const matchesUnit = selectedUnit === 'all' || emp.unit_id === selectedUnit || unitName.includes(selectedUnit.toLowerCase())
-    const matchesStatus = selectedStatus === 'all' || emp.status === selectedStatus
+    const matchesStatus = selectedStatus === 'all' || (selectedStatus === 'aktif' ? isEmpActive(emp) : !isEmpActive(emp))
 
     return matchesJenis && matchesSearch && matchesUnit && matchesStatus
   }), [employees, jenis, search, selectedUnit, selectedStatus])
@@ -211,8 +219,8 @@ export function FoundationEmployeesPage() {
         aVal = (a.status_pegawai || '').toString().toLowerCase()
         bVal = (b.status_pegawai || '').toString().toLowerCase()
       } else if (sortKey === 'status') {
-        aVal = a.status === 'aktif' || !a.status ? 1 : 0
-        bVal = b.status === 'aktif' || !b.status ? 1 : 0
+        aVal = isEmpActive(a) ? 1 : 0
+        bVal = isEmpActive(b) ? 1 : 0
       }
 
       if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1
@@ -233,16 +241,17 @@ export function FoundationEmployeesPage() {
   const sdmChartData = useMemo(() => {
     if (!units.length) return []
     return units.map((u) => {
-      const gCount = Number(u.guru_count || 0)
-      const pCount = Number(u.pegawai_count || 0)
+      const unitEmps = employees.filter((e) => e.unit_id === u.id || (e.unit?.id && e.unit.id === u.id))
+      const gCount = Number(u.guru_count || unitEmps.filter((e) => isGuru(e)).length)
+      const pCount = Number(u.pegawai_count || Math.max(0, unitEmps.length - gCount))
       return {
         name: u.code || u.name?.substring(0, 8) || 'Unit',
         fullName: u.name,
-        'Guru & Pendidik': gCount > 0 ? gCount : Math.floor(Math.random() * 12) + 4,
-        'Pegawai & Tendik': pCount > 0 ? pCount : Math.floor(Math.random() * 8) + 2,
+        'Guru & Pendidik': gCount,
+        'Pegawai & Tendik': pCount,
       }
     })
-  }, [units])
+  }, [units, employees])
 
   const handleOpenDetail = (emp) => {
     setSelectedDetailType(isGuru(emp) ? 'guru' : 'pegawai')
@@ -262,7 +271,7 @@ export function FoundationEmployeesPage() {
     'Unit Kerja': emp.unit?.name || emp.unit?.code || '-',
     Jabatan: emp.position?.nama_jabatan || emp.jabatan || 'Staf',
     'Status Pegawai': emp.status_pegawai || 'Tetap',
-    Status: emp.status || 'Aktif',
+    Status: isEmpActive(emp) ? 'Aktif' : 'Nonaktif',
   }))
 
   return (
@@ -391,7 +400,7 @@ export function FoundationEmployeesPage() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-200/80 pb-4 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-              <BarChart3 className="h-5 w-5" />
+              <LineChartIcon className="h-5 w-5" />
             </span>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Analisis & Rekapitulasi KPI SDM Per Unit Pendidikan</h2>
@@ -432,8 +441,18 @@ export function FoundationEmployeesPage() {
 
         <div className="mt-6 h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sdmChartData} margin={{ top: 10, right: 20, left: 0, bottom: 25 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+            <AreaChart data={sdmChartData} margin={{ top: 10, right: 20, left: 0, bottom: 25 }}>
+              <defs>
+                <linearGradient id="sdmGuruGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#2563EB" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#2563EB" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="sdmPegawaiGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#CBD5E1" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} interval={0} angle={-15} textAnchor="end" />
               <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
               <Tooltip
@@ -441,11 +460,18 @@ export function FoundationEmployeesPage() {
                   if (active && payload && payload.length) {
                     const item = payload[0].payload
                     return (
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
-                        <p className="text-xs font-bold text-slate-900 dark:text-white">{item.fullName || label}</p>
-                        <div className="mt-2 space-y-1 text-xs">
-                          <p className="text-blue-600 font-semibold">👨‍🏫 Guru & Pendidik: {payload[0]?.value} orang</p>
-                          <p className="text-amber-600 font-semibold">👔 Pegawai & Tendik: {payload[1]?.value} orang</p>
+                      <div className="relative rounded-xl bg-slate-900 border border-slate-700/80 px-4 py-3 shadow-2xl text-white min-w-[160px]">
+                        <p className="text-xs font-bold text-slate-200 border-b border-slate-700/80 pb-1.5 mb-2">{item.fullName || label}</p>
+                        <div className="space-y-1.5 text-xs font-semibold">
+                          {payload.map((entry, index) => (
+                            <div key={`tooltip-${index}`} className="flex items-center justify-between gap-4">
+                              <span className="flex items-center gap-2 text-slate-300">
+                                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color || entry.stroke || entry.fill }} />
+                                {entry.name}:
+                              </span>
+                              <span className="font-extrabold text-white">{entry.value}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )
@@ -454,9 +480,9 @@ export function FoundationEmployeesPage() {
                 }}
               />
               <Legend wrapperStyle={{ paddingTop: 10 }} />
-              <Bar dataKey="Guru & Pendidik" fill="#2563EB" radius={[6, 6, 0, 0]} maxBarSize={36} />
-              <Bar dataKey="Pegawai & Tendik" fill="#F59E0B" radius={[6, 6, 0, 0]} maxBarSize={36} />
-            </BarChart>
+              <Area type="monotone" dataKey="Guru & Pendidik" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#sdmGuruGrad)" dot={{ r: 5, fill: '#2563EB', strokeWidth: 2, stroke: '#FFFFFF' }} activeDot={{ r: 7, strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="Pegawai & Tendik" stroke="#F59E0B" strokeWidth={3} fillOpacity={1} fill="url(#sdmPegawaiGrad)" dot={{ r: 5, fill: '#F59E0B', strokeWidth: 2, stroke: '#FFFFFF' }} activeDot={{ r: 7, strokeWidth: 2 }} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </motion.section>
@@ -628,13 +654,19 @@ export function FoundationEmployeesPage() {
                           <span className="text-xs text-slate-600 dark:text-slate-300">{emp.position?.nama_jabatan || emp.jabatan || 'Staf'}</span>
                         </td>
                         <td className="hidden px-3 py-3 lg:table-cell">
-                          <MasterBadge variant="neutral">{emp.status_pegawai || 'Tetap'}</MasterBadge>
+                          <MasterBadge variant={getStatusPegawaiVariant(emp.status_pegawai)}>
+                            {emp.status_pegawai || 'Tetap'}
+                          </MasterBadge>
                         </td>
                         <td className="hidden px-2 py-3 text-center sm:table-cell">
-                          <MasterStatusBadge active={emp.status === 'aktif' || !emp.status} activeLabel="Aktif" inactiveLabel="Nonaktif" />
+                          <MasterStatusBadge active={isEmpActive(emp)} activeLabel="Aktif" inactiveLabel="Nonaktif" />
                         </td>
                         <td className="px-2 py-3 text-center">
-                          <ActionDropdown onView={() => handleOpenDetail(emp)} />
+                          <div className="flex items-center justify-center gap-1.5">
+                            <ActionDropdown
+                              onView={() => handleOpenDetail(emp)}
+                            />
+                          </div>
                         </td>
                       </tr>
                     )

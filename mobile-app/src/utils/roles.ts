@@ -92,6 +92,16 @@ export const roleLabel = (roles: string[], fallback = 'Pengguna'): string => {
   return roles[0] || fallback;
 };
 
+export const homeLayoutKeyForRoles = (roles: string[]): string => {
+  if (isSuperAdminRole(roles)) return 'super_admin';
+  if (isFoundationRole(roles)) return 'foundation';
+  if (isPrincipalRole(roles)) return 'principal';
+  if (isTeacherRole(roles)) return 'teacher';
+  if (isParentRole(roles)) return 'parent';
+  if (isStudentRole(roles)) return 'student';
+  return 'staff';
+};
+
 export const dashboardEndpointForRoles = (roles: string[]): string => {
   if (isSuperAdminRole(roles)) return '/dashboard/super-admin';
   if (isFoundationRole(roles)) return '/foundation/dashboard';

@@ -1,10 +1,15 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 
 // Android Emulator maps the host machine's localhost to 10.0.2.2.
 // Physical devices should use the computer's LAN address through EXPO_PUBLIC_API_URL.
+const localApiUrl = Platform.OS === 'android'
+  ? 'http://10.0.2.2:8000/api'
+  : 'http://127.0.0.1:8000/api';
+
 export const API_BASE_URL = (
-  process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:8000/api'
+  process.env.EXPO_PUBLIC_API_URL || localApiUrl
 ).replace(/\/$/, '');
 
 export const api = axios.create({
