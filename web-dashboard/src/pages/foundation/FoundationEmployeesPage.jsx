@@ -6,6 +6,7 @@ import {
   BarChart3,
   Calendar,
   Clock,
+  Eye,
   FileSpreadsheet,
   LineChart as LineChartIcon,
   RefreshCcw,
@@ -30,6 +31,8 @@ import {
 import { ArrowBothDirectionHorizontal2 } from '@tailgrids/icons'
 import AppBreadcrumb from '../../components/app/AppBreadcrumb'
 import ActionDropdown from '../../components/app/ActionDropdown'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../components/tailgrids/core/hover-card'
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/tailgrids/core/avatar'
 import api from '../../services/api'
 import {
   MasterActionButton,
@@ -169,12 +172,40 @@ export function FoundationEmployeesPage() {
     return true
   }
 
-  const getStatusPegawaiVariant = (statusPegawai) => {
-    const val = (statusPegawai || 'Tetap').toString().toLowerCase()
-    if (val.includes('tetap')) return 'success'
-    if (val.includes('kontrak')) return 'warning'
-    if (val.includes('honorer') || val.includes('magang')) return 'info'
-    return 'neutral'
+  const getSolidStatusPegawaiBadge = (statusPegawai) => {
+    const label = statusPegawai || 'Tetap'
+    const val = label.toString().toLowerCase()
+    let bgGradient = 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-600/20 border-emerald-300/40'
+    if (val.includes('kontrak')) {
+      bgGradient = 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-amber-500/20 border-amber-300/40'
+    } else if (val.includes('honorer') || val.includes('magang')) {
+      bgGradient = 'bg-gradient-to-r from-sky-600 to-blue-600 shadow-sky-600/20 border-sky-300/40'
+    } else if (!val.includes('tetap')) {
+      bgGradient = 'bg-gradient-to-r from-slate-600 to-slate-700 shadow-slate-600/20 border-slate-400/40'
+    }
+
+    return (
+      <span className={`inline-flex items-center justify-center rounded-full ${bgGradient} px-3 py-1 text-xs font-extrabold text-white shadow-sm border`}>
+        {label}
+      </span>
+    )
+  }
+
+  const getSolidStatusBadge = (active) => {
+    if (active) {
+      return (
+        <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-3 py-1 text-xs font-extrabold text-white shadow-sm shadow-emerald-600/25 border border-emerald-300/40">
+          <span className="h-1.5 w-1.5 rounded-full bg-white shadow-xs" />
+          Aktif
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-rose-600 to-pink-600 px-3 py-1 text-xs font-extrabold text-white shadow-sm shadow-rose-600/25 border border-rose-300/40">
+        <span className="h-1.5 w-1.5 rounded-full bg-white/80 shadow-xs" />
+        Nonaktif
+      </span>
+    )
   }
 
   const filteredEmployees = useMemo(() => employees.filter((emp) => {
@@ -247,8 +278,8 @@ export function FoundationEmployeesPage() {
       return {
         name: u.code || u.name?.substring(0, 8) || 'Unit',
         fullName: u.name,
-        'Guru & Pendidik': gCount,
-        'Pegawai & Tendik': pCount,
+        'Guru': gCount,
+        'Tendik': pCount,
       }
     })
   }, [units, employees])
@@ -339,7 +370,7 @@ export function FoundationEmployeesPage() {
             <span className="shrink-0 rounded-lg bg-emerald-100 px-2 py-1 text-[10px] font-extrabold text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">SDM</span>
           </button>
 
-          {/* 2. Guru & Pendidik */}
+          {/* 2. Guru */}
           <button
             type="button"
             onClick={() => setActiveKpiModal('pegawai_kpi')}
@@ -350,14 +381,14 @@ export function FoundationEmployeesPage() {
                 <UserCheck className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate group-hover:text-sky-700 dark:group-hover:text-sky-300">Guru & Pendidik</p>
-                <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">{totalGuru.toLocaleString('id-ID')} Pendidik Mengajar</p>
+                <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate group-hover:text-sky-700 dark:group-hover:text-sky-300">Guru</p>
+                <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">{totalGuru.toLocaleString('id-ID')} Guru Mengajar</p>
               </div>
             </div>
             <span className="shrink-0 rounded-lg bg-sky-100 px-2 py-1 text-[10px] font-extrabold text-sky-700 dark:bg-sky-900/60 dark:text-sky-300">Guru</span>
           </button>
 
-          {/* 3. Pegawai & Tendik */}
+          {/* 3. Tendik */}
           <button
             type="button"
             onClick={() => setActiveKpiModal('pegawai_kpi')}
@@ -368,7 +399,7 @@ export function FoundationEmployeesPage() {
                 <UsersRound className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-300">Pegawai & Tendik</p>
+                <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate group-hover:text-amber-700 dark:group-hover:text-amber-300">Tendik</p>
                 <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">{totalTendik.toLocaleString('id-ID')} Staf Kependidikan</p>
               </div>
             </div>
@@ -404,7 +435,7 @@ export function FoundationEmployeesPage() {
             </span>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Analisis & Rekapitulasi KPI SDM Per Unit Pendidikan</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Grafik komparasi jumlah Guru & Pendidik vs Pegawai & Tendik pada tiap Unit Kerja</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Grafik komparasi jumlah Guru vs Tendik pada tiap Unit Kerja</p>
             </div>
           </div>
 
@@ -434,7 +465,7 @@ export function FoundationEmployeesPage() {
               <span className="h-2 w-2 rounded-full bg-blue-600" /> Guru ({totalGuru})
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-              <span className="h-2 w-2 rounded-full bg-amber-500" /> Pegawai ({totalTendik})
+              <span className="h-2 w-2 rounded-full bg-amber-500" /> Tendik ({totalTendik})
             </span>
           </div>
         </div>
@@ -480,8 +511,8 @@ export function FoundationEmployeesPage() {
                 }}
               />
               <Legend wrapperStyle={{ paddingTop: 10 }} />
-              <Area type="monotone" dataKey="Guru & Pendidik" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#sdmGuruGrad)" dot={{ r: 5, fill: '#2563EB', strokeWidth: 2, stroke: '#FFFFFF' }} activeDot={{ r: 7, strokeWidth: 2 }} />
-              <Area type="monotone" dataKey="Pegawai & Tendik" stroke="#F59E0B" strokeWidth={3} fillOpacity={1} fill="url(#sdmPegawaiGrad)" dot={{ r: 5, fill: '#F59E0B', strokeWidth: 2, stroke: '#FFFFFF' }} activeDot={{ r: 7, strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="Guru" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#sdmGuruGrad)" dot={{ r: 5, fill: '#2563EB', strokeWidth: 2, stroke: '#FFFFFF' }} activeDot={{ r: 7, strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="Tendik" stroke="#F59E0B" strokeWidth={3} fillOpacity={1} fill="url(#sdmPegawaiGrad)" dot={{ r: 5, fill: '#F59E0B', strokeWidth: 2, stroke: '#FFFFFF' }} activeDot={{ r: 7, strokeWidth: 2 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -494,8 +525,8 @@ export function FoundationEmployeesPage() {
           <>
             <MasterFilterSelect value={jenis} onChange={(e) => { setJenis(e.target.value); setPage(1) }} aria-label="Filter jenis SDM">
               <option value="all">Semua SDM</option>
-              <option value="guru">Guru & Pendidik</option>
-              <option value="pegawai">Pegawai & Tendik</option>
+              <option value="guru">Guru</option>
+              <option value="pegawai">Tendik</option>
             </MasterFilterSelect>
             <MasterFilterSelect value={selectedUnit} onChange={(e) => { setSelectedUnit(e.target.value); setPage(1) }} aria-label="Filter unit kerja">
               <option value="all">Semua Unit</option>
@@ -617,35 +648,98 @@ export function FoundationEmployeesPage() {
                       <ArrowBothDirectionHorizontal2 className={`h-3 w-3 shrink-0 transition-transform duration-200 ${sortKey === 'status' ? 'text-emerald-600 dark:text-emerald-400 rotate-180' : 'text-slate-400'}`} />
                     </button>
                   </th>
-                  <th className="w-[7%] px-2 py-3 text-center font-bold">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {loading ? (
                   Array.from({ length: 6 }).map((_, index) => (
                     <tr key={index} className="animate-pulse">
-                      <td colSpan={8} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
+                      <td colSpan={7} className="px-4 py-4"><div className="h-10 rounded-xl bg-slate-100 dark:bg-slate-800" /></td>
                     </tr>
                   ))
                 ) : paginatedEmployees.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-5"><MasterEmptyState title="Belum ada data SDM" description="Ubah filter pencarian untuk menampilkan pegawai atau guru lain." /></td>
+                    <td colSpan={7} className="p-5"><MasterEmptyState title="Belum ada data SDM" description="Ubah filter pencarian untuk menampilkan pegawai atau guru lain." /></td>
                   </tr>
                 ) : (
                   paginatedEmployees.map((emp, idx) => {
                     const guru = isGuru(emp)
                     return (
-                      <tr key={emp.id || idx} className="transition-colors hover:bg-emerald-50/40">
+                      <tr
+                        key={emp.id || idx}
+                        onClick={() => handleOpenDetail(emp)}
+                        className="transition-colors hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 cursor-pointer group"
+                      >
                         <td className="px-2 py-3 text-center text-xs font-bold text-slate-400">{(page - 1) * perPage + idx + 1}</td>
-                        <td className="px-3 py-3">
-                          <PersonIdentityCell
-                            src={emp.foto || emp.photo}
-                            name={emp.nama_lengkap || emp.nama}
-                            subtitle={`${emp.niy || emp.nik || 'NIY tidak tersedia'}`}
-                          />
+                        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <div
+                                onClick={() => handleOpenDetail(emp)}
+                                className="inline-block cursor-pointer transition-transform duration-150 active:scale-95"
+                              >
+                                <PersonIdentityCell
+                                  src={emp.foto || emp.photo}
+                                  name={emp.nama_lengkap || emp.nama}
+                                  subtitle={`${emp.niy || emp.nik || 'NIY tidak tersedia'}`}
+                                />
+                              </div>
+                            </HoverCardTrigger>
+                            <HoverCardContent side="right" align="start" className="w-72 p-4 bg-white dark:bg-[#1B2433] border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl z-50">
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="size-12 border-2 border-emerald-500 shadow-sm">
+                                    <AvatarImage src={emp.foto || emp.photo} />
+                                    <AvatarFallback className="bg-emerald-600 text-white font-black">
+                                      {(emp.nama_lengkap || emp.nama || 'SDM').slice(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                                      {emp.nama_lengkap || emp.nama}
+                                    </h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                      NIY/NIK: {emp.niy || emp.nik || '-'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Jenis SDM</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-200">{guru ? 'Guru' : 'Tendik'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Unit Kerja</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-200 truncate block">{emp.unit?.name || emp.unit?.code || '-'}</span>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Jabatan</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-200 truncate block">{emp.position?.nama_jabatan || emp.jabatan || 'Staf'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Status Pegawai</span>
+                                    <span className="font-bold text-slate-700 dark:text-slate-200">{emp.status_pegawai || 'Tetap'}</span>
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                  <span className="text-[11px] text-slate-400 font-medium">Status Keaktifan</span>
+                                  {getSolidStatusBadge(isEmpActive(emp))}
+                                </div>
+
+                                <div className="pt-1.5 border-t border-slate-100/80 dark:border-slate-800/80 text-center">
+                                  <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">💡 Klik baris data untuk detail lengkap</span>
+                                </div>
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
                         </td>
                         <td className="hidden px-3 py-3 md:table-cell">
-                          <MasterBadge variant={guru ? 'success' : 'info'}>{guru ? 'Guru' : 'Pegawai'}</MasterBadge>
+                          <MasterBadge variant={guru ? 'success' : 'info'}>{guru ? 'Guru' : 'Tendik'}</MasterBadge>
                         </td>
                         <td className="hidden px-3 py-3 lg:table-cell">
                           <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{emp.unit?.name || emp.unit?.code || '-'}</span>
@@ -654,19 +748,10 @@ export function FoundationEmployeesPage() {
                           <span className="text-xs text-slate-600 dark:text-slate-300">{emp.position?.nama_jabatan || emp.jabatan || 'Staf'}</span>
                         </td>
                         <td className="hidden px-3 py-3 lg:table-cell">
-                          <MasterBadge variant={getStatusPegawaiVariant(emp.status_pegawai)}>
-                            {emp.status_pegawai || 'Tetap'}
-                          </MasterBadge>
+                          {getSolidStatusPegawaiBadge(emp.status_pegawai)}
                         </td>
                         <td className="hidden px-2 py-3 text-center sm:table-cell">
-                          <MasterStatusBadge active={isEmpActive(emp)} activeLabel="Aktif" inactiveLabel="Nonaktif" />
-                        </td>
-                        <td className="px-2 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <ActionDropdown
-                              onView={() => handleOpenDetail(emp)}
-                            />
-                          </div>
+                          {getSolidStatusBadge(isEmpActive(emp))}
                         </td>
                       </tr>
                     )

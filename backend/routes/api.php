@@ -441,7 +441,7 @@ Route::middleware('auth:sanctum')->prefix('v2/approval')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     // Foundation Board Dashboard Monitoring Endpoints
-    Route::prefix('foundation')->middleware('can:foundation.dashboard.view')->group(function () {
+    Route::prefix('foundation')->middleware('permission:foundation.dashboard.view|dashboard.kepala-sekolah.view|dashboard.divisi-pendidikan.view')->group(function () {
         Route::get('/dashboard', [FoundationDashboardController::class, 'index']);
         Route::get('/units', [FoundationDashboardController::class, 'units']);
         Route::get('/units/{id}', [FoundationDashboardController::class, 'unitDetail']);

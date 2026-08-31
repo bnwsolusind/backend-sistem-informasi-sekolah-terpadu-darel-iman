@@ -176,6 +176,7 @@ Dokumen report aktif bukan source of truth. Baca hanya bila status atau bukti di
 | TailGrids sidebar prompt | `09_PROMPT/TAILGRIDS_SIDEBAR_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Sidebar (SidebarProvider, SidebarHeader, SidebarContent, SidebarFooter) TailGrids React |
 | TailGrids spinner prompt | `09_PROMPT/TAILGRIDS_SPINNER_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Spinner (size xs, sm, md, lg, xl & Button loading) TailGrids React |
 | TailGrids table prompt | `09_PROMPT/TAILGRIDS_TABLE_COMPONENT.md` | PROMPT | 2026-08-15 | Panduan & template integrasi Table (TableRoot, TableHeader, TableBody, TableHead, TableRow, TableCell) TailGrids React |
+| TailGrids alumni & mutasi cards | `09_PROMPT/TAILGRIDS_ALUMNI_MUTASI_CARDS.md` | PROMPT | 2026-08-31 | Panduan & spesifikasi desain UI/UX kartu ringkasan detail Pindah Unit, Pindah Keluar, & Tujuan Tamat |
 
 
 ## 99_ARCHIVE
