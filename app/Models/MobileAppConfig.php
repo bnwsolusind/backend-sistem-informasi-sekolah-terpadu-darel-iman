@@ -25,6 +25,7 @@ class MobileAppConfig extends Model
             'theme' => [
                 'primary_color' => '#0E5C44',
                 'secondary_color' => '#10B981',
+                'accent_color' => '#3FBF75',
                 'background_color' => '#F7F9FC',
                 'background_gradient_enabled' => true,
                 'background_gradient_start' => '#F7FCFA',
@@ -37,11 +38,16 @@ class MobileAppConfig extends Model
                 'font_scale' => 'normal',
                 'button_radius' => 14,
                 'card_radius' => 18,
+                'welcome_text' => 'Selamat datang di SIMSIT Dar el-Iman',
+                'login_banner_url' => null,
             ],
             'branding' => [
                 'app_name' => 'Sistem Manajemen Sekolah Terpadu',
                 'school_name' => 'Yayasan Dar el-Iman',
                 'logo_url' => null,
+                'logo_header_url' => null,
+                'logo_login_url' => null,
+                'logo_footer_url' => null,
                 'splash_background_color' => '#004B3A',
             ],
             'navigation' => [
@@ -49,7 +55,7 @@ class MobileAppConfig extends Model
                 'show_labels' => true,
                 'items' => [
                     ['key' => 'home', 'label' => 'Beranda', 'icon' => 'view-dashboard-outline', 'enabled' => true, 'order' => 1],
-                    ['key' => 'notifications', 'label' => 'Notifikasi', 'icon' => 'bell-outline', 'enabled' => true, 'order' => 2],
+                    ['key' => 'notifications', 'label' => 'Chat Guru', 'icon' => 'chat-processing-outline', 'enabled' => true, 'order' => 2],
                     ['key' => 'qr', 'label' => 'QR Code', 'icon' => 'qrcode-scan', 'enabled' => true, 'order' => 3],
                     ['key' => 'profile', 'label' => 'Profil', 'icon' => 'account-circle-outline', 'enabled' => true, 'order' => 4],
                     ['key' => 'more', 'label' => 'Lainnya', 'icon' => 'menu', 'enabled' => true, 'order' => 5],
@@ -72,6 +78,24 @@ class MobileAppConfig extends Model
                 'parent' => static::homeLayout(['announcements', 'quick_menu', 'schedule', 'metrics']),
                 'student' => static::homeLayout(['schedule', 'quick_menu', 'announcements', 'metrics']),
                 'staff' => static::homeLayout(['quick_menu', 'metrics', 'announcements', 'schedule']),
+            ],
+            'features' => [
+                'qr_login' => true,
+                'qr_attendance' => true,
+                'chat' => true,
+                'notifications' => true,
+                'tahfizh' => true,
+                'mutabaah' => true,
+                'cbt' => true,
+                'school_info' => true,
+            ],
+            'system' => [
+                'min_app_version' => '1.0.0',
+                'latest_app_version' => '1.0.0',
+                'maintenance_mode' => false,
+                'maintenance_message' => 'Sistem sedang dalam pemeliharaan rutin. Silakan coba beberapa saat lagi.',
+                'force_update' => false,
+                'update_url' => 'https://play.google.com/store/apps/details?id=id.sch.dareliman.sims.mobile',
             ],
         ];
     }

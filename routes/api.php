@@ -552,6 +552,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('can:sistem.pengaturan');
     Route::put('/admin/mobile-config', [MobileAppConfigController::class, 'update'])
         ->middleware('can:sistem.pengaturan');
+    Route::post('/admin/mobile-config/media', [MobileAppConfigController::class, 'uploadMedia'])
+        ->middleware('can:sistem.pengaturan');
+    Route::delete('/admin/mobile-config/media/{type}', [MobileAppConfigController::class, 'deleteMedia'])
+        ->middleware('can:sistem.pengaturan');
     Route::get('/dashboard', [DashboardPemantauanController::class, 'ringkasan'])
         ->middleware('can:dashboard.pemantauan.lihat');
     Route::get('/dashboard/super-admin', [SuperAdminDashboardController::class, 'index'])

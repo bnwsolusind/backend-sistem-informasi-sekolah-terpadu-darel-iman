@@ -790,9 +790,8 @@ class DataDummySiswaSeeder extends Seeder
                 $nis = '24'.str_pad((string) ($uIndex + 1), 2, '0', STR_PAD_LEFT).str_pad((string) ($sIndex + 1), 3, '0', STR_PAD_LEFT);
                 $nisn = '0024'.str_pad((string) ($uIndex + 1), 2, '0', STR_PAD_LEFT).str_pad((string) ($sIndex + 1), 4, '0', STR_PAD_LEFT);
                 $studentEmail = strtolower($nis).'@student.dareliman.sch.id';
-                $generatedParent = $parents->isNotEmpty()
-                    ? $parents->get(($uIndex * 25 + $sIndex) % $parents->count())
-                    : null;
+                // Jangan tautkan 375 siswa dummy ke akun orang tua pengujian agar tidak polusi data anak
+                $generatedParent = null;
 
                 $studentUser = User::query()->firstOrCreate(
                     ['email' => $studentEmail],

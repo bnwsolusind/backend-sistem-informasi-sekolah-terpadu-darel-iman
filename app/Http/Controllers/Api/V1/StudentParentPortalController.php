@@ -1409,13 +1409,32 @@ class StudentParentPortalController extends Controller
                     ->where('is_active', true)
                     ->get();
 
+                $allowedTeacherRoles = ['Guru', 'Guru Mata Pelajaran', 'Guru PAI', 'Guru Tahfizh', 'Wali Kelas', 'Teacher'];
+                $disallowedTeacherRoles = [
+                    'Yayasan', 'Ketua Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan', 'Pengurus Yayasan',
+                    'Kepala Sekolah', 'Wakil Kepala Sekolah', 'Tata Usaha', 'TU', 'Admin', 'Super Admin',
+                    'Operator', 'Divisi Pendidikan', 'Divisi Kurikulum', 'Divisi Kesiswaan', 'Divisi Bahasa',
+                    'Divisi Program Khusus', 'Kepala Bidang Pendidikan', 'Waka Kurikulum', 'Waka Kesiswaan'
+                ];
+
                 foreach ($schedules as $sched) {
                     $teacherUser = $sched->employee?->user ?? $sched->teacher?->user;
                     if (! $teacherUser && ($sched->employee?->email || $sched->teacher?->email)) {
                         $teacherUser = User::query()->where('email', $sched->employee?->email ?? $sched->teacher?->email)->first();
                     }
 
-                    if ($teacherUser && ! isset($contactsMap[$teacherUser->id])) {
+                    if (! $teacherUser || isset($contactsMap[$teacherUser->id]) || $teacherUser->id === $user->id) {
+                        continue;
+                    }
+
+                    $roles = $teacherUser->roles->pluck('name')->all();
+                    $hasDisallowed = count(array_intersect($roles, $disallowedTeacherRoles)) > 0;
+                    $hasAllowed = count(array_intersect($roles, $allowedTeacherRoles)) > 0;
+
+                    // Strictly filter out non-teachers (Yayasan, Kepala Sekolah, TU, Admin, etc.)
+                    if ($hasDisallowed || ! $hasAllowed) {
+                        continue;
+                    }
                         $teacherName = $sched->employee?->nama_lengkap ?? $sched->teacher?->full_name ?? $teacherUser->name;
                         $subjectName = $sched->subject?->name ?? $sched->subject?->nama_mata_pelajaran ?? 'Mata Pelajaran';
 
@@ -1454,20 +1473,21 @@ class StudentParentPortalController extends Controller
                             'last_message_at' => $lastMsg?->created_at?->toIso8601String(),
                             'unread_count' => $unreadCount,
                         ];
-                    }
                 }
             }
         }
 
-        // Fallback: load available active teachers if class map is empty
+        // Fallback: strictly active teachers only if contactsMap is empty
         if (empty($contactsMap)) {
             $teachers = User::query()
-                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Guru', 'Wali Kelas', 'Teacher']))
+                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Guru', 'Wali Kelas', 'Guru Mata Pelajaran', 'Teacher']))
+                ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', [
+                    'Yayasan', 'Ketua Yayasan', 'Sekretaris Yayasan', 'Bendahara Yayasan', 'Pengurus Yayasan',
+                    'Kepala Sekolah', 'Wakil Kepala Sekolah', 'Tata Usaha', 'TU', 'Admin', 'Super Admin'
+                ]))
+                ->where('id', '!=', $user->id)
                 ->take(3)
                 ->get();
-            if ($teachers->isEmpty()) {
-                $teachers = User::query()->where('id', '!=', $user->id)->take(3)->get();
-            }
 
             foreach ($teachers as $idx => $t) {
                 $contactsMap[$t->id] = [
@@ -1487,6 +1507,28 @@ class StudentParentPortalController extends Controller
                 ];
             }
         }
+
+        // Check online / offline presence based on active system login sessions
+        $teacherUserIds = array_keys($contactsMap);
+        $activeTokenUserIds = \Laravel\Sanctum\PersonalAccessToken::query()
+            ->whereIn('tokenable_id', $teacherUserIds)
+            ->where(function ($q) {
+                $q->where('last_used_at', '>=', now()->subHours(2))
+                  ->orWhere(function ($q2) {
+                      $q2->whereNull('last_used_at')->where('created_at', '>=', now()->subHours(2));
+                  });
+            })
+            ->pluck('tokenable_id')
+            ->map(fn ($id) => (string) $id)
+            ->flip()
+            ->toArray();
+
+        foreach ($contactsMap as $uid => &$contact) {
+            $isOnline = isset($activeTokenUserIds[(string) $uid]) || \Illuminate\Support\Facades\Cache::has('user-online-' . $uid);
+            $contact['is_online'] = (bool) $isOnline;
+            $contact['status'] = $isOnline ? 'online' : 'offline';
+        }
+        unset($contact);
 
         return response()->json([
             'success' => true,
