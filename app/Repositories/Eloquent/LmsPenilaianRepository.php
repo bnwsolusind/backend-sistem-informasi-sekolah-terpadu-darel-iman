@@ -7,12 +7,20 @@ use App\Models\LmsPengumpulanTugas;
 use App\Models\LmsUjianSesi;
 use App\Models\Student;
 use App\Models\StudentGrade;
+use App\Models\Semester;
+use App\Models\Subject;
+use App\Models\Kelas;
 use App\Repositories\Contracts\LmsPenilaianRepositoryInterface;
+use App\Services\AssessmentFormulaService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
 {
+    public function __construct(private readonly AssessmentFormulaService $formulaService) {}
+
     public function getFiltered(array $filters = [], int $perPage = 15, string $orderBy = 'created_at', string $orderDir = 'desc'): LengthAwarePaginator
     {
         $query = StudentGrade::with([
@@ -90,12 +98,13 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
             $data['academic_year_id'] = AcademicYear::first()?->id;
         }
 
-        $grade = new StudentGrade($data);
-        $finalScore = $this->calculateFinalScoreFromData($data);
+        [$finalScore, $formula] = $this->calculateUsingActiveFormula($data);
 
         $data['final_score'] = $finalScore;
         $data['grade_letter'] = StudentGrade::getGradeLetter($finalScore);
-        $data['is_passed'] = $finalScore >= ($data['nilai_kkm'] ?? 75.0);
+        $kkm = Subject::query()->whereKey($data['subject_id'])->value('kkm') ?? 75.0;
+        $data['is_passed'] = $finalScore >= $kkm;
+        if ($formula) $data['metadata'] = array_merge($data['metadata'] ?? [], ['assessment_formula_id' => $formula->id, 'assessment_formula_version' => $formula->version]);
 
         return StudentGrade::create($data);
     }
@@ -111,12 +120,14 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
 
         // Recalculate final score with updated weights or scores
         $updatedData = array_merge($grade->toArray(), $data);
-        $finalScore = $this->calculateFinalScoreFromData($updatedData);
+        [$finalScore, $formula] = $this->calculateUsingActiveFormula($updatedData);
+        $kkm = $grade->subject?->kkm ?? Subject::query()->whereKey($grade->subject_id)->value('kkm') ?? 75.0;
 
         $grade->update([
             'final_score' => $finalScore,
             'grade_letter' => StudentGrade::getGradeLetter($finalScore),
-            'is_passed' => $finalScore >= ($data['nilai_kkm'] ?? 75.0),
+            'is_passed' => $finalScore >= $kkm,
+            'metadata' => $formula ? array_merge($grade->metadata ?? [], ['assessment_formula_id' => $formula->id, 'assessment_formula_version' => $formula->version]) : $grade->metadata,
         ]);
 
         return $grade->fresh(['student', 'subject', 'kelas', 'semester']);
@@ -148,9 +159,20 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
         $bobotUh = $weights['bobot_uh'] ?? 25.0;
         $bobotUts = $weights['bobot_uts'] ?? 25.0;
         $bobotUas = $weights['bobot_uas'] ?? 30.0;
-        $kkm = $weights['nilai_kkm'] ?? 75.0;
+        $semester = Semester::query()->findOrFail($semesterId);
+        $kelas = Kelas::query()->findOrFail($kelasId);
+        $subject = Subject::query()->findOrFail($subjectId);
+        if ($subject->unit_pendidikan_id !== $kelas->unit_pendidikan_id) {
+            throw ValidationException::withMessages([
+                'subject_id' => 'Mata pelajaran tidak berada pada unit pendidikan kelas yang dipilih.',
+            ]);
+        }
 
-        $academicYearId = AcademicYear::first()?->id;
+        $academicYearId = $semester->academic_year_id;
+        $kkm = (float) ($subject->kkm ?? $weights['nilai_kkm'] ?? 75.0);
+        $formula = $this->formulaService->resolveActive(
+            'academic', $academicYearId, $semesterId, $kelas->unit_pendidikan_id, $kelasId
+        );
         $students = Student::where('kelas_id', $kelasId)->orWhere('class_id', $kelasId)->get();
 
         $results = new Collection;
@@ -158,6 +180,12 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
         foreach ($students as $siswa) {
             // 1. Pull Assignment scores
             $avgAssignment = LmsPengumpulanTugas::where('siswa_id', $siswa->id)
+                ->whereHas('penugasan', function ($query) use ($subjectId, $kelasId, $semesterId, $academicYearId) {
+                    $query->where('mata_pelajaran_id', $subjectId)
+                        ->where('kelas_id', $kelasId)
+                        ->where('semester_id', $semesterId)
+                        ->where('tahun_ajaran_id', $academicYearId);
+                })
                 ->whereNotNull('nilai_guru')
                 ->avg('nilai_guru');
 
@@ -166,24 +194,45 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
                 $q->where('kelas_id', $kelasId)
                     ->where('semester_id', $semesterId)
                     ->whereHas('kisiKisi', fn ($k) => $k->where('mata_pelajaran_id', $subjectId)->where('jenis_ujian', 'UH'));
-            })->where('siswa_id', $siswa->id)->whereNotNull('nilai_final')->avg('nilai_final') ?? 82.0;
+            })->where('siswa_id', $siswa->id)->whereNotNull('nilai_final')->avg('nilai_final');
 
             $cbtUtsScore = LmsUjianSesi::whereHas('ujian', function ($q) use ($subjectId, $kelasId, $semesterId) {
                 $q->where('kelas_id', $kelasId)
                     ->where('semester_id', $semesterId)
                     ->whereHas('kisiKisi', fn ($k) => $k->where('mata_pelajaran_id', $subjectId)->whereIn('jenis_ujian', ['UTS', 'PTS']));
-            })->where('siswa_id', $siswa->id)->whereNotNull('nilai_final')->avg('nilai_final') ?? 85.0;
+            })->where('siswa_id', $siswa->id)->whereNotNull('nilai_final')->avg('nilai_final');
 
             $cbtUasScore = LmsUjianSesi::whereHas('ujian', function ($q) use ($subjectId, $kelasId, $semesterId) {
                 $q->where('kelas_id', $kelasId)
                     ->where('semester_id', $semesterId)
                     ->whereHas('kisiKisi', fn ($k) => $k->where('mata_pelajaran_id', $subjectId)->whereIn('jenis_ujian', ['UAS', 'PAS']));
-            })->where('siswa_id', $siswa->id)->whereNotNull('nilai_final')->avg('nilai_final') ?? 88.0;
+            })->where('siswa_id', $siswa->id)->whereNotNull('nilai_final')->avg('nilai_final');
 
-            // Compute weighted final score via configured formula
-            $totalWeight = $bobotTugas + $bobotUh + $bobotUts + $bobotUas;
-            $weightedSum = ($avgAssignment * $bobotTugas) + ($cbtUhScores * $bobotUh) + ($cbtUtsScore * $bobotUts) + ($cbtUasScore * $bobotUas);
-            $finalScore = $totalWeight > 0 ? round($weightedSum / $totalWeight, 2) : 0;
+            $componentScores = [
+                'assignment' => $avgAssignment,
+                'quiz' => $cbtUhScores,
+                'midterm' => $cbtUtsScore,
+                'final_exam' => $cbtUasScore,
+            ];
+            if ($formula) {
+                $finalScore = $this->formulaService->calculate($formula, $componentScores);
+            } else {
+                $legacyComponents = [
+                    [$avgAssignment, $bobotTugas],
+                    [$cbtUhScores, $bobotUh],
+                    [$cbtUtsScore, $bobotUts],
+                    [$cbtUasScore, $bobotUas],
+                ];
+                $available = collect($legacyComponents)->filter(fn (array $item) => $item[0] !== null);
+                if ($available->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'grades' => "Belum ada nilai sumber untuk {$siswa->full_name}.",
+                    ]);
+                }
+                $totalWeight = (float) $available->sum(fn (array $item) => $item[1]);
+                $weightedSum = (float) $available->sum(fn (array $item) => $item[0] * $item[1]);
+                $finalScore = round($weightedSum / $totalWeight, 2);
+            }
             $gradeLetter = StudentGrade::getGradeLetter($finalScore);
 
             $data = [
@@ -192,10 +241,10 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
                 'academic_year_id' => $academicYearId,
                 'semester_id' => $semesterId,
                 'kelas_id' => $kelasId,
-                'score_assignment' => round($avgAssignment, 2),
-                'score_quiz' => round($cbtUhScores, 2),
-                'score_midterm' => round($cbtUtsScore, 2),
-                'score_final' => round($cbtUasScore, 2),
+                'score_assignment' => $avgAssignment === null ? null : round($avgAssignment, 2),
+                'score_quiz' => $cbtUhScores === null ? null : round($cbtUhScores, 2),
+                'score_midterm' => $cbtUtsScore === null ? null : round($cbtUtsScore, 2),
+                'score_final' => $cbtUasScore === null ? null : round($cbtUasScore, 2),
                 'final_score' => $finalScore,
                 'grade_letter' => $gradeLetter,
                 'is_passed' => $finalScore >= $kkm,
@@ -205,18 +254,25 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
                     'bobot_uts' => $bobotUts,
                     'bobot_uas' => $bobotUas,
                     'nilai_kkm' => $kkm,
+                    'assessment_formula_id' => $formula?->id,
+                    'assessment_formula_version' => $formula?->version,
                     'synced_at' => now()->toIso8601String(),
                 ],
+                'updated_by' => Auth::id(),
             ];
 
-            $record = StudentGrade::updateOrCreate(
+            $record = StudentGrade::firstOrNew(
                 [
                     'student_id' => $siswa->id,
                     'subject_id' => $subjectId,
                     'semester_id' => $semesterId,
-                ],
-                $data
+                ]
             );
+            $record->fill($data);
+            if (! $record->exists) {
+                $record->created_by = Auth::id();
+            }
+            $record->save();
 
             $results->push($record->fresh(['student', 'subject', 'kelas']));
         }
@@ -285,5 +341,23 @@ class LmsPenilaianRepository implements LmsPenilaianRepositoryInterface
         $sum = ($tugas * $bobotTugas) + ($uh * $bobotUh) + ($uts * $bobotUts) + ($uas * $bobotUas);
 
         return round($sum / $totalWeight, 2);
+    }
+
+    private function calculateUsingActiveFormula(array $data): array
+    {
+        $yearId = $data['academic_year_id'] ?? Semester::query()->whereKey($data['semester_id'] ?? null)->value('academic_year_id');
+        $kelas = \App\Models\Kelas::query()->find($data['kelas_id'] ?? null);
+        $formula = $yearId ? $this->formulaService->resolveActive(
+            'academic', $yearId, $data['semester_id'] ?? null, $kelas?->unit_pendidikan_id, $kelas?->id
+        ) : null;
+        if (! $formula) return [$this->calculateFinalScoreFromData($data), null];
+
+        return [$this->formulaService->calculate($formula, [
+            'assignment' => $data['score_assignment'] ?? null,
+            'quiz' => $data['score_quiz'] ?? null,
+            'project' => $data['score_project'] ?? null,
+            'midterm' => $data['score_midterm'] ?? null,
+            'final_exam' => $data['score_final'] ?? null,
+        ]), $formula];
     }
 }

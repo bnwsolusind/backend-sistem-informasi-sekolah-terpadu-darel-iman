@@ -103,6 +103,13 @@ class RolePermissionSeeder extends Seeder
             'lms.manage',
             'cbt.manage',
             'grades.manage',
+            'assessment_formula.view',
+            'assessment_formula.create',
+            'assessment_formula.update',
+            'assessment_formula.submit',
+            'assessment_formula.approve',
+            'assessment_formula.activate',
+            'assessment_formula.archive',
             'report.view',
             'report.export',
             'portal.view',
@@ -246,6 +253,8 @@ class RolePermissionSeeder extends Seeder
             'mutabaah.daily.view', 'mutabaah.daily.input', 'mutabaah.daily.update', 'mutabaah.daily.finalize', 'mutabaah.daily.reopen',
             'mutabaah.recap.view', 'mutabaah.report.view', 'mutabaah.report.export',
             'mutabaah.parent.monitor', 'mutabaah.parent.sign',
+            'mutabaah.parent.input_home',
+            'worship_assessment.setting.view', 'worship_assessment.setting.manage',
 
             // Kesiswaan & Kelulusan
             'kesiswaan.rekap_prestasi',
@@ -690,7 +699,7 @@ class RolePermissionSeeder extends Seeder
             ])));
         }
         foreach (['Orang Tua', 'orang_tua', 'Orangtua', 'Wali Murid', 'parent'] as $roleName) {
-            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Orang Tua'] ?? [], ['mutabaah.daily.view', 'mutabaah.parent.sign'])));
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Orang Tua'] ?? [], ['mutabaah.daily.view', 'mutabaah.parent.sign', 'mutabaah.parent.input_home'])));
         }
         foreach (['Siswa', 'siswa', 'student'] as $roleName) {
             $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Siswa'] ?? [], ['mutabaah.daily.view'])));
@@ -699,7 +708,13 @@ class RolePermissionSeeder extends Seeder
             $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Alumni'] ?? [], ['alumni.view', 'alumni.update_own', 'alumni.tracer_study.create'])));
         }
         foreach (['Divisi Pendidikan', 'divisi_pendidikan'] as $roleName) {
-            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Divisi Pendidikan'] ?? [], ['divisi.monitoring', 'divisi.laporan_bulanan', 'report.cross_unit.view', 'employee.view'])));
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap['Divisi Pendidikan'] ?? [], ['divisi.monitoring', 'divisi.laporan_bulanan', 'report.cross_unit.view', 'employee.view', 'worship_assessment.setting.view', 'worship_assessment.setting.manage'])));
+        }
+        foreach (['Kepala Sekolah', 'kepala_sekolah', 'Pengurus Yayasan', 'pengurus_yayasan'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap[$roleName] ?? [], ['worship_assessment.setting.view', 'worship_assessment.setting.manage'])));
+        }
+        foreach (['Tata Usaha', 'TU', 'tu', 'tata_usaha'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge($rolePermissionMap[$roleName] ?? [], ['worship_assessment.setting.view'])));
         }
 
         // Pengelola unit hanya dapat mengubah assignment jabatan/role pada
@@ -834,6 +849,29 @@ class RolePermissionSeeder extends Seeder
                 $rolePermissionMap[$roleName] ?? ['dashboard.view'],
                 ['academic.grade.view', 'academic.grade.create', 'academic.grade.update',
                     'academic.grade.finalize', 'academic.grade.publish'],
+            )));
+        }
+
+        $formulaDraftPermissions = [
+            'assessment_formula.view', 'assessment_formula.create',
+            'assessment_formula.update', 'assessment_formula.submit',
+        ];
+        foreach (['Tata Usaha', 'TU', 'tu', 'tata_usaha', 'Operator', 'operator', 'Waka Kurikulum', 'waka_kurikulum', 'Wakil Kurikulum'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                $formulaDraftPermissions,
+            )));
+        }
+        foreach (['Kepala Sekolah', 'kepala_sekolah', 'kepsek', 'Divisi Pendidikan', 'divisi_pendidikan', 'Kepala Bidang Pendidikan'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                [...$formulaDraftPermissions, 'assessment_formula.approve', 'assessment_formula.activate', 'assessment_formula.archive'],
+            )));
+        }
+        foreach (['Super Admin', 'super_admin', 'Admin', 'Pengurus Yayasan', 'pengurus_yayasan'] as $roleName) {
+            $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
+                $rolePermissionMap[$roleName] ?? ['dashboard.view'],
+                [...$formulaDraftPermissions, 'assessment_formula.approve', 'assessment_formula.activate', 'assessment_formula.archive'],
             )));
         }
 

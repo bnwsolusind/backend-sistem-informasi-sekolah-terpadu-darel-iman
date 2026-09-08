@@ -45,7 +45,18 @@ class EnsureFoundationReadOnly
                             'api/jabatan/*'
                         );
 
-                    if (! $isAllowedProfile && ! $isAllowedNotification && ! $isAllowedGlobalPersonnel) {
+                    $isAllowedAssessmentFormula = RoleName::userHasAny($user, ['Pengurus Yayasan', 'pengurus_yayasan'])
+                        && $request->is('api/assessment-formulas', 'api/assessment-formulas/*')
+                        && $user->hasAnyPermission([
+                            'assessment_formula.create', 'assessment_formula.update', 'assessment_formula.submit',
+                            'assessment_formula.approve', 'assessment_formula.activate', 'assessment_formula.archive',
+                        ]);
+
+                    $isAllowedWorshipAssessment = RoleName::userHasAny($user, ['Pengurus Yayasan', 'pengurus_yayasan'])
+                        && $request->is('api/worship-assessment-settings', 'api/worship-assessment-settings/*')
+                        && $user->can('worship_assessment.setting.manage');
+
+                    if (! $isAllowedProfile && ! $isAllowedNotification && ! $isAllowedGlobalPersonnel && ! $isAllowedAssessmentFormula && ! $isAllowedWorshipAssessment) {
                         return response()->json([
                             'status' => 'error',
                             'message' => 'Akses ditolak. Role yayasan monitoring tidak memiliki akses mutasi data operasional.',

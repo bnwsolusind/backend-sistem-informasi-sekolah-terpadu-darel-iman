@@ -11,11 +11,11 @@ class MutabaahDailyDetail extends Model
 {
     use HasFactory, HasUuidPrimaryKey;
 
-    protected $fillable = ['daily_header_id', 'template_item_id', 'agenda_item_id', 'status_value', 'numeric_value', 'text_value', 'notes', 'input_by', 'input_at'];
+    protected $fillable = ['daily_header_id', 'template_item_id', 'agenda_item_id', 'status_value', 'numeric_value', 'text_value', 'notes', 'input_source', 'input_location', 'verification_status', 'verified_by', 'verified_at', 'input_by', 'input_at'];
 
     protected function casts(): array
     {
-        return ['status_value' => DetailStatus::class, 'numeric_value' => 'decimal:2', 'input_at' => 'datetime'];
+        return ['status_value' => DetailStatus::class, 'numeric_value' => 'decimal:2', 'input_at' => 'datetime', 'verified_at' => 'datetime'];
     }
 
     public function dailyHeader()

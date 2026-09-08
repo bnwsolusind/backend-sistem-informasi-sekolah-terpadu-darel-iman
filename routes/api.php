@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\PrayerAssessmentController;
 use App\Http\Controllers\Api\Approval\DeleteRequestController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\QrCredentialController;
@@ -36,6 +37,9 @@ use App\Http\Controllers\Api\V1\WaliKelasDashboardController;
 use App\Http\Controllers\Api\V1\FoundationReportController;
 use App\Http\Controllers\Api\V1\GateAttendanceController;
 use App\Http\Controllers\Api\V1\GradeController;
+use App\Http\Controllers\Api\V1\AssessmentFormulaController;
+use App\Http\Controllers\Api\V1\WorshipAssessmentSettingController;
+use App\Http\Controllers\Api\V1\ParentWorshipInputController;
 use App\Http\Controllers\Api\V1\HakAksesController;
 use App\Http\Controllers\Api\V1\JabatanController;
 use App\Http\Controllers\Api\V1\JenisUnitPendidikanController;
@@ -974,8 +978,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tahfizh/daily-log', [TahfizhController::class, 'saveDailyLog']);
     Route::post('/tahfizh/upload-audio', [TahfizhController::class, 'uploadAudio']);
     Route::get('/tahfizh/student-progress/{studentId}', [TahfizhController::class, 'getStudentProgress']);
+    Route::get('/tahfizh/last-hafalan/{studentId}', [TahfizhController::class, 'getLastHafalan']);
     Route::post('/tahfizh/store', [TahfizhController::class, 'inputSetoran']);
     Route::get('/tahfizh/report', [TahfizhController::class, 'rekapTahfizh']);
+    Route::get('/tahfizh/pending-murajaah', [StudentParentPortalController::class, 'pendingMurajaahReviewList']);
+    Route::post('/tahfizh/approve-murajaah/{id}', [StudentParentPortalController::class, 'approveMurajaahReview']);
+    Route::post('/tahfizh/reject-murajaah/{id}', [StudentParentPortalController::class, 'rejectMurajaahReview']);
 
     Route::get('/mutabaah', fn () => app(FeaturePlaceholderController::class)('mutabaah'));
     Route::get('/materials', fn () => app(FeaturePlaceholderController::class)('materials'));
@@ -1069,6 +1077,20 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:academic.schedule.delete|academic.schedule.view|sistem.master_data|pembelajaran.jadwal_pelajaran');
 
     // Nilai Siswa / Raport
+    Route::prefix('assessment-formulas')->group(function () {
+        Route::get('/', [AssessmentFormulaController::class, 'index'])->middleware('permission:assessment_formula.view');
+        Route::get('/options', [AssessmentFormulaController::class, 'options'])->middleware('permission:assessment_formula.view');
+        Route::post('/', [AssessmentFormulaController::class, 'store'])->middleware('permission:assessment_formula.create');
+        Route::put('/{id}', [AssessmentFormulaController::class, 'update'])->middleware('permission:assessment_formula.update');
+        Route::post('/{id}/{action}', [AssessmentFormulaController::class, 'transition']);
+    });
+    Route::prefix('worship-assessment-settings')->group(function () {
+        Route::get('/', [WorshipAssessmentSettingController::class, 'index']);
+        Route::get('/options', [WorshipAssessmentSettingController::class, 'options']);
+        Route::post('/programs', [WorshipAssessmentSettingController::class, 'storeProgram']);
+        Route::post('/periods', [WorshipAssessmentSettingController::class, 'storePeriod']);
+        Route::post('/rules', [WorshipAssessmentSettingController::class, 'storeRule']);
+    });
     Route::get('/grades/rekap', [GradeController::class, 'rekap'])
         ->middleware('permission:academic.grade.view|teacher.grade.view');
     Route::apiResource('grades', GradeController::class)->only(['index', 'show'])
@@ -1284,21 +1306,29 @@ Route::middleware('auth:sanctum')->group(function () {
         // Parent & Student Portal Routes (/api/portal/*)
         Route::prefix('portal')->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent|Siswa|siswa|student')->group(function () {
             Route::get('/dashboard', [StudentParentPortalController::class, 'dashboard']);
+            Route::get('/today-live-timeline', [StudentParentPortalController::class, 'todayLiveTimeline']);
+            Route::get('/parent/students/{id}/live-activity', [StudentParentPortalController::class, 'todayLiveTimeline']);
             Route::get('/children', [StudentParentPortalController::class, 'children']);
             Route::put('/children/{childId}/password', [StudentParentPortalController::class, 'updateChildPassword'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
+            Route::post('/children/{childId}/photo', [StudentParentPortalController::class, 'updateChildPhoto'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent|Siswa|siswa|student');
              Route::get('/profile', [StudentParentPortalController::class, 'profile']);
              Route::get('/attendance-qr', [StudentParentPortalController::class, 'attendanceQr']);
              Route::get('/schedules', [StudentParentPortalController::class, 'schedules']);
+             Route::get('/academic-calendar', [StudentParentPortalController::class, 'academicCalendar']);
             Route::get('/attendance', [StudentParentPortalController::class, 'attendance']);
             Route::post('/permissions', [StudentParentPortalController::class, 'submitPermission'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
             Route::get('/permissions', [StudentParentPortalController::class, 'permissionsHistory']);
             Route::get('/materials', [StudentParentPortalController::class, 'materials']);
             Route::get('/assignments', [StudentParentPortalController::class, 'assignments']);
-            Route::post('/assignments/{id}/submit', [StudentParentPortalController::class, 'submitAssignment'])->middleware('role:Siswa|siswa|student');
+            Route::post('/assignments/{id}/submit', [StudentParentPortalController::class, 'submitAssignment'])->middleware('role:Siswa|siswa|student|Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
             Route::get('/grades', [StudentParentPortalController::class, 'grades']);
             Route::get('/tahfizh', [StudentParentPortalController::class, 'tahfizh']);
+            Route::post('/tahfizh/murajaah', [StudentParentPortalController::class, 'submitMurajaah'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent|Siswa|siswa|student');
             Route::get('/mutabaah', [StudentParentPortalController::class, 'mutabaah']);
             Route::post('/mutabaah', [StudentParentPortalController::class, 'saveMutabaahStudent'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
+            Route::get('/children/{studentId}/worship-input', [ParentWorshipInputController::class, 'context'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
+            Route::post('/children/{studentId}/worship-input', [ParentWorshipInputController::class, 'store'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
+            Route::get('/children/{studentId}/tahfizh-achievement', [ParentWorshipInputController::class, 'tahfizhSummary'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
             Route::get('/student-notes', [StudentParentPortalController::class, 'studentNotes']);
             Route::post('/student-notes/{id}/sign', [StudentParentPortalController::class, 'signStudentNote'])->middleware('role:Orang Tua|orang_tua|orang-tua|Orangtua|Wali Murid|parent');
             Route::get('/achievements', [StudentParentPortalController::class, 'achievements']);
@@ -1321,8 +1351,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/lms/exams', [StudentParentPortalController::class, 'examOverview']);
             Route::get('/exam-grids', [StudentParentPortalController::class, 'examGrids']);
             Route::get('/results', [StudentParentPortalController::class, 'results']);
-            Route::post('/lms/exams/{id}/start', [StudentParentPortalController::class, 'startExam'])->middleware('role:Siswa|siswa|student');
-            Route::post('/lms/exam-sessions/{sesiId}/answers', [StudentParentPortalController::class, 'saveExamAnswers'])->middleware('role:Siswa|siswa|student');
+            Route::post('/lms/exams/{id}/start', [StudentParentPortalController::class, 'startExam'])->middleware('role:Siswa|siswa|student|Super Admin|super_admin|Admin|admin');
+            Route::post('/lms/exam-sessions/{sesiId}/answers', [StudentParentPortalController::class, 'saveExamAnswers'])->middleware('role:Siswa|siswa|student|Super Admin|super_admin|Admin|admin');
+            Route::post('/lms/exam-sessions/{sesiId}/finish', [StudentParentPortalController::class, 'finishExam'])->middleware('role:Siswa|siswa|student|Super Admin|super_admin|Admin|admin');
         });
 
         // Alumni Portal Routes (/api/portal/alumni/*)
@@ -1391,3 +1422,34 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/deposits/{id}/retrieve', [MusyrifModuleController::class, 'retrieveDeposit']);
         });
     });
+
+// ==========================================
+// MODUL POIN PENILAIAN DOA (62 DOA HARIAN)
+// ==========================================
+Route::prefix('prayer-assessment')->middleware('auth:sanctum')->group(function () {
+    // 1. Ambil daftar 62 item doa (Semua role login)
+    Route::get('/items', [PrayerAssessmentController::class, 'items']);
+
+    // 2. Ambil aturan grade (Semua role login)
+    Route::get('/grade-rules', [PrayerAssessmentController::class, 'gradeRules']);
+
+    // 3. Pengaturan Master Item & Bobot Poin (Kepsek, Divisi Pendidikan, TU, Super Admin)
+    Route::post('/items', [PrayerAssessmentController::class, 'storeItem'])
+        ->middleware('role:Kepala Sekolah|kepala_sekolah|Divisi Pendidikan|divisi_pendidikan|Tata Usaha|TU|tata_usaha|Super Admin|super_admin|Admin');
+    Route::put('/items/{id}', [PrayerAssessmentController::class, 'updateItem'])
+        ->middleware('role:Kepala Sekolah|kepala_sekolah|Divisi Pendidikan|divisi_pendidikan|Tata Usaha|TU|tata_usaha|Super Admin|super_admin|Admin');
+
+    // 4. Pengaturan Skala Grade (Kepsek, Divisi Pendidikan, TU, Super Admin)
+    Route::put('/grade-rules', [PrayerAssessmentController::class, 'updateGradeRules'])
+        ->middleware('role:Kepala Sekolah|kepala_sekolah|Divisi Pendidikan|divisi_pendidikan|Tata Usaha|TU|tata_usaha|Super Admin|super_admin|Admin');
+
+    // 5. Lembar Penilaian Siswa (Guru, Walas, Kepsek, Super Admin)
+    Route::get('/student/{studentId}', [PrayerAssessmentController::class, 'studentSheet']);
+    Route::post('/student/{studentId}/save', [PrayerAssessmentController::class, 'saveStudentScores'])
+        ->middleware('role:Guru|guru|Guru Tahfizh|guru_tahfizh|Guru PAI|guru_pai|Wali Kelas|wali_kelas|Musyrif|Musyrifah|Kepala Sekolah|kepala_sekolah|Super Admin|super_admin');
+});
+
+// Endpoint untuk Orang Tua di Mobile App (Android)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/parent/children/{studentId}/prayer-assessment', [PrayerAssessmentController::class, 'parentStudentSheet']);
+});

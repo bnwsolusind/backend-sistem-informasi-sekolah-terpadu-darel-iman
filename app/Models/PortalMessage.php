@@ -20,4 +20,5 @@ class PortalMessage extends Model
     public function sender() { return $this->belongsTo(User::class, 'sender_user_id'); }
     public function recipient() { return $this->belongsTo(User::class, 'recipient_user_id'); }
     public function student() { return $this->belongsTo(Student::class); }
+    public function attachments() { return $this->hasMany(PortalMessageAttachment::class, 'message_id'); }
 }

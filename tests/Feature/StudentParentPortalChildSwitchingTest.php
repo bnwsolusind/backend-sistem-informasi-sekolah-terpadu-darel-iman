@@ -6,14 +6,18 @@ use App\Enums\Mutabaah\RecordStatus;
 use App\Models\AcademicYear;
 use App\Models\EducationUnit;
 use App\Models\Employee;
+use App\Models\Kelas;
+use App\Models\LmsRapor;
 use App\Models\MutabaahSupervisorAssignment;
 use App\Models\MutabaahTemplate;
 use App\Models\ParentModel;
 use App\Models\Semester;
 use App\Models\Student;
+use App\Models\StudentGrade;
 use App\Models\StudentNote;
 use App\Models\StudentParent;
 use App\Models\Teacher;
+use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -91,6 +95,115 @@ class StudentParentPortalChildSwitchingTest extends TestCase
             $this->actingAs($user)->getJson($endpoint.'?child_id='.$foreign->id)
                 ->assertStatus(404, "Endpoint {$endpoint} harus 404 untuk anak tak terhubung.");
         }
+    }
+
+    public function test_grades_only_return_published_report_period_for_linked_child_class_and_unit(): void
+    {
+        [$user, $childA, $childB] = $this->parentFixture();
+        $year = AcademicYear::create(['name' => '2026/2027', 'is_active' => true]);
+        $semester = Semester::create([
+            'academic_year_id' => $year->id,
+            'name' => 'Ganjil',
+            'sequence' => 1,
+            'is_active' => true,
+        ]);
+        $unitA = EducationUnit::create(['code' => 'SD-A', 'name' => 'SD Unit A', 'level' => 'SD', 'is_active' => true]);
+        $unitB = EducationUnit::create(['code' => 'SMP-B', 'name' => 'SMP Unit B', 'level' => 'SMP', 'is_active' => true]);
+        $classA = Kelas::create([
+            'unit_pendidikan_id' => $unitA->id,
+            'tahun_ajaran_id' => $year->id,
+            'semester_id' => $semester->id,
+            'jenjang' => 'SD',
+            'tingkat' => '5',
+            'kode_kelas' => 'V-A',
+            'nama_kelas' => 'V A',
+            'status' => 'Aktif',
+        ]);
+        $classB = Kelas::create([
+            'unit_pendidikan_id' => $unitB->id,
+            'tahun_ajaran_id' => $year->id,
+            'semester_id' => $semester->id,
+            'jenjang' => 'SMP',
+            'tingkat' => '7',
+            'kode_kelas' => 'VII-B',
+            'nama_kelas' => 'VII B',
+            'status' => 'Aktif',
+        ]);
+        $childA->update(['unit_id' => $unitA->id, 'kelas_id' => $classA->id]);
+        $childB->update(['unit_id' => $unitB->id, 'kelas_id' => $classB->id]);
+
+        $subjectA = Subject::create([
+            'unit_pendidikan_id' => $unitA->id,
+            'kode_mapel' => 'MTK-SD-A',
+            'nama_mapel' => 'Matematika',
+            'jenjang' => 'SD',
+            'kkm' => 80,
+            'status' => true,
+        ]);
+        $subjectB = Subject::create([
+            'unit_pendidikan_id' => $unitB->id,
+            'kode_mapel' => 'IPA-SMP-B',
+            'nama_mapel' => 'IPA',
+            'jenjang' => 'SMP',
+            'kkm' => 75,
+            'status' => true,
+        ]);
+
+        StudentGrade::create([
+            'student_id' => $childA->id,
+            'subject_id' => $subjectA->id,
+            'academic_year_id' => $year->id,
+            'semester_id' => $semester->id,
+            'kelas_id' => $classA->id,
+            'final_score' => 86,
+            'grade_letter' => 'B',
+            'is_passed' => true,
+            'created_by' => $user->id,
+        ]);
+        StudentGrade::create([
+            'student_id' => $childA->id,
+            'subject_id' => $subjectB->id,
+            'academic_year_id' => $year->id,
+            'semester_id' => $semester->id,
+            'kelas_id' => $classA->id,
+            'final_score' => 99,
+            'grade_letter' => 'A',
+            'is_passed' => true,
+            'created_by' => $user->id,
+        ]);
+        StudentGrade::create([
+            'student_id' => $childB->id,
+            'subject_id' => $subjectB->id,
+            'academic_year_id' => $year->id,
+            'semester_id' => $semester->id,
+            'kelas_id' => $classB->id,
+            'final_score' => 91,
+            'grade_letter' => 'A',
+            'is_passed' => true,
+            'created_by' => $user->id,
+        ]);
+        LmsRapor::create([
+            'siswa_id' => $childA->id,
+            'kelas_id' => $classA->id,
+            'semester_id' => $semester->id,
+            'tahun_ajaran_id' => $year->id,
+            'status_rapor' => 'published',
+            'tanggal_terbit' => now()->toDateString(),
+        ]);
+
+        $this->actingAs($user)->getJson('/api/portal/grades?child_id='.$childA->id)
+            ->assertOk()
+            ->assertJsonCount(1, 'data.items')
+            ->assertJsonPath('data.items.0.subject.code', 'MTK-SD-A')
+            ->assertJsonPath('data.items.0.kkm', 80)
+            ->assertJsonPath('data.summary.average_score', 86)
+            ->assertJsonPath('data.summary.passed_subjects', 1)
+            ->assertJsonPath('data.student.id', $childA->id);
+
+        $this->actingAs($user)->getJson('/api/portal/grades?child_id='.$childB->id)
+            ->assertOk()
+            ->assertJsonCount(0, 'data.items')
+            ->assertJsonPath('data.publication', null);
     }
 
     public function test_submit_permission_scopes_record_to_selected_child(): void

@@ -163,18 +163,19 @@ class ChatAccessService
             ->get()
             ->keyBy('user_id');
 
-        $activeTokenUserIds = \Laravel\Sanctum\PersonalAccessToken::query()
-            ->whereIn('tokenable_id', $userIdsStr)
-            ->where(function ($q) {
-                $q->where('last_used_at', '>=', now()->subMinutes(15))
-                  ->orWhere(function ($q2) {
-                      $q2->whereNull('last_used_at')->where('created_at', '>=', now()->subMinutes(15));
-                  });
-            })
-            ->pluck('tokenable_id')
-            ->map(fn ($id) => (string) $id)
-            ->flip()
-            ->toArray();
+        $activeTokenUserIds = \Illuminate\Support\Facades\Cache::remember('active_token_uids', 30, function () {
+            return \Laravel\Sanctum\PersonalAccessToken::query()
+                ->where(function ($q) {
+                    $q->where('last_used_at', '>=', now()->subMinutes(15))
+                      ->orWhere(function ($q2) {
+                          $q2->whereNull('last_used_at')->where('created_at', '>=', now()->subMinutes(15));
+                      });
+                })
+                ->pluck('tokenable_id')
+                ->map(fn ($id) => (string) $id)
+                ->flip()
+                ->toArray();
+        });
 
         $map = [];
         foreach ($userIdsStr as $uid) {

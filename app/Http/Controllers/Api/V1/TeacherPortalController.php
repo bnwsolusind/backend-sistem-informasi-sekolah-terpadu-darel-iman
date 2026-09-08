@@ -29,6 +29,7 @@ use App\Models\Subject;
 use App\Models\TahfizhDailyLog;
 use App\Models\Teacher;
 use App\Services\AccessScopeService;
+use App\Services\AssessmentFormulaService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,7 +40,10 @@ use Illuminate\Support\Str;
 
 class TeacherPortalController extends Controller
 {
-    public function __construct(private readonly AccessScopeService $accessScope) {}
+    public function __construct(
+        private readonly AccessScopeService $accessScope,
+        private readonly AssessmentFormulaService $formulaService,
+    ) {}
 
     private function getTeacherContext(Request $request): ?Teacher
     {
@@ -869,8 +873,40 @@ class TeacherPortalController extends Controller
             ->count();
         abort_unless($allowedStudentCount === $studentIds->count(), 403, 'Daftar siswa berada di luar kelas assignment guru.');
 
+        $kelas = Kelas::query()->findOrFail($schedule->kelas_id);
+        $subject = Subject::query()->findOrFail($request->subject_id);
+        abort_unless(
+            $subject->unit_pendidikan_id === $kelas->unit_pendidikan_id,
+            422,
+            'Mata pelajaran tidak sesuai dengan unit pendidikan kelas.'
+        );
+        $formula = $this->formulaService->resolveActive(
+            'academic',
+            $schedule->academic_year_id,
+            $schedule->semester_id,
+            $kelas->unit_pendidikan_id,
+            $kelas->id,
+        );
+        $kkm = (float) ($subject->kkm ?? 75);
+
         foreach ($request->grades as $g) {
-            StudentGrade::updateOrCreate(
+            $components = [
+                'assignment' => $g['nilai_tugas'] ?? null,
+                'quiz' => null,
+                'project' => null,
+                'midterm' => $g['nilai_uts'] ?? null,
+                'final_exam' => $g['nilai_uas'] ?? null,
+            ];
+            $finalScore = $formula
+                ? $this->formulaService->calculate($formula, $components)
+                : ($g['nilai_akhir'] ?? null);
+            abort_if(
+                $finalScore === null,
+                422,
+                'Aktifkan rumus nilai akademik atau isi nilai akhir secara eksplisit.'
+            );
+
+            $grade = StudentGrade::firstOrNew(
                 [
                     'student_id' => $g['student_id'],
                     'subject_id' => $request->subject_id,
@@ -878,14 +914,26 @@ class TeacherPortalController extends Controller
                     'class_id' => $schedule->class_id,
                     'academic_year_id' => $schedule->academic_year_id,
                     'semester_id' => $schedule->semester_id,
-                ],
-                [
-                    'score_assignment' => $g['nilai_tugas'] ?? null,
-                    'score_midterm' => $g['nilai_uts'] ?? null,
-                    'score_final' => $g['nilai_uas'] ?? null,
-                    'final_score' => $g['nilai_akhir'] ?? (($g['nilai_tugas'] ?? 0) * 0.3 + ($g['nilai_uts'] ?? 0) * 0.3 + ($g['nilai_uas'] ?? 0) * 0.4),
                 ]
             );
+            $grade->fill([
+                'score_assignment' => $g['nilai_tugas'] ?? null,
+                'score_midterm' => $g['nilai_uts'] ?? null,
+                'score_final' => $g['nilai_uas'] ?? null,
+                'final_score' => $finalScore,
+                'grade_letter' => StudentGrade::getGradeLetter($finalScore),
+                'is_passed' => $finalScore >= $kkm,
+                'metadata' => array_merge($grade->metadata ?? [], [
+                    'assessment_formula_id' => $formula?->id,
+                    'assessment_formula_version' => $formula?->version,
+                    'saved_from' => 'teacher_portal',
+                ]),
+                'updated_by' => $request->user()?->id,
+            ]);
+            if (! $grade->exists) {
+                $grade->created_by = $request->user()?->id;
+            }
+            $grade->save();
         }
 
         return response()->json([
@@ -1224,27 +1272,39 @@ class TeacherPortalController extends Controller
     private function isAssignedToStudent(Request $request, Student $student): bool
     {
         $user = $request->user();
+        if ($user && $user->roles()->whereIn('name', ['Super Admin', 'super_admin', 'Admin'])->exists()) {
+            return true;
+        }
+
         $teacher = $this->getTeacherContext($request);
         $employee = Employee::query()->where('user_id', $user->id)->first();
 
         $kelasId = $student->kelas_id ?? $student->class_id;
-        if (! $kelasId) {
-            return false;
+        if ($kelasId) {
+            $isHomeroom = Kelas::query()
+                ->whereKey($kelasId)
+                ->where(fn ($q) => $q->where('wali_kelas_id', $teacher?->id)->orWhere('wali_kelas_id', $employee?->id))
+                ->exists();
+
+            if ($isHomeroom) {
+                return true;
+            }
+
+            $isScheduleTeacher = ClassSchedule::query()
+                ->where(fn ($q) => $q->where('kelas_id', $kelasId)->orWhere('class_id', $kelasId))
+                ->where('is_active', true)
+                ->where(fn ($q) => $q->where('teacher_id', $teacher?->id)->orWhere('employee_id', $employee?->id))
+                ->exists();
+
+            if ($isScheduleTeacher) {
+                return true;
+            }
         }
 
-        $isHomeroom = Kelas::query()
-            ->whereKey($kelasId)
-            ->where(fn ($q) => $q->where('wali_kelas_id', $teacher?->id)->orWhere('wali_kelas_id', $employee?->id))
-            ->exists();
-
-        if ($isHomeroom) {
-            return true;
-        }
-
-        return ClassSchedule::query()
-            ->where(fn ($q) => $q->where('kelas_id', $kelasId)->orWhere('class_id', $kelasId))
-            ->where('is_active', true)
-            ->where(fn ($q) => $q->where('teacher_id', $teacher?->id)->orWhere('employee_id', $employee?->id))
+        // Allow if there is an existing message record involving this teacher and student
+        return PortalMessage::query()
+            ->where('student_id', $student->id)
+            ->where(fn ($q) => $q->where('sender_user_id', $user->id)->orWhere('recipient_user_id', $user->id))
             ->exists();
     }
 
@@ -1267,11 +1327,26 @@ class TeacherPortalController extends Controller
             ->unique()
             ->toArray();
 
-        $messages = PortalMessage::query()
+        $isGlobalChatAdmin = $user && $user->roles()->whereIn('name', ['Super Admin', 'super_admin', 'Admin', 'admin', 'Kepala Sekolah', 'kepala_sekolah'])->exists();
+
+        $messagesQuery = PortalMessage::query()
             ->with(['student.kelas', 'student.educationUnit', 'sender:id,name,email', 'recipient:id,name,email'])
-            ->where(fn ($q) => $q->where('sender_user_id', $user->id)->orWhere('recipient_user_id', $user->id))
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->whereNotNull('student_id');
+
+        if (! $isGlobalChatAdmin) {
+            $messagesQuery->where(fn ($q) => $q->where('sender_user_id', $user->id)->orWhere('recipient_user_id', $user->id));
+        }
+
+        $messages = $messagesQuery->orderBy('created_at', 'desc')->take(500)->get();
+
+        // Batch fetch unread counts for all conversations in 1 query (Zero N+1)
+        $unreadCountsMap = DB::table('portal_messages')
+            ->select('student_id', 'sender_user_id', DB::raw('count(*) as total'))
+            ->where('recipient_user_id', $user->id)
+            ->whereNull('read_at')
+            ->groupBy('student_id', 'sender_user_id')
+            ->get()
+            ->mapWithKeys(fn ($row) => [(string) $row->student_id . '_' . (string) $row->sender_user_id => (int) $row->total]);
 
         $grouped = [];
 
@@ -1281,26 +1356,34 @@ class TeacherPortalController extends Controller
                 continue;
             }
 
-            $otherUserId = $msg->sender_user_id === $user->id ? $msg->recipient_user_id : $msg->sender_user_id;
+            if ($msg->sender_user_id === $user->id) {
+                $otherUserId = $msg->recipient_user_id;
+                $otherUser = $msg->recipient;
+            } elseif ($msg->recipient_user_id === $user->id) {
+                $otherUserId = $msg->sender_user_id;
+                $otherUser = $msg->sender;
+            } else {
+                // For admin monitor: non-teacher party is parent
+                $otherUserId = $msg->sender_user_id;
+                $otherUser = $msg->sender;
+            }
             $key = $student->id.'_'.$otherUserId;
 
             if (! isset($grouped[$key])) {
-                $otherUser = $msg->sender_user_id === $user->id ? $msg->recipient : $msg->sender;
                 $isHomeroom = in_array($student->kelas_id, $homeroomKelasIds, true);
+                $unreadCount = (int) ($unreadCountsMap->get($key) ?? 0);
 
-                $unreadCount = PortalMessage::query()
-                    ->where('student_id', $student->id)
-                    ->where('sender_user_id', $otherUserId)
-                    ->where('recipient_user_id', $user->id)
-                    ->whereNull('read_at')
-                    ->count();
-
+                $parentName = $otherUser?->name ?? 'Orang Tua/Wali';
                 $grouped[$key] = [
                     'id' => $key,
+                    'user_id' => $otherUserId,
+                    'name' => $parentName,
+                    'nama' => $parentName,
                     'student_id' => $student->id,
                     'student_name' => $student->full_name,
                     'parent_user_id' => $otherUserId,
-                    'parent_name' => $otherUser?->name ?? 'Orang Tua/Wali',
+                    'parent_name' => $parentName,
+                    'photo' => $otherUser?->avatar_url ?? null,
                     'class_name' => $student->kelas?->nama_kelas ?? '-',
                     'unit_name' => $student->educationUnit?->name ?? '-',
                     'teacher_type' => $isHomeroom ? 'wali_kelas' : 'guru_mapel',
@@ -1308,6 +1391,8 @@ class TeacherPortalController extends Controller
                     'last_message' => $msg->message,
                     'last_message_at' => $msg->created_at?->toIso8601String(),
                     'unread_count' => $unreadCount,
+                    'is_online' => false,
+                    'status' => 'offline',
                 ];
             }
         }
@@ -1331,22 +1416,40 @@ class TeacherPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Anda tidak terhubung dengan siswa ini.'], 403);
         }
 
-        PortalMessage::query()
+        $hasUnread = PortalMessage::query()
             ->where('student_id', $studentId)
             ->where('sender_user_id', $parentUserId)
             ->where('recipient_user_id', $user->id)
             ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+            ->exists();
 
-        $messages = PortalMessage::query()
-            ->with(['sender:id,name', 'recipient:id,name'])
-            ->where('student_id', $studentId)
-            ->where(function ($q) use ($user, $parentUserId) {
+        if ($hasUnread) {
+            PortalMessage::query()
+                ->where('student_id', $studentId)
+                ->where('sender_user_id', $parentUserId)
+                ->where('recipient_user_id', $user->id)
+                ->whereNull('read_at')
+                ->update(['read_at' => now()]);
+        }
+
+        $isGlobalChatAdmin = $user && $user->roles()->whereIn('name', ['Super Admin', 'super_admin', 'Admin', 'admin', 'Kepala Sekolah', 'kepala_sekolah'])->exists();
+
+        $messagesQuery = PortalMessage::query()
+            ->with(['sender:id,name', 'recipient:id,name', 'attachments'])
+            ->where('student_id', $studentId);
+
+        if (! $isGlobalChatAdmin) {
+            $messagesQuery->where(function ($q) use ($user, $parentUserId) {
                 $q->where(fn ($q2) => $q2->where('sender_user_id', $user->id)->where('recipient_user_id', $parentUserId))
                     ->orWhere(fn ($q2) => $q2->where('sender_user_id', $parentUserId)->where('recipient_user_id', $user->id));
-            })
-            ->orderBy('created_at', 'asc')
-            ->get();
+            });
+        } else {
+            $messagesQuery->where(function ($q) use ($parentUserId) {
+                $q->where('sender_user_id', $parentUserId)->orWhere('recipient_user_id', $parentUserId);
+            });
+        }
+
+        $messages = $messagesQuery->orderBy('created_at', 'asc')->get();
 
         return response()->json([
             'success' => true,
@@ -1357,7 +1460,8 @@ class TeacherPortalController extends Controller
     public function sendChatMessage(Request $request, string $parentUserId, string $studentId): JsonResponse
     {
         $request->validate([
-            'message' => 'required|string|max:5000',
+            'message' => 'required_without:attachment|nullable|string|max:5000',
+            'attachment' => 'nullable|file|max:10240',
         ]);
 
         $user = $request->user();
@@ -1376,8 +1480,21 @@ class TeacherPortalController extends Controller
             'student_id' => $studentId,
             'sender_user_id' => $user->id,
             'recipient_user_id' => $parentUserId,
-            'message' => trim($request->input('message')),
+            'message' => trim((string) ($request->input('message') ?? '')),
         ]);
+
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $path = $file->store('chat/attachments', 'public');
+            \AppModels\PortalMessageAttachment::create([
+                'message_id' => $message->id,
+                'disk' => 'public',
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType() ?: $file->getMimeType() ?: 'application/octet-stream',
+                'file_size' => $file->getSize(),
+            ]);
+        }
 
         try {
             Notification::deliver(
@@ -1398,7 +1515,7 @@ class TeacherPortalController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Pesan berhasil dikirim.',
-            'data' => $message->load(['sender:id,name', 'recipient:id,name']),
+            'data' => $message->load(['sender:id,name', 'recipient:id,name', 'attachments']),
         ]);
     }
 }

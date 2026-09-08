@@ -39,6 +39,7 @@ class MutabaahEnterpriseSeeder extends Seeder
 
         $agendaDefinitions = [
             ['SHALAT', 'TAHAJUD-WITIR', 'Tahajud/Witir', 'status', 5],
+            ['SHALAT', 'DHUHA', 'Dhuha', 'status', 5],
             ['SHALAT', 'SUBUH', 'Subuh', 'status', 5],
             ['SHALAT', 'ZUHUR', 'Zuhur', 'status', 5],
             ['SHALAT', 'ASHAR', 'Ashar', 'status', 5],
@@ -54,6 +55,9 @@ class MutabaahEnterpriseSeeder extends Seeder
             ['KEBERSIHAN', 'JAGA-KEBERSIHAN', 'Menjaga Kebersihan', 'status', 4],
             ['KEDISIPLINAN', 'TEPAT-WAKTU', 'Datang Tepat Waktu', 'status', 5],
             ['IBADAH-HARIAN', 'PUASA-SUNNAH', 'Puasa Sunnah', 'yes_no', 5],
+            ['SHALAT', 'TARAWIH', 'Tarawih', 'status', 5],
+            ['IBADAH-HARIAN', 'PUASA-RAMADAN', 'Puasa Ramadan', 'status', 5],
+            ['TILAWAH', 'TADARUS-RAMADAN', 'Tadarus Ramadan', 'pages', 10],
             ['IBADAH-HARIAN', 'KAJIAN', 'Mengikuti Kajian', 'duration', 5],
             ['IBADAH-HARIAN', 'REFLEKSI', 'Refleksi Harian', 'text', 3],
             ['TAHFIZH', 'HALAQAH', 'Mengikuti Halaqah', 'status', 8],

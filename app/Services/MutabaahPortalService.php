@@ -20,18 +20,18 @@ class MutabaahPortalService
     {
         $parent = ParentModel::where('user_id', $user->id)->first();
         if ($parent) {
-            return $this->parentStudents($parent)->with(['educationUnit:id,name', 'kelas:id,name', 'schoolClass:id,name'])
+            return $this->parentStudents($parent)->with(['educationUnit:id,name', 'kelas:id,nama_kelas,tingkat,jenjang', 'schoolClass:id,name'])
                 ->orderBy('full_name')->get()->map(fn (Student $student) => [
                     'id' => $student->id, 'name' => $student->full_name, 'nis' => $student->nis,
                     'photo' => data_get($student->metadata, 'photo'), 'unit' => $student->educationUnit?->name,
-                    'class_name' => $student->kelas?->name || $student->schoolClass?->name,
+                    'class_name' => $student->kelas?->nama_kelas ?? $student->kelas?->name ?? $student->schoolClass?->name,
                     'unit_id' => $student->unit_id,
-                    'class_id' => $student->kelas_id || $student->class_id,
+                    'class_id' => $student->kelas_id ?? $student->class_id,
                 ]);
         }
 
         // Fallback untuk Kepala Sekolah / Admin / Teacher / Musyrif / TU: tampilkan seluruh santri aktif dari database
-        $query = Student::with(['educationUnit:id,name', 'kelas:id,name', 'schoolClass:id,name'])
+        $query = Student::with(['educationUnit:id,name', 'kelas:id,nama_kelas,tingkat,jenjang', 'schoolClass:id,name'])
             ->where(function ($q) {
                 $q->where('is_active', true)->orWhereNull('is_active');
             });
@@ -60,9 +60,9 @@ class MutabaahPortalService
             ->map(fn (Student $student) => [
                 'id' => $student->id, 'name' => $student->full_name, 'nis' => $student->nis,
                 'photo' => data_get($student->metadata, 'photo'), 'unit' => $student->educationUnit?->name,
-                'class_name' => $student->kelas?->name || $student->schoolClass?->name,
+                'class_name' => $student->kelas?->nama_kelas ?? $student->kelas?->name ?? $student->schoolClass?->name,
                 'unit_id' => $student->unit_id,
-                'class_id' => $student->kelas_id || $student->class_id,
+                'class_id' => $student->kelas_id ?? $student->class_id,
             ]);
     }
 
@@ -70,16 +70,16 @@ class MutabaahPortalService
     {
         $parent = ParentModel::where('user_id', $user->id)->first();
         if ($parent) {
-            return $this->parentStudents($parent)->with(['educationUnit:id,name', 'schoolClass:id,name'])->findOrFail($studentId);
+            return $this->parentStudents($parent)->with(['educationUnit:id,name', 'kelas:id,nama_kelas,tingkat,jenjang', 'schoolClass:id,name'])->findOrFail($studentId);
         }
 
         // Fallback untuk Admin / Teacher / TU: cari santri langsung berdasarkan ID
-        return Student::with(['educationUnit:id,name', 'schoolClass:id,name'])->findOrFail($studentId);
+        return Student::with(['educationUnit:id,name', 'kelas:id,nama_kelas,tingkat,jenjang', 'schoolClass:id,name'])->findOrFail($studentId);
     }
 
     public function ownStudent(User $user): Student
     {
-        return Student::with(['educationUnit:id,name', 'schoolClass:id,name'])->where('user_id', $user->id)->firstOrFail();
+        return Student::with(['educationUnit:id,name', 'kelas:id,nama_kelas,tingkat,jenjang', 'schoolClass:id,name'])->where('user_id', $user->id)->firstOrFail();
     }
 
     public function overview(Student $student, array $filters): array
@@ -91,13 +91,13 @@ class MutabaahPortalService
             ->join('mutabaah_agenda_items as a', 'a.id', '=', 'd.agenda_item_id')
             ->join('mutabaah_categories as c', 'c.id', '=', 'a.category_id')
             ->where('d.daily_header_id', $header->id)->orderBy('ti.sort_order')
-            ->get(['d.id', 'd.status_value', 'd.numeric_value', 'd.text_value', 'd.notes', 'a.name', 'a.input_type', 'c.name as category'])
+            ->get(['d.id', 'd.agenda_item_id', 'd.status_value', 'd.numeric_value', 'd.text_value', 'd.notes', 'd.input_source', 'd.input_location', 'd.verification_status', 'a.name', 'a.input_type', 'c.name as category'])
             : collect();
         $signature = $header ? MutabaahParentSignature::where('daily_header_id', $header->id)->latest('signed_at')->first() : null;
         [$weekly, $monthly] = [$this->periodSummary($student->id, Carbon::parse($date)->startOfWeek(), Carbon::parse($date)->endOfWeek()), $this->periodSummary($student->id, Carbon::parse($date)->startOfMonth(), Carbon::parse($date)->endOfMonth())];
 
         return [
-            'student' => ['id' => $student->id, 'name' => $student->full_name, 'nis' => $student->nis, 'photo' => data_get($student->metadata, 'photo'), 'unit' => $student->educationUnit?->name, 'class_name' => $student->schoolClass?->name],
+            'student' => ['id' => $student->id, 'name' => $student->full_name, 'nis' => $student->nis, 'photo' => data_get($student->metadata, 'photo'), 'unit' => $student->educationUnit?->name, 'class_name' => $student->kelas?->nama_kelas ?? $student->kelas?->name ?? $student->schoolClass?->name],
             'date' => $date,
             'today' => $header ? [
                 'id' => $header->id, 'status' => $header->status, 'score' => $header->score,

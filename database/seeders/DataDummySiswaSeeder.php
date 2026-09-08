@@ -688,7 +688,7 @@ class DataDummySiswaSeeder extends Seeder
                     'birth_date' => $siswa['birth_date'],
                     'address' => $siswa['address'],
                     'is_active' => $siswa['is_active'],
-                    'metadata' => $siswa['metadata'],
+                    'metadata' => array_merge($siswa['metadata'], ['is_demo' => true, 'source' => self::class]),
                 ]
             );
 
@@ -820,6 +820,8 @@ class DataDummySiswaSeeder extends Seeder
                         'is_active' => true,
                         'tahun_masuk' => (string) (2024 - ($sIndex % 3)),
                         'metadata' => [
+                            'is_demo' => true,
+                            'source' => self::class,
                             'status' => 'Aktif',
                             'tahun_masuk' => (string) (2024 - ($sIndex % 3)),
                             'orang_tua' => [

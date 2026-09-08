@@ -80,23 +80,29 @@ class Notification extends Model
      */
     public static function deliver(string $userId, string $title, string $body, string $channel, array $metadata = []): ?self
     {
-        $activeAy = AcademicYear::query()->where('is_active', true)->first();
-        $activeSem = $activeAy
-            ? Semester::query()
-                ->where('academic_year_id', $activeAy->id)
-                ->where('is_active', true)
-                ->orderBy('sequence', 'desc')
-                ->first()
-            : null;
+        $context = \Illuminate\Support\Facades\Cache::remember('active_academic_context', 300, function () {
+            $activeAy = AcademicYear::query()->where('is_active', true)->first();
+            $activeSem = $activeAy
+                ? Semester::query()
+                    ->where('academic_year_id', $activeAy->id)
+                    ->where('is_active', true)
+                    ->orderBy('sequence', 'desc')
+                    ->first()
+                : null;
+            return [
+                'ay_id' => $activeAy?->id,
+                'sem_id' => $activeSem?->id,
+            ];
+        });
 
-        if (! $activeAy || ! $activeSem) {
+        if (! ($context['ay_id'] ?? null) || ! ($context['sem_id'] ?? null)) {
             return null;
         }
 
         return static::create([
             'id' => (string) \Illuminate\Support\Str::uuid(),
-            'academic_year_id' => $activeAy->id,
-            'semester_id' => $activeSem->id,
+            'academic_year_id' => $context['ay_id'],
+            'semester_id' => $context['sem_id'],
             'month' => now()->month,
             'notifiable_id' => $userId,
             'notifiable_type' => User::class,

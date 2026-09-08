@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 
 class MutabaahDailyService
 {
+    public function __construct(private readonly MutabaahAssessmentService $assessment) {}
+
     public function assignments(User $user, string $date): Collection
     {
         $employeeId = Employee::query()->where('user_id', $user->id)->value('id');
@@ -119,7 +121,7 @@ class MutabaahDailyService
                     'numeric_value' => $data['numeric_value'] ?? null, 'text_value' => $data['text_value'] ?? null,
                     'notes' => $data['notes'] ?? null, 'input_by' => $user->id, 'input_at' => now()]
             );
-            $this->recalculate($header);
+            $this->assessment->recalculate($header);
 
             return $header->fresh('details');
         });
@@ -249,19 +251,6 @@ class MutabaahDailyService
                 'status' => 'draft', 'total_items' => $template->items->where('is_active', true)->count(),
                 'created_by' => $userId, 'updated_by' => $userId]
         );
-    }
-
-    private function recalculate(MutabaahDailyHeader $header): void
-    {
-        $counts = $header->details()->selectRaw('status_value, count(*) total')->groupBy('status_value')->pluck('total', 'status_value');
-        $total = max(1, $header->total_items);
-        $good = (int) ($counts['good'] ?? 0);
-        $less = (int) ($counts['less'] ?? 0);
-        $notDone = (int) ($counts['not_done'] ?? 0);
-        $na = (int) ($counts['na'] ?? 0);
-        $denominator = max(1, $total - $na);
-        $header->update(['good_count' => $good, 'less_count' => $less, 'not_done_count' => $notDone, 'na_count' => $na,
-            'score' => round((($good + ($less * .5)) / $denominator) * 100, 2)]);
     }
 
     private function assignmentData($item): array
