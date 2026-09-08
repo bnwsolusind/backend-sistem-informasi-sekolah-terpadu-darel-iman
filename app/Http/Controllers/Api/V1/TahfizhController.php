@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\QuranJuzHelper;
 use App\Models\QuranSurah;
+use App\Models\Student;
+use App\Services\TahfizhAchievementService;
 use App\Models\TahfizhDailyLog;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -103,6 +106,13 @@ class TahfizhController extends Controller
             'hafalan_ayah_end' => 'nullable|integer|min:1',
             'hafalan_baris' => 'nullable|integer',
 
+            // Tugas Murajaah di Rumah dari Guru
+            'murajaah_required' => 'nullable|boolean',
+            'murajaah_required_surah_number' => 'nullable|integer|between:1,114',
+            'murajaah_required_surah_name' => 'nullable|string',
+            'murajaah_required_ayah_start' => 'nullable|integer|min:1',
+            'murajaah_required_ayah_end' => 'nullable|integer|min:1',
+
             // Murajaah (Ortu input)
             'murajaah_text' => 'nullable|string',
             'murajaah_lembar' => 'nullable|numeric',
@@ -140,18 +150,70 @@ class TahfizhController extends Controller
                     ], 422);
                 }
             }
+
+            // Cegah melompat jika siswa masih ada kewajiban Murajaah Rumah yang belum diverifikasi
+            $activeMurajaah = TahfizhDailyLog::where('student_id', $validated['student_id'])
+                ->where('murajaah_required', true)
+                ->whereIn('murajaah_status', ['pending_home', 'submitted_by_parent'])
+                ->where('record_date', '!=', $validated['record_date'])
+                ->first();
+
+            if ($activeMurajaah) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Siswa memiliki kewajiban Murajaah di Rumah yang belum diverifikasi: Surah {$activeMurajaah->murajaah_required_surah_name} (Ayat {$activeMurajaah->murajaah_required_ayah_start}-{$activeMurajaah->murajaah_required_ayah_end}). Harap selesaikan dan verifikasi murajaah terlebih dahulu sebelum melanjutkan hafalan baru.",
+                ], 422);
+            }
         }
 
-        $log = TahfizhDailyLog::updateOrCreate(
-            [
-                'student_id' => $validated['student_id'],
-                'record_date' => $validated['record_date'],
-            ],
-            array_merge($validated, [
-                'day_name' => $validated['day_name'] ?? Carbon::parse($validated['record_date'])->locale('id')->isoFormat('dddd'),
-                'updated_at' => now(),
-            ])
-        );
+        // Kalkulasi Juz otomatis
+        $juzNumber = null;
+        if (!empty($validated['hafalan_surah_number']) && !empty($validated['hafalan_ayah_start'])) {
+            $juzNumber = QuranJuzHelper::getJuz((int) $validated['hafalan_surah_number'], (int) $validated['hafalan_ayah_start']);
+        }
+
+        $murajaahStatus = 'none';
+        if (!empty($validated['murajaah_required'])) {
+            $murajaahStatus = 'pending_home';
+        }
+
+        $existingLog = TahfizhDailyLog::where('student_id', $validated['student_id'])
+            ->where('record_date', $validated['record_date'])
+            ->where(function ($q) {
+                $q->whereNull('metadata->submitted_by_parent')
+                  ->orWhere('metadata->submitted_by_parent', false);
+            })
+            ->first();
+
+        $metadata = $existingLog && is_array($existingLog->metadata) ? $existingLog->metadata : [];
+        if ($juzNumber) {
+            $metadata['juz'] = $juzNumber;
+        }
+
+        $saveData = array_merge($validated, [
+            'day_name' => $validated['day_name'] ?? Carbon::parse($validated['record_date'])->locale('id')->isoFormat('dddd'),
+            'murajaah_status' => $murajaahStatus,
+            'metadata' => $metadata,
+            'status' => 'approved', // Setoran langsung dengan guru di sekolah berstatus approved
+            'updated_at' => now(),
+        ]);
+
+        if ($existingLog) {
+            $existingLog->update($saveData);
+            $log = $existingLog;
+        } else {
+            $log = TahfizhDailyLog::create($saveData);
+        }
+
+        // Sinkronisasi capaian per-ayat siswa
+        $student = Student::find($validated['student_id']);
+        if ($student) {
+            try {
+                app(TahfizhAchievementService::class)->synchronize($student);
+            } catch (\Throwable $e) {
+                // Ignore sync error if formula not found
+            }
+        }
 
         return response()->json([
             'status' => 'success',
@@ -359,5 +421,112 @@ class TahfizhController extends Controller
             'data' => $logs,
         ]);
     }
-}
 
+    /**
+     * Ambil data hafalan terakhir yang sah/terverifikasi untuk seorang siswa
+     * dan tentukan surah & rentang ayat kelanjutan otomatis berikutnya.
+     */
+    public function getLastHafalan(Request $request, string $studentId): JsonResponse
+    {
+        // 1. Cek apakah siswa memiliki tugas Murajaah di Rumah yang masih pending/belum diverifikasi
+        $pendingMurajaah = TahfizhDailyLog::where('student_id', $studentId)
+            ->where('murajaah_required', true)
+            ->whereIn('murajaah_status', ['pending_home', 'submitted_by_parent'])
+            ->orderByDesc('record_date')
+            ->first();
+
+        // 2. Cari log Ziyadah (Hafalan Baru) terakhir dari guru
+        $latestLog = TahfizhDailyLog::where('student_id', $studentId)
+            ->whereNotNull('hafalan_surah_number')
+            ->whereNotNull('hafalan_ayah_start')
+            ->whereNotNull('hafalan_ayah_end')
+            ->where(function ($q) {
+                $q->whereNull('metadata->submitted_by_parent')
+                  ->orWhere('metadata->submitted_by_parent', false);
+            })
+            ->where(function ($q) {
+                $q->whereNull('status')
+                  ->orWhereNotIn('status', ['rejected', 'needs_revision']);
+            })
+            ->orderByDesc('record_date')
+            ->orderByDesc('created_at')
+            ->first();
+
+        $allSurahs = QuranSurah::orderBy('nomor')->get()->keyBy('nomor');
+
+        if (! $latestLog) {
+            // Belum pernah setor hafalan: default mulai dari Surah 1 (Al-Fatihah) Ayat 1
+            $firstSurah = $allSurahs->get(1) ?? $allSurahs->first();
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'student_id' => $studentId,
+                    'is_first_hafalan' => true,
+                    'last_surah_number' => null,
+                    'last_surah_name' => null,
+                    'last_ayah_start' => null,
+                    'last_ayah_end' => null,
+                    'next_surah_number' => (int) ($firstSurah ? $firstSurah->nomor : 1),
+                    'next_surah_name' => $firstSurah ? ($firstSurah->nama_latin ?? $firstSurah->nama) : "Al-Fatihah",
+                    'next_surah_total_ayah' => (int) ($firstSurah ? $firstSurah->jumlah_ayat : 7),
+                    'next_ayah_start' => 1,
+                    'next_juz_number' => 1,
+                    'is_ayah_start_locked' => true,
+                    'has_pending_murajaah' => (bool) $pendingMurajaah,
+                    'pending_murajaah_info' => $pendingMurajaah ? [
+                        'id' => $pendingMurajaah->id,
+                        'surah_number' => $pendingMurajaah->murajaah_required_surah_number,
+                        'surah_name' => $pendingMurajaah->murajaah_required_surah_name,
+                        'ayah_start' => $pendingMurajaah->murajaah_required_ayah_start,
+                        'ayah_end' => $pendingMurajaah->murajaah_required_ayah_end,
+                        'status' => $pendingMurajaah->murajaah_status,
+                    ] : null,
+                ],
+            ]);
+        }
+
+        $lastSurahNum = (int) $latestLog->hafalan_surah_number;
+        $lastAyahEnd = (int) $latestLog->hafalan_ayah_end;
+        $currentSurah = $allSurahs->get($lastSurahNum);
+        $totalAyatCurrent = $currentSurah ? (int) $currentSurah->jumlah_ayat : 7;
+
+        $nextSurahNum = $lastSurahNum;
+        $nextAyahStart = $lastAyahEnd + 1;
+
+        // Jika surah saat ini sudah tamat (ayat terakhir >= total ayat surah)
+        if ($nextAyahStart > $totalAyatCurrent) {
+            $nextSurahNum = min(114, $lastSurahNum + 1);
+            $nextAyahStart = 1;
+        }
+
+        $targetNextSurah = $allSurahs->get($nextSurahNum) ?? $currentSurah;
+        $nextJuz = QuranJuzHelper::getJuz($nextSurahNum, $nextAyahStart);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'student_id' => $studentId,
+                'is_first_hafalan' => false,
+                'last_surah_number' => $lastSurahNum,
+                'last_surah_name' => $latestLog->hafalan_surah_name,
+                'last_ayah_start' => (int) $latestLog->hafalan_ayah_start,
+                'last_ayah_end' => $lastAyahEnd,
+                'next_surah_number' => $nextSurahNum,
+                'next_surah_name' => $targetNextSurah ? ($targetNextSurah->nama_latin ?? $targetNextSurah->nama) : "Surah {$nextSurahNum}",
+                'next_surah_total_ayah' => $targetNextSurah ? (int) $targetNextSurah->jumlah_ayat : 286,
+                'next_ayah_start' => $nextAyahStart,
+                'next_juz_number' => $nextJuz,
+                'is_ayah_start_locked' => true,
+                'has_pending_murajaah' => (bool) $pendingMurajaah,
+                'pending_murajaah_info' => $pendingMurajaah ? [
+                    'id' => $pendingMurajaah->id,
+                    'surah_number' => $pendingMurajaah->murajaah_required_surah_number,
+                    'surah_name' => $pendingMurajaah->murajaah_required_surah_name,
+                    'ayah_start' => $pendingMurajaah->murajaah_required_ayah_start,
+                    'ayah_end' => $pendingMurajaah->murajaah_required_ayah_end,
+                    'status' => $pendingMurajaah->murajaah_status,
+                ] : null,
+            ],
+        ]);
+    }
+}
