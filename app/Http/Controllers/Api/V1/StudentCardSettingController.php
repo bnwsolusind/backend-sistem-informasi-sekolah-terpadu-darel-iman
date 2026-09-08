@@ -24,6 +24,24 @@ class StudentCardSettingController extends Controller
             ->latest('updated_at')
             ->first();
 
+        // If no user-specific setting, fallback to unit setting, then default setting, then latest setting
+        if (! $setting && $unitId) {
+            $setting = StudentCardSetting::query()
+                ->where('education_unit_id', $unitId)
+                ->latest('updated_at')
+                ->first();
+        }
+
+        if (! $setting) {
+            $setting = StudentCardSetting::query()
+                ->where('is_default', true)
+                ->latest('updated_at')
+                ->first()
+                ?? StudentCardSetting::query()
+                    ->latest('updated_at')
+                    ->first();
+        }
+
         return response()->json(['data' => $setting]);
     }
 
