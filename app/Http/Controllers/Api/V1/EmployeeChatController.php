@@ -108,6 +108,7 @@ class EmployeeChatController extends Controller
             ->whereNull('student_id')
             ->where(fn ($q) => $q->where('sender_user_id', $user->id)->orWhere('recipient_user_id', $user->id))
             ->orderBy('created_at', 'desc')
+            ->take(1000)
             ->get()
             ->groupBy(function ($msg) use ($user) {
                 return (string) ($msg->sender_user_id === $user->id ? $msg->recipient_user_id : $msg->sender_user_id);
@@ -176,29 +177,33 @@ class EmployeeChatController extends Controller
         }
         $userId = $user->id;
 
-        // 1. Fetch group conversations from conversations table
+        // 1. Fetch group conversations in batch (Zero N+1)
         $groupConversations = Conversation::query()
             ->with(['participants.user'])
+            ->withCount('participants')
             ->whereHas('participants', fn ($q) => $q->where('user_id', $userId))
             ->get();
 
-        $groupsData = $groupConversations->map(function ($conv) use ($userId) {
-            $lastMsg = PortalMessage::query()
-                ->where('conversation_id', $conv->id)
-                ->orderBy('created_at', 'desc')
-                ->first();
+        $groupConvIds = $groupConversations->pluck('id')->toArray();
+        $groupLastMsgs = PortalMessage::query()
+            ->whereIn('conversation_id', $groupConvIds)
+            ->orderBy('created_at', 'desc')
+            ->get(['conversation_id', 'message', 'created_at']);
 
-            $participant = ConversationParticipant::where('conversation_id', $conv->id)
-                ->where('user_id', $userId)
-                ->first();
+        $groupLastMsgMap = [];
+        foreach ($groupLastMsgs as $gm) {
+            if (! isset($groupLastMsgMap[$gm->conversation_id])) {
+                $groupLastMsgMap[$gm->conversation_id] = $gm;
+            }
+        }
+
+        $groupsData = $groupConversations->map(function ($conv) use ($userId, $groupLastMsgMap) {
+            $lastMsg = $groupLastMsgMap[$conv->id] ?? null;
+            $participant = $conv->participants->firstWhere('user_id', $userId);
 
             $unreadCount = 0;
-            if ($participant?->last_read_at) {
-                $unreadCount = PortalMessage::query()
-                    ->where('conversation_id', $conv->id)
-                    ->where('created_at', '>', $participant->last_read_at)
-                    ->where('sender_user_id', '!=', $userId)
-                    ->count();
+            if ($participant?->last_read_at && $lastMsg && $lastMsg->created_at > $participant->last_read_at) {
+                $unreadCount = 1;
             }
 
             return [
@@ -206,7 +211,7 @@ class EmployeeChatController extends Controller
                 'type' => 'group',
                 'name' => $conv->name ?? 'Grup Sekolah',
                 'avatar' => $conv->avatar,
-                'members_count' => $conv->participants()->count(),
+                'members_count' => $conv->participants_count ?? $conv->participants->count(),
                 'last_message' => $lastMsg?->message,
                 'last_message_at' => $lastMsg?->created_at?->toIso8601String() ?? $conv->created_at->toIso8601String(),
                 'unread_count' => $unreadCount,
@@ -215,12 +220,12 @@ class EmployeeChatController extends Controller
             ];
         });
 
-        // 2. Fetch direct conversations from portal_messages
+        // 2. Fetch direct conversations from portal_messages (including parent-to-teacher messages)
         $messages = PortalMessage::query()
-            ->with(['sender:id,name,email', 'recipient:id,name,email'])
-            ->whereNull('student_id')
+            ->with(['sender.roles', 'recipient.roles', 'student:id,full_name'])
             ->where(fn ($q) => $q->where('sender_user_id', $userId)->orWhere('recipient_user_id', $userId))
             ->orderBy('created_at', 'desc')
+            ->take(500)
             ->get();
 
         $allOtherUserIds = $messages->map(function ($msg) use ($userId) {
@@ -237,7 +242,6 @@ class EmployeeChatController extends Controller
 
         $unreadCountsMap = DB::table('portal_messages')
             ->select('sender_user_id', DB::raw('count(*) as total'))
-            ->whereNull('student_id')
             ->whereIn('sender_user_id', $allOtherUserIds)
             ->where('recipient_user_id', $userId)
             ->whereNull('read_at')
@@ -254,16 +258,25 @@ class EmployeeChatController extends Controller
                 $unreadCount = (int) ($unreadCountsMap->get($otherUserId) ?? 0);
                 $presence = $presenceMap[(string) $otherUserId] ?? ['status' => 'offline', 'is_online' => false];
 
+                $isParentContact = ! $employee && ($msg->student_id || ($otherUser && $otherUser->roles->contains(fn ($r) => in_array($r->name, ['Orang Tua', 'Parent', 'Wali Murid']))));
+                $posName = $employee?->position?->name
+                    ?? ($msg->student ? ('Wali dari ' . $msg->student->full_name) : ($isParentContact ? 'Orang Tua Murid' : 'Staf/Pegawai'));
+                $roleLabel = $employee?->position?->name ?? ($isParentContact ? 'Orang Tua Murid' : 'Pegawai');
+
                 $groupedDirect[$otherUserId] = [
                     'id' => $otherUserId,
                     'user_id' => $otherUserId,
                     'type' => 'direct',
-                    'name' => $employee?->nama_lengkap ?? $otherUser?->name ?? 'Pegawai',
-                    'position_name' => $employee?->position?->name ?? 'Staf/Pegawai',
+                    'name' => $employee?->nama_lengkap ?? $otherUser?->name ?? ($isParentContact ? 'Orang Tua Murid' : 'Pegawai'),
+                    'parent_name' => $otherUser?->name,
+                    'student_id' => $msg->student_id,
+                    'student_name' => $msg->student?->full_name,
+                    'position_name' => $posName,
                     'unit_name' => $employee?->unit?->name ?? '-',
                     'division_name' => $employee?->division?->name ?? '-',
-                    'role' => $employee?->position?->name ?? 'Pegawai',
-                    'foto' => $employee?->foto,
+                    'role' => $roleLabel,
+                    'foto' => $employee?->foto ?? $otherUser?->avatar_url,
+                    'photo' => $employee?->foto ?? $otherUser?->avatar_url,
                     'last_message' => $msg->message,
                     'last_message_at' => $msg->created_at?->toIso8601String(),
                     'unread_count' => $unreadCount,
@@ -296,17 +309,23 @@ class EmployeeChatController extends Controller
         }
         $userId = $user->id;
 
-        // Mark unread messages as read
-        PortalMessage::query()
-            ->whereNull('student_id')
+        // Mark unread messages as read only if unread messages exist
+        $hasUnread = PortalMessage::query()
             ->where('sender_user_id', $recipientUserId)
             ->where('recipient_user_id', $userId)
             ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+            ->exists();
+
+        if ($hasUnread) {
+            PortalMessage::query()
+                ->where('sender_user_id', $recipientUserId)
+                ->where('recipient_user_id', $userId)
+                ->whereNull('read_at')
+                ->update(['read_at' => now()]);
+        }
 
         $messages = PortalMessage::query()
-            ->with(['sender:id,name,email', 'recipient:id,name,email'])
-            ->whereNull('student_id')
+            ->with(['sender:id,name,email', 'recipient:id,name,email', 'attachments'])
             ->where(function ($q) use ($userId, $recipientUserId) {
                 $q->where(fn ($q2) => $q2->where('sender_user_id', $userId)->where('recipient_user_id', $recipientUserId))
                   ->orWhere(fn ($q2) => $q2->where('sender_user_id', $recipientUserId)->where('recipient_user_id', $userId));
@@ -363,8 +382,9 @@ class EmployeeChatController extends Controller
     public function sendEmployeeMessage(Request $request, string $recipientUserId): JsonResponse
     {
         $request->validate([
-            'message' => 'required|string|max:5000',
+            'message' => 'required_without:attachment|nullable|string|max:5000',
             'reply_to_message_id' => 'nullable|uuid',
+            'attachment' => 'nullable|file|max:10240',
         ]);
 
         $user = $request->user();
@@ -377,14 +397,33 @@ class EmployeeChatController extends Controller
             return response()->json(['success' => false, 'message' => 'Penerima tidak ditemukan.'], 404);
         }
 
+        $existingStudentId = PortalMessage::query()
+            ->where(fn ($q) => $q->where('sender_user_id', $recipientUserId)->orWhere('recipient_user_id', $recipientUserId))
+            ->whereNotNull('student_id')
+            ->latest()
+            ->value('student_id');
+
         $message = PortalMessage::query()->create([
             'id' => (string) Str::uuid(),
-            'student_id' => null,
+            'student_id' => $existingStudentId,
             'sender_user_id' => $user->id,
             'recipient_user_id' => $recipientUserId,
-            'message' => trim($request->input('message')),
+            'message' => trim((string) ($request->input('message') ?? '')),
             'reply_to_message_id' => $request->input('reply_to_message_id'),
         ]);
+
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $path = $file->store('chat/attachments', 'public');
+            \AppModels\PortalMessageAttachment::create([
+                'message_id' => $message->id,
+                'disk' => 'public',
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType() ?: $file->getMimeType() ?: 'application/octet-stream',
+                'file_size' => $file->getSize(),
+            ]);
+        }
 
         try {
             Notification::deliver(
@@ -402,7 +441,7 @@ class EmployeeChatController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Pesan berhasil dikirim.',
-            'data' => $message->load(['sender:id,name', 'recipient:id,name']),
+            'data' => $message->load(['sender:id,name', 'recipient:id,name', 'attachments']),
         ]);
     }
 
