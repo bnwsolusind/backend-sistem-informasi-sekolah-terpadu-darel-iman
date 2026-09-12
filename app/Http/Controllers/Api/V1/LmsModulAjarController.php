@@ -421,17 +421,31 @@ class LmsModulAjarController extends Controller
     {
         return $user->hasAnyRole([
             'Super Admin',
+            'super_admin',
             'Yayasan',
             'Ketua Yayasan',
             'ketua_yayasan',
             'sekretaris_yayasan',
+            'Sekretaris Yayasan',
             'bendahara_yayasan',
+            'Bendahara Yayasan',
             'pengurus_yayasan',
+            'Pengurus Yayasan',
+            'Kepala Bidang Pendidikan',
+            'Divisi Pendidikan',
+            'divisi_pendidikan',
+            'Divisi Kurikulum',
+            'Admin',
+            'admin',
         ]);
     }
 
     private function isTeacher(User $user): bool
     {
+        if ($this->canAccessAllUnits($user) || $user->hasAnyRole(['Kepala Sekolah', 'kepala_sekolah', 'Waka Kurikulum', 'waka_kurikulum', 'Tata Usaha', 'tata_usaha'])) {
+            return false;
+        }
+
         return $user->hasAnyRole([
             'Guru',
             'guru',

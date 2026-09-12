@@ -445,6 +445,20 @@ class DataDummyUnitPendidikanSeeder extends Seeder
                     ->first() ?? $jenisUnits->first();
             }
 
+            $lvl = strtolower($unit['level']);
+            $logoUrl = match (true) {
+                str_contains($lvl, 'tk') => '/assets/logos/tkit.svg',
+                str_contains($lvl, 'taud') => '/assets/logos/taud.svg',
+                str_contains($lvl, 'sd') => '/assets/logos/sdit.svg',
+                str_contains($lvl, 'mit') => '/assets/logos/mit.svg',
+                str_contains($lvl, 'smp') => '/assets/logos/smpit.svg',
+                str_contains($lvl, 'sma') => '/assets/logos/smait.svg',
+                str_contains($lvl, 'ponpes') || str_contains($lvl, 'ma') => '/assets/logos/ponpes.svg',
+                str_contains($lvl, 'mahad') => '/assets/logos/mahad.svg',
+                default => '/assets/logos/smait.svg',
+            };
+            $unit['metadata']['logo_url'] = $unit['metadata']['logo_url'] ?? $logoUrl;
+
             EducationUnit::query()->updateOrCreate(
                 ['code' => $unit['code']],
                 array_merge($unit, [

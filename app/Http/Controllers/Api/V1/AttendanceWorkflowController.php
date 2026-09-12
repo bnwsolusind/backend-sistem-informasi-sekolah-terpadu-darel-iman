@@ -212,6 +212,10 @@ class AttendanceWorkflowController extends Controller
         }
         $query->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('schedule_id'), fn ($q) => $q->where('schedule_id', $request->string('schedule_id')))
+            ->when($request->filled('class_id') || $request->filled('kelas_id'), function ($q) use ($request) {
+                $classId = $request->input('class_id') ?: $request->input('kelas_id');
+                $q->whereHas('schedule', fn ($sq) => $sq->where('kelas_id', $classId));
+            })
             ->when($request->filled('date_from'), fn ($q) => $q->whereDate('attendance_date', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn ($q) => $q->whereDate('attendance_date', '<=', $request->date('date_to')));
 

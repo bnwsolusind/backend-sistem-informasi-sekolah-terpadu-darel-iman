@@ -31,6 +31,8 @@ class LmsMateriService
         if ($file) {
             $path = $file->store('materi_files', 'public');
             $data['file'] = $path;
+        } elseif (!empty($data['file_url'])) {
+            $data['file'] = $data['file_url'];
         }
 
         if (empty($data['tipe'])) {
@@ -78,11 +80,13 @@ class LmsMateriService
         }
 
         if ($file) {
-            if ($existing->file && Storage::disk('public')->exists($existing->file)) {
+            if ($existing->file && !str_starts_with($existing->file, 'http') && !str_starts_with($existing->file, '/storage/') && Storage::disk('public')->exists($existing->file)) {
                 Storage::disk('public')->delete($existing->file);
             }
             $path = $file->store('materi_files', 'public');
             $data['file'] = $path;
+        } elseif (array_key_exists('file_url', $data) && !empty($data['file_url'])) {
+            $data['file'] = $data['file_url'];
         }
 
         $updated = $this->materiRepository->update($id, $data);

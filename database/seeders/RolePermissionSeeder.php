@@ -797,6 +797,7 @@ class RolePermissionSeeder extends Seeder
             $rolePermissionMap[$roleName] = array_values(array_unique(array_merge(
                 $rolePermissionMap[$roleName] ?? ['dashboard.view'],
                 $teacherPortalCommon,
+                $teacherAcademicPermissions,
                 ['teacher.tahfizh.view', 'teacher.tahfizh.create', 'teacher.tahfizh.update',
                     'teacher.mutabaah.view', 'teacher.mutabaah.create', 'teacher.mutabaah.update'],
             )));

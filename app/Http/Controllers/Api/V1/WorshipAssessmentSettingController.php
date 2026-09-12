@@ -95,6 +95,36 @@ class WorshipAssessmentSettingController extends Controller
         return response()->json(['data' => MutabaahInputRule::create($data)], 201);
     }
 
+    public function destroyProgram(Request $request, string $id): JsonResponse
+    {
+        $this->manage($request);
+        $program = EducationProgramSetting::findOrFail($id);
+        $this->assertUnit($request, $program->education_unit_id, $program->class_id);
+        $program->delete();
+        return response()->json(['message' => 'Program berhasil dihapus.']);
+    }
+
+    public function destroyPeriod(Request $request, string $id): JsonResponse
+    {
+        $this->manage($request);
+        $period = MutabaahAssessmentPeriod::findOrFail($id);
+        if ($period->scope !== 'global') {
+            $this->assertUnit($request, $period->education_unit_id ?? '', $period->class_id);
+        } else {
+            abort_unless($this->scope->hasGlobalScope($request->user()), 403);
+        }
+        $period->delete();
+        return response()->json(['message' => 'Periode berhasil dihapus.']);
+    }
+
+    public function destroyRule(Request $request, string $id): JsonResponse
+    {
+        $this->manage($request);
+        $rule = MutabaahInputRule::findOrFail($id);
+        $rule->delete();
+        return response()->json(['message' => 'Aturan berhasil dihapus.']);
+    }
+
     private function manage(Request $request): void { abort_unless($request->user()->can('worship_assessment.setting.manage'), 403); }
     private function assertUnit(Request $request, string $unitId, ?string $classId): void
     {

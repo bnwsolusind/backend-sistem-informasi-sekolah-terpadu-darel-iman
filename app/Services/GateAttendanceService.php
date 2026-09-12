@@ -352,15 +352,18 @@ class GateAttendanceService
             }
         }
 
-        // Global fallback setting from SiteSetting or hardcoded default
-        $globalSetting = SiteSetting::where('key', 'gate_schedule_default')->first();
-        if ($globalSetting && is_array($globalSetting->value)) {
-            return array_merge([
-                'jam_masuk' => '07:15',
-                'toleransi_menit' => 10,
-                'jam_pulang' => '14:15',
-                'jam_cutoff_alpha' => '12:00',
-            ], $globalSetting->value);
+        // Global fallback setting from school_settings or hardcoded default
+        $globalSetting = \Illuminate\Support\Facades\DB::table('school_settings')->where('setting_key', 'gate_schedule_default')->first();
+        if ($globalSetting && !empty($globalSetting->setting_value)) {
+            $parsed = is_string($globalSetting->setting_value) ? json_decode($globalSetting->setting_value, true) : $globalSetting->setting_value;
+            if (is_array($parsed)) {
+                return array_merge([
+                    'jam_masuk' => '07:00',
+                    'toleransi_menit' => 15,
+                    'jam_pulang' => '16:00',
+                    'jam_cutoff_alpha' => '12:00',
+                ], $parsed);
+            }
         }
 
         return [

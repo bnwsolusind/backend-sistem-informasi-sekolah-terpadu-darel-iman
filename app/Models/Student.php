@@ -12,7 +12,13 @@ class Student extends Model
 {
     use HasFactory, HasPersonPhoto, HasUuidPrimaryKey, SoftDeletes;
 
-    protected $appends = ['photo_url', 'avatar_url'];
+    protected $appends = [
+        'photo_url',
+        'avatar_url',
+        'nama_lengkap',
+        'name',
+        'nama',
+    ];
 
     protected $fillable = [
         'user_id',

@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
 
         // All records below are development/acceptance fixtures. Never seed
         // them through the production DatabaseSeeder.
-        if (! app()->environment(['local', 'development', 'testing'])) {
+        if (! app()->environment(['local', 'development', 'testing', 'staging'])) {
             return;
         }
 
@@ -53,9 +53,8 @@ class DatabaseSeeder extends Seeder
             LmsDiskusiSeeder::class,
             LmsPenugasanSeeder::class,
             LmsPengumpulanTugasSeeder::class,
-            LmsPresensiSeeder::class,
             PresensiPembelajaranSeeder::class,
-            Step04DemoSeeder::class,
+            LmsKisiKisiSeeder::class,
             LmsBankSoalSeeder::class,
             LmsUjianSeeder::class,
             LmsPenilaianSeeder::class,
@@ -78,9 +77,20 @@ class DatabaseSeeder extends Seeder
             TahfizhSeeder::class,
         ]);
 
-        if (app()->environment(['local', 'development', 'testing'])) {
-            $this->call(StudentMutationSeeder::class);
+        if (app()->environment(['local', 'development', 'testing', 'staging'])) {
             $this->call(RekapPrestasiSiswaSeeder::class);
+            $this->call(SimulasiTerpadu2026Seeder::class);
+            $this->call(SimulasiSiswaSemuaKelasSeeder::class);
+            $this->call(MateriBelajarTahunanSeeder::class);
+            $this->call(LmsMediaSemesterDinamisSeeder::class);
+            $this->call(TugasSemesterDinamisSeeder::class);
+            $this->call(CapaianPembelajaranSeeder::class);
+            $this->call(WorkspaceGuruSimulasiSeeder::class);
+            $this->call(SimulasiTahunanRamadhanSeeder::class);
+            $this->call(PresensiAwalJuli2026Seeder::class);
+            $this->call(JadwalPonpesIkhwan2026Seeder::class);
+            $this->call(JadwalSditFullDay2026Seeder::class);
+            $this->call(AlumniDanMutasiSeeder::class);
         }
     }
 }

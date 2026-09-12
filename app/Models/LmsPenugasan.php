@@ -23,6 +23,8 @@ class LmsPenugasan extends Model
         'semester_id',
         'tahun_ajaran_id',
         'modul_ajar_id',
+        'materi_id',
+        'materi_ids',
         'judul_tugas',
         'deskripsi',
         'instruksi',
@@ -45,6 +47,18 @@ class LmsPenugasan extends Model
         'status',
     ];
 
+    protected $appends = [
+        'judul',
+        'bobot',
+        'status',
+        'subject_id',
+        'teacher_id',
+        'file_lampiran_url',
+        'soal_manual',
+        'class_id',
+        'materials',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -54,6 +68,7 @@ class LmsPenugasan extends Model
             'is_published' => 'boolean',
             'tanggal_mulai' => 'datetime',
             'deadline' => 'datetime',
+            'materi_ids' => 'array',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
@@ -132,6 +147,11 @@ class LmsPenugasan extends Model
         return $this->attributes['guru_id'] ?? null;
     }
 
+    public function getClassIdAttribute(): ?string
+    {
+        return $this->attributes['kelas_id'] ?? null;
+    }
+
     public function setSubjectIdAttribute($value): void
     {
         $this->attributes['mata_pelajaran_id'] = $value;
@@ -155,6 +175,11 @@ class LmsPenugasan extends Model
     public function modulAjar(): BelongsTo
     {
         return $this->belongsTo(LmsModulAjar::class, 'modul_ajar_id');
+    }
+
+    public function materi(): BelongsTo
+    {
+        return $this->belongsTo(LmsMateri::class, 'materi_id');
     }
 
     public function creator(): BelongsTo
@@ -216,4 +241,40 @@ class LmsPenugasan extends Model
             $this->attributes['is_published'] = false;
         }
     }
+
+    public function getFileLampiranUrlAttribute(): ?string
+    {
+        if (! $this->file_lampiran) {
+            return null;
+        }
+        if (str_starts_with($this->file_lampiran, 'http://') || str_starts_with($this->file_lampiran, 'https://')) {
+            return $this->file_lampiran;
+        }
+        return url('storage/' . ltrim($this->file_lampiran, '/'));
+    }
+
+    public function getSoalManualAttribute(): ?string
+    {
+        return $this->deskripsi;
+    }
+
+    public function getMaterialsAttribute(): array
+    {
+        $ids = $this->materi_ids;
+        if (! is_array($ids)) {
+            $ids = [];
+        }
+        if ($this->materi_id && ! in_array($this->materi_id, $ids)) {
+            array_unshift($ids, $this->materi_id);
+        }
+        if (empty($ids)) {
+            return [];
+        }
+
+        return LmsMateri::query()
+            ->whereIn('id', $ids)
+            ->get()
+            ->toArray();
+    }
 }
+

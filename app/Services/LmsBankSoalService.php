@@ -138,18 +138,21 @@ class LmsBankSoalService
 
     public function opsi(): array
     {
-        $kisiKisiList = LmsKisiKisi::with(['subject:id,name', 'kelas:id,nama_kelas'])
+        $kisiKisiList = LmsKisiKisi::with(['subject:id,name,unit_pendidikan_id', 'kelas:id,nama_kelas,unit_pendidikan_id'])
             ->where('status', true)
             ->orderBy('judul_kisi', 'asc')
-            ->get(['id', 'judul_kisi', 'jenis_ujian', 'mata_pelajaran_id', 'kelas_id'])
+            ->get(['id', 'judul_kisi', 'jenis_ujian', 'mata_pelajaran_id', 'kelas_id', 'jumlah_soal', 'alokasi_waktu_menit'])
             ->map(function ($k) {
                 return [
                     'id' => $k->id,
                     'judul_kisi' => $k->judul_kisi,
                     'jenis_ujian' => $k->jenis_ujian,
                     'mata_pelajaran_id' => $k->mata_pelajaran_id,
+                    'unit_pendidikan_id' => $k->subject->unit_pendidikan_id ?? $k->kelas->unit_pendidikan_id ?? null,
                     'subject_name' => $k->subject->name ?? '',
                     'kelas_name' => $k->kelas->nama_kelas ?? '',
+                    'jumlah_soal' => (int) ($k->jumlah_soal ?? 0),
+                    'alokasi_waktu_menit' => (int) ($k->alokasi_waktu_menit ?? 0),
                 ];
             });
 

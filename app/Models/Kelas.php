@@ -27,6 +27,10 @@ class Kelas extends Model
 
     protected $table = 'tbl_kelas';
 
+    protected $appends = ['name'];
+
+    public function getNameAttribute(): ?string { return $this->attributes['nama_kelas'] ?? null; }
+
     protected $fillable = [
         'yayasan_id',
         'unit_pendidikan_id',

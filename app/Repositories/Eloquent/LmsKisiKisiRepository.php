@@ -55,7 +55,7 @@ class LmsKisiKisiRepository implements LmsKisiKisiRepositoryInterface
             'semester',
             'tahunAjaran',
             'guru',
-        ]);
+        ])->withCount(['bankSoal', 'ujian']);
 
         $this->applyTeacherScope($query);
 

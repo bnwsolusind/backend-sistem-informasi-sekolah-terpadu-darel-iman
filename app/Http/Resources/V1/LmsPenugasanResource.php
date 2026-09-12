@@ -35,6 +35,7 @@ class LmsPenugasanResource extends JsonResource
             'izin_kumpul_terlambat' => (bool) $this->izin_kumpul_terlambat,
 
             // Relasi IDs
+            'materi_id' => $this->materi_id,
             'modul_ajar_id' => $this->modul_ajar_id,
             'mata_pelajaran_id' => $this->mata_pelajaran_id,
             'kelas_id' => $this->kelas_id,
@@ -43,6 +44,16 @@ class LmsPenugasanResource extends JsonResource
             'tahun_ajaran_id' => $this->tahun_ajaran_id,
 
             // Loaded Relations
+            'materi' => $this->relationLoaded('materi') && $this->materi ? [
+                'id' => $this->materi->id,
+                'judul' => $this->materi->judul,
+                'tipe' => $this->materi->tipe,
+                'ringkasan' => $this->materi->ringkasan,
+                'link' => $this->materi->link,
+                'file' => $this->materi->file,
+                'video' => $this->materi->video,
+            ] : null,
+
             'modul_ajar' => $this->relationLoaded('modulAjar') && $this->modulAjar ? [
                 'id' => $this->modulAjar->id,
                 'judul' => $this->modulAjar->judul_modul ?? $this->modulAjar->judul ?? 'Modul Ajar',

@@ -173,6 +173,14 @@ class FoundationDashboardController extends Controller
             $query->where('unit_id', $request->query('unit_id'));
         }
 
+        $classId = $request->query('class_id') ?? $request->query('kelas_id');
+        if ($classId && $classId !== 'all') {
+            $query->where(function ($q) use ($classId) {
+                $q->where('kelas_id', $classId)
+                  ->orWhere('class_id', $classId);
+            });
+        }
+
         if ($request->filled('academic_year_id') && $request->query('academic_year_id') !== 'all') {
             $ayId = $request->query('academic_year_id');
             $activeYear = AcademicYear::find($ayId);

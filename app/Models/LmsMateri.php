@@ -42,6 +42,14 @@ class LmsMateri extends Model
         'bobot',
     ];
 
+    protected $appends = [
+        'ringkasan',
+        'isi',
+        'status',
+        'subject_id',
+        'teacher_id',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -123,7 +131,7 @@ class LmsMateri extends Model
 
     public function getRingkasanAttribute()
     {
-        return $this->attributes['catatan'] ?? null;
+        return $this->attributes['konten'] ?? $this->attributes['catatan'] ?? null;
     }
 
     public function setIsiAttribute($value): void

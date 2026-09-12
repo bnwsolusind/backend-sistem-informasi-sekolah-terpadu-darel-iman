@@ -183,7 +183,14 @@ class AuthService
                 );
             }
 
-            if (! $student->is_active) {
+            $isAlumni = $user->hasAnyRole(['Alumni', 'alumni'])
+                || !empty($student->metadata['is_alumni'])
+                || ($student->metadata['status_siswa'] ?? '') === 'alumni'
+                || ($student->metadata['status_alumni'] ?? '') === 'alumni'
+                || ($student->metadata['status_alumni'] ?? '') === 'Lulus'
+                || ($student->metadata['status_alumni'] ?? '') === 'Tamat';
+
+            if (! $student->is_active && ! $isAlumni) {
                 $this->fail(
                     AuthLoginException::STUDENT_NOT_ACTIVE,
                     'Kredensial atau password/PIN tidak valid.',
@@ -197,7 +204,9 @@ class AuthService
             $token = $user->createToken($deviceName)->plainTextToken;
             $loginEvent = $this->logLoginEvent($user, 'student', $input, 'identifier_password', 'success', null, $ipAddress);
 
-            return $this->authResult($user, $token, $loginEvent, $user->hasAnyRole(['Alumni', 'alumni']) ? 'alumni' : 'student') + [
+            $targetPortal = ($isAlumni || $user->hasAnyRole(['Alumni', 'alumni'])) ? 'alumni' : 'student';
+
+            return $this->authResult($user, $token, $loginEvent, $targetPortal) + [
                 'student' => $student,
                 'children' => null,
             ];

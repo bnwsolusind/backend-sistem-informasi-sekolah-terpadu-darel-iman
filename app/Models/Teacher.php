@@ -35,6 +35,23 @@ class Teacher extends Model
         return $this->belongsTo(Employee::class, 'employee_id');
     }
 
+    public function educationUnit()
+    {
+        return $this->hasOneThrough(
+            EducationUnit::class,
+            Employee::class,
+            'id', // FK on employees table
+            'id', // FK on education_units table
+            'employee_id', // Local key on teachers table
+            'unit_id' // Local key on employees table
+        );
+    }
+
+    public function kelas()
+    {
+        return $this->hasMany(Kelas::class, 'wali_kelas_id', 'employee_id');
+    }
+
     protected function casts(): array
     {
         return [

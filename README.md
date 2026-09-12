@@ -29,6 +29,27 @@ php artisan key:generate
 php artisan migrate
 php artisan db:seed
 php artisan serve
+
+### Perintah Simulasi Data Akademik 1 Tahun (T.A. 2026/2027)
+Untuk menghasilkan data simulasi 1 tahun pelajaran penuh (Juli 2026 – Juli 2027) yang mencakup sesi mengajar, presensi gerbang, tugas LMS, nilai, e-rapor, tahfizh, mutabaah, dan tagihan SPP:
+
+```bash
+# Menjalankan seluruh simulasi data 1 tahun ajaran:
+php artisan simulate:academic-year-2026-2027 --module=all
+
+# Menjalankan per modul spesifik:
+php artisan simulate:academic-year-2026-2027 --module=schedules   # Sesi Mengajar Guru
+php artisan simulate:academic-year-2026-2027 --module=attendance  # Presensi Harian Siswa
+php artisan simulate:academic-year-2026-2027 --module=lms         # Materi & Penugasan LMS
+php artisan simulate:academic-year-2026-2027 --module=grades      # Rekap Nilai Siswa (student_grades)
+php artisan simulate:academic-year-2026-2027 --module=rapor       # Buku e-Rapor Digital
+php artisan simulate:academic-year-2026-2027 --module=tahfizh     # Setoran Hafalan Quran
+php artisan simulate:academic-year-2026-2027 --module=mutabaah    # Rekap Ibadah Harian
+php artisan simulate:academic-year-2026-2027 --module=finance     # Tagihan & Pembayaran SPP 12 Bulan
+
+# Membersihkan / Rollback data simulasi secara aman (hanya menghapus data bertanda is_simulation):
+php artisan simulate:academic-year-2026-2027 --rollback
+```
 2. Web Dashboard
 cd web-dashboard
 npm install

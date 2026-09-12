@@ -289,6 +289,21 @@ class AccessScopeService
                 ->orWhere('metadata->kepala_sekolah_id', $employee->id)
                 ->pluck('id');
             $unitIds = $unitIds->merge($metadataManagedUnits);
+
+            // Unit dari rombel yang diajar lewat jadwal atau di-walikelasi
+            $assignedClassUnitIds = Kelas::query()
+                ->where(function ($q) use ($employee, $user) {
+                    $q->where('wali_kelas_id', $employee->id)
+                      ->orWhereIn('id', ClassSchedule::query()
+                            ->where('employee_id', $employee->id)
+                            ->orWhere('teacher_id', $user->id)
+                            ->select('kelas_id')
+                            ->whereNotNull('kelas_id')
+                      );
+                })
+                ->pluck('unit_pendidikan_id')
+                ->filter();
+            $unitIds = $unitIds->merge($assignedClassUnitIds);
         }
 
         $userUnitId = data_get($user->metadata, 'education_unit_id')
@@ -336,7 +351,7 @@ class AccessScopeService
             'Divisi Program Khusus', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah',
             'Waka Kurikulum', 'waka_kurikulum', 'Waka Kesiswaan', 'waka_kesiswaan',
             'Tata Usaha', 'TU', 'tata_usaha', 'Guru BK', 'guru_bk',
-            'Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'musyrifah', 'Guru', 'guru',
+            'Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'musyrifah',
         ])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
             return Kelas::query()->whereIn('unit_pendidikan_id', $unitIds);
@@ -396,10 +411,19 @@ class AccessScopeService
             'Divisi Program Khusus', 'divisi_pendidikan', 'Kepala Sekolah', 'kepala_sekolah',
             'Waka Kesiswaan', 'waka_kesiswaan', 'Tata Usaha', 'TU', 'tata_usaha',
             'Guru BK', 'guru_bk',
-            'Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'musyrifah', 'Guru', 'guru',
         ])) {
             $unitIds = $this->accessibleEducationUnits($user)->pluck('id');
             return Student::query()->whereIn('unit_id', $unitIds);
+        }
+
+        if ($this->hasAnyRole($user, [
+            'Guru Tahfizh', 'guru_tahfizh', 'Musyrif', 'musyrif', 'Musyrifah', 'musyrifah', 'Guru', 'guru',
+        ])) {
+            $rombelIds = $this->accessibleRombels($user)->pluck('id');
+            return Student::query()->where(function ($query) use ($rombelIds) {
+                $query->whereIn('kelas_id', $rombelIds)
+                    ->orWhereIn('class_id', $rombelIds);
+            });
         }
 
         $employee = Employee::query()->where('user_id', $user->id)->first();

@@ -43,6 +43,21 @@ class LmsPengumpulanTugas extends Model
         ];
     }
 
+    protected $appends = [
+        'file_url',
+    ];
+
+    public function getFileUrlAttribute(): ?string
+    {
+        if (! $this->file_path) {
+            return null;
+        }
+        if (str_starts_with($this->file_path, 'http://') || str_starts_with($this->file_path, 'https://')) {
+            return $this->file_path;
+        }
+        return url('storage/' . ltrim($this->file_path, '/'));
+    }
+
     protected static function booted(): void
     {
         static::creating(function ($model) {
@@ -61,6 +76,11 @@ class LmsPengumpulanTugas extends Model
     public function penugasan(): BelongsTo
     {
         return $this->belongsTo(LmsPenugasan::class, 'penugasan_id');
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class, 'siswa_id');
     }
 
     public function siswa(): BelongsTo

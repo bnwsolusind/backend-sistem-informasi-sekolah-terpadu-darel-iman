@@ -49,6 +49,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
     {
         $query = LmsPenugasan::query()
             ->with([
+                'materi',
                 'modulAjar',
                 'guru',
                 'kelas',
@@ -112,6 +113,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
     public function findById(string $id): ?LmsPenugasan
     {
         return LmsPenugasan::with([
+            'materi',
             'modulAjar',
             'guru',
             'kelas',
@@ -126,7 +128,7 @@ class LmsPenugasanRepository implements LmsPenugasanRepositoryInterface
 
     public function getByModulAjarId(string $modulAjarId): Collection
     {
-        return LmsPenugasan::with(['guru', 'kelas', 'subject', 'pengumpulan'])
+        return LmsPenugasan::with(['materi', 'guru', 'kelas', 'subject', 'pengumpulan'])
             ->where('modul_ajar_id', $modulAjarId)
             ->orderBy('created_at', 'desc')
             ->get();

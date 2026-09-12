@@ -37,6 +37,11 @@ class ScheduleController extends Controller
             'semester',
         ]);
 
+        if ($request->filled('unit_pendidikan_id') || $request->filled('unit_id')) {
+            $unitId = $request->query('unit_pendidikan_id') ?: $request->query('unit_id');
+            $query->whereHas('kelas', fn ($q) => $q->where('unit_pendidikan_id', $unitId));
+        }
+
         if ($request->filled('kelas_id')) {
             $query->where('kelas_id', $request->query('kelas_id'));
         }
@@ -65,10 +70,6 @@ class ScheduleController extends Controller
             $query->where('semester_id', $request->query('semester_id'));
         }
 
-        if ($request->filled('day_of_week')) {
-            $query->where('day_of_week', (int) $request->query('day_of_week'));
-        }
-
         if ($request->filled('search')) {
             $search = trim((string) $request->query('search'));
             $query->where(function ($subQuery) use ($search) {
@@ -90,10 +91,20 @@ class ScheduleController extends Controller
             $query->where('is_active', true);
         }
 
+        $statsQuery = clone $query;
+
+        if ($request->filled('day_of_week')) {
+            $query->where('day_of_week', (int) $request->query('day_of_week'));
+        }
+
         $perPage = min(max((int) $request->query('per_page', 15), 1), 100);
         $data = $query->orderBy('day_of_week')->orderBy('time_start')->paginate($perPage);
 
-        $baseStatsQuery = $this->scopedQuery($request->user());
+        $perHari = (clone $statsQuery)
+            ->select('day_of_week', \Illuminate\Support\Facades\DB::raw('count(*) as count'))
+            ->groupBy('day_of_week')
+            ->pluck('count', 'day_of_week')
+            ->toArray();
 
         return response()->json([
             'status' => 'success',
@@ -108,10 +119,11 @@ class ScheduleController extends Controller
                 'total' => $data->total(),
             ],
             'statistik' => [
-                'total' => (clone $baseStatsQuery)->count(),
-                'aktif' => (clone $baseStatsQuery)->where('is_active', true)->count(),
-                'tidak_aktif' => (clone $baseStatsQuery)->where('is_active', false)->count(),
-                'guru_terjadwal' => (clone $baseStatsQuery)->whereNotNull('employee_id')->distinct('employee_id')->count('employee_id'),
+                'total' => (clone $statsQuery)->count(),
+                'aktif' => (clone $statsQuery)->where('is_active', true)->count(),
+                'tidak_aktif' => (clone $statsQuery)->where('is_active', false)->count(),
+                'guru_terjadwal' => (clone $statsQuery)->whereNotNull('employee_id')->distinct('employee_id')->count('employee_id'),
+                'per_hari' => $perHari,
             ],
         ]);
     }

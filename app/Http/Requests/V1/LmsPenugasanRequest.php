@@ -51,6 +51,7 @@ class LmsPenugasanRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'materi_id' => ['nullable', 'string', 'exists:lms_materi,id'],
             'modul_ajar_id' => ['nullable', 'string', 'exists:lms_modul_ajar,id'],
             'mata_pelajaran_id' => ['nullable', 'string', 'exists:subjects,id'],
             'kelas_id' => ['nullable', 'string', 'exists:tbl_kelas,id'],

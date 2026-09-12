@@ -39,7 +39,7 @@ class LmsMateriResource extends JsonResource
             'judul' => $this->judul,
             'tipe' => $this->tipe ?? $this->tipe_materi ?? 'teks',
             'isi' => $this->isi ?? $this->konten ?? null,
-            'file' => $this->file ? asset('storage/'.$this->file) : null,
+            'file' => $this->resolveFileUrl(),
             'file_raw' => $this->file,
             'video' => $this->video,
             'link' => $this->link,
@@ -61,5 +61,22 @@ class LmsMateriResource extends JsonResource
             'updated_at' => $this->updated_at?->toIso8601String(),
             'deleted_at' => $this->deleted_at?->toIso8601String(),
         ];
+    }
+
+    protected function resolveFileUrl(): ?string
+    {
+        if (empty($this->file)) {
+            return null;
+        }
+
+        if (str_starts_with($this->file, 'http://') || str_starts_with($this->file, 'https://')) {
+            return $this->file;
+        }
+
+        if (str_starts_with($this->file, '/storage/')) {
+            return url($this->file);
+        }
+
+        return asset('storage/' . ltrim($this->file, '/'));
     }
 }

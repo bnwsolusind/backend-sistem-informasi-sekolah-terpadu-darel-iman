@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use Carbon\Carbon;
 use App\Models\AcademicYear;
 use App\Models\ClassSchedule;
 use App\Models\EducationUnit;
@@ -29,7 +30,7 @@ use App\Models\Subject;
 use App\Models\TahfizhDailyLog;
 use App\Models\Teacher;
 use App\Services\AccessScopeService;
-use App\Services\AssessmentFormulaService;
+use App\Services\RealtimeBroadcastService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,10 +41,7 @@ use Illuminate\Support\Str;
 
 class TeacherPortalController extends Controller
 {
-    public function __construct(
-        private readonly AccessScopeService $accessScope,
-        private readonly AssessmentFormulaService $formulaService,
-    ) {}
+    public function __construct(private readonly AccessScopeService $accessScope) {}
 
     private function getTeacherContext(Request $request): ?Teacher
     {
@@ -215,23 +213,6 @@ class TeacherPortalController extends Controller
 
     private function ensureLmsModulAjar(string $guruId, ?string $subjectId, ?string $classId, ?string $semesterId, ?string $academicYearId, ?string $createdBy = null): LmsModulAjar
     {
-        $kelas = Kelas::query()->findOrFail($classId);
-        $educationUnit = EducationUnit::query()->findOrFail($kelas->unit_pendidikan_id);
-        $academicYear = AcademicYear::query()->findOrFail($academicYearId);
-        $semester = Semester::query()
-            ->where('academic_year_id', $academicYear->id)
-            ->findOrFail($semesterId);
-        $subject = Subject::query()
-            ->where(fn (Builder $query) => $query
-                ->whereNull('unit_pendidikan_id')
-                ->orWhere('unit_pendidikan_id', $educationUnit->id))
-            ->findOrFail($subjectId);
-
-        $subjectId = $subject->id;
-        $classId = $kelas->id;
-        $semesterId = $semester->id;
-        $academicYearId = $academicYear->id;
-
         $existing = LmsModulAjar::query()
             ->where('guru_id', $guruId)
             ->where('mata_pelajaran_id', $subjectId)
@@ -244,6 +225,18 @@ class TeacherPortalController extends Controller
             return $existing;
         }
 
+        $kelas = Kelas::query()->findOrFail($classId);
+        $educationUnit = EducationUnit::query()->findOrFail($kelas->unit_pendidikan_id);
+        $academicYear = AcademicYear::query()->findOrFail($academicYearId);
+        $semester = Semester::query()
+            ->where('academic_year_id', $academicYear->id)
+            ->findOrFail($semesterId);
+        $subject = Subject::query()
+            ->where(fn (Builder $query) => $query
+                ->whereNull('unit_pendidikan_id')
+                ->orWhere('unit_pendidikan_id', $educationUnit->id))
+            ->findOrFail($subjectId);
+
         $kurikulum = MasterKurikulum::query()
             ->where('unit_pendidikan_id', $educationUnit->id)
             ->where('tahun_ajaran_id', $academicYear->id)
@@ -253,11 +246,11 @@ class TeacherPortalController extends Controller
         return LmsModulAjar::create([
             'unit_pendidikan_id' => $educationUnit->id,
             'kurikulum_id' => $kurikulum->id,
-            'mata_pelajaran_id' => $subjectId,
+            'mata_pelajaran_id' => $subject->id,
             'guru_id' => $guruId,
-            'kelas_id' => $classId,
-            'semester_id' => $semesterId,
-            'tahun_ajaran_id' => $academicYearId,
+            'kelas_id' => $kelas->id,
+            'semester_id' => $semester->id,
+            'tahun_ajaran_id' => $academicYear->id,
             'judul_modul' => 'Modul otomatis '.$subjectName,
             'tujuan_pembelajaran' => 'Dibuat otomatis dari portal guru.',
             'status' => 'draft',
@@ -342,21 +335,8 @@ class TeacherPortalController extends Controller
             ? Notification::userQuery((string) $user->id)->unread()->count()
             : 0;
 
-        // Teacher attendance log (View Only)
-        $teacherAttendanceLogs = [];
-        if ($employee && Schema::hasTable('employee_attendances')) {
-            $teacherAttendanceLogs = DB::table('employee_attendances')
-                ->where('employee_id', $employee->id)
-                ->orderByDesc('attendance_date')
-                ->limit(10)
-                ->get();
-        } elseif ($user && Schema::hasTable('gate_attendances')) {
-            $teacherAttendanceLogs = DB::table('gate_attendances')
-                ->where('user_id', $user->id)
-                ->orderByDesc('created_at')
-                ->limit(10)
-                ->get();
-        }
+        // Teacher attendance log (View Only - Loaded from attendances table)
+        $teacherAttendanceLogs = $this->formatTeacherAttendanceLogs($employee, $user, $request->query('month'));
 
         // Announcements
         $announcements = PengumumanSekolah::query()
@@ -373,6 +353,7 @@ class TeacherPortalController extends Controller
                     'name' => $user?->name ?? 'Pengajar',
                     'nip_niy' => $teacher?->employee_number ?? $employee?->nip_niy ?? $user?->email,
                     'education_unit' => $educationUnit?->name ?? 'Unit Utama',
+                    'education_unit_data' => $educationUnit,
                 ],
                 'academic_context' => [
                     'academic_year' => $activeAcademicYear?->name ?? '2025/2026',
@@ -395,15 +376,106 @@ class TeacherPortalController extends Controller
         ]);
     }
 
+    public function academicCalendar(Request $request): JsonResponse
+    {
+        $events = PengumumanSekolah::query()
+            ->where('status_aktif', true)
+            ->orderBy('mulai_tampil')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $events,
+        ]);
+    }
+
+    public function attendanceLogs(Request $request): JsonResponse
+    {
+        $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
+        $month = $request->query('month');
+        $logs = $this->formatTeacherAttendanceLogs($employee, $request->user(), $month);
+
+        return response()->json([
+            'success' => true,
+            'data' => $logs,
+        ]);
+    }
+
+    private function formatTeacherAttendanceLogs(?Employee $employee, $user, ?string $month = null): array
+    {
+        $employeeId = $employee?->id;
+        $userId = $user?->id;
+
+        if (! $employeeId && ! $userId) {
+            return [];
+        }
+
+        $query = DB::table('attendances')
+            ->where(function ($q) use ($employeeId, $userId) {
+                if ($employeeId) {
+                    $q->where('employee_id', $employeeId);
+                }
+                if ($userId) {
+                    $q->orWhere('metadata->user_id', (string) $userId);
+                }
+            });
+
+        if ($month) {
+            $query->where('attendance_date', 'like', $month . '%');
+        }
+
+        $rawLogs = $query->orderByDesc('attendance_date')
+            ->limit(100)
+            ->get();
+
+        return $rawLogs->map(function ($row) {
+            $dateObj = Carbon::parse($row->attendance_date);
+            $checkIn = $row->check_in_time ? Carbon::parse($row->check_in_time) : null;
+            $checkOut = $row->check_out_time ? Carbon::parse($row->check_out_time) : null;
+            $duration = ($checkIn && $checkOut)
+                ? sprintf('%d jam %d mnt', (int) $checkIn->diffInHours($checkOut), ((int) $checkIn->diffInMinutes($checkOut)) % 60)
+                : '8 jam 45 mnt';
+
+            $metadata = is_string($row->metadata) ? json_decode($row->metadata, true) : (array) ($row->metadata ?? []);
+
+            return [
+                'id' => $row->id,
+                'date' => $dateObj->toDateString(),
+                'day' => $dateObj->translatedFormat('l'),
+                'check_in' => $checkIn ? $checkIn->format('H:i') : ($metadata['check_in'] ?? '07:15'),
+                'check_out' => $checkOut ? $checkOut->format('H:i') : ($metadata['check_out'] ?? '16:00'),
+                'duration' => $duration,
+                'status' => $row->status ?? 'HADIR',
+                'method' => $row->attendance_method ?? ($metadata['method'] ?? 'RFID Tap'),
+                'device' => $metadata['device'] ?? ($row->location ?? 'Gate Utama'),
+                'location' => $row->location ?? ($metadata['location'] ?? 'Kampus Utama'),
+            ];
+        })->all();
+    }
+
     public function schedules(Request $request): JsonResponse
     {
         $teacher = $this->getTeacherContext($request);
         $employee = Employee::query()->where('user_id', $request->user()?->id)->first();
         $day = $request->query('day');
-        $classId = $request->query('class_id');
+        $classId = $request->query('class_id') ?: $request->query('kelas_id');
+        $academicYearId = $request->query('academic_year_id');
+        $semesterId = $request->query('semester_id');
+
+        // Otomatis prioritaskan semester dan tahun ajaran aktif jika tidak dispesifikasikan secara eksplisit
+        if (! $semesterId) {
+            $activeSemester = Semester::query()->where('is_active', true)->first();
+            $semesterId = $activeSemester?->id;
+        }
+        if (! $academicYearId) {
+            $activeYear = AcademicYear::query()->where('is_active', true)->first();
+            $academicYearId = $activeYear?->id;
+        }
 
         $schedules = $this->accessScope->accessibleSchedules($request->user())
-            ->with(['kelas', 'subject'])
+            ->with(['kelas', 'subject', 'employee', 'teacher'])
+            ->when($academicYearId, fn ($q) => $q->where(fn ($sq) => $sq->whereNull('academic_year_id')->orWhere('academic_year_id', $academicYearId)))
+            ->when($semesterId, fn ($q) => $q->where(fn ($sq) => $sq->whereNull('semester_id')->orWhere('semester_id', $semesterId)))
             ->when($day, function ($q) use ($day) {
                 if (is_numeric($day)) {
                     $q->where('day_of_week', (int) $day);
@@ -418,19 +490,30 @@ class TeacherPortalController extends Controller
                     }
                 }
             })
-            ->when($classId, fn ($q) => $q->where(fn ($sq) => $sq->where('class_id', $classId)->orWhere('kelas_id', $classId)))
+            ->when($classId && $classId !== 'all', fn ($q) => $q->where(fn ($sq) => $sq->where('class_id', $classId)->orWhere('kelas_id', $classId)))
             ->orderBy('time_start')
             ->get();
 
+        // Bersihkan data kembar jika ada duplikasi entri jadwal (hari, jam mulai, jam selesai, kelas, mapel yang sama)
+        $uniqueSchedules = $schedules->unique(function ($item) {
+            $cId = $item->kelas_id ?: $item->class_id;
+            $sId = $item->subject_id;
+            $dow = $item->day_of_week;
+            $start = substr((string) ($item->time_start ?? $item->start_time ?? ''), 0, 5);
+            $end = substr((string) ($item->time_end ?? $item->end_time ?? ''), 0, 5);
+            return "{$dow}-{$start}-{$end}-{$cId}-{$sId}";
+        })->values();
+
         return response()->json([
             'success' => true,
-            'data' => $schedules,
+            'data' => $uniqueSchedules,
         ]);
     }
 
     public function classes(Request $request): JsonResponse
     {
         $classes = $this->accessScope->accessibleRombels($request->user())
+            ->with(['unitPendidikan'])
             ->orderBy('nama_kelas')
             ->get();
 
@@ -442,22 +525,22 @@ class TeacherPortalController extends Controller
 
     public function students(Request $request): JsonResponse
     {
-        $classId = $request->query('class_id');
+        $classId = $request->query('class_id') ?? $request->query('kelas_id');
         $classIds = $this->accessScope->accessibleRombels($request->user())->pluck('id');
 
-        if ($classId) {
+        if ($classId && $classId !== 'all') {
             abort_unless($classIds->contains($classId), 403, 'Rombel berada di luar scope guru.');
         }
 
         $students = $this->accessScope->accessibleStudents($request->user())
-            ->with(['kelas', 'parent', 'parentsPivot'])
+            ->with(['kelas.unitPendidikan', 'educationUnit', 'parent', 'parentsPivot'])
             ->where(function ($query) use ($classIds) {
                 $query->whereIn('kelas_id', $classIds)->orWhereIn('class_id', $classIds);
             })
-            ->when($classId, fn ($q) => $q->byClass($classId))
+            ->when($classId && $classId !== 'all', fn ($q) => $q->byClass($classId))
             ->active()
             ->orderBy('full_name')
-            ->paginate($request->query('per_page', 25));
+            ->paginate($request->query('per_page', 50));
 
         // Workspace guru lama memakai nama field Indonesia. Sertakan alias ini
         // tanpa mengubah kontrak Student utama yang memakai `full_name`.
@@ -479,9 +562,11 @@ class TeacherPortalController extends Controller
 
         $sessions = LessonAttendanceSession::query()
             ->with(['classSchedule', 'kelas', 'subject', 'attendances.student'])
-            ->whereIn('class_schedule_id', $scheduleIds)
-            ->when($classId, fn ($q) => $q->where('class_id', $classId))
-            ->whereDate('date', $date)
+            ->whereIn('schedule_id', $scheduleIds)
+            ->when($classId, function ($q) use ($classId) {
+                $q->whereHas('schedule', fn ($sq) => $sq->where('kelas_id', $classId)->orWhere('class_id', $classId));
+            })
+            ->whereDate('attendance_date', $date)
             ->get();
 
         return response()->json([
@@ -499,7 +584,7 @@ class TeacherPortalController extends Controller
             'topic' => 'required|string',
             'students' => 'required|array',
             'students.*.student_id' => 'required|uuid',
-            'students.*.status' => 'required|string|in:Hadir,Izin,Sakit,Alpha,Terlambat',
+            'students.*.status' => 'required|string|in:Hadir,Izin,Sakit,Alpha,Terlambat,Belum Dicatat',
             'students.*.notes' => 'nullable|string',
         ]);
 
@@ -519,32 +604,63 @@ class TeacherPortalController extends Controller
 
         $session = LessonAttendanceSession::updateOrCreate(
             [
-                'class_schedule_id' => $schedule->id,
-                'date' => $request->date,
-                'meeting_number' => $request->meeting_number,
+                'schedule_id' => $schedule->id,
+                'attendance_date' => $request->date,
             ],
             [
-                'teacher_id' => $teacher?->id,
-                'class_id' => $schedule->class_id,
-                'subject_id' => $schedule->subject_id,
-                'education_unit_id' => $schedule->education_unit_id,
+                'meeting_number' => $request->meeting_number,
                 'topic' => $request->topic,
-                'status' => 'completed',
+                'learning_material' => $request->topic,
+                'status' => 'final',
+                'finalized_at' => now(),
+                'finalized_by' => $request->user()?->id,
+                'attendance_method' => $request->input('method', 'rollcall'),
+                'updated_by' => $request->user()?->id,
             ]
         );
 
         foreach ($request->students as $st) {
+            $statusHadir = strtolower($st['status']) === 'alpha' ? 'alpa' : strtolower($st['status']);
             LmsPresensi::updateOrCreate(
                 [
                     'session_id' => $session->id,
-                    'student_id' => $st['student_id'],
+                    'siswa_id' => $st['student_id'],
                 ],
                 [
-                    'class_schedule_id' => $schedule->id,
-                    'status' => $st['status'],
-                    'notes' => $st['notes'] ?? null,
+                    'jadwal_pelajaran_id' => $schedule->id,
+                    'tanggal' => $request->date,
+                    'status_hadir' => $statusHadir,
+                    'keterangan' => $st['notes'] ?? null,
+                    'pertemuan_ke' => $request->meeting_number,
+                    'waktu_presensi' => now(),
+                    'verification_status' => 'verified',
+                    'updated_by' => $request->user()?->id,
                 ]
             );
+
+            // Realtime Broadcast to student channel
+            try {
+                $subjName = $schedule->subject?->name ?? 'Pelajaran';
+                app(RealtimeBroadcastService::class)->broadcastStudentActivity(
+                    $st['student_id'],
+                    [
+                        'id' => 'lesson-presensi-' . (string) Str::uuid(),
+                        'type' => 'mapel',
+                        'title' => 'Absensi kelas ' . $subjName,
+                        'subtitle' => 'Guru: ' . ($request->user()?->name ?? 'Guru Pengajar'),
+                        'date_label' => 'Hari ini',
+                        'time_label' => now()->format('H:i'),
+                        'badge_label' => ucfirst($statusHadir),
+                        'badge_type' => $statusHadir === 'hadir' ? 'green' : ($statusHadir === 'terlambat' ? 'amber' : 'red'),
+                        'icon' => 'account-check',
+                        'icon_bg' => '#ECFDF5',
+                        'icon_color' => '#10B981',
+                        'screen' => 'Absensi',
+                        'verifier_role' => 'Guru Pengampu ' . $subjName,
+                        'verifier_name' => $request->user()?->name ?? 'Guru Pengajar',
+                    ]
+                );
+            } catch (\Throwable) {}
         }
 
         return response()->json([
@@ -557,12 +673,54 @@ class TeacherPortalController extends Controller
     public function materials(Request $request): JsonResponse
     {
         $ownerIds = $this->teacherMaterialOwnerIds($request);
+        $classId = $request->query('class_id') ?? $request->query('kelas_id');
+        $search = trim((string) $request->query('search', ''));
+        $status = $request->query('status');
+        $subjectId = $request->query('subject_id');
 
-        $materials = LmsMateri::query()
-            ->with(['subject'])
-            ->whereIn('guru_id', $ownerIds)
-            ->orderBy('created_at', 'desc')
-            ->paginate($request->query('per_page', 15));
+        $query = LmsMateri::query()
+            ->with(['subject', 'modulAjar.kelas'])
+            ->whereIn('guru_id', $ownerIds);
+
+        if ($classId && $classId !== 'all') {
+            $modulIds = LmsModulAjar::query()
+                ->where(function ($q) use ($classId) {
+                    $q->where('kelas_id', $classId)
+                      ->orWhere('rombel_id', $classId);
+                })
+                ->pluck('id');
+
+            $query->whereIn('modul_ajar_id', $modulIds);
+        }
+
+        if ($status === 'published') {
+            $query->where('is_published', true);
+        } elseif ($status === 'draft') {
+            $query->where('is_published', false);
+        }
+
+        if ($search !== '') {
+            $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $search).'%';
+            $query->where(function (Builder $query) use ($like) {
+                $query->where('judul', 'ilike', $like)
+                    ->orWhere('catatan', 'ilike', $like)
+                    ->orWhere('konten', 'ilike', $like)
+                    ->orWhereHas('subject', fn (Builder $subject) => $subject
+                        ->where('nama_mapel', 'ilike', $like)
+                        ->orWhere('name', 'ilike', $like));
+            });
+        }
+
+        // Filter by mata pelajaran (subject_id)
+        if ($subjectId && $subjectId !== 'all') {
+            $query->where(function (Builder $q) use ($subjectId) {
+                $q->where('mata_pelajaran_id', $subjectId)
+                  ->orWhereHas('subject', fn (Builder $s) => $s->whereKey($subjectId));
+            });
+        }
+
+        $materials = $query->orderBy('created_at', 'desc')
+            ->paginate(min(max((int) $request->query('per_page', 24), 1), 100));
 
         return response()->json([
             'success' => true,
@@ -570,15 +728,46 @@ class TeacherPortalController extends Controller
         ]);
     }
 
+    private function calculatePekanFromDate(?string $dateStr): array
+    {
+        $d = $dateStr ? \Carbon\Carbon::parse($dateStr) : now();
+        $startGanjil = \Carbon\Carbon::parse('2026-07-13 00:00:00');
+        $startGenap  = \Carbon\Carbon::parse('2027-01-04 00:00:00');
+
+        if ($d->lessThan($startGenap)) {
+            $diffDays = max(0, (int) $startGanjil->diffInDays($d, false));
+            $pekan = max(1, min(16, (int) floor($diffDays / 7) + 1));
+            $semester = 1;
+        } else {
+            $diffDays = max(0, (int) $startGenap->diffInDays($d, false));
+            $pekan = min(32, 16 + max(1, (int) floor($diffDays / 7) + 1));
+            $semester = 2;
+        }
+
+        return [
+            'pekan' => $pekan,
+            'semester' => $semester,
+            'tanggal' => $d->format('Y-m-d H:i:s'),
+        ];
+    }
+
     public function saveMaterial(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'judul' => 'required|string|max:255',
             'subject_id' => 'required|uuid',
             'class_id' => 'required|uuid',
             'ringkasan' => 'nullable|string',
             'isi' => 'nullable|string',
+            'file' => 'nullable|string|max:1000',
+            'video' => 'nullable|string|max:1000',
+            'link' => 'nullable|string|max:1000',
+            'tipe' => 'nullable|string|max:50',
             'status' => 'required|string|in:draft,published',
+            'tanggal' => 'nullable|date',
+            'tanggal_publish' => 'nullable|date',
+            'urutan' => 'nullable|integer|min:1|max:50',
+            'pekan' => 'nullable|integer|min:1|max:50',
         ]);
 
         [$schedule, $teacher, $employee] = $this->assignedTeachingContext(
@@ -588,16 +777,20 @@ class TeacherPortalController extends Controller
         );
         $guruId = $teacher?->employee_id ?? $employee?->id ?? $request->user()?->id;
 
-        $academicYear = AcademicYear::query()->findOrFail($schedule->academic_year_id);
-        $semester = Semester::query()->findOrFail($schedule->semester_id);
-        $subject = Subject::query()->findOrFail($schedule->subject_id);
-        $kelas = Kelas::query()->findOrFail($schedule->kelas_id);
-
-        $subjectId = $subject->id;
-        $classId = $kelas->id;
-        $semesterId = $semester->id;
-        $academicYearId = $academicYear->id;
+        $subjectId = $schedule->subject_id;
+        $classId = $schedule->kelas_id;
+        $semesterId = $schedule->semester_id;
+        $academicYearId = $schedule->academic_year_id;
         $module = $this->ensureLmsModulAjar($guruId, $subjectId, $classId, $semesterId, $academicYearId, $request->user()?->id);
+
+        $isPublished = $request->status === 'published';
+        $tipe = $request->tipe ?: ($request->video ? 'video' : ($request->file ? 'dokumen' : ($request->link ? 'link' : 'teks')));
+        $fileUrl = $request->file ?: ($request->link && filter_var($request->link, FILTER_VALIDATE_URL) ? $request->link : null);
+        $linkUrl = $request->link ?: ($request->file ?: null);
+
+        $dateInfo = $this->calculatePekanFromDate($request->tanggal_publish ?: $request->tanggal);
+        $urutan = $request->urutan ?: ($request->pekan ?: $dateInfo['pekan']);
+        $tanggalPublish = $request->tanggal_publish ?: ($request->tanggal ?: ($isPublished ? now() : null));
 
         $material = LmsMateri::create([
             'teacher_id' => $guruId,
@@ -606,16 +799,24 @@ class TeacherPortalController extends Controller
             'modul_ajar_id' => $module->id,
             'guru_id' => $guruId,
             'judul' => $request->judul,
+            'tipe' => $tipe,
+            'tipe_materi' => $tipe,
             'ringkasan' => $request->ringkasan,
             'isi' => $request->isi,
+            'file' => $fileUrl,
+            'video' => $request->video,
+            'link' => $linkUrl,
+            'urutan' => $urutan,
             'status' => $request->status,
-            'tanggal_publish' => $request->status === 'published' ? now() : null,
+            'is_published' => $isPublished,
+            'tanggal_publish' => $tanggalPublish,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Materi berhasil disimpan.',
-            'data' => $material,
+            'data' => $material->load(['subject', 'modulAjar.kelas']),
+            'pekan' => $urutan,
         ]);
     }
 
@@ -625,20 +826,65 @@ class TeacherPortalController extends Controller
             'judul' => 'required|string|max:255',
             'ringkasan' => 'nullable|string',
             'isi' => 'nullable|string',
+            'file' => 'nullable|string|max:1000',
+            'video' => 'nullable|string|max:1000',
+            'link' => 'nullable|string|max:1000',
+            'tipe' => 'nullable|string|max:50',
             'status' => 'required|string|in:draft,published',
+            'tanggal' => 'nullable|date',
+            'tanggal_publish' => 'nullable|date',
+            'urutan' => 'nullable|integer|min:1|max:50',
+            'pekan' => 'nullable|integer|min:1|max:50',
         ]);
 
         $material = $this->teacherMaterial($request, $id);
         $material->fill($validated);
-        $material->tanggal_publish = $validated['status'] === 'published'
-            ? ($material->tanggal_publish ?? now())
-            : null;
+
+        if ($request->has('link') || $request->has('file')) {
+            $incomingLink = $request->link ?: $request->file;
+            $material->link = $incomingLink;
+            if ($request->has('file')) {
+                $material->file = $request->file;
+            } elseif (! $material->file && $incomingLink) {
+                $material->file = $incomingLink;
+            }
+        }
+
+        if ($request->has('video')) {
+            $material->video = $request->video;
+        }
+
+        if ($request->has('tanggal') || $request->has('tanggal_publish')) {
+            $tgl = $request->tanggal_publish ?: $request->tanggal;
+            $material->tanggal_publish = $tgl;
+            if (! $request->has('urutan') && ! $request->has('pekan')) {
+                $calc = $this->calculatePekanFromDate($tgl);
+                $material->urutan = $calc['pekan'];
+            }
+        }
+
+        if ($request->has('urutan') || $request->has('pekan')) {
+            $material->urutan = (int) ($request->urutan ?: $request->pekan);
+        }
+
+        $isPublished = $validated['status'] === 'published';
+        $material->is_published = $isPublished;
+        if (! $material->tanggal_publish && $isPublished) {
+            $material->tanggal_publish = now();
+        }
+
+        if (! $material->tipe || $request->has('tipe')) {
+            $material->tipe = $request->tipe ?: ($material->video ? 'video' : ($material->file ? 'dokumen' : ($material->link ? 'link' : 'teks')));
+            $material->tipe_materi = $material->tipe;
+        }
+
         $material->save();
 
         return response()->json([
             'success' => true,
             'message' => 'Materi berhasil diperbarui.',
-            'data' => $material->fresh('subject'),
+            'data' => $material->fresh(['subject', 'guru']),
+            'pekan' => $material->urutan,
         ]);
     }
 
@@ -655,10 +901,25 @@ class TeacherPortalController extends Controller
 
     private function teacherMaterial(Request $request, string $id): LmsMateri
     {
-        return LmsMateri::query()
-            ->whereKey($id)
-            ->whereIn('guru_id', $this->teacherMaterialOwnerIds($request))
-            ->firstOrFail();
+        $material = LmsMateri::query()->with('guru')->find($id);
+        if (! $material) {
+            abort(404, 'Materi pembelajaran tidak ditemukan.');
+        }
+
+        if ($this->isSuperAdmin($request) || $request->user()?->hasAnyRole(['Super Admin', 'Admin', 'super_admin', 'admin', 'Yayasan'])) {
+            return $material;
+        }
+
+        $ownerIds = $this->teacherMaterialOwnerIds($request);
+        $isOwner = in_array($material->guru_id, $ownerIds, true)
+            || in_array($material->teacher_id, $ownerIds, true);
+
+        if (! $isOwner) {
+            $namaGuru = $material->guru?->nama_lengkap ?? 'guru pengampu lain';
+            abort(403, "Anda tidak memiliki hak akses untuk mengubah materi ini karena materi ini diampu oleh {$namaGuru}. Silakan pilih materi dari kelas yang Anda ampu.");
+        }
+
+        return $material;
     }
 
     private function teacherMaterialOwnerIds(Request $request): array
@@ -703,11 +964,39 @@ class TeacherPortalController extends Controller
     {
         $ownerIds = $this->teacherMaterialOwnerIds($request);
 
-        $assignments = LmsPenugasan::query()
-            ->with(['subject', 'pengumpulanTugas'])
-            ->whereIn('guru_id', $ownerIds)
+        $query = LmsPenugasan::query()
+            ->with(['subject', 'kelas', 'pengumpulanTugas', 'materi', 'modulAjar'])
+            ->whereIn('guru_id', $ownerIds);
+
+        if ($request->filled('class_id') && $request->class_id !== 'all') {
+            $query->where('kelas_id', $request->query('class_id'));
+        } elseif ($request->filled('kelas_id') && $request->kelas_id !== 'all') {
+            $query->where('kelas_id', $request->query('kelas_id'));
+        }
+
+        if ($request->filled('subject_id') && $request->subject_id !== 'all') {
+            $query->where('mata_pelajaran_id', $request->query('subject_id'));
+        }
+
+        if ($request->filled('materi_id') && $request->materi_id !== 'all') {
+            $targetMateriId = $request->query('materi_id');
+            $query->where(function ($q) use ($targetMateriId) {
+                $q->where('materi_id', $targetMateriId)
+                  ->orWhereJsonContains('materi_ids', $targetMateriId);
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->query('search'));
+            $query->where(function ($q) use ($search) {
+                $q->where('judul_tugas', 'like', "%{$search}%")
+                  ->orWhere('instruksi', 'like', "%{$search}%");
+            });
+        }
+
+        $assignments = $query
             ->orderBy('created_at', 'desc')
-            ->paginate($request->query('per_page', 15));
+            ->paginate($request->query('per_page', 100));
 
         return response()->json([
             'success' => true,
@@ -717,13 +1006,21 @@ class TeacherPortalController extends Controller
 
     public function saveAssignment(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'judul' => 'required|string|max:255',
             'subject_id' => 'required|uuid',
             'class_id' => 'required|uuid',
             'instruksi' => 'required|string',
             'deadline' => 'required|date',
             'bobot' => 'nullable|numeric',
+            'materi_id' => 'nullable|uuid',
+            'materi_ids' => 'nullable',
+            'materi_ids_json' => 'nullable|string',
+            'deskripsi' => 'nullable|string',
+            'soal_json' => 'nullable|string',
+            'tipe_tugas' => 'nullable|string',
+            'jenis_soal' => 'nullable|string',
+            'jenis_tugas' => 'nullable|string',
         ]);
 
         [$schedule, $teacher, $employee] = $this->assignedTeachingContext(
@@ -742,44 +1039,190 @@ class TeacherPortalController extends Controller
         $classId = $kelas->id;
         $semesterId = $semester->id;
         $academicYearId = $academicYear->id;
-        $module = $this->ensureLmsModulAjar($guruId, $subjectId, $classId, $semesterId, $academicYearId, $request->user()?->id);
+
+        $materiIds = [];
+        if ($request->filled('materi_ids_json')) {
+            $decoded = json_decode($request->materi_ids_json, true);
+            if (is_array($decoded)) {
+                $materiIds = array_values(array_filter($decoded));
+            }
+        } elseif ($request->has('materi_ids')) {
+            $raw = $request->input('materi_ids');
+            if (is_string($raw)) {
+                $decoded = json_decode($raw, true);
+                $materiIds = is_array($decoded) ? $decoded : [$raw];
+            } elseif (is_array($raw)) {
+                $materiIds = array_values(array_filter($raw));
+            }
+        }
+        if ($request->filled('materi_id') && ! in_array($request->materi_id, $materiIds)) {
+            array_unshift($materiIds, $request->materi_id);
+        }
+
+        $primaryMateriId = ! empty($materiIds) ? $materiIds[0] : ($request->materi_id ?: null);
+        $materi = null;
+        if ($primaryMateriId) {
+            $materi = LmsMateri::query()->find($primaryMateriId);
+        }
+
+        $moduleId = $materi?->modul_ajar_id;
+        if (! $moduleId) {
+            $module = $this->ensureLmsModulAjar($guruId, $subjectId, $classId, $semesterId, $academicYearId, $request->user()?->id);
+            $moduleId = $module->id;
+        }
 
         $assignment = LmsPenugasan::create([
             'teacher_id' => $guruId,
             'subject_id' => $subjectId,
             'class_id' => $classId,
             'judul' => $request->judul,
+            'judul_tugas' => $request->judul,
             'instruksi' => $request->instruksi,
+            'deskripsi' => $request->soal_json ?: $request->deskripsi,
             'deadline' => $request->deadline,
             'bobot' => $request->bobot ?? 100,
+            'bobot_persen' => $request->bobot ?? 100,
+            'tipe_tugas' => $request->tipe_tugas ?: 'individu',
+            'jenis_tugas' => $request->jenis_tugas ?: ($request->jenis_soal ?: 'tugas'),
             'status' => 'published',
             'mata_pelajaran_id' => $subjectId,
             'kelas_id' => $classId,
             'guru_id' => $guruId,
             'semester_id' => $semesterId,
             'tahun_ajaran_id' => $academicYearId,
-            'modul_ajar_id' => $module->id,
+            'modul_ajar_id' => $moduleId,
+            'materi_id' => $primaryMateriId,
+            'materi_ids' => ! empty($materiIds) ? $materiIds : null,
             'is_published' => true,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Penugasan berhasil dibuat.',
-            'data' => $assignment,
+            'data' => $assignment->load(['subject', 'kelas', 'materi']),
+        ]);
+    }
+
+    public function updateAssignment(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'judul' => 'required|string|max:255',
+            'instruksi' => 'required|string',
+            'deadline' => 'required|date',
+            'bobot' => 'nullable|numeric',
+            'materi_id' => 'nullable|uuid',
+            'materi_ids' => 'nullable',
+            'materi_ids_json' => 'nullable|string',
+            'deskripsi' => 'nullable|string',
+            'soal_json' => 'nullable|string',
+            'tipe_tugas' => 'nullable|string',
+            'jenis_soal' => 'nullable|string',
+            'jenis_tugas' => 'nullable|string',
+        ]);
+
+        $ownerIds = $this->teacherMaterialOwnerIds($request);
+        $assignment = LmsPenugasan::query()
+            ->whereKey($id)
+            ->whereIn('guru_id', $ownerIds)
+            ->firstOrFail();
+
+        $assignment->judul = $validated['judul'];
+        $assignment->judul_tugas = $validated['judul'];
+        $assignment->instruksi = $validated['instruksi'];
+        $assignment->deadline = $validated['deadline'];
+        if (isset($validated['bobot'])) {
+            $assignment->bobot = $validated['bobot'];
+            $assignment->bobot_persen = $validated['bobot'];
+        }
+        if ($request->filled('jenis_tugas')) {
+            $assignment->jenis_tugas = $request->jenis_tugas;
+        }
+        if ($request->has('soal_json') || $request->has('deskripsi')) {
+            $assignment->deskripsi = $request->soal_json ?: $request->deskripsi;
+        }
+
+        if ($request->has('materi_ids') || $request->has('materi_ids_json') || $request->has('materi_id')) {
+            $materiIds = [];
+            if ($request->filled('materi_ids_json')) {
+                $decoded = json_decode($request->materi_ids_json, true);
+                if (is_array($decoded)) {
+                    $materiIds = array_values(array_filter($decoded));
+                }
+            } elseif ($request->has('materi_ids')) {
+                $raw = $request->input('materi_ids');
+                if (is_string($raw)) {
+                    $decoded = json_decode($raw, true);
+                    $materiIds = is_array($decoded) ? $decoded : [$raw];
+                } elseif (is_array($raw)) {
+                    $materiIds = array_values(array_filter($raw));
+                }
+            }
+            if ($request->filled('materi_id') && ! in_array($request->materi_id, $materiIds)) {
+                array_unshift($materiIds, $request->materi_id);
+            }
+
+            $primaryMateriId = ! empty($materiIds) ? $materiIds[0] : null;
+            $assignment->materi_id = $primaryMateriId;
+            $assignment->materi_ids = ! empty($materiIds) ? $materiIds : null;
+
+            if ($primaryMateriId) {
+                $materi = LmsMateri::find($primaryMateriId);
+                if ($materi?->modul_ajar_id) {
+                    $assignment->modul_ajar_id = $materi->modul_ajar_id;
+                }
+            }
+        }
+        $assignment->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Penugasan berhasil diperbarui.',
+            'data' => $assignment->fresh(['subject', 'kelas', 'materi']),
+        ]);
+    }
+
+    public function deleteAssignment(Request $request, string $id): JsonResponse
+    {
+        $ownerIds = $this->teacherMaterialOwnerIds($request);
+        $assignment = LmsPenugasan::query()
+            ->whereKey($id)
+            ->whereIn('guru_id', $ownerIds)
+            ->firstOrFail();
+
+        $assignment->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Penugasan berhasil dihapus.',
         ]);
     }
 
     public function submissions(Request $request): JsonResponse
     {
         $assignmentId = $request->query('assignment_id');
+        $classId = $request->query('class_id') ?: $request->query('kelas_id');
+        $subjectId = $request->query('subject_id') ?: $request->query('mata_pelajaran_id');
         $ownerIds = $this->teacherMaterialOwnerIds($request);
 
-        $submissions = LmsPengumpulanTugas::query()
-            ->with(['student', 'penugasan'])
-            ->whereHas('penugasan', fn (Builder $query) => $query->whereIn('guru_id', $ownerIds))
-            ->when($assignmentId, fn ($q) => $q->where('penugasan_id', $assignmentId))
+        $query = LmsPengumpulanTugas::query()
+            ->with(['student.kelas', 'penugasan.subject', 'penugasan.kelas'])
+            ->whereHas('penugasan', fn (Builder $q) => $q->whereIn('guru_id', $ownerIds));
+
+        if ($assignmentId) {
+            $query->where('penugasan_id', $assignmentId);
+        }
+
+        if ($classId && $classId !== 'all') {
+            $query->whereHas('penugasan', fn (Builder $q) => $q->where('kelas_id', $classId));
+        }
+
+        if ($subjectId && $subjectId !== 'all') {
+            $query->whereHas('penugasan', fn (Builder $q) => $q->where('mata_pelajaran_id', $subjectId));
+        }
+
+        $submissions = $query
             ->orderBy('created_at', 'desc')
-            ->paginate($request->query('per_page', 20));
+            ->paginate($request->query('per_page', 100));
 
         return response()->json([
             'success' => true,
@@ -857,6 +1300,8 @@ class TeacherPortalController extends Controller
             'grades' => 'required|array',
             'grades.*.student_id' => 'required|uuid',
             'grades.*.nilai_tugas' => 'nullable|numeric|min:0|max:100',
+            'grades.*.nilai_kuis' => 'nullable|numeric|min:0|max:100',
+            'grades.*.score_quiz' => 'nullable|numeric|min:0|max:100',
             'grades.*.nilai_uts' => 'nullable|numeric|min:0|max:100',
             'grades.*.nilai_uas' => 'nullable|numeric|min:0|max:100',
             'grades.*.nilai_akhir' => 'nullable|numeric|min:0|max:100',
@@ -873,40 +1318,17 @@ class TeacherPortalController extends Controller
             ->count();
         abort_unless($allowedStudentCount === $studentIds->count(), 403, 'Daftar siswa berada di luar kelas assignment guru.');
 
-        $kelas = Kelas::query()->findOrFail($schedule->kelas_id);
-        $subject = Subject::query()->findOrFail($request->subject_id);
-        abort_unless(
-            $subject->unit_pendidikan_id === $kelas->unit_pendidikan_id,
-            422,
-            'Mata pelajaran tidak sesuai dengan unit pendidikan kelas.'
-        );
-        $formula = $this->formulaService->resolveActive(
-            'academic',
-            $schedule->academic_year_id,
-            $schedule->semester_id,
-            $kelas->unit_pendidikan_id,
-            $kelas->id,
-        );
-        $kkm = (float) ($subject->kkm ?? 75);
-
         foreach ($request->grades as $g) {
-            $components = [
-                'assignment' => $g['nilai_tugas'] ?? null,
-                'quiz' => null,
-                'project' => null,
-                'midterm' => $g['nilai_uts'] ?? null,
-                'final_exam' => $g['nilai_uas'] ?? null,
-            ];
-            $finalScore = $formula
-                ? $this->formulaService->calculate($formula, $components)
-                : ($g['nilai_akhir'] ?? null);
-            abort_if(
-                $finalScore === null,
-                422,
-                'Aktifkan rumus nilai akademik atau isi nilai akhir secara eksplisit.'
-            );
+            $tugas = $g['nilai_tugas'] ?? null;
+            $kuis = $g['nilai_kuis'] ?? $g['score_quiz'] ?? null;
+            $uts = $g['nilai_uts'] ?? null;
+            $uas = $g['nilai_uas'] ?? null;
+            $calcAkhir = null;
+            if ($tugas !== null || $kuis !== null || $uts !== null || $uas !== null) {
+                $calcAkhir = round((($tugas ?? 0) * 0.2) + (($kuis ?? 0) * 0.2) + (($uts ?? 0) * 0.3) + (($uas ?? 0) * 0.3), 1);
+            }
 
-            $grade = StudentGrade::firstOrNew(
+            StudentGrade::updateOrCreate(
                 [
                     'student_id' => $g['student_id'],
                     'subject_id' => $request->subject_id,
@@ -914,26 +1336,15 @@ class TeacherPortalController extends Controller
                     'class_id' => $schedule->class_id,
                     'academic_year_id' => $schedule->academic_year_id,
                     'semester_id' => $schedule->semester_id,
+                ],
+                [
+                    'score_assignment' => $tugas,
+                    'score_quiz' => $kuis,
+                    'score_midterm' => $uts,
+                    'score_final' => $uas,
+                    'final_score' => $g['nilai_akhir'] ?? $calcAkhir,
                 ]
             );
-            $grade->fill([
-                'score_assignment' => $g['nilai_tugas'] ?? null,
-                'score_midterm' => $g['nilai_uts'] ?? null,
-                'score_final' => $g['nilai_uas'] ?? null,
-                'final_score' => $finalScore,
-                'grade_letter' => StudentGrade::getGradeLetter($finalScore),
-                'is_passed' => $finalScore >= $kkm,
-                'metadata' => array_merge($grade->metadata ?? [], [
-                    'assessment_formula_id' => $formula?->id,
-                    'assessment_formula_version' => $formula?->version,
-                    'saved_from' => 'teacher_portal',
-                ]),
-                'updated_by' => $request->user()?->id,
-            ]);
-            if (! $grade->exists) {
-                $grade->created_by = $request->user()?->id;
-            }
-            $grade->save();
         }
 
         return response()->json([
@@ -1021,6 +1432,29 @@ class TeacherPortalController extends Controller
                 ],
             ]
         );
+
+        // Realtime Broadcast to student channel
+        try {
+            app(RealtimeBroadcastService::class)->broadcastStudentActivity(
+                $validated['student_id'],
+                [
+                    'id' => 'tahfizh-' . $log->id,
+                    'type' => 'tahfizh',
+                    'title' => 'Membaca Al-Qur’an (Tahfizh)',
+                    'subtitle' => 'Surah ' . $surah->nama_latin . ' (Ayat ' . $validated['ayat_start'] . '–' . $validated['ayat_end'] . ')',
+                    'date_label' => 'Hari ini',
+                    'time_label' => now()->format('H:i'),
+                    'badge_label' => 'Selesai',
+                    'badge_type' => 'green',
+                    'icon' => 'book-open-page-variant',
+                    'icon_bg' => '#FEF2F2',
+                    'icon_color' => '#EF4444',
+                    'screen' => 'Tahfizh',
+                    'verifier_role' => 'Guru Pembimbing Tahfizh',
+                    'verifier_name' => $request->user()?->name ?? 'Ustadz Pembina Tahfizh',
+                ]
+            );
+        } catch (\Throwable) {}
 
         return response()->json([
             'success' => true,
@@ -1131,6 +1565,32 @@ class TeacherPortalController extends Controller
             'semester_id' => $activeSemester?->id,
             'date' => $validated['date'] ?? now()->toDateString(),
         ]);
+
+        // Realtime Broadcast to student channel
+        try {
+            if ($note->visible_to_parent || $note->visible_to_student) {
+                app(RealtimeBroadcastService::class)->broadcastStudentActivity(
+                    $note->student_id,
+                    [
+                        'id' => 'note-' . $note->id,
+                        'type' => 'komentar',
+                        'title' => 'Guru memberikan komentar',
+                        'subtitle' => '“' . ($note->content ?? $note->title ?? 'Catatan guru') . '”',
+                        'date_label' => 'Hari ini',
+                        'time_label' => now()->format('H:i'),
+                        'badge_label' => 'Baru',
+                        'badge_type' => 'purple',
+                        'has_red_dot' => true,
+                        'icon' => 'message-text',
+                        'icon_bg' => '#F5F3FF',
+                        'icon_color' => '#8B5CF6',
+                        'screen' => 'Komentar',
+                        'verifier_role' => 'Wali Kelas / Guru Pengampu',
+                        'verifier_name' => $teacher?->name ?? $request->user()?->name ?? 'Guru Pengajar',
+                    ]
+                );
+            }
+        } catch (\Throwable) {}
 
         return response()->json([
             'success' => true,
@@ -1272,39 +1732,27 @@ class TeacherPortalController extends Controller
     private function isAssignedToStudent(Request $request, Student $student): bool
     {
         $user = $request->user();
-        if ($user && $user->roles()->whereIn('name', ['Super Admin', 'super_admin', 'Admin'])->exists()) {
-            return true;
-        }
-
         $teacher = $this->getTeacherContext($request);
         $employee = Employee::query()->where('user_id', $user->id)->first();
 
         $kelasId = $student->kelas_id ?? $student->class_id;
-        if ($kelasId) {
-            $isHomeroom = Kelas::query()
-                ->whereKey($kelasId)
-                ->where(fn ($q) => $q->where('wali_kelas_id', $teacher?->id)->orWhere('wali_kelas_id', $employee?->id))
-                ->exists();
-
-            if ($isHomeroom) {
-                return true;
-            }
-
-            $isScheduleTeacher = ClassSchedule::query()
-                ->where(fn ($q) => $q->where('kelas_id', $kelasId)->orWhere('class_id', $kelasId))
-                ->where('is_active', true)
-                ->where(fn ($q) => $q->where('teacher_id', $teacher?->id)->orWhere('employee_id', $employee?->id))
-                ->exists();
-
-            if ($isScheduleTeacher) {
-                return true;
-            }
+        if (! $kelasId) {
+            return false;
         }
 
-        // Allow if there is an existing message record involving this teacher and student
-        return PortalMessage::query()
-            ->where('student_id', $student->id)
-            ->where(fn ($q) => $q->where('sender_user_id', $user->id)->orWhere('recipient_user_id', $user->id))
+        $isHomeroom = Kelas::query()
+            ->whereKey($kelasId)
+            ->where(fn ($q) => $q->where('wali_kelas_id', $teacher?->id)->orWhere('wali_kelas_id', $employee?->id))
+            ->exists();
+
+        if ($isHomeroom) {
+            return true;
+        }
+
+        return ClassSchedule::query()
+            ->where(fn ($q) => $q->where('kelas_id', $kelasId)->orWhere('class_id', $kelasId))
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('teacher_id', $teacher?->id)->orWhere('employee_id', $employee?->id))
             ->exists();
     }
 
@@ -1327,26 +1775,11 @@ class TeacherPortalController extends Controller
             ->unique()
             ->toArray();
 
-        $isGlobalChatAdmin = $user && $user->roles()->whereIn('name', ['Super Admin', 'super_admin', 'Admin', 'admin', 'Kepala Sekolah', 'kepala_sekolah'])->exists();
-
-        $messagesQuery = PortalMessage::query()
+        $messages = PortalMessage::query()
             ->with(['student.kelas', 'student.educationUnit', 'sender:id,name,email', 'recipient:id,name,email'])
-            ->whereNotNull('student_id');
-
-        if (! $isGlobalChatAdmin) {
-            $messagesQuery->where(fn ($q) => $q->where('sender_user_id', $user->id)->orWhere('recipient_user_id', $user->id));
-        }
-
-        $messages = $messagesQuery->orderBy('created_at', 'desc')->take(500)->get();
-
-        // Batch fetch unread counts for all conversations in 1 query (Zero N+1)
-        $unreadCountsMap = DB::table('portal_messages')
-            ->select('student_id', 'sender_user_id', DB::raw('count(*) as total'))
-            ->where('recipient_user_id', $user->id)
-            ->whereNull('read_at')
-            ->groupBy('student_id', 'sender_user_id')
-            ->get()
-            ->mapWithKeys(fn ($row) => [(string) $row->student_id . '_' . (string) $row->sender_user_id => (int) $row->total]);
+            ->where(fn ($q) => $q->where('sender_user_id', $user->id)->orWhere('recipient_user_id', $user->id))
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $grouped = [];
 
@@ -1356,34 +1789,26 @@ class TeacherPortalController extends Controller
                 continue;
             }
 
-            if ($msg->sender_user_id === $user->id) {
-                $otherUserId = $msg->recipient_user_id;
-                $otherUser = $msg->recipient;
-            } elseif ($msg->recipient_user_id === $user->id) {
-                $otherUserId = $msg->sender_user_id;
-                $otherUser = $msg->sender;
-            } else {
-                // For admin monitor: non-teacher party is parent
-                $otherUserId = $msg->sender_user_id;
-                $otherUser = $msg->sender;
-            }
+            $otherUserId = $msg->sender_user_id === $user->id ? $msg->recipient_user_id : $msg->sender_user_id;
             $key = $student->id.'_'.$otherUserId;
 
             if (! isset($grouped[$key])) {
+                $otherUser = $msg->sender_user_id === $user->id ? $msg->recipient : $msg->sender;
                 $isHomeroom = in_array($student->kelas_id, $homeroomKelasIds, true);
-                $unreadCount = (int) ($unreadCountsMap->get($key) ?? 0);
 
-                $parentName = $otherUser?->name ?? 'Orang Tua/Wali';
+                $unreadCount = PortalMessage::query()
+                    ->where('student_id', $student->id)
+                    ->where('sender_user_id', $otherUserId)
+                    ->where('recipient_user_id', $user->id)
+                    ->whereNull('read_at')
+                    ->count();
+
                 $grouped[$key] = [
                     'id' => $key,
-                    'user_id' => $otherUserId,
-                    'name' => $parentName,
-                    'nama' => $parentName,
                     'student_id' => $student->id,
                     'student_name' => $student->full_name,
                     'parent_user_id' => $otherUserId,
-                    'parent_name' => $parentName,
-                    'photo' => $otherUser?->avatar_url ?? null,
+                    'parent_name' => $otherUser?->name ?? 'Orang Tua/Wali',
                     'class_name' => $student->kelas?->nama_kelas ?? '-',
                     'unit_name' => $student->educationUnit?->name ?? '-',
                     'teacher_type' => $isHomeroom ? 'wali_kelas' : 'guru_mapel',
@@ -1391,8 +1816,6 @@ class TeacherPortalController extends Controller
                     'last_message' => $msg->message,
                     'last_message_at' => $msg->created_at?->toIso8601String(),
                     'unread_count' => $unreadCount,
-                    'is_online' => false,
-                    'status' => 'offline',
                 ];
             }
         }
@@ -1416,40 +1839,22 @@ class TeacherPortalController extends Controller
             return response()->json(['success' => false, 'message' => 'Anda tidak terhubung dengan siswa ini.'], 403);
         }
 
-        $hasUnread = PortalMessage::query()
+        PortalMessage::query()
             ->where('student_id', $studentId)
             ->where('sender_user_id', $parentUserId)
             ->where('recipient_user_id', $user->id)
             ->whereNull('read_at')
-            ->exists();
+            ->update(['read_at' => now()]);
 
-        if ($hasUnread) {
-            PortalMessage::query()
-                ->where('student_id', $studentId)
-                ->where('sender_user_id', $parentUserId)
-                ->where('recipient_user_id', $user->id)
-                ->whereNull('read_at')
-                ->update(['read_at' => now()]);
-        }
-
-        $isGlobalChatAdmin = $user && $user->roles()->whereIn('name', ['Super Admin', 'super_admin', 'Admin', 'admin', 'Kepala Sekolah', 'kepala_sekolah'])->exists();
-
-        $messagesQuery = PortalMessage::query()
-            ->with(['sender:id,name', 'recipient:id,name', 'attachments'])
-            ->where('student_id', $studentId);
-
-        if (! $isGlobalChatAdmin) {
-            $messagesQuery->where(function ($q) use ($user, $parentUserId) {
+        $messages = PortalMessage::query()
+            ->with(['sender:id,name', 'recipient:id,name'])
+            ->where('student_id', $studentId)
+            ->where(function ($q) use ($user, $parentUserId) {
                 $q->where(fn ($q2) => $q2->where('sender_user_id', $user->id)->where('recipient_user_id', $parentUserId))
                     ->orWhere(fn ($q2) => $q2->where('sender_user_id', $parentUserId)->where('recipient_user_id', $user->id));
-            });
-        } else {
-            $messagesQuery->where(function ($q) use ($parentUserId) {
-                $q->where('sender_user_id', $parentUserId)->orWhere('recipient_user_id', $parentUserId);
-            });
-        }
-
-        $messages = $messagesQuery->orderBy('created_at', 'asc')->get();
+            })
+            ->orderBy('created_at', 'asc')
+            ->get();
 
         return response()->json([
             'success' => true,
@@ -1460,8 +1865,7 @@ class TeacherPortalController extends Controller
     public function sendChatMessage(Request $request, string $parentUserId, string $studentId): JsonResponse
     {
         $request->validate([
-            'message' => 'required_without:attachment|nullable|string|max:5000',
-            'attachment' => 'nullable|file|max:10240',
+            'message' => 'required|string|max:5000',
         ]);
 
         $user = $request->user();
@@ -1480,21 +1884,8 @@ class TeacherPortalController extends Controller
             'student_id' => $studentId,
             'sender_user_id' => $user->id,
             'recipient_user_id' => $parentUserId,
-            'message' => trim((string) ($request->input('message') ?? '')),
+            'message' => trim($request->input('message')),
         ]);
-
-        if ($request->hasFile('attachment')) {
-            $file = $request->file('attachment');
-            $path = $file->store('chat/attachments', 'public');
-            \AppModels\PortalMessageAttachment::create([
-                'message_id' => $message->id,
-                'disk' => 'public',
-                'path' => $path,
-                'original_name' => $file->getClientOriginalName(),
-                'mime_type' => $file->getClientMimeType() ?: $file->getMimeType() ?: 'application/octet-stream',
-                'file_size' => $file->getSize(),
-            ]);
-        }
 
         try {
             Notification::deliver(
@@ -1512,10 +1903,27 @@ class TeacherPortalController extends Controller
             // Silence notification schema fallback
         }
 
+        // Realtime Broadcast chat message to parent
+        try {
+            app(RealtimeBroadcastService::class)->broadcastChatMessage(
+                $parentUserId,
+                [
+                    'id' => $message->id,
+                    'student_id' => $studentId,
+                    'sender_user_id' => $user->id,
+                    'sender_name' => $user->name,
+                    'recipient_user_id' => $parentUserId,
+                    'message' => $message->message,
+                    'created_at' => $message->created_at ? $message->created_at->toISOString() : now()->toISOString(),
+                ],
+                $user->id
+            );
+        } catch (\Throwable) {}
+
         return response()->json([
             'success' => true,
             'message' => 'Pesan berhasil dikirim.',
-            'data' => $message->load(['sender:id,name', 'recipient:id,name', 'attachments']),
+            'data' => $message->load(['sender:id,name', 'recipient:id,name']),
         ]);
     }
 }

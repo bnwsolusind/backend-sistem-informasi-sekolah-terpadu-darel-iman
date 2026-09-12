@@ -141,7 +141,11 @@ class AuthIdentifierResolver
                 $query->where('nis', $input)
                     ->orWhere('nisn', $input);
             })
-            ->where('is_active', true)
+            ->where(function (Builder $q) {
+                $q->where('is_active', true)
+                    ->orWhere('metadata->is_alumni', true)
+                    ->orWhere('metadata->status_siswa', 'alumni');
+            })
             ->first();
 
         if ($student) {
@@ -227,7 +231,11 @@ class AuthIdentifierResolver
                 $q->where('parent_id', $parent->id)
                     ->orWhereHas('parentsPivot', fn (Builder $p) => $p->whereKey($parent->id));
             })
-            ->where('is_active', true)
+            ->where(function (Builder $q) {
+                $q->where('is_active', true)
+                    ->orWhere('metadata->is_alumni', true)
+                    ->orWhere('metadata->status_siswa', 'alumni');
+            })
             ->orderBy('nis')
             ->get();
     }

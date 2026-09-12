@@ -46,6 +46,33 @@ class StudentGrade extends Model
         'metadata' => 'array',
     ];
 
+    protected $appends = [
+        'nilai_tugas',
+        'nilai_uts',
+        'nilai_uas',
+        'nilai_akhir',
+    ];
+
+    public function getNilaiTugasAttribute(): ?float
+    {
+        return $this->score_assignment;
+    }
+
+    public function getNilaiUtsAttribute(): ?float
+    {
+        return $this->score_midterm;
+    }
+
+    public function getNilaiUasAttribute(): ?float
+    {
+        return $this->score_final;
+    }
+
+    public function getNilaiAkhirAttribute(): ?float
+    {
+        return $this->final_score;
+    }
+
     protected static function booted(): void
     {
         static::creating(function ($model) {

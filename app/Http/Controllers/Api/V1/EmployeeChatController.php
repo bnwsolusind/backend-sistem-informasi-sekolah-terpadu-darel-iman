@@ -12,6 +12,7 @@ use App\Models\PortalMessage;
 use App\Models\User;
 use App\Models\UserPresence;
 use App\Services\ChatAccessService;
+use App\Services\RealtimeBroadcastService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -437,6 +438,22 @@ class EmployeeChatController extends Controller
                 ],
             );
         } catch (\Throwable $e) {}
+
+        // Realtime Broadcast chat message to recipient employee
+        try {
+            app(RealtimeBroadcastService::class)->broadcastChatMessage(
+                $recipientUserId,
+                [
+                    'id' => $message->id,
+                    'sender_user_id' => $user->id,
+                    'sender_name' => $user->name,
+                    'recipient_user_id' => $recipientUserId,
+                    'message' => $message->message,
+                    'created_at' => $message->created_at ? $message->created_at->toISOString() : now()->toISOString(),
+                ],
+                $user->id
+            );
+        } catch (\Throwable) {}
 
         return response()->json([
             'success' => true,

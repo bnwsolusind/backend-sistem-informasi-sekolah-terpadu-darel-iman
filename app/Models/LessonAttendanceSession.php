@@ -27,6 +27,21 @@ class LessonAttendanceSession extends Model
         return $this->belongsTo(ClassSchedule::class, 'schedule_id');
     }
 
+    public function classSchedule()
+    {
+        return $this->schedule();
+    }
+
+    public function kelas()
+    {
+        return $this->hasOneThrough(Kelas::class, ClassSchedule::class, 'id', 'id', 'schedule_id', 'kelas_id');
+    }
+
+    public function subject()
+    {
+        return $this->hasOneThrough(Subject::class, ClassSchedule::class, 'id', 'id', 'schedule_id', 'subject_id');
+    }
+
     public function attendances()
     {
         return $this->hasMany(LmsPresensi::class, 'session_id');
@@ -40,5 +55,10 @@ class LessonAttendanceSession extends Model
     public function teachingAttendance()
     {
         return $this->belongsTo(TeachingAttendance::class, 'teaching_attendance_id');
+    }
+
+    public function teacher()
+    {
+        return $this->hasOneThrough(Teacher::class, ClassSchedule::class, 'id', 'id', 'schedule_id', 'teacher_id');
     }
 }

@@ -372,14 +372,94 @@ class TahfizhController extends Controller
      */
     public function rekapTahfizh(Request $request): JsonResponse
     {
-        $query = TahfizhDailyLog::with(['student', 'schoolClass']);
+        $query = TahfizhDailyLog::with([
+            'student.educationUnit',
+            'student.kelas.unitPendidikan',
+            'schoolClass.unitPendidikan',
+            'teacher.user',
+            'teacher.employee',
+            'employee.user',
+            'teacherUser',
+        ]);
+
+        $user = $request->user();
+        if ($user) {
+            $accessScope = app(\App\Services\AccessScopeService::class);
+            if (!$accessScope->hasGlobalScope($user)) {
+                $userRoleNames = $user->roles->pluck('name')->map(fn ($r) => strtolower($r))->toArray();
+                $isMusyrif = collect($userRoleNames)->contains(fn ($r) => in_array($r, ['musyrif', 'musyrifah', 'pengasuh', 'wali asrama', 'pembimbing asrama']));
+
+                if ($isMusyrif) {
+                    $ponpesUnitIds = \App\Models\EducationUnit::query()
+                        ->where(function ($q) {
+                            $q->where('name', 'like', '%ponpes%')
+                              ->orWhere('name', 'like', '%pesantren%')
+                              ->orWhere('name', 'like', '%mahad%')
+                              ->orWhere('code', 'like', '%PONPES%')
+                              ->orWhere('code', 'like', '%MAHAD%');
+                        })
+                        ->pluck('id');
+                    $query->whereHas('student', function ($q) use ($ponpesUnitIds) {
+                        $q->whereIn('unit_id', $ponpesUnitIds);
+                    });
+                } else {
+                    $accessibleStudentIds = $accessScope->accessibleStudents($user)->pluck('id');
+                    $query->whereIn('student_id', $accessibleStudentIds);
+                }
+            }
+        }
+
+        if ($request->filled('unit_id')) {
+            $unitId = (string) $request->query('unit_id');
+            $query->where(function ($q) use ($unitId) {
+                $q->whereHas('student', function ($sq) use ($unitId) {
+                    $sq->where('unit_id', $unitId);
+                })->orWhereHas('schoolClass', function ($cq) use ($unitId) {
+                    $cq->where('unit_pendidikan_id', $unitId);
+                });
+            });
+        }
 
         if ($request->filled('student_id')) {
             $query->where('student_id', (string) $request->query('student_id'));
         }
 
         if ($request->filled('class_id')) {
-            $query->where('class_id', (string) $request->query('class_id'));
+            $classId = (string) $request->query('class_id');
+            $query->where(function ($q) use ($classId) {
+                $q->where('class_id', $classId)
+                  ->orWhereHas('student', function ($sq) use ($classId) {
+                      $sq->where('kelas_id', $classId)
+                         ->orWhere('class_id', $classId);
+                  });
+            });
+        }
+
+        if ($request->filled('type')) {
+            $type = (string) $request->query('type');
+            if ($type === 'Ziyadah') {
+                $query->where(function ($q) {
+                    $q->where('metadata->type', 'Ziyadah')
+                      ->orWhere(function ($sq) {
+                          $sq->whereNull('metadata->type')
+                             ->whereNotNull('hafalan_surah_number');
+                      });
+                });
+            } elseif ($type === 'Murajaah') {
+                $query->where(function ($q) {
+                    $q->where('metadata->type', 'Murajaah')
+                      ->orWhere(function ($sq) {
+                          $sq->whereNull('metadata->type')
+                             ->whereNull('hafalan_surah_number')
+                             ->where(function ($mq) {
+                                 $mq->where('murajaah_lembar', '>', 0)
+                                    ->orWhereNotNull('murajaah_text');
+                             });
+                      });
+                });
+            } else {
+                $query->where('metadata->type', $type);
+            }
         }
 
         if ($request->filled('search')) {
@@ -398,13 +478,39 @@ class TahfizhController extends Controller
             $query->whereDate('record_date', '<=', (string) $request->query('end_date'));
         }
 
-        $logs = (clone $query)->orderByDesc('record_date')->limit(150)->get();
+        $perPage = min(max((int) $request->query('per_page', 150), 15), 500);
+        $logs = (clone $query)->orderByDesc('record_date')->limit($perPage)->get();
 
         $totalHafalanBaris = (int) (clone $query)->sum('hafalan_baris');
         $totalTilawahBaris = (int) (clone $query)->sum('tilawah_baris');
         $totalMurajaahLembar = (float) (clone $query)->sum('murajaah_lembar');
         $totalSiswaSertifikat = (int) (clone $query)->distinct('student_id')->count('student_id');
         $totalLogs = (int) (clone $query)->count();
+
+        $totalZiyadah = (clone $query)->where(function ($q) {
+            $q->where('metadata->type', 'Ziyadah')
+              ->orWhere(function ($sq) {
+                  $sq->whereNull('metadata->type')->whereNotNull('hafalan_surah_number');
+              });
+        })->count();
+
+        $totalMurajaah = (clone $query)->where(function ($q) {
+            $q->where('metadata->type', 'Murajaah')
+              ->orWhere(function ($sq) {
+                  $sq->whereNull('metadata->type')
+                     ->whereNull('hafalan_surah_number')
+                     ->where(function ($mq) {
+                         $mq->where('murajaah_lembar', '>', 0)->orWhereNotNull('murajaah_text');
+                     });
+              });
+        })->count();
+
+        $totalTasmi = (clone $query)->where('metadata->type', 'Tasmi')->count();
+        $totalUjian = (clone $query)->where('metadata->type', 'Ujian')->count();
+
+        // Target tahunan dihitung dinamis berdasarkan jumlah siswa aktif * target baris kurikulum
+        $targetTahunan = max($totalSiswaSertifikat * 300, $totalHafalanBaris > 0 ? $totalHafalanBaris : 1);
+        $persentase = $targetTahunan > 0 ? round(($totalHafalanBaris / $targetTahunan) * 100, 2) : 0;
 
         return response()->json([
             'status' => 'success',
@@ -415,8 +521,12 @@ class TahfizhController extends Controller
                 'total_hafalan_baris' => $totalHafalanBaris,
                 'total_tilawah_baris' => $totalTilawahBaris,
                 'total_murajaah_lembar' => $totalMurajaahLembar,
-                'target_tahunan' => 50000,
-                'persentase' => $totalHafalanBaris > 0 ? round(($totalHafalanBaris / 50000) * 100, 2) : 0,
+                'total_ziyadah' => $totalZiyadah,
+                'total_murajaah' => $totalMurajaah,
+                'total_tasmi' => $totalTasmi,
+                'total_ujian' => $totalUjian,
+                'target_tahunan' => $targetTahunan,
+                'persentase' => $persentase,
             ],
             'data' => $logs,
         ]);

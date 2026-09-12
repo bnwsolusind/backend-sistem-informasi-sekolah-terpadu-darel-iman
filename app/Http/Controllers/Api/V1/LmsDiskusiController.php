@@ -321,11 +321,33 @@ class LmsDiskusiController extends Controller
 
     private function canAccessAllUnits(User $user): bool
     {
-        return $user->hasAnyRole(['Super Admin', 'Yayasan', 'Ketua Yayasan', 'ketua_yayasan', 'sekretaris_yayasan', 'bendahara_yayasan', 'pengurus_yayasan']);
+        return $user->hasAnyRole([
+            'Super Admin',
+            'super_admin',
+            'Yayasan',
+            'Ketua Yayasan',
+            'ketua_yayasan',
+            'sekretaris_yayasan',
+            'Sekretaris Yayasan',
+            'bendahara_yayasan',
+            'Bendahara Yayasan',
+            'pengurus_yayasan',
+            'Pengurus Yayasan',
+            'Kepala Bidang Pendidikan',
+            'Divisi Pendidikan',
+            'divisi_pendidikan',
+            'Divisi Kurikulum',
+            'Admin',
+            'admin',
+        ]);
     }
 
     private function isTeacher(User $user): bool
     {
+        if ($this->canAccessAllUnits($user) || $user->hasAnyRole(['Kepala Sekolah', 'kepala_sekolah', 'Waka Kurikulum', 'waka_kurikulum', 'Tata Usaha', 'tata_usaha'])) {
+            return false;
+        }
+
         return $user->hasAnyRole(['Guru', 'guru', 'Guru Mata Pelajaran', 'guru_mata_pelajaran']);
     }
 

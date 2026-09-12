@@ -2,13 +2,18 @@
 
 namespace App\Services;
 
+use App\Enums\Mutabaah\RecordStatus;
+use App\Enums\Mutabaah\SupervisorType;
+use App\Models\AcademicYear;
 use App\Models\Employee;
+use App\Models\Kelas;
 use App\Models\MutabaahActivityLog;
 use App\Models\MutabaahDailyDetail;
 use App\Models\MutabaahDailyHeader;
 use App\Models\MutabaahSupervisorAssignment;
 use App\Models\MutabaahTemplate;
 use App\Models\MutabaahTemplateAssignment;
+use App\Models\Semester;
 use App\Models\Student;
 use App\Models\User;
 use Carbon\Carbon;
@@ -58,7 +63,7 @@ class MutabaahDailyService
         $template = $this->resolveTemplate($assignment, $filters['date']);
         abort_unless($template, 422, 'Template aktif tidak ditemukan untuk assignment dan tanggal ini.');
 
-        $query = $this->studentScope($assignment)->with(['educationUnit:id,name', 'schoolClass:id,name,level']);
+        $query = $this->studentScope($assignment)->with(['educationUnit:id,name', 'kelas:id,nama_kelas', 'schoolClass:id,name,level']);
         if ($search = $filters['search'] ?? null) {
             $query->where(fn ($q) => $q->where('full_name', 'ilike', "%{$search}%")->orWhere('nis', 'ilike', "%{$search}%"));
         }
@@ -73,8 +78,9 @@ class MutabaahDailyService
 
                 return [
                     'id' => $student->id, 'nis' => $student->nis, 'name' => $student->full_name,
-                    'photo' => data_get($student->metadata, 'photo'), 'class_name' => $student->schoolClass?->name,
-                    'rombel_name' => data_get($student->metadata, 'rombel_name'),
+                    'photo' => data_get($student->metadata, 'photo'),
+                    'class_name' => $student->kelas?->nama_kelas ?? $student->schoolClass?->name,
+                    'rombel_name' => $student->kelas?->nama_kelas ?? data_get($student->metadata, 'rombel_name'),
                     'header_id' => $header?->id, 'status' => $header?->status?->value ?? 'draft',
                     'progress' => $header && $header->total_items ? round(($header->details_count / $header->total_items) * 100) : 0,
                     'score' => $header?->score, 'notes' => $header?->supervisor_notes,
@@ -218,9 +224,11 @@ class MutabaahDailyService
 
     private function studentScope(MutabaahSupervisorAssignment $assignment): Builder
     {
-        return Student::query()->active()->where('unit_id', $assignment->education_unit_id)
-            ->when($assignment->kelas_id, fn ($q, $id) => $q->where('class_id', $id))
-            ->when($assignment->rombel_id, fn ($q, $id) => $q->where('class_id', $id))
+        $classId = $assignment->rombel_id ?: $assignment->kelas_id;
+
+        return Student::query()->active()
+            ->when($assignment->education_unit_id, fn ($q, $uId) => $q->where('unit_id', $uId))
+            ->when($classId, fn ($q, $id) => $q->where(fn ($sq) => $sq->where('kelas_id', $id)->orWhere('class_id', $id)))
             ->when($assignment->mentoring_group, fn ($q, $group) => $q->where('metadata->mentoring_group', $group))
             ->when($assignment->dormitory_id, fn ($q, $id) => $q->where('metadata->dormitory_id', $id))
             ->when($assignment->room_id, fn ($q, $id) => $q->where('metadata->room_id', $id));
@@ -238,7 +246,8 @@ class MutabaahDailyService
             ->where(fn ($q) => $q->whereNull('rombel_id')->orWhere('rombel_id', $assignment->rombel_id))
             ->orderByDesc('priority')->first();
 
-        return $matched?->template()->with('items.agendaItem.category')->first();
+        return $matched?->template()->with('items.agendaItem.category')->first()
+            ?? MutabaahTemplate::where('is_active', true)->first();
     }
 
     private function header(Student $student, MutabaahSupervisorAssignment $assignment, MutabaahTemplate $template, string $date, string $userId): MutabaahDailyHeader
